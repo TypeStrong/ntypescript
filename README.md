@@ -18,7 +18,7 @@ npm install tsc -g
 
 or in your package.json
 
-```json
+```sh
 npm install tsc --save
 ```
 
