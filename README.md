@@ -23,3 +23,7 @@ npm install tsc --save
 ```
 
 Each release is named after the day it was built and the git commit hash in Microsoft/TypeScript/master that it was built from.
+
+## Usage
+
+You can use `tsc` command line if you installed globally and `require('tsc')` (instead of `require('typescript')`) like any other npm module.
