@@ -1,0 +1,26 @@
+{
+  "name": "tsc",
+  "version": "1.0.0",
+  "description": "Latest code from microsoft/typescript packaged and released",
+  "main": "./bin/typescript.js",
+  "bin": {
+    "tsc": "./bin/tsc",
+    "tsserver": "./bin/tsserver"
+  },
+  "typescript": {
+    "definition": "./bin/typescript.d.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/basarat/tsc.git"
+  },
+  "keywords": [
+    "typescript"
+  ],
+  "author": "basaratali@gmail.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/basarat/tsc/issues"
+  },
+  "homepage": "https://github.com/basarat/tsc#readme"
+}
