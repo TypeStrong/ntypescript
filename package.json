@@ -1,6 +1,6 @@
 {
   "name": "tsc",
-  "version": "1.0.0",
+  "version": "1.20150619.0+f2044a901165a2a97813772353b57dd9ed4796ca",
   "description": "Latest code from microsoft/typescript packaged and released",
   "main": "./bin/typescript.js",
   "bin": {
