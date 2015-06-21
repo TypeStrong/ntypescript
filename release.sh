@@ -6,7 +6,10 @@ cd $typeScriptDirectory
 commitHash=`git rev-parse HEAD`
 cd ..
 
-commitName="1.$(date +%Y%m%d).0+$commitHash"
+# Version of this script
+toolsVersion="1"
+
+commitName="1.$(date +%Y%m%d).$toolsVersion+$commitHash"
 
 # Update package.json
 < package.json > package.json.new sed -E "s/(\s+\"version\": \")[^\"]+(\",)/\1$commitName\2/"
