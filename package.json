@@ -1,18 +1,18 @@
 {
-  "name": "tsc",
+  "name": "ntypescript",
   "version": "1.20150619.0+f2044a901165a2a97813772353b57dd9ed4796ca",
   "description": "Latest code from microsoft/typescript packaged and released",
   "main": "./bin/typescript.js",
   "bin": {
-    "tsc": "./bin/tsc",
-    "tsserver": "./bin/tsserver"
+    "ntsc": "./bin/tsc",
+    "ntsserver": "./bin/tsserver"
   },
   "typescript": {
     "definition": "./bin/typescript.d.ts"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/basarat/tsc.git"
+    "url": "git+https://github.com/basarat/ntypescript.git"
   },
   "keywords": [
     "typescript"
@@ -20,7 +20,7 @@
   "author": "basaratali@gmail.com",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/basarat/tsc/issues"
+    "url": "https://github.com/basarat/ntypescript/issues"
   },
-  "homepage": "https://github.com/basarat/tsc#readme"
+  "homepage": "https://github.com/basarat/ntypescript#readme"
 }
