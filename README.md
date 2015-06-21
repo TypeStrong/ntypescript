@@ -6,6 +6,7 @@ Niceties:
 * Automatic builds
 * `package.json` links you to typescript definitions (using `typescript.definition` entry)
 * We expose the internal APIs
+* Consistent side by side usage (just add an `n` prefix): `require('ntypescript')`, `ntsc`, `ntsserver`
 
 ## Install
 Similar to `typescript` you can install and use `ntypescript` globally:
@@ -25,10 +26,10 @@ Each release is named after the day it was built and the git commit hash in Micr
 ## Usage
 
 ### Globally
-You can use `ntsc` command line (similar to `tsc` from the official repo) and `ntsserver` (similar to official `tsserver`).
+You can use `ntsc` and the `ntsserver` command line tools.
 
 ### Require
-Use `require('ntypescript')` (instead of `require('typescript')`).
+Use `require('ntypescript')`
 
 # About
 Note that this is a personal endeavor, not officially by Microsoft.
