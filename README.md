@@ -1,16 +1,14 @@
 # NTypeScript
-Nightly TypeScript snapshots of [Microsoft/TypeScript](https://github.com/Microsoft/TypeScript).
+Nightly build snapshots of [Microsoft/TypeScript](https://github.com/Microsoft/TypeScript).
 
-This is meant to be used as pre-release builds if you want to try the compiler / compiler API out but don't care to build it yourself. Note that this is a personal endeavor, not officially by Microsoft.
+Niceties:
 
-Some niceties:
-
-* `package.json` links you to typescript definitions
+* Automatic builds
+* `package.json` links you to typescript definitions (using `typescript.definition` entry)
 * We expose the internal APIs
 
-
 ## Install
-Similar to `typescript` you can install and use `tsc` globally:
+Similar to `typescript` you can install and use `ntypescript` globally:
 
 ``` sh
 npm install ntypescript -g
@@ -31,3 +29,6 @@ You can use `ntsc` command line (similar to `tsc` from the official repo) and `n
 
 ### Require
 Use `require('ntypescript')` (instead of `require('typescript')`).
+
+# About
+Note that this is a personal endeavor, not officially by Microsoft.
