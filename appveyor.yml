@@ -1,0 +1,6 @@
+version: 1.0.{build}
+os: MinGW
+build_script:
+- prepare.sh
+deploy_script:
+- release.sh
