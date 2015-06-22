@@ -11,7 +11,7 @@ cd ..
 toolsVersion="1"
 
 commitVersion="1.$(date +%Y%m%d%H%M).$toolsVersion+$commitHash"
-commitName="$(date +%Y-%m-%d) Version: $commitVersion"
+commitName="$(date +%Y-%m-%d) [ci skip] Version: $commitVersion"
 
 # Kick travis
 echo $commitName > kicktravis
@@ -26,7 +26,7 @@ git add -A
 echo "Committing"
 git commit -m "$commitName"
 echo "Pushing commit"
-git push origin release
+git push
 
 echo "Tagging"
 git tag $commitVersion
