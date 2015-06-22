@@ -7,7 +7,7 @@ commitHash=`git rev-parse HEAD`
 cd ..
 
 # Version of this script
-toolsVersion="2"
+toolsVersion="1"
 
 commitName="1.$(date +%Y%m%d%H%M).$toolsVersion+$commitHash"
 
