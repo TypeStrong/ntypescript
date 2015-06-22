@@ -29,3 +29,6 @@ cp ./built/local/* ./bin/
 
 # Copy output
 cp ./built/local/* ./bin/tsc ./bin/tsserver ../bin/
+
+# Reset sub typescript
+git reset --hard origin/master
