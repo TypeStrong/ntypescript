@@ -10,7 +10,7 @@ cd ..
 toolsVersion="1"
 
 commitVersion="1.$(date +%Y%m%d%H%M).$toolsVersion+$commitHash"
-commitName="$(date +%Y-%m-%d) + $commitVersion"
+commitName="$(date +%Y-%m-%d) Version: $commitVersion"
 
 # Kick travis
 # echo $commitVersion > kicktravis
