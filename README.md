@@ -1,6 +1,6 @@
 # NTypeScript
 
-![BuildStatus](https://travis-ci.org/basarat/ntypescript.svg)
+[![BuildStatus](https://travis-ci.org/basarat/ntypescript.svg)](https://travis-ci.org/basarat/ntypescript)
 
 Nightly build snapshots of [Microsoft/TypeScript](https://github.com/Microsoft/TypeScript).
 
