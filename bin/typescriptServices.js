@@ -32093,6 +32093,7 @@ var ts;
         {
             name: "out",
             type: "string",
+            isFilePath: true,
             description: ts.Diagnostics.Concatenate_and_emit_output_to_single_file,
             paramType: ts.Diagnostics.FILE
         },
