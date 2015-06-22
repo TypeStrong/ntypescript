@@ -15,7 +15,7 @@ after_success:
 - echo "https://${GH_TOKEN}:@github.com" > .git/credentials
 - bash release.sh
 
-# blacklist release as that is actually built inside travis
+# Only master kicks a build
 branches:
-  except:
-    - release
+  only:
+    - master
