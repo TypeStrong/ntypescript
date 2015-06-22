@@ -1,6 +1,7 @@
 #!/bin/sh
-
 set -e
+
+git checkout -b release
 
 git submodule update --recursive --init
 
