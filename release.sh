@@ -25,6 +25,7 @@ git add -A
 # Commit,tag,push,publish
 echo "Committing"
 git commit -m "$commitName"
+git merge HEAD@{1}
 echo "Pushing commit"
 git push
 
