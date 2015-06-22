@@ -21,6 +21,7 @@ mv package.json.new package.json
 git checkout -b release
 echo "Adding to git"
 git add -A
+git pull origin release
 
 # Commit,tag,push,publish
 git commit -m "$commitName"
