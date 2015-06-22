@@ -14,6 +14,7 @@ commitName="1.$(date +%Y%m%d).$toolsVersion+$commitHash"
 # Update package.json
 < package.json > package.json.new sed -E "s/(\s+\"version\": \")[^\"]+(\",)/\1$commitName\2/"
 mv package.json.new package.json
+echo "adding"
 git add -A
 
 # Commit,tag,push,publish
