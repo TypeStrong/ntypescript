@@ -1,4 +1,6 @@
 #!/bin/sh
+git pull origin release
+git checkout release
 
 # Get the git commit hash
 typeScriptDirectory='./TypeScript'
@@ -18,10 +20,8 @@ echo $commitName > kicktravis
 # Update package.json
 < package.json > package.json.new sed -E "s/(\s+\"version\": \")[^\"]+(\",)/\1$commitVersion\2/"
 mv package.json.new package.json
-git checkout -b release
 echo "Adding to git"
 git add -A
-git pull origin release
 
 # Commit,tag,push,publish
 git commit -m "$commitName"
