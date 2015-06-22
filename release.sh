@@ -7,14 +7,14 @@ commitHash=`git rev-parse HEAD`
 cd ..
 
 # Version of this script
-toolsVersion="1"
+toolsVersion="2"
 
 commitName="1.$(date +%Y%m%d).$toolsVersion+$commitHash"
 
 # Update package.json
 < package.json > package.json.new sed -E "s/(\s+\"version\": \")[^\"]+(\",)/\1$commitName\2/"
 mv package.json.new package.json
-echo "adding"
+echo "Adding to git"
 git add -A
 
 # Commit,tag,push,publish
