@@ -1,6 +1,6 @@
 #!/bin/sh
 git pull origin release
-git checkout release
+git checkout -b release
 
 # Get the git commit hash
 typeScriptDirectory='./TypeScript'
