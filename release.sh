@@ -26,8 +26,10 @@ git add -A
 # Commit,tag,push,publish
 echo "Committing"
 git commit -m "$commitName"
+echo "Pushing commit"
 git push origin
 
 echo "Tagging"
 git tag $commitVersion
+echo "Pushing tags"
 git push --tags
