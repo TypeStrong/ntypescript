@@ -4,6 +4,8 @@ node_js:
 script:
 - bash prepare.sh
 after_success:
+- git config credential.helper "store --file=.git/credentials"
+- echo "https://${GH_TOKEN}:@github.com" > .git/credentials
 - bash release.sh
 env:
   global:
