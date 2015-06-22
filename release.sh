@@ -23,7 +23,7 @@ git add -A
 
 # Commit,tag,push,publish
 git commit -m "$commitName"
-#git tag $commitVersion
-#git push
-#git push --tags
-#npm publish
+git tag $commitVersion
+git push
+git push --tags
+npm publish
