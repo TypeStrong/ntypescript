@@ -18,7 +18,11 @@ Manual verification here ... then:
 
 ```sh
 release.sh
+npm publish
 ```
 
 # Inspiration 
 https://github.com/Arnavion/typescript-github
+
+# Travis
+Cron job setup using : http://traviscron.pythonanywhere.com/ for daily
