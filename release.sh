@@ -26,5 +26,5 @@ git add -A
 # Commit,tag,push,publish
 git commit -m "$commitName"
 git tag $commitVersion
-git push
+git push origin
 git push --tags
