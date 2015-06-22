@@ -27,4 +27,3 @@ git commit -m "$commitName"
 git tag $commitVersion
 git push
 git push --tags
-npm publish

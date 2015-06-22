@@ -18,6 +18,7 @@ Manual verification here ... then:
 
 ```sh
 release.sh
+npm publish
 ```
 
 # Inspiration 
