@@ -12,7 +12,7 @@ toolsVersion="2"
 commitName="1.$(date +%Y%m%d%H%M).$toolsVersion+$commitHash"
 
 # Kick travis
-echo '$commitName' > kicktravis
+echo $commitName > kicktravis
 
 # Update package.json
 < package.json > package.json.new sed -E "s/(\s+\"version\": \")[^\"]+(\",)/\1$commitName\2/"
