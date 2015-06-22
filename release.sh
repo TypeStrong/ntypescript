@@ -9,20 +9,21 @@ cd ..
 # Version of this script
 toolsVersion="1"
 
-commitName="1.$(date +%Y%m%d%H%M).$toolsVersion+$commitHash"
+commitVersion="1.$(date +%Y%m%d%H%M).$toolsVersion+$commitHash"
+commitName="$(date +%Y-%m-%d-%H-%M) + $commitVersion"
 
 # Kick travis
-echo $commitName > kicktravis
+# echo $commitVersion > kicktravis
 
 # Update package.json
-< package.json > package.json.new sed -E "s/(\s+\"version\": \")[^\"]+(\",)/\1$commitName\2/"
+< package.json > package.json.new sed -E "s/(\s+\"version\": \")[^\"]+(\",)/\1$commitVersion\2/"
 mv package.json.new package.json
 echo "Adding to git"
 git add -A
 
 # Commit,tag,push,publish
-git commit -m $commitName
-git tag $commitName
-git push
-git push --tags
-npm publish
+git commit -m "$commitName"
+#git tag $commitVersion
+#git push
+#git push --tags
+#npm publish
