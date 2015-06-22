@@ -27,7 +27,7 @@ git add -A
 echo "Committing"
 git commit -m "$commitName"
 echo "Pushing commit"
-git push origin
+git push origin release
 
 echo "Tagging"
 git tag $commitVersion
