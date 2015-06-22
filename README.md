@@ -1,4 +1,7 @@
 # NTypeScript
+
+![BuildStatus](https://travis-ci.org/basarat/ntypescript.svg)
+
 Nightly build snapshots of [Microsoft/TypeScript](https://github.com/Microsoft/TypeScript).
 
 Niceties:
