@@ -21,6 +21,8 @@ echo $commitName > kicktravis
 mv package.json.new package.json
 echo "Adding to git"
 git add -A
+git checkout master
+git status
 
 # Commit,tag,push,publish
 echo "Committing"
