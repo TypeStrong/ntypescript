@@ -8,7 +8,7 @@
     "ntsserver": "./bin/tsserver"
   },
   "typescript": {
-    "definition": "./bin/typescript.d.ts"
+    "definition": "./bin/typescriptServices.d.ts"
   },
   "repository": {
     "type": "git",
