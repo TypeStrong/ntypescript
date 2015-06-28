@@ -624,7 +624,7 @@ declare namespace ts {
         tag: LeftHandSideExpression;
         template: LiteralExpression | TemplateExpression;
     }
-    type CallLikeExpression = CallExpression | NewExpression | TaggedTemplateExpression;
+    type CallLikeExpression = CallExpression | NewExpression | TaggedTemplateExpression | Decorator;
     interface TypeAssertion extends UnaryExpression {
         type: TypeNode;
         expression: UnaryExpression;
@@ -1840,26 +1840,6 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        A_class_or_interface_declaration_can_only_have_one_extends_clause: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        An_extends_clause_must_precede_an_implements_clause: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        A_class_can_only_extend_a_single_class: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        A_class_declaration_can_only_have_one_implements_clause: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
         Accessibility_modifier_already_seen: {
             code: number;
             category: DiagnosticCategory;
@@ -1876,11 +1856,6 @@ declare namespace ts {
             key: string;
         };
         _0_modifier_cannot_appear_on_a_class_element: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        An_interface_declaration_cannot_have_an_implements_clause: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -1911,11 +1886,6 @@ declare namespace ts {
             key: string;
         };
         _0_modifier_cannot_appear_on_a_module_element: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        A_declare_modifier_cannot_be_used_with_an_interface_declaration: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -2210,11 +2180,6 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Type_reference_expected: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
         Variable_declaration_expected: {
             code: number;
             category: DiagnosticCategory;
@@ -2295,21 +2260,6 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        var_let_or_const_expected: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        let_declarations_are_only_available_when_targeting_ECMAScript_6_and_higher: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        const_declarations_are_only_available_when_targeting_ECMAScript_6_and_higher: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
         const_declarations_must_be_initialized: {
             code: number;
             category: DiagnosticCategory;
@@ -2356,11 +2306,6 @@ declare namespace ts {
             key: string;
         };
         A_computed_property_name_in_a_class_property_declaration_must_directly_refer_to_a_built_in_symbol: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Computed_property_names_are_only_available_when_targeting_ECMAScript_6_and_higher: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -2436,11 +2381,6 @@ declare namespace ts {
             key: string;
         };
         A_destructuring_declaration_must_have_an_initializer: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Destructuring_declarations_are_not_allowed_in_ambient_contexts: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -2695,6 +2635,36 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        The_return_type_of_a_property_decorator_function_must_be_either_void_or_any: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        The_return_type_of_a_parameter_decorator_function_must_be_either_void_or_any: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Unable_to_resolve_signature_of_class_decorator_when_called_as_an_expression: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Unable_to_resolve_signature_of_parameter_decorator_when_called_as_an_expression: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Unable_to_resolve_signature_of_property_decorator_when_called_as_an_expression: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Unable_to_resolve_signature_of_method_decorator_when_called_as_an_expression: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Duplicate_identifier_0: {
             code: number;
             category: DiagnosticCategory;
@@ -2731,11 +2701,6 @@ declare namespace ts {
             key: string;
         };
         Cannot_find_module_0: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        A_module_cannot_have_more_than_one_export_assignment: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4365,11 +4330,6 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Preserve_new_lines_when_emitting_code: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
         Specifies_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDir: {
             code: number;
             category: DiagnosticCategory;
@@ -4575,16 +4535,6 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Only_identifiers_Slashqualified_names_with_optional_type_arguments_are_currently_supported_in_a_class_extends_clauses: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        class_expressions_are_not_currently_supported: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
     };
 }
 declare namespace ts {
@@ -4715,6 +4665,7 @@ declare namespace ts {
     function isFunctionBlock(node: Node): boolean;
     function isObjectLiteralMethod(node: Node): boolean;
     function getContainingFunction(node: Node): FunctionLikeDeclaration;
+    function getContainingClass(node: Node): ClassLikeDeclaration;
     function getThisContainer(node: Node, includeArrowFunctions: boolean): Node;
     function getSuperContainer(node: Node, includeFunctions: boolean): Node;
     function getInvokedExpression(node: CallLikeExpression): Expression;
@@ -4739,7 +4690,7 @@ declare namespace ts {
     function isLiteralKind(kind: SyntaxKind): boolean;
     function isTextualLiteralKind(kind: SyntaxKind): boolean;
     function isTemplateLiteralKind(kind: SyntaxKind): boolean;
-    function isBindingPattern(node: Node): boolean;
+    function isBindingPattern(node: Node): ;
     function isInAmbientContext(node: Node): boolean;
     function isDeclaration(node: Node): boolean;
     function isStatement(n: Node): boolean;
@@ -4748,7 +4699,7 @@ declare namespace ts {
     function isIdentifierName(node: Identifier): boolean;
     function isAliasSymbolDeclaration(node: Node): boolean;
     function getClassExtendsHeritageClauseElement(node: ClassLikeDeclaration): ExpressionWithTypeArguments;
-    function getClassImplementsHeritageClauseElements(node: ClassDeclaration): NodeArray<ExpressionWithTypeArguments>;
+    function getClassImplementsHeritageClauseElements(node: ClassLikeDeclaration): NodeArray<ExpressionWithTypeArguments>;
     function getInterfaceBaseTypeNodes(node: InterfaceDeclaration): NodeArray<ExpressionWithTypeArguments>;
     function getHeritageClause(clauses: NodeArray<HeritageClause>, kind: SyntaxKind): HeritageClause;
     function tryResolveScriptReference(host: ScriptReferenceHost, sourceFile: SourceFile, reference: FileReference): SourceFile;
