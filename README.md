@@ -44,5 +44,30 @@ For `require('typescript')` you can do that quite simply using your package.json
 ```
 Release name example : `1.201506301047.1+e1c9d28cb0706f81c14ca95b92fa3e2a223cc60b`
 
+### Grunt support
+This project comes with a built in `grunt` task called `ntypescript`. Just has just one *task* level option: 
+
+* `project` : path to the project directory i.e. the *directory* that contains `tsconfig.json`.
+
+Here is a sample `Gruntfile.js` for usage:
+
+```ts
+module.exports = function(grunt) {    
+    grunt.loadNpmTasks('ntypescript');
+    
+    grunt.initConfig({
+        ntypescript: {
+            options: {
+                project: '.'
+            }
+        },
+    });
+
+    grunt.registerTask('default', ['ntypescript']);
+};
+```
+
+Humor: The `{{{` alignment is *conincedental*.
+
 # About
 Note that this is a personal endeavor, not officially by Microsoft.

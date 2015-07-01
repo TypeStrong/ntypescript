@@ -17,7 +17,8 @@
         "!./bin/**/*",
         "!./TypeScript/**/*",
         "!./node_modules/**/*.ts",
-        "!./node_modules/**/*.tsx"
+        "!./node_modules/**/*.tsx",
+        "!./tasks/tests/**/*.ts"
     ],
     "files": [
         "./tasks/ntypescript.ts",

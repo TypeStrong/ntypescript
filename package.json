@@ -23,5 +23,8 @@
   "bugs": {
     "url": "https://github.com/basarat/ntypescript/issues"
   },
-  "homepage": "https://github.com/basarat/ntypescript#readme"
+  "homepage": "https://github.com/basarat/ntypescript#readme",
+  "devDependencies": {
+    "grunt": "^0.4.5"
+  }
 }
