@@ -66,8 +66,5 @@ module.exports = function(grunt) {
     grunt.registerTask('default', ['ntypescript']);
 };
 ```
-
-Humor: The `{{{` alignment is *conincedental*.
-
 # About
 Note that this is a personal endeavor, not officially by Microsoft.
