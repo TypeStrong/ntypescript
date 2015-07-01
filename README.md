@@ -34,5 +34,15 @@ You can use `ntsc` and the `ntsserver` command line tools.
 ### Require
 Use `require('ntypescript')`
 
+### Replace TypeScript
+For `require('typescript')` you can do that quite simply using your package.json: 
+
+```json
+"dependencies": {
+    "typescript": "https://github.com/basarat/ntypescript/tarball/<release name>"
+}
+```
+Release name example : `1.201506301047.1+e1c9d28cb0706f81c14ca95b92fa3e2a223cc60b`
+
 # About
 Note that this is a personal endeavor, not officially by Microsoft.

@@ -1,6 +1,6 @@
 {
   "name": "ntypescript",
-  "version": "1.201506301047.1+e1c9d28cb0706f81c14ca95b92fa3e2a223cc60b",
+  "version": "1.201507011637.1+e1c9d28cb0706f81c14ca95b92fa3e2a223cc60b",
   "description": "Latest code from microsoft/typescript packaged and released",
   "main": "./bin/typescript.js",
   "bin": {
@@ -15,7 +15,8 @@
     "url": "git+https://github.com/basarat/ntypescript.git"
   },
   "keywords": [
-    "typescript"
+    "typescript",
+    "gruntplugin"
   ],
   "author": "basaratali@gmail.com",
   "license": "MIT",

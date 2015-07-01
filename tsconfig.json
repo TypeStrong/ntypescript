@@ -1,0 +1,28 @@
+{
+    "version": "1.5.0-alpha",
+    "compilerOptions": {
+        "target": "es5",
+        "module": "commonjs",
+        "jsx": "react",
+        "declaration": false,
+        "noImplicitAny": false,
+        "removeComments": true,
+        "noLib": false,
+        "preserveConstEnums": true,
+        "suppressImplicitAnyIndexErrors": true
+    },
+    "filesGlob": [
+        "./**/*.ts",
+        "./**/*.tsx",
+        "!./bin/**/*",
+        "!./TypeScript/**/*",
+        "!./node_modules/**/*.ts",
+        "!./node_modules/**/*.tsx"
+    ],
+    "files": [
+        "./tasks/ntypescript.ts",
+        "./typings/gruntjs/gruntjs.d.ts",
+        "./typings/node/node.d.ts",
+        "./typings/tsd.d.ts"
+    ]
+}
