@@ -141,173 +141,177 @@ declare namespace ts {
         PublicKeyword = 109,
         StaticKeyword = 110,
         YieldKeyword = 111,
-        AsKeyword = 112,
-        AnyKeyword = 113,
-        BooleanKeyword = 114,
-        ConstructorKeyword = 115,
-        DeclareKeyword = 116,
-        GetKeyword = 117,
-        IsKeyword = 118,
-        ModuleKeyword = 119,
-        NamespaceKeyword = 120,
-        RequireKeyword = 121,
-        NumberKeyword = 122,
-        SetKeyword = 123,
-        StringKeyword = 124,
-        SymbolKeyword = 125,
-        TypeKeyword = 126,
-        FromKeyword = 127,
-        OfKeyword = 128,
-        QualifiedName = 129,
-        ComputedPropertyName = 130,
-        TypeParameter = 131,
-        Parameter = 132,
-        Decorator = 133,
-        PropertySignature = 134,
-        PropertyDeclaration = 135,
-        MethodSignature = 136,
-        MethodDeclaration = 137,
-        Constructor = 138,
-        GetAccessor = 139,
-        SetAccessor = 140,
-        CallSignature = 141,
-        ConstructSignature = 142,
-        IndexSignature = 143,
-        TypePredicate = 144,
-        TypeReference = 145,
-        FunctionType = 146,
-        ConstructorType = 147,
-        TypeQuery = 148,
-        TypeLiteral = 149,
-        ArrayType = 150,
-        TupleType = 151,
-        UnionType = 152,
-        ParenthesizedType = 153,
-        ObjectBindingPattern = 154,
-        ArrayBindingPattern = 155,
-        BindingElement = 156,
-        ArrayLiteralExpression = 157,
-        ObjectLiteralExpression = 158,
-        PropertyAccessExpression = 159,
-        ElementAccessExpression = 160,
-        CallExpression = 161,
-        NewExpression = 162,
-        TaggedTemplateExpression = 163,
-        TypeAssertionExpression = 164,
-        ParenthesizedExpression = 165,
-        FunctionExpression = 166,
-        ArrowFunction = 167,
-        DeleteExpression = 168,
-        TypeOfExpression = 169,
-        VoidExpression = 170,
-        PrefixUnaryExpression = 171,
-        PostfixUnaryExpression = 172,
-        BinaryExpression = 173,
-        ConditionalExpression = 174,
-        TemplateExpression = 175,
-        YieldExpression = 176,
-        SpreadElementExpression = 177,
-        ClassExpression = 178,
-        OmittedExpression = 179,
-        ExpressionWithTypeArguments = 180,
-        AsExpression = 181,
-        TemplateSpan = 182,
-        SemicolonClassElement = 183,
-        Block = 184,
-        VariableStatement = 185,
-        EmptyStatement = 186,
-        ExpressionStatement = 187,
-        IfStatement = 188,
-        DoStatement = 189,
-        WhileStatement = 190,
-        ForStatement = 191,
-        ForInStatement = 192,
-        ForOfStatement = 193,
-        ContinueStatement = 194,
-        BreakStatement = 195,
-        ReturnStatement = 196,
-        WithStatement = 197,
-        SwitchStatement = 198,
-        LabeledStatement = 199,
-        ThrowStatement = 200,
-        TryStatement = 201,
-        DebuggerStatement = 202,
-        VariableDeclaration = 203,
-        VariableDeclarationList = 204,
-        FunctionDeclaration = 205,
-        ClassDeclaration = 206,
-        InterfaceDeclaration = 207,
-        TypeAliasDeclaration = 208,
-        EnumDeclaration = 209,
-        ModuleDeclaration = 210,
-        ModuleBlock = 211,
-        CaseBlock = 212,
-        ImportEqualsDeclaration = 213,
-        ImportDeclaration = 214,
-        ImportClause = 215,
-        NamespaceImport = 216,
-        NamedImports = 217,
-        ImportSpecifier = 218,
-        ExportAssignment = 219,
-        ExportDeclaration = 220,
-        NamedExports = 221,
-        ExportSpecifier = 222,
-        MissingDeclaration = 223,
-        ExternalModuleReference = 224,
-        JsxElement = 225,
-        JsxSelfClosingElement = 226,
-        JsxOpeningElement = 227,
-        JsxText = 228,
-        JsxClosingElement = 229,
-        JsxAttribute = 230,
-        JsxSpreadAttribute = 231,
-        JsxExpression = 232,
-        CaseClause = 233,
-        DefaultClause = 234,
-        HeritageClause = 235,
-        CatchClause = 236,
-        PropertyAssignment = 237,
-        ShorthandPropertyAssignment = 238,
-        EnumMember = 239,
-        SourceFile = 240,
-        JSDocTypeExpression = 241,
-        JSDocAllType = 242,
-        JSDocUnknownType = 243,
-        JSDocArrayType = 244,
-        JSDocUnionType = 245,
-        JSDocTupleType = 246,
-        JSDocNullableType = 247,
-        JSDocNonNullableType = 248,
-        JSDocRecordType = 249,
-        JSDocRecordMember = 250,
-        JSDocTypeReference = 251,
-        JSDocOptionalType = 252,
-        JSDocFunctionType = 253,
-        JSDocVariadicType = 254,
-        JSDocConstructorType = 255,
-        JSDocThisType = 256,
-        JSDocComment = 257,
-        JSDocTag = 258,
-        JSDocParameterTag = 259,
-        JSDocReturnTag = 260,
-        JSDocTypeTag = 261,
-        JSDocTemplateTag = 262,
-        SyntaxList = 263,
-        Count = 264,
+        AbstractKeyword = 112,
+        AsKeyword = 113,
+        AnyKeyword = 114,
+        AsyncKeyword = 115,
+        AwaitKeyword = 116,
+        BooleanKeyword = 117,
+        ConstructorKeyword = 118,
+        DeclareKeyword = 119,
+        GetKeyword = 120,
+        IsKeyword = 121,
+        ModuleKeyword = 122,
+        NamespaceKeyword = 123,
+        RequireKeyword = 124,
+        NumberKeyword = 125,
+        SetKeyword = 126,
+        StringKeyword = 127,
+        SymbolKeyword = 128,
+        TypeKeyword = 129,
+        FromKeyword = 130,
+        OfKeyword = 131,
+        QualifiedName = 132,
+        ComputedPropertyName = 133,
+        TypeParameter = 134,
+        Parameter = 135,
+        Decorator = 136,
+        PropertySignature = 137,
+        PropertyDeclaration = 138,
+        MethodSignature = 139,
+        MethodDeclaration = 140,
+        Constructor = 141,
+        GetAccessor = 142,
+        SetAccessor = 143,
+        CallSignature = 144,
+        ConstructSignature = 145,
+        IndexSignature = 146,
+        TypePredicate = 147,
+        TypeReference = 148,
+        FunctionType = 149,
+        ConstructorType = 150,
+        TypeQuery = 151,
+        TypeLiteral = 152,
+        ArrayType = 153,
+        TupleType = 154,
+        UnionType = 155,
+        ParenthesizedType = 156,
+        ObjectBindingPattern = 157,
+        ArrayBindingPattern = 158,
+        BindingElement = 159,
+        ArrayLiteralExpression = 160,
+        ObjectLiteralExpression = 161,
+        PropertyAccessExpression = 162,
+        ElementAccessExpression = 163,
+        CallExpression = 164,
+        NewExpression = 165,
+        TaggedTemplateExpression = 166,
+        TypeAssertionExpression = 167,
+        ParenthesizedExpression = 168,
+        FunctionExpression = 169,
+        ArrowFunction = 170,
+        DeleteExpression = 171,
+        TypeOfExpression = 172,
+        VoidExpression = 173,
+        AwaitExpression = 174,
+        PrefixUnaryExpression = 175,
+        PostfixUnaryExpression = 176,
+        BinaryExpression = 177,
+        ConditionalExpression = 178,
+        TemplateExpression = 179,
+        YieldExpression = 180,
+        SpreadElementExpression = 181,
+        ClassExpression = 182,
+        OmittedExpression = 183,
+        ExpressionWithTypeArguments = 184,
+        AsExpression = 185,
+        TemplateSpan = 186,
+        SemicolonClassElement = 187,
+        Block = 188,
+        VariableStatement = 189,
+        EmptyStatement = 190,
+        ExpressionStatement = 191,
+        IfStatement = 192,
+        DoStatement = 193,
+        WhileStatement = 194,
+        ForStatement = 195,
+        ForInStatement = 196,
+        ForOfStatement = 197,
+        ContinueStatement = 198,
+        BreakStatement = 199,
+        ReturnStatement = 200,
+        WithStatement = 201,
+        SwitchStatement = 202,
+        LabeledStatement = 203,
+        ThrowStatement = 204,
+        TryStatement = 205,
+        DebuggerStatement = 206,
+        VariableDeclaration = 207,
+        VariableDeclarationList = 208,
+        FunctionDeclaration = 209,
+        ClassDeclaration = 210,
+        InterfaceDeclaration = 211,
+        TypeAliasDeclaration = 212,
+        EnumDeclaration = 213,
+        ModuleDeclaration = 214,
+        ModuleBlock = 215,
+        CaseBlock = 216,
+        ImportEqualsDeclaration = 217,
+        ImportDeclaration = 218,
+        ImportClause = 219,
+        NamespaceImport = 220,
+        NamedImports = 221,
+        ImportSpecifier = 222,
+        ExportAssignment = 223,
+        ExportDeclaration = 224,
+        NamedExports = 225,
+        ExportSpecifier = 226,
+        MissingDeclaration = 227,
+        ExternalModuleReference = 228,
+        JsxElement = 229,
+        JsxSelfClosingElement = 230,
+        JsxOpeningElement = 231,
+        JsxText = 232,
+        JsxClosingElement = 233,
+        JsxAttribute = 234,
+        JsxSpreadAttribute = 235,
+        JsxExpression = 236,
+        CaseClause = 237,
+        DefaultClause = 238,
+        HeritageClause = 239,
+        CatchClause = 240,
+        PropertyAssignment = 241,
+        ShorthandPropertyAssignment = 242,
+        EnumMember = 243,
+        SourceFile = 244,
+        JSDocTypeExpression = 245,
+        JSDocAllType = 246,
+        JSDocUnknownType = 247,
+        JSDocArrayType = 248,
+        JSDocUnionType = 249,
+        JSDocTupleType = 250,
+        JSDocNullableType = 251,
+        JSDocNonNullableType = 252,
+        JSDocRecordType = 253,
+        JSDocRecordMember = 254,
+        JSDocTypeReference = 255,
+        JSDocOptionalType = 256,
+        JSDocFunctionType = 257,
+        JSDocVariadicType = 258,
+        JSDocConstructorType = 259,
+        JSDocThisType = 260,
+        JSDocComment = 261,
+        JSDocTag = 262,
+        JSDocParameterTag = 263,
+        JSDocReturnTag = 264,
+        JSDocTypeTag = 265,
+        JSDocTemplateTag = 266,
+        SyntaxList = 267,
+        Count = 268,
         FirstAssignment = 54,
         LastAssignment = 65,
         FirstReservedWord = 67,
         LastReservedWord = 102,
         FirstKeyword = 67,
-        LastKeyword = 128,
+        LastKeyword = 131,
         FirstFutureReservedWord = 103,
         LastFutureReservedWord = 111,
-        FirstTypeNode = 145,
-        LastTypeNode = 153,
+        FirstTypeNode = 148,
+        LastTypeNode = 156,
         FirstPunctuation = 14,
         LastPunctuation = 65,
         FirstToken = 0,
-        LastToken = 128,
+        LastToken = 131,
         FirstTriviaToken = 2,
         LastTriviaToken = 6,
         FirstLiteralToken = 7,
@@ -316,7 +320,7 @@ declare namespace ts {
         LastTemplateToken = 13,
         FirstBinaryOperator = 24,
         LastBinaryOperator = 65,
-        FirstNode = 129,
+        FirstNode = 132,
     }
     const enum NodeFlags {
         Export = 1,
@@ -325,30 +329,33 @@ declare namespace ts {
         Private = 32,
         Protected = 64,
         Static = 128,
-        Default = 256,
-        MultiLine = 512,
-        Synthetic = 1024,
-        DeclarationFile = 2048,
-        Let = 4096,
-        Const = 8192,
-        OctalLiteral = 16384,
-        Namespace = 32768,
-        ExportContext = 65536,
-        Modifier = 499,
+        Abstract = 256,
+        Async = 512,
+        Default = 1024,
+        MultiLine = 2048,
+        Synthetic = 4096,
+        DeclarationFile = 8192,
+        Let = 16384,
+        Const = 32768,
+        OctalLiteral = 65536,
+        Namespace = 131072,
+        ExportContext = 262144,
+        Modifier = 2035,
         AccessibilityModifier = 112,
-        BlockScoped = 12288,
+        BlockScoped = 49152,
     }
     const enum ParserContextFlags {
         None = 0,
-        DisallowIn = 2,
-        Yield = 4,
-        GeneratorParameter = 8,
-        Decorator = 16,
-        ThisNodeHasError = 32,
-        JavaScriptFile = 64,
-        ParserGeneratedFlags = 62,
-        ThisNodeOrAnySubNodesHasError = 128,
-        HasAggregatedChildData = 256,
+        DisallowIn = 1,
+        Yield = 2,
+        Decorator = 4,
+        Await = 8,
+        ThisNodeHasError = 16,
+        JavaScriptFile = 32,
+        ParserGeneratedFlags = 31,
+        TypeExcludesFlags = 10,
+        ThisNodeOrAnySubNodesHasError = 64,
+        HasAggregatedChildData = 128,
     }
     const enum JsxFlags {
         None = 0,
@@ -568,6 +575,9 @@ declare namespace ts {
         expression: UnaryExpression;
     }
     interface VoidExpression extends UnaryExpression {
+        expression: UnaryExpression;
+    }
+    interface AwaitExpression extends UnaryExpression {
         expression: UnaryExpression;
     }
     interface YieldExpression extends Expression {
@@ -1272,17 +1282,22 @@ declare namespace ts {
         LexicalThis = 2,
         CaptureThis = 4,
         EmitExtends = 8,
-        SuperInstance = 16,
-        SuperStatic = 32,
-        ContextChecked = 64,
-        EnumValuesComputed = 128,
-        BlockScopedBindingInLoop = 256,
-        EmitDecorate = 512,
-        EmitParam = 1024,
-        LexicalModuleMergesWithClass = 2048,
+        EmitDecorate = 16,
+        EmitParam = 32,
+        EmitAwaiter = 64,
+        EmitGenerator = 128,
+        SuperInstance = 256,
+        SuperStatic = 512,
+        ContextChecked = 1024,
+        LexicalArguments = 2048,
+        CaptureArguments = 4096,
+        EnumValuesComputed = 8192,
+        BlockScopedBindingInLoop = 16384,
+        LexicalModuleMergesWithClass = 32768,
     }
     interface NodeLinks {
         resolvedType?: Type;
+        resolvedAwaitedType?: Type;
         resolvedSignature?: Signature;
         resolvedSymbol?: Symbol;
         flags?: NodeCheckFlags;
@@ -1491,6 +1506,7 @@ declare namespace ts {
         watch?: boolean;
         isolatedModules?: boolean;
         experimentalDecorators?: boolean;
+        experimentalAsyncFunctions?: boolean;
         emitDecoratorMetadata?: boolean;
         stripInternal?: boolean;
         skipDefaultLibCheck?: boolean;
@@ -1696,6 +1712,15 @@ declare namespace ts {
     }
 }
 declare namespace ts {
+    /**
+     * Ternary values are defined such that
+     * x & y is False if either x or y is False.
+     * x & y is Maybe if either x or y is Maybe, but neither x or y is False.
+     * x & y is True if both x and y are True.
+     * x | y is False if both x and y are False.
+     * x | y is Maybe if either x or y is Maybe, but neither x or y is True.
+     * x | y is True if either x or y is True.
+     */
     const enum Ternary {
         False = 0,
         Maybe = 1,
@@ -1709,6 +1734,11 @@ declare namespace ts {
     }
     interface StringSet extends Map<any> {
     }
+    /**
+     * Iterates through 'array' by index and performs the callback on each element of array until the callback
+     * returns a truthy value, then returns that value.
+     * If no such value is found, the callback is applied to each element of array and undefined is returned.
+     */
     function forEach<T, U>(array: T[], callback: (element: T, index: number) => U): U;
     function contains<T>(array: T[], value: T): boolean;
     function indexOf<T>(array: T[], value: T): number;
@@ -1954,7 +1984,32 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        _0_modifier_cannot_be_used_in_an_ambient_context: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        _0_modifier_cannot_be_used_with_a_class_declaration: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        _0_modifier_cannot_be_used_here: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        _0_modifier_cannot_appear_on_a_data_property: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         _0_modifier_cannot_appear_on_a_module_element: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        A_0_modifier_cannot_be_used_with_an_interface_declaration: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -1999,12 +2054,42 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        Type_0_is_not_a_valid_async_function_return_type: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Accessors_are_only_available_when_targeting_ECMAScript_5_and_higher: {
             code: number;
             category: DiagnosticCategory;
             key: string;
         };
+        An_async_function_or_method_must_have_a_valid_awaitable_return_type: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Operand_for_await_does_not_have_a_valid_callable_then_member: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Return_expression_in_async_function_does_not_have_a_valid_callable_then_member: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Expression_body_for_async_arrow_function_does_not_have_a_valid_callable_then_member: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Enum_member_must_have_initializer: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        _0_is_referenced_directly_or_indirectly_in_the_fulfillment_callback_of_its_own_then_method: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -2024,7 +2109,7 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        A_declare_modifier_cannot_be_used_with_an_import_declaration: {
+        A_0_modifier_cannot_be_used_with_an_import_declaration: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -2704,6 +2789,26 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        Experimental_support_for_async_functions_is_a_feature_that_is_subject_to_change_in_a_future_release_Specify_experimentalAsyncFunctions_to_remove_this_warning: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        with_statements_are_not_allowed_in_an_async_function_block: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        await_expression_is_only_allowed_within_an_async_function: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         The_return_type_of_a_property_decorator_function_must_be_either_void_or_any: {
             code: number;
             category: DiagnosticCategory;
@@ -2730,6 +2835,26 @@ declare namespace ts {
             key: string;
         };
         Unable_to_resolve_signature_of_method_decorator_when_called_as_an_expression: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        abstract_modifier_can_only_appear_on_a_class_or_method_declaration: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        _0_modifier_cannot_be_used_with_1_modifier: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Abstract_methods_can_only_appear_within_an_abstract_class: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Method_0_cannot_have_an_implementation_because_it_is_marked_abstract: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -3719,6 +3844,66 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        Cannot_create_an_instance_of_the_abstract_class_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Overload_signatures_must_all_be_abstract_or_not_abstract: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Abstract_method_0_in_class_1_cannot_be_accessed_via_super_expression: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Classes_containing_abstract_methods_must_be_marked_abstract: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Non_abstract_class_0_does_not_implement_inherited_abstract_member_1_from_class_2: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        All_declarations_of_an_abstract_method_must_be_consecutive: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Constructor_objects_of_abstract_type_cannot_be_assigned_to_constructor_objects_of_non_abstract_type: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Duplicate_identifier_0_Compiler_uses_declaration_1_to_support_async_functions: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Expression_resolves_to_variable_declaration_0_that_compiler_uses_to_support_async_functions: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        The_arguments_object_cannot_be_referenced_in_an_async_arrow_function_Consider_using_a_standard_async_function_expression: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        yield_expressions_cannot_be_used_in_a_parameter_initializer: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        await_expressions_cannot_be_used_in_a_parameter_initializer: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         JSX_element_attributes_type_0_must_be_an_object_type: {
             code: number;
             category: DiagnosticCategory;
@@ -4499,6 +4684,16 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        Option_experimentalAsyncFunctions_cannot_be_specified_when_targeting_ES5_or_lower: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Enables_experimental_support_for_ES7_async_functions: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Variable_0_implicitly_has_an_1_type: {
             code: number;
             category: DiagnosticCategory;
@@ -4841,6 +5036,7 @@ declare namespace ts {
     function getContainingClass(node: Node): ClassLikeDeclaration;
     function getThisContainer(node: Node, includeArrowFunctions: boolean): Node;
     function getSuperContainer(node: Node, includeFunctions: boolean): Node;
+    function getEntityNameFromTypeNode(node: TypeNode): EntityName | Expression;
     function getInvokedExpression(node: CallLikeExpression): Expression;
     function nodeCanBeDecorated(node: Node): boolean;
     function nodeIsDecorated(node: Node): boolean;
@@ -4863,7 +5059,7 @@ declare namespace ts {
     function isLiteralKind(kind: SyntaxKind): boolean;
     function isTextualLiteralKind(kind: SyntaxKind): boolean;
     function isTemplateLiteralKind(kind: SyntaxKind): boolean;
-    function isBindingPattern(node: Node): node is BindingPattern;
+    function isBindingPattern(node: Node): ;
     function isInAmbientContext(node: Node): boolean;
     function isDeclaration(node: Node): boolean;
     function isStatement(n: Node): boolean;
@@ -4880,6 +5076,7 @@ declare namespace ts {
     function getFileReferenceFromReferencePath(comment: string, commentRange: CommentRange): ReferencePathMatchResult;
     function isKeyword(token: SyntaxKind): boolean;
     function isTrivia(token: SyntaxKind): boolean;
+    function isAsyncFunctionLike(node: Node): boolean;
     /**
      * A declaration has a dynamic name if both of the following are true:
      *   1. The declaration has a computed property name
@@ -6033,6 +6230,7 @@ declare namespace ts {
         const exportedModifier: string;
         const ambientModifier: string;
         const staticModifier: string;
+        const abstractModifier: string;
     }
     class ClassificationTypeNames {
         static comment: string;
