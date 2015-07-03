@@ -17,10 +17,15 @@
         "!./bin/**/*",
         "!./TypeScript/**/*",
         "!./node_modules/**/*",
-        "!./tasks/tests/**/*.ts"
+        "!./tests/grunt/**/*.ts"
     ],
     "files": [
+        "./register.ts",
         "./tasks/ntypescript.ts",
+        "./tests/tse/1start.ts",
+        "./tests/tse/2iwillfork.ts",
+        "./tests/tse/3iwilllogargs.ts",
+        "./tse.ts",
         "./typings/gruntjs/gruntjs.d.ts",
         "./typings/node/node.d.ts",
         "./typings/tsd.d.ts"

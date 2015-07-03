@@ -21,6 +21,14 @@ release.sh
 npm publish
 ```
 
+## globals
+
+You can try the globals using:
+
+```
+npm link
+```
+
 # Inspiration 
 https://github.com/Arnavion/typescript-github
 

@@ -8,12 +8,12 @@ module.exports = function(grunt) {
             default: {},
             pass: {
                 options: {
-                    project: './tasks/tests/pass'
+                    project: './tests/grunt/pass'
                 }
             },
             fail: {
                 options: {
-                    project: './tasks/tests/fail'
+                    project: './tests/grunt/fail'
                 }
             },
         },

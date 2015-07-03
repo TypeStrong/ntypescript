@@ -5,7 +5,8 @@
   "main": "./bin/typescript.js",
   "bin": {
     "ntsc": "./bin/tsc",
-    "ntsserver": "./bin/tsserver"
+    "ntsserver": "./bin/tsserver",
+    "ntse": "./bin/tse"
   },
   "typescript": {
     "definition": "./bin/typescriptServices.d.ts"
