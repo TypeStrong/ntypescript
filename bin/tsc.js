@@ -3508,7 +3508,8 @@ var ts;
                 case 170:
                 case 171:
                     checkStrictModeFunctionName(node);
-                    return bindAnonymousDeclaration(node, 16, "__function");
+                    var bindingName = node.name ? node.name.text : "__function";
+                    return bindAnonymousDeclaration(node, 16, bindingName);
                 case 183:
                 case 211:
                     return bindClassLikeDeclaration(node);
@@ -3570,7 +3571,8 @@ var ts;
                 bindBlockScopedDeclaration(node, 32, 899519);
             }
             else {
-                bindAnonymousDeclaration(node, 32, "__class");
+                var bindingName = node.name ? node.name.text : "__class";
+                bindAnonymousDeclaration(node, 32, bindingName);
             }
             var symbol = node.symbol;
             var prototypeSymbol = createSymbol(4 | 134217728, "prototype");
@@ -6414,6 +6416,10 @@ var ts;
             nextToken();
             return isIdentifier();
         }
+        function nextTokenIsIdentifierOrKeyword() {
+            nextToken();
+            return isIdentifierOrKeyword();
+        }
         function isHeritageClauseExtendsOrImplementsKeyword() {
             if (token === 103 ||
                 token === 80) {
@@ -7692,7 +7698,7 @@ var ts;
                     if (sourceFile.languageVariant !== 1) {
                         return parseTypeAssertion();
                     }
-                    if (lookAhead(nextTokenIsIdentifier)) {
+                    if (lookAhead(nextTokenIsIdentifierOrKeyword)) {
                         return parseJsxElementOrSelfClosingElement();
                     }
                 default:
@@ -7802,7 +7808,7 @@ var ts;
         }
         function parseJsxElementName() {
             scanJsxIdentifier();
-            var elementName = parseIdentifier();
+            var elementName = parseIdentifierName();
             while (parseOptional(20)) {
                 scanJsxIdentifier();
                 var node = createNode(132, elementName.pos);
@@ -15788,13 +15794,16 @@ var ts;
             function lookupClassTag(node) {
                 var valueSymbol;
                 if (node.tagName.kind === 66) {
-                    valueSymbol = getResolvedSymbol(node.tagName);
+                    var tag = node.tagName;
+                    var sym = getResolvedSymbol(tag);
+                    valueSymbol = sym.exportSymbol || sym;
                 }
                 else {
                     valueSymbol = checkQualifiedName(node.tagName).symbol;
                 }
-                if (valueSymbol !== unknownSymbol) {
+                if (valueSymbol && valueSymbol !== unknownSymbol) {
                     links.jsxFlags |= 4;
+                    getSymbolLinks(valueSymbol).referenced = true;
                 }
                 return valueSymbol || unknownSymbol;
             }
@@ -15925,15 +15934,13 @@ var ts;
         function checkJsxOpeningLikeElement(node) {
             checkGrammarJsxElement(node);
             checkJsxPreconditions(node);
-            var targetAttributesType = getJsxElementAttributesType(node);
-            if (getNodeLinks(node).jsxFlags & 4) {
-                if (node.tagName.kind === 66) {
-                    checkIdentifier(node.tagName);
-                }
-                else {
-                    checkQualifiedName(node.tagName);
+            if (compilerOptions.jsx === 2) {
+                var reactSym = resolveName(node.tagName, 'React', 107455, ts.Diagnostics.Cannot_find_name_0, 'React');
+                if (reactSym) {
+                    getSymbolLinks(reactSym).referenced = true;
                 }
             }
+            var targetAttributesType = getJsxElementAttributesType(node);
             var nameTable = {};
             var sawSpreadedAny = false;
             for (var i = node.attributes.length - 1; i >= 0; i--) {

@@ -4682,7 +4682,8 @@ var ts;
                 case 170 /* FunctionExpression */:
                 case 171 /* ArrowFunction */:
                     checkStrictModeFunctionName(node);
-                    return bindAnonymousDeclaration(node, 16 /* Function */, "__function");
+                    var bindingName = node.name ? node.name.text : "__function";
+                    return bindAnonymousDeclaration(node, 16 /* Function */, bindingName);
                 case 183 /* ClassExpression */:
                 case 211 /* ClassDeclaration */:
                     return bindClassLikeDeclaration(node);
@@ -4749,7 +4750,8 @@ var ts;
                 bindBlockScopedDeclaration(node, 32 /* Class */, 899519 /* ClassExcludes */);
             }
             else {
-                bindAnonymousDeclaration(node, 32 /* Class */, "__class");
+                var bindingName = node.name ? node.name.text : "__class";
+                bindAnonymousDeclaration(node, 32 /* Class */, bindingName);
             }
             var symbol = node.symbol;
             // TypeScript 1.0 spec (April 2014): 8.4
@@ -8101,6 +8103,10 @@ var ts;
             nextToken();
             return isIdentifier();
         }
+        function nextTokenIsIdentifierOrKeyword() {
+            nextToken();
+            return isIdentifierOrKeyword();
+        }
         function isHeritageClauseExtendsOrImplementsKeyword() {
             if (token === 103 /* ImplementsKeyword */ ||
                 token === 80 /* ExtendsKeyword */) {
@@ -9766,7 +9772,7 @@ var ts;
                     if (sourceFile.languageVariant !== 1 /* JSX */) {
                         return parseTypeAssertion();
                     }
-                    if (lookAhead(nextTokenIsIdentifier)) {
+                    if (lookAhead(nextTokenIsIdentifierOrKeyword)) {
                         return parseJsxElementOrSelfClosingElement();
                     }
                 // Fall through
@@ -9959,7 +9965,7 @@ var ts;
         }
         function parseJsxElementName() {
             scanJsxIdentifier();
-            var elementName = parseIdentifier();
+            var elementName = parseIdentifierName();
             while (parseOptional(20 /* DotToken */)) {
                 scanJsxIdentifier();
                 var node = createNode(132 /* QualifiedName */, elementName.pos);
@@ -19173,13 +19179,16 @@ var ts;
                 var valueSymbol;
                 // Look up the value in the current scope
                 if (node.tagName.kind === 66 /* Identifier */) {
-                    valueSymbol = getResolvedSymbol(node.tagName);
+                    var tag = node.tagName;
+                    var sym = getResolvedSymbol(tag);
+                    valueSymbol = sym.exportSymbol || sym;
                 }
                 else {
                     valueSymbol = checkQualifiedName(node.tagName).symbol;
                 }
-                if (valueSymbol !== unknownSymbol) {
+                if (valueSymbol && valueSymbol !== unknownSymbol) {
                     links.jsxFlags |= 4 /* ClassElement */;
+                    getSymbolLinks(valueSymbol).referenced = true;
                 }
                 return valueSymbol || unknownSymbol;
             }
@@ -19349,15 +19358,16 @@ var ts;
         function checkJsxOpeningLikeElement(node) {
             checkGrammarJsxElement(node);
             checkJsxPreconditions(node);
-            var targetAttributesType = getJsxElementAttributesType(node);
-            if (getNodeLinks(node).jsxFlags & 4 /* ClassElement */) {
-                if (node.tagName.kind === 66 /* Identifier */) {
-                    checkIdentifier(node.tagName);
-                }
-                else {
-                    checkQualifiedName(node.tagName);
+            // If we're compiling under --jsx react, the symbol 'React' should
+            // be marked as 'used' so we don't incorrectly elide its import. And if there
+            // is no 'React' symbol in scope, we should issue an error.
+            if (compilerOptions.jsx === 2 /* React */) {
+                var reactSym = resolveName(node.tagName, 'React', 107455 /* Value */, ts.Diagnostics.Cannot_find_name_0, 'React');
+                if (reactSym) {
+                    getSymbolLinks(reactSym).referenced = true;
                 }
             }
+            var targetAttributesType = getJsxElementAttributesType(node);
             var nameTable = {};
             // Process this array in right-to-left order so we know which
             // attributes (mostly from spreads) are being overwritten and
@@ -42195,30 +42205,34 @@ var ts;
                 contextToken = ts.findPrecedingToken(contextToken.getFullStart(), sourceFile);
                 log("getCompletionData: Get previous token 2: " + (new Date().getTime() - start_2));
             }
-            // Check if this is a valid completion location
-            if (contextToken && isCompletionListBlocker(contextToken)) {
-                log("Returning an empty list because completion was requested in an invalid position.");
-                return undefined;
-            }
-            var options = program.getCompilerOptions();
-            var jsx = options.jsx !== 0 /* None */;
-            var target = options.target;
-            // Find the node where completion is requested on, in the case of a completion after 
-            // a dot, it is the member access expression other wise, it is a request for all 
-            // visible symbols in the scope, and the node is the current location.
+            // Find the node where completion is requested on.
+            // Also determine whether we are trying to complete with members of that node
+            // or attributes of a JSX tag.
             var node = currentToken;
             var isRightOfDot = false;
             var isRightOfOpenTag = false;
             var location = ts.getTouchingPropertyName(sourceFile, position);
             if (contextToken) {
-                var kind = contextToken.kind;
-                if (kind === 20 /* DotToken */ && contextToken.parent.kind === 163 /* PropertyAccessExpression */) {
-                    node = contextToken.parent.expression;
-                    isRightOfDot = true;
+                // Bail out if this is a known invalid completion location
+                if (isCompletionListBlocker(contextToken)) {
+                    log("Returning an empty list because completion was requested in an invalid position.");
+                    return undefined;
                 }
-                else if (kind === 20 /* DotToken */ && contextToken.parent.kind === 132 /* QualifiedName */) {
-                    node = contextToken.parent.left;
-                    isRightOfDot = true;
+                var parent_10 = contextToken.parent, kind = contextToken.kind;
+                if (kind === 20 /* DotToken */) {
+                    if (parent_10.kind === 163 /* PropertyAccessExpression */) {
+                        node = contextToken.parent.expression;
+                        isRightOfDot = true;
+                    }
+                    else if (parent_10.kind === 132 /* QualifiedName */) {
+                        node = contextToken.parent.left;
+                        isRightOfDot = true;
+                    }
+                    else {
+                        // There is nothing that precedes the dot, so this likely just a stray character
+                        // or leading into a '...' token. Just bail out instead.
+                        return undefined;
+                    }
                 }
                 else if (kind === 24 /* LessThanToken */ && sourceFile.languageVariant === 1 /* JSX */) {
                     isRightOfOpenTag = true;
@@ -42300,60 +42314,18 @@ var ts;
                 }
             }
             function tryGetGlobalSymbols() {
-                var objectLikeContainer = tryGetObjectLikeCompletionContainer(contextToken);
-                var jsxContainer = tryGetContainingJsxElement(contextToken);
-                if (objectLikeContainer) {
-                    // We're looking up possible property names from contextual/inferred/declared type.
-                    isMemberCompletion = true;
-                    var typeForObject;
-                    var existingMembers;
-                    if (objectLikeContainer.kind === 162 /* ObjectLiteralExpression */) {
-                        // We are completing on contextual types, but may also include properties
-                        // other than those within the declared type.
-                        isNewIdentifierLocation = true;
-                        typeForObject = typeChecker.getContextualType(objectLikeContainer);
-                        existingMembers = objectLikeContainer.properties;
-                    }
-                    else if (objectLikeContainer.kind === 158 /* ObjectBindingPattern */) {
-                        // We are *only* completing on properties from the type being destructured.
-                        isNewIdentifierLocation = false;
-                        typeForObject = typeChecker.getTypeAtLocation(objectLikeContainer);
-                        existingMembers = objectLikeContainer.elements;
-                    }
-                    else {
-                        ts.Debug.fail("Expected object literal or binding pattern, got " + objectLikeContainer.kind);
-                    }
-                    if (!typeForObject) {
-                        return false;
-                    }
-                    var typeMembers = typeChecker.getPropertiesOfType(typeForObject);
-                    if (typeMembers && typeMembers.length > 0) {
-                        // Add filtered items to the completion list
-                        symbols = filterObjectMembersList(typeMembers, existingMembers);
-                    }
-                    return true;
+                var objectLikeContainer;
+                var importClause;
+                var jsxContainer;
+                if (objectLikeContainer = tryGetObjectLikeCompletionContainer(contextToken)) {
+                    return tryGetObjectLikeCompletionSymbols(objectLikeContainer);
                 }
-                else if (ts.getAncestor(contextToken, 220 /* ImportClause */)) {
-                    // cursor is in import clause
+                if (importClause = ts.getAncestor(contextToken, 220 /* ImportClause */)) {
+                    // cursor is in an import clause
                     // try to show exported member for imported module
-                    isMemberCompletion = true;
-                    isNewIdentifierLocation = true;
-                    if (showCompletionsInImportsClause(contextToken)) {
-                        var importDeclaration = ts.getAncestor(contextToken, 219 /* ImportDeclaration */);
-                        ts.Debug.assert(importDeclaration !== undefined);
-                        var exports;
-                        if (importDeclaration.moduleSpecifier) {
-                            var moduleSpecifierSymbol = typeChecker.getSymbolAtLocation(importDeclaration.moduleSpecifier);
-                            if (moduleSpecifierSymbol) {
-                                exports = typeChecker.getExportsOfModule(moduleSpecifierSymbol);
-                            }
-                        }
-                        //let exports = typeInfoResolver.getExportsOfImportDeclaration(importDeclaration);
-                        symbols = exports ? filterModuleExports(exports, importDeclaration) : emptyArray;
-                    }
-                    return true;
+                    return tryGetImportClauseCompletionSymbols(importClause);
                 }
-                else if (jsxContainer) {
+                if (jsxContainer = tryGetContainingJsxElement(contextToken)) {
                     var attrsType;
                     if ((jsxContainer.kind === 231 /* JsxSelfClosingElement */) || (jsxContainer.kind === 232 /* JsxOpeningElement */)) {
                         // Cursor is inside a JSX self-closing element or opening element
@@ -42417,15 +42389,15 @@ var ts;
                 }
                 return scope;
             }
-            function isCompletionListBlocker(previousToken) {
+            function isCompletionListBlocker(contextToken) {
                 var start = new Date().getTime();
-                var result = isInStringOrRegularExpressionOrTemplateLiteral(previousToken) ||
-                    isIdentifierDefinitionLocation(previousToken) ||
-                    isRightOfIllegalDot(previousToken);
+                var result = isInStringOrRegularExpressionOrTemplateLiteral(contextToken) ||
+                    isIdentifierDefinitionLocation(contextToken) ||
+                    isDotOfNumericLiteral(contextToken);
                 log("getCompletionsAtPosition: isCompletionListBlocker: " + (new Date().getTime() - start));
                 return result;
             }
-            function showCompletionsInImportsClause(node) {
+            function shouldShowCompletionsInImportsClause(node) {
                 if (node) {
                     // import {| 
                     // import {a,|
@@ -42485,12 +42457,12 @@ var ts;
                 }
                 return false;
             }
-            function isInStringOrRegularExpressionOrTemplateLiteral(previousToken) {
-                if (previousToken.kind === 8 /* StringLiteral */
-                    || previousToken.kind === 9 /* RegularExpressionLiteral */
-                    || ts.isTemplateLiteralKind(previousToken.kind)) {
-                    var start_3 = previousToken.getStart();
-                    var end = previousToken.getEnd();
+            function isInStringOrRegularExpressionOrTemplateLiteral(contextToken) {
+                if (contextToken.kind === 8 /* StringLiteral */
+                    || contextToken.kind === 9 /* RegularExpressionLiteral */
+                    || ts.isTemplateLiteralKind(contextToken.kind)) {
+                    var start_3 = contextToken.getStart();
+                    var end = contextToken.getEnd();
                     // To be "in" one of these literals, the position has to be:
                     //   1. entirely within the token text.
                     //   2. at the end position of an unterminated token.
@@ -42499,11 +42471,79 @@ var ts;
                         return true;
                     }
                     if (position === end) {
-                        return !!previousToken.isUnterminated ||
-                            previousToken.kind === 9 /* RegularExpressionLiteral */;
+                        return !!contextToken.isUnterminated
+                            || contextToken.kind === 9 /* RegularExpressionLiteral */;
                     }
                 }
                 return false;
+            }
+            /**
+             * Aggregates relevant symbols for completion in object literals and object binding patterns.
+             * Relevant symbols are stored in the captured 'symbols' variable.
+             *
+             * @returns true if 'symbols' was successfully populated; false otherwise.
+             */
+            function tryGetObjectLikeCompletionSymbols(objectLikeContainer) {
+                // We're looking up possible property names from contextual/inferred/declared type.
+                isMemberCompletion = true;
+                var typeForObject;
+                var existingMembers;
+                if (objectLikeContainer.kind === 162 /* ObjectLiteralExpression */) {
+                    // We are completing on contextual types, but may also include properties
+                    // other than those within the declared type.
+                    isNewIdentifierLocation = true;
+                    typeForObject = typeChecker.getContextualType(objectLikeContainer);
+                    existingMembers = objectLikeContainer.properties;
+                }
+                else if (objectLikeContainer.kind === 158 /* ObjectBindingPattern */) {
+                    // We are *only* completing on properties from the type being destructured.
+                    isNewIdentifierLocation = false;
+                    typeForObject = typeChecker.getTypeAtLocation(objectLikeContainer);
+                    existingMembers = objectLikeContainer.elements;
+                }
+                else {
+                    ts.Debug.fail("Expected object literal or binding pattern, got " + objectLikeContainer.kind);
+                }
+                if (!typeForObject) {
+                    return false;
+                }
+                var typeMembers = typeChecker.getPropertiesOfType(typeForObject);
+                if (typeMembers && typeMembers.length > 0) {
+                    // Add filtered items to the completion list
+                    symbols = filterObjectMembersList(typeMembers, existingMembers);
+                }
+                return true;
+            }
+            /**
+             * Aggregates relevant symbols for completion in import clauses; for instance,
+             *
+             *      import { $ } from "moduleName";
+             *
+             * Relevant symbols are stored in the captured 'symbols' variable.
+             *
+             * @returns true if 'symbols' was successfully populated; false otherwise.
+             */
+            function tryGetImportClauseCompletionSymbols(importClause) {
+                // cursor is in import clause
+                // try to show exported member for imported module
+                if (shouldShowCompletionsInImportsClause(contextToken)) {
+                    isMemberCompletion = true;
+                    isNewIdentifierLocation = false;
+                    var importDeclaration = importClause.parent;
+                    ts.Debug.assert(importDeclaration !== undefined && importDeclaration.kind === 219 /* ImportDeclaration */);
+                    var exports;
+                    var moduleSpecifierSymbol = typeChecker.getSymbolAtLocation(importDeclaration.moduleSpecifier);
+                    if (moduleSpecifierSymbol) {
+                        exports = typeChecker.getExportsOfModule(moduleSpecifierSymbol);
+                    }
+                    //let exports = typeInfoResolver.getExportsOfImportDeclaration(importDeclaration);
+                    symbols = exports ? filterModuleExports(exports, importDeclaration) : emptyArray;
+                }
+                else {
+                    isMemberCompletion = false;
+                    isNewIdentifierLocation = true;
+                }
+                return true;
             }
             /**
              * Returns the immediate owning object literal or binding pattern of a context token,
@@ -42514,9 +42554,9 @@ var ts;
                     switch (contextToken.kind) {
                         case 14 /* OpenBraceToken */: // let x = { |
                         case 23 /* CommaToken */:
-                            var parent_10 = contextToken.parent;
-                            if (parent_10 && (parent_10.kind === 162 /* ObjectLiteralExpression */ || parent_10.kind === 158 /* ObjectBindingPattern */)) {
-                                return parent_10;
+                            var parent_11 = contextToken.parent;
+                            if (parent_11 && (parent_11.kind === 162 /* ObjectLiteralExpression */ || parent_11.kind === 158 /* ObjectBindingPattern */)) {
+                                return parent_11;
                             }
                             break;
                     }
@@ -42525,24 +42565,24 @@ var ts;
             }
             function tryGetContainingJsxElement(contextToken) {
                 if (contextToken) {
-                    var parent_11 = contextToken.parent;
+                    var parent_12 = contextToken.parent;
                     switch (contextToken.kind) {
                         case 25 /* LessThanSlashToken */:
                         case 37 /* SlashToken */:
                         case 66 /* Identifier */:
-                            if (parent_11 && (parent_11.kind === 231 /* JsxSelfClosingElement */ || parent_11.kind === 232 /* JsxOpeningElement */)) {
-                                return parent_11;
+                            if (parent_12 && (parent_12.kind === 231 /* JsxSelfClosingElement */ || parent_12.kind === 232 /* JsxOpeningElement */)) {
+                                return parent_12;
                             }
                             break;
                         case 15 /* CloseBraceToken */:
                             // The context token is the closing } of an attribute, which means
                             // its parent is a JsxExpression, whose parent is a JsxAttribute,
                             // whose parent is a JsxOpeningLikeElement
-                            if (parent_11 &&
-                                parent_11.kind === 237 /* JsxExpression */ &&
-                                parent_11.parent &&
-                                parent_11.parent.kind === 235 /* JsxAttribute */) {
-                                return parent_11.parent.parent;
+                            if (parent_12 &&
+                                parent_12.kind === 237 /* JsxExpression */ &&
+                                parent_12.parent &&
+                                parent_12.parent.kind === 235 /* JsxAttribute */) {
+                                return parent_12.parent.parent;
                             }
                             break;
                     }
@@ -42565,87 +42605,84 @@ var ts;
                 }
                 return false;
             }
-            function isIdentifierDefinitionLocation(previousToken) {
-                if (previousToken) {
-                    var containingNodeKind = previousToken.parent.kind;
-                    switch (previousToken.kind) {
-                        case 23 /* CommaToken */:
-                            return containingNodeKind === 208 /* VariableDeclaration */ ||
-                                containingNodeKind === 209 /* VariableDeclarationList */ ||
-                                containingNodeKind === 190 /* VariableStatement */ ||
-                                containingNodeKind === 214 /* EnumDeclaration */ ||
-                                isFunction(containingNodeKind) ||
-                                containingNodeKind === 211 /* ClassDeclaration */ ||
-                                containingNodeKind === 210 /* FunctionDeclaration */ ||
-                                containingNodeKind === 212 /* InterfaceDeclaration */ ||
-                                containingNodeKind === 159 /* ArrayBindingPattern */; // var [x, y|
-                        case 20 /* DotToken */:
-                            return containingNodeKind === 159 /* ArrayBindingPattern */; // var [.|
-                        case 52 /* ColonToken */:
-                            return containingNodeKind === 160 /* BindingElement */; // var {x :html|
-                        case 18 /* OpenBracketToken */:
-                            return containingNodeKind === 159 /* ArrayBindingPattern */; // var [x|
-                        case 16 /* OpenParenToken */:
-                            return containingNodeKind === 241 /* CatchClause */ ||
-                                isFunction(containingNodeKind);
-                        case 14 /* OpenBraceToken */:
-                            return containingNodeKind === 214 /* EnumDeclaration */ ||
-                                containingNodeKind === 212 /* InterfaceDeclaration */ ||
-                                containingNodeKind === 152 /* TypeLiteral */; // let x : { |
-                        case 22 /* SemicolonToken */:
-                            return containingNodeKind === 137 /* PropertySignature */ &&
-                                previousToken.parent && previousToken.parent.parent &&
-                                (previousToken.parent.parent.kind === 212 /* InterfaceDeclaration */ ||
-                                    previousToken.parent.parent.kind === 152 /* TypeLiteral */); // let x : { a; |
-                        case 24 /* LessThanToken */:
-                            return containingNodeKind === 211 /* ClassDeclaration */ ||
-                                containingNodeKind === 210 /* FunctionDeclaration */ ||
-                                containingNodeKind === 212 /* InterfaceDeclaration */ ||
-                                isFunction(containingNodeKind);
-                        case 110 /* StaticKeyword */:
-                            return containingNodeKind === 138 /* PropertyDeclaration */;
-                        case 21 /* DotDotDotToken */:
-                            return containingNodeKind === 135 /* Parameter */ ||
-                                containingNodeKind === 141 /* Constructor */ ||
-                                (previousToken.parent && previousToken.parent.parent &&
-                                    previousToken.parent.parent.kind === 159 /* ArrayBindingPattern */); // var [...z|
-                        case 109 /* PublicKeyword */:
-                        case 107 /* PrivateKeyword */:
-                        case 108 /* ProtectedKeyword */:
-                            return containingNodeKind === 135 /* Parameter */;
-                        case 70 /* ClassKeyword */:
-                        case 78 /* EnumKeyword */:
-                        case 104 /* InterfaceKeyword */:
-                        case 84 /* FunctionKeyword */:
-                        case 99 /* VarKeyword */:
-                        case 120 /* GetKeyword */:
-                        case 126 /* SetKeyword */:
-                        case 86 /* ImportKeyword */:
-                        case 105 /* LetKeyword */:
-                        case 71 /* ConstKeyword */:
-                        case 111 /* YieldKeyword */:
-                        case 129 /* TypeKeyword */:
-                            return true;
-                    }
-                    // Previous token may have been a keyword that was converted to an identifier.
-                    switch (previousToken.getText()) {
-                        case "class":
-                        case "interface":
-                        case "enum":
-                        case "function":
-                        case "var":
-                        case "static":
-                        case "let":
-                        case "const":
-                        case "yield":
-                            return true;
-                    }
+            function isIdentifierDefinitionLocation(contextToken) {
+                var containingNodeKind = contextToken.parent.kind;
+                switch (contextToken.kind) {
+                    case 23 /* CommaToken */:
+                        return containingNodeKind === 208 /* VariableDeclaration */ ||
+                            containingNodeKind === 209 /* VariableDeclarationList */ ||
+                            containingNodeKind === 190 /* VariableStatement */ ||
+                            containingNodeKind === 214 /* EnumDeclaration */ ||
+                            isFunction(containingNodeKind) ||
+                            containingNodeKind === 211 /* ClassDeclaration */ ||
+                            containingNodeKind === 210 /* FunctionDeclaration */ ||
+                            containingNodeKind === 212 /* InterfaceDeclaration */ ||
+                            containingNodeKind === 159 /* ArrayBindingPattern */; // var [x, y|
+                    case 20 /* DotToken */:
+                        return containingNodeKind === 159 /* ArrayBindingPattern */; // var [.|
+                    case 52 /* ColonToken */:
+                        return containingNodeKind === 160 /* BindingElement */; // var {x :html|
+                    case 18 /* OpenBracketToken */:
+                        return containingNodeKind === 159 /* ArrayBindingPattern */; // var [x|
+                    case 16 /* OpenParenToken */:
+                        return containingNodeKind === 241 /* CatchClause */ ||
+                            isFunction(containingNodeKind);
+                    case 14 /* OpenBraceToken */:
+                        return containingNodeKind === 214 /* EnumDeclaration */ ||
+                            containingNodeKind === 212 /* InterfaceDeclaration */ ||
+                            containingNodeKind === 152 /* TypeLiteral */; // let x : { |
+                    case 22 /* SemicolonToken */:
+                        return containingNodeKind === 137 /* PropertySignature */ &&
+                            contextToken.parent && contextToken.parent.parent &&
+                            (contextToken.parent.parent.kind === 212 /* InterfaceDeclaration */ ||
+                                contextToken.parent.parent.kind === 152 /* TypeLiteral */); // let x : { a; |
+                    case 24 /* LessThanToken */:
+                        return containingNodeKind === 211 /* ClassDeclaration */ ||
+                            containingNodeKind === 210 /* FunctionDeclaration */ ||
+                            containingNodeKind === 212 /* InterfaceDeclaration */ ||
+                            isFunction(containingNodeKind);
+                    case 110 /* StaticKeyword */:
+                        return containingNodeKind === 138 /* PropertyDeclaration */;
+                    case 21 /* DotDotDotToken */:
+                        return containingNodeKind === 135 /* Parameter */ ||
+                            (contextToken.parent && contextToken.parent.parent &&
+                                contextToken.parent.parent.kind === 159 /* ArrayBindingPattern */); // var [...z|
+                    case 109 /* PublicKeyword */:
+                    case 107 /* PrivateKeyword */:
+                    case 108 /* ProtectedKeyword */:
+                        return containingNodeKind === 135 /* Parameter */;
+                    case 70 /* ClassKeyword */:
+                    case 78 /* EnumKeyword */:
+                    case 104 /* InterfaceKeyword */:
+                    case 84 /* FunctionKeyword */:
+                    case 99 /* VarKeyword */:
+                    case 120 /* GetKeyword */:
+                    case 126 /* SetKeyword */:
+                    case 86 /* ImportKeyword */:
+                    case 105 /* LetKeyword */:
+                    case 71 /* ConstKeyword */:
+                    case 111 /* YieldKeyword */:
+                    case 129 /* TypeKeyword */:
+                        return true;
+                }
+                // Previous token may have been a keyword that was converted to an identifier.
+                switch (contextToken.getText()) {
+                    case "class":
+                    case "interface":
+                    case "enum":
+                    case "function":
+                    case "var":
+                    case "static":
+                    case "let":
+                    case "const":
+                    case "yield":
+                        return true;
                 }
                 return false;
             }
-            function isRightOfIllegalDot(previousToken) {
-                if (previousToken && previousToken.kind === 7 /* NumericLiteral */) {
-                    var text = previousToken.getFullText();
+            function isDotOfNumericLiteral(contextToken) {
+                if (contextToken.kind === 7 /* NumericLiteral */) {
+                    var text = contextToken.getFullText();
                     return text.charAt(text.length - 1) === ".";
                 }
                 return false;
@@ -43663,19 +43700,19 @@ var ts;
                 function getThrowStatementOwner(throwStatement) {
                     var child = throwStatement;
                     while (child.parent) {
-                        var parent_12 = child.parent;
-                        if (ts.isFunctionBlock(parent_12) || parent_12.kind === 245 /* SourceFile */) {
-                            return parent_12;
+                        var parent_13 = child.parent;
+                        if (ts.isFunctionBlock(parent_13) || parent_13.kind === 245 /* SourceFile */) {
+                            return parent_13;
                         }
                         // A throw-statement is only owned by a try-statement if the try-statement has
                         // a catch clause, and if the throw-statement occurs within the try block.
-                        if (parent_12.kind === 206 /* TryStatement */) {
-                            var tryStatement = parent_12;
+                        if (parent_13.kind === 206 /* TryStatement */) {
+                            var tryStatement = parent_13;
                             if (tryStatement.tryBlock === child && tryStatement.catchClause) {
                                 return child;
                             }
                         }
-                        child = parent_12;
+                        child = parent_13;
                     }
                     return undefined;
                 }

@@ -5079,7 +5079,7 @@ declare namespace ts {
     function isLiteralKind(kind: SyntaxKind): boolean;
     function isTextualLiteralKind(kind: SyntaxKind): boolean;
     function isTemplateLiteralKind(kind: SyntaxKind): boolean;
-    function isBindingPattern(node: Node): boolean;
+    function isBindingPattern(node: Node): ;
     function isInAmbientContext(node: Node): boolean;
     function isDeclaration(node: Node): boolean;
     function isStatement(n: Node): boolean;
