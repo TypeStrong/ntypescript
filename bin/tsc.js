@@ -12720,7 +12720,7 @@ var ts;
             for (var _a = 0; _a < props.length; _a++) {
                 var prop = props[_a];
                 if (prop.declarations) {
-                    declarations.push.apply(declarations, prop.declarations);
+                    ts.addRange(declarations, prop.declarations);
                 }
                 propTypes.push(getTypeOfSymbol(prop));
             }
@@ -18778,28 +18778,17 @@ var ts;
             checkGrammarDecorators(node) || checkGrammarModifiers(node) || checkGrammarVariableDeclarationList(node.declarationList) || checkGrammarForDisallowedLetOrConstStatement(node);
             ts.forEach(node.declarationList.declarations, checkSourceElement);
         }
-        function checkGrammarDisallowedModifiersInBlockOrObjectLiteralExpression(node) {
-            if (node.modifiers) {
-                if (inBlockOrObjectLiteralExpression(node)) {
-                    if (ts.isAsyncFunctionLike(node)) {
-                        if (node.modifiers.length > 1) {
-                            return grammarErrorOnFirstToken(node, ts.Diagnostics.Modifiers_cannot_appear_here);
-                        }
-                    }
-                    else {
+        function checkGrammarDisallowedModifiersOnObjectLiteralExpressionMethod(node) {
+            if (node.modifiers && node.parent.kind === 162) {
+                if (ts.isAsyncFunctionLike(node)) {
+                    if (node.modifiers.length > 1) {
                         return grammarErrorOnFirstToken(node, ts.Diagnostics.Modifiers_cannot_appear_here);
                     }
                 }
-            }
-        }
-        function inBlockOrObjectLiteralExpression(node) {
-            while (node) {
-                if (node.kind === 189 || node.kind === 162) {
-                    return true;
+                else {
+                    return grammarErrorOnFirstToken(node, ts.Diagnostics.Modifiers_cannot_appear_here);
                 }
-                node = node.parent;
             }
-            return false;
         }
         function checkExpressionStatement(node) {
             checkGrammarStatementInAmbientContext(node);
@@ -21622,7 +21611,7 @@ var ts;
             }
         }
         function checkGrammarMethod(node) {
-            if (checkGrammarDisallowedModifiersInBlockOrObjectLiteralExpression(node) ||
+            if (checkGrammarDisallowedModifiersOnObjectLiteralExpressionMethod(node) ||
                 checkGrammarFunctionLikeDeclaration(node) ||
                 checkGrammarForGenerator(node)) {
                 return true;
