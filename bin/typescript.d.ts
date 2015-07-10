@@ -1166,6 +1166,20 @@ declare module "typescript" {
     interface SymbolAccessiblityResult extends SymbolVisibilityResult {
         errorModuleName?: string;
     }
+    /** Indicates how to serialize the name for a TypeReferenceNode when emitting decorator
+      * metadata */
+    enum TypeReferenceSerializationKind {
+        Unknown = 0,
+        TypeWithConstructSignatureAndValue = 1,
+        VoidType = 2,
+        NumberLikeType = 3,
+        StringLikeType = 4,
+        BooleanType = 5,
+        ArrayLikeType = 6,
+        ESSymbolType = 7,
+        TypeWithCallSignature = 8,
+        ObjectType = 9,
+    }
     interface EmitResolver {
         hasGlobalName(name: string): boolean;
         getReferencedExportContainer(node: Identifier): SourceFile | ModuleDeclaration | EnumDeclaration;
@@ -1187,9 +1201,7 @@ declare module "typescript" {
         getConstantValue(node: EnumMember | PropertyAccessExpression | ElementAccessExpression): number;
         getBlockScopedVariableId(node: Identifier): number;
         getReferencedValueDeclaration(reference: Identifier): Declaration;
-        serializeTypeOfNode(node: Node): string | string[];
-        serializeParameterTypesOfNode(node: Node): (string | string[])[];
-        serializeReturnTypeOfNode(node: Node): string | string[];
+        getTypeReferenceSerializationKind(node: TypeReferenceNode): TypeReferenceSerializationKind;
     }
     const enum SymbolFlags {
         None = 0,
@@ -5155,6 +5167,7 @@ declare module "typescript" {
     function writeFile(host: EmitHost, diagnostics: Diagnostic[], fileName: string, data: string, writeByteOrderMark: boolean): void;
     function getLineOfLocalPosition(currentSourceFile: SourceFile, pos: number): number;
     function getFirstConstructorWithBody(node: ClassLikeDeclaration): ConstructorDeclaration;
+    function getSetAccessorTypeAnnotationNode(accessor: AccessorDeclaration): TypeNode;
     function shouldEmitToOwnFile(sourceFile: SourceFile, compilerOptions: CompilerOptions): boolean;
     function getAllAccessorDeclarations(declarations: NodeArray<Declaration>, accessor: AccessorDeclaration): {
         firstAccessor: AccessorDeclaration;
@@ -5254,7 +5267,7 @@ declare module "typescript" {
     function createProgram(rootNames: string[], options: CompilerOptions, host?: CompilerHost): Program;
 }
 declare module "typescript" {
-    var optionDeclarations: CommandLineOption[];
+    let optionDeclarations: CommandLineOption[];
     function parseCommandLine(commandLine: string[]): ParsedCommandLine;
     /**
       * Read tsconfig.json file
@@ -5379,6 +5392,11 @@ declare module "typescript" {
     function signatureToDisplayParts(typechecker: TypeChecker, signature: Signature, enclosingDeclaration?: Node, flags?: TypeFormatFlags): SymbolDisplayPart[];
     function getDeclaredName(typeChecker: TypeChecker, symbol: Symbol, location: Node): string;
     function isImportOrExportSpecifierName(location: Node): boolean;
+    /**
+     * Strip off existed single quotes or double quotes from a given string
+     *
+     * @return non-quoted string
+     */
     function stripQuotes(name: string): string;
 }
 declare module "typescript".formatting {
@@ -6222,6 +6240,7 @@ declare module "typescript" {
         const scriptElement: string;
         const moduleElement: string;
         const classElement: string;
+        const localClassElement: string;
         const interfaceElement: string;
         const typeElement: string;
         const enumElement: string;

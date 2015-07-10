@@ -267,7 +267,7 @@ var ts;
         SyntaxKind[SyntaxKind["MissingDeclaration"] = 228] = "MissingDeclaration";
         // Module references
         SyntaxKind[SyntaxKind["ExternalModuleReference"] = 229] = "ExternalModuleReference";
-        //JSX
+        // JSX
         SyntaxKind[SyntaxKind["JsxElement"] = 230] = "JsxElement";
         SyntaxKind[SyntaxKind["JsxSelfClosingElement"] = 231] = "JsxSelfClosingElement";
         SyntaxKind[SyntaxKind["JsxOpeningElement"] = 232] = "JsxOpeningElement";
@@ -462,6 +462,27 @@ var ts;
         SymbolAccessibility[SymbolAccessibility["CannotBeNamed"] = 2] = "CannotBeNamed";
     })(ts.SymbolAccessibility || (ts.SymbolAccessibility = {}));
     var SymbolAccessibility = ts.SymbolAccessibility;
+    /** Indicates how to serialize the name for a TypeReferenceNode when emitting decorator
+      * metadata */
+    /* @internal */
+    (function (TypeReferenceSerializationKind) {
+        TypeReferenceSerializationKind[TypeReferenceSerializationKind["Unknown"] = 0] = "Unknown";
+        // should be emitted using a safe fallback.
+        TypeReferenceSerializationKind[TypeReferenceSerializationKind["TypeWithConstructSignatureAndValue"] = 1] = "TypeWithConstructSignatureAndValue";
+        // function that can be reached at runtime (e.g. a `class`
+        // declaration or a `var` declaration for the static side
+        // of a type, such as the global `Promise` type in lib.d.ts).
+        TypeReferenceSerializationKind[TypeReferenceSerializationKind["VoidType"] = 2] = "VoidType";
+        TypeReferenceSerializationKind[TypeReferenceSerializationKind["NumberLikeType"] = 3] = "NumberLikeType";
+        TypeReferenceSerializationKind[TypeReferenceSerializationKind["StringLikeType"] = 4] = "StringLikeType";
+        TypeReferenceSerializationKind[TypeReferenceSerializationKind["BooleanType"] = 5] = "BooleanType";
+        TypeReferenceSerializationKind[TypeReferenceSerializationKind["ArrayLikeType"] = 6] = "ArrayLikeType";
+        TypeReferenceSerializationKind[TypeReferenceSerializationKind["ESSymbolType"] = 7] = "ESSymbolType";
+        TypeReferenceSerializationKind[TypeReferenceSerializationKind["TypeWithCallSignature"] = 8] = "TypeWithCallSignature";
+        // with call signatures.
+        TypeReferenceSerializationKind[TypeReferenceSerializationKind["ObjectType"] = 9] = "ObjectType";
+    })(ts.TypeReferenceSerializationKind || (ts.TypeReferenceSerializationKind = {}));
+    var TypeReferenceSerializationKind = ts.TypeReferenceSerializationKind;
     (function (SymbolFlags) {
         SymbolFlags[SymbolFlags["None"] = 0] = "None";
         SymbolFlags[SymbolFlags["FunctionScopedVariable"] = 1] = "FunctionScopedVariable";
@@ -532,7 +553,7 @@ var ts;
         SymbolFlags[SymbolFlags["PropertyOrAccessor"] = 98308] = "PropertyOrAccessor";
         SymbolFlags[SymbolFlags["Export"] = 7340032] = "Export";
         /* @internal */
-        // The set of things we consider semantically classifiable.  Used to speed up the LS during 
+        // The set of things we consider semantically classifiable.  Used to speed up the LS during
         // classification.
         SymbolFlags[SymbolFlags["Classifiable"] = 788448] = "Classifiable";
     })(ts.SymbolFlags || (ts.SymbolFlags = {}));
@@ -1346,19 +1367,19 @@ var ts;
     ts.getNormalizedPathFromPathComponents = getNormalizedPathFromPathComponents;
     function getNormalizedPathComponentsOfUrl(url) {
         // Get root length of http://www.website.com/folder1/foler2/
-        // In this example the root is:  http://www.website.com/ 
+        // In this example the root is:  http://www.website.com/
         // normalized path components should be ["http://www.website.com/", "folder1", "folder2"]
         var urlLength = url.length;
         // Initial root length is http:// part
         var rootLength = url.indexOf("://") + "://".length;
         while (rootLength < urlLength) {
-            // Consume all immediate slashes in the protocol 
+            // Consume all immediate slashes in the protocol
             // eg.initial rootlength is just file:// but it needs to consume another "/" in file:///
             if (url.charCodeAt(rootLength) === 47 /* slash */) {
                 rootLength++;
             }
             else {
-                // non slash character means we continue proceeding to next component of root search 
+                // non slash character means we continue proceeding to next component of root search
                 break;
             }
         }
@@ -1369,15 +1390,15 @@ var ts;
         // Find the index of "/" after website.com so the root can be http://www.website.com/ (from existing http://)
         var indexOfNextSlash = url.indexOf(ts.directorySeparator, rootLength);
         if (indexOfNextSlash !== -1) {
-            // Found the "/" after the website.com so the root is length of http://www.website.com/ 
+            // Found the "/" after the website.com so the root is length of http://www.website.com/
             // and get components afetr the root normally like any other folder components
             rootLength = indexOfNextSlash + 1;
             return normalizedPathComponents(url, rootLength);
         }
         else {
-            // Can't find the host assume the rest of the string as component 
+            // Can't find the host assume the rest of the string as component
             // but make sure we append "/"  to it as root is not joined using "/"
-            // eg. if url passed in was http://website.com we want to use root as [http://website.com/] 
+            // eg. if url passed in was http://website.com we want to use root as [http://website.com/]
             // so that other path manipulations will be correct and it can be merged with relative paths correctly
             return [url + ts.directorySeparator];
         }
@@ -1730,16 +1751,16 @@ var ts;
                     var directories = [];
                     for (var _i = 0; _i < files.length; _i++) {
                         var current = files[_i];
-                        var name = ts.combinePaths(path, current);
-                        if (!ts.contains(exclude, getCanonicalPath(name))) {
-                            var stat = _fs.statSync(name);
+                        var name_3 = ts.combinePaths(path, current);
+                        if (!ts.contains(exclude, getCanonicalPath(name_3))) {
+                            var stat = _fs.statSync(name_3);
                             if (stat.isFile()) {
-                                if (!extension || ts.fileExtensionIs(name, extension)) {
-                                    result.push(name);
+                                if (!extension || ts.fileExtensionIs(name_3, extension)) {
+                                    result.push(name_3);
                                 }
                             }
                             else if (stat.isDirectory()) {
-                                directories.push(name);
+                                directories.push(name_3);
                             }
                         }
                     }
@@ -2641,9 +2662,9 @@ var ts;
     }
     function makeReverseMap(source) {
         var result = [];
-        for (var name_3 in source) {
-            if (source.hasOwnProperty(name_3)) {
-                result[source[name_3]] = name_3;
+        for (var name_4 in source) {
+            if (source.hasOwnProperty(name_4)) {
+                result[source[name_4]] = name_4;
             }
         }
         return result;
@@ -2705,7 +2726,7 @@ var ts;
     function computeLineAndCharacterOfPosition(lineStarts, position) {
         var lineNumber = ts.binarySearch(lineStarts, position);
         if (lineNumber < 0) {
-            // If the actual position was not found, 
+            // If the actual position was not found,
             // the binary search returns the negative value of the next line start
             // e.g. if the line starts at [5, 10, 23, 80] and the position requested was 20
             // then the search will return -2
@@ -2748,8 +2769,8 @@ var ts;
         //     \u000D              Carriage Return         <CR>
         //     \u2028              Line separator          <LS>
         //     \u2029              Paragraph separator     <PS>
-        // Only the characters in Table 3 are treated as line terminators. Other new line or line 
-        // breaking characters are treated as white space but not as line terminators. 
+        // Only the characters in Table 3 are treated as line terminators. Other new line or line
+        // breaking characters are treated as white space but not as line terminators.
         return ch === 10 /* lineFeed */ ||
             ch === 13 /* carriageReturn */ ||
             ch === 8232 /* lineSeparator */ ||
@@ -2850,7 +2871,7 @@ var ts;
         }
     }
     ts.skipTrivia = skipTrivia;
-    // All conflict markers consist of the same character repeated seven times.  If it is 
+    // All conflict markers consist of the same character repeated seven times.  If it is
     // a <<<<<<< or >>>>>>> marker then it is also followd by a space.
     var mergeConflictMarkerLength = "<<<<<<<".length;
     function isConflictMarkerTrivia(text, pos) {
@@ -2895,12 +2916,12 @@ var ts;
         }
         return pos;
     }
-    // Extract comments from the given source text starting at the given position. If trailing is 
-    // false, whitespace is skipped until the first line break and comments between that location 
-    // and the next token are returned.If trailing is true, comments occurring between the given 
-    // position and the next line break are returned.The return value is an array containing a 
-    // TextRange for each comment. Single-line comment ranges include the beginning '//' characters 
-    // but not the ending line break. Multi - line comment ranges include the beginning '/* and 
+    // Extract comments from the given source text starting at the given position. If trailing is
+    // false, whitespace is skipped until the first line break and comments between that location
+    // and the next token are returned.If trailing is true, comments occurring between the given
+    // position and the next line break are returned.The return value is an array containing a
+    // TextRange for each comment. Single-line comment ranges include the beginning '//' characters
+    // but not the ending line break. Multi - line comment ranges include the beginning '/* and
     // ending '*/' characters.The return value is undefined if no comments were found.
     function getCommentRanges(text, pos, trailing) {
         var result;
@@ -3907,7 +3928,7 @@ var ts;
     })(ts.ModuleInstanceState || (ts.ModuleInstanceState = {}));
     var ModuleInstanceState = ts.ModuleInstanceState;
     function getModuleInstanceState(node) {
-        // A module is uninstantiated if it contains only 
+        // A module is uninstantiated if it contains only
         // 1. interface declarations, type alias declarations
         if (node.kind === 212 /* InterfaceDeclaration */ || node.kind === 213 /* TypeAliasDeclaration */) {
             return 0 /* NonInstantiated */;
@@ -3947,7 +3968,7 @@ var ts;
     ts.getModuleInstanceState = getModuleInstanceState;
     var ContainerFlags;
     (function (ContainerFlags) {
-        // The current node is not a container, and no container manipulation should happen before 
+        // The current node is not a container, and no container manipulation should happen before
         // recursing into it.
         ContainerFlags[ContainerFlags["None"] = 0] = "None";
         // The current node is a container.  It should be set as the current container (and block-
@@ -3978,7 +3999,7 @@ var ts;
         var blockScopeContainer;
         var lastContainer;
         // If this file is an external module, then it is automatically in strict-mode according to
-        // ES6.  If it is not an external module, then we'll determine if it is in strict mode or 
+        // ES6.  If it is not an external module, then we'll determine if it is in strict mode or
         // not depending on if we see "use strict" in certain places (or if we hit a class/namespace).
         var inStrictMode = !!file.externalModuleIndicator;
         var symbolCount = 0;
@@ -4064,13 +4085,13 @@ var ts;
             if (name !== undefined) {
                 // Check and see if the symbol table already has a symbol with this name.  If not,
                 // create a new symbol with this name and add it to the table.  Note that we don't
-                // give the new symbol any flags *yet*.  This ensures that it will not conflict 
+                // give the new symbol any flags *yet*.  This ensures that it will not conflict
                 // with the 'excludes' flags we pass in.
                 //
                 // If we do get an existing symbol, see if it conflicts with the new symbol we're
                 // creating.  For example, a 'var' symbol and a 'class' symbol will conflict within
-                // the same symbol table.  If we have a conflict, report the issue on each 
-                // declaration we have for this symbol, and then create a new symbol for this 
+                // the same symbol table.  If we have a conflict, report the issue on each
+                // declaration we have for this symbol, and then create a new symbol for this
                 // declaration.
                 //
                 // If we created a new symbol, either because we didn't have a symbol with this name
@@ -4124,7 +4145,7 @@ var ts;
                 // ExportType, or ExportContainer flag, and an associated export symbol with all the correct flags set
                 // on it. There are 2 main reasons:
                 //
-                //   1. We treat locals and exports of the same name as mutually exclusive within a container. 
+                //   1. We treat locals and exports of the same name as mutually exclusive within a container.
                 //      That means the binder will issue a Duplicate Identifier error if you mix locals and exports
                 //      with the same name in the same container.
                 //      TODO: Make this a more specific error and decouple it from the exclusion logic.
@@ -4145,11 +4166,11 @@ var ts;
                 }
             }
         }
-        // All container nodes are kept on a linked list in declaration order. This list is used by 
-        // the getLocalNameOfContainer function in the type checker to validate that the local name 
+        // All container nodes are kept on a linked list in declaration order. This list is used by
+        // the getLocalNameOfContainer function in the type checker to validate that the local name
         // used for a container is unique.
         function bindChildren(node) {
-            // Before we recurse into a node's chilren, we first save the existing parent, container 
+            // Before we recurse into a node's chilren, we first save the existing parent, container
             // and block-container.  Then after we pop out of processing the children, we restore
             // these saved values.
             var saveParent = parent;
@@ -4163,9 +4184,9 @@ var ts;
             // may contain locals, we proactively initialize the .locals field. We do this because
             // it's highly likely that the .locals will be needed to place some child in (for example,
             // a parameter, or variable declaration).
-            // 
+            //
             // However, we do not proactively create the .locals for block-containers because it's
-            // totally normal and common for block-containers to never actually have a block-scoped 
+            // totally normal and common for block-containers to never actually have a block-scoped
             // variable in them.  We don't want to end up allocating an object for every 'block' we
             // run into when most of them won't be necessary.
             //
@@ -4225,7 +4246,7 @@ var ts;
                     return 2 /* IsBlockScopedContainer */;
                 case 189 /* Block */:
                     // do not treat blocks directly inside a function as a block-scoped-container.
-                    // Locals that reside in this block should go to the function locals. Othewise 'x' 
+                    // Locals that reside in this block should go to the function locals. Othewise 'x'
                     // would not appear to be a redeclaration of a block scoped local in the following
                     // example:
                     //
@@ -4238,7 +4259,7 @@ var ts;
                     // the block, then there would be no collision.
                     //
                     // By not creating a new block-scoped-container here, we ensure that both 'var x'
-                    // and 'let x' go into the Function-container's locals, and we do get a collision 
+                    // and 'let x' go into the Function-container's locals, and we do get a collision
                     // conflict.
                     return ts.isFunctionLike(node.parent) ? 0 /* None */ : 2 /* IsBlockScopedContainer */;
             }
@@ -4370,8 +4391,8 @@ var ts;
             // For a given function symbol "<...>(...) => T" we want to generate a symbol identical
             // to the one we would get for: { <...>(...): T }
             //
-            // We do that by making an anonymous type literal symbol, and then setting the function 
-            // symbol as its sole member. To the rest of the system, this symbol will be  indistinguishable 
+            // We do that by making an anonymous type literal symbol, and then setting the function
+            // symbol as its sole member. To the rest of the system, this symbol will be  indistinguishable
             // from an actual type literal symbol you would have gotten had you used the long form.
             var symbol = createSymbol(131072 /* Signature */, getDeclarationName(node));
             addDeclarationToSymbol(symbol, node, 131072 /* Signature */);
@@ -4458,7 +4479,7 @@ var ts;
             }
         }
         function getStrictModeIdentifierMessage(node) {
-            // Provide specialized messages to help the user understand why we think they're in 
+            // Provide specialized messages to help the user understand why we think they're in
             // strict mode.
             if (ts.getContainingClass(node)) {
                 return ts.Diagnostics.Identifier_expected_0_is_a_reserved_word_in_strict_mode_Class_definitions_are_automatically_in_strict_mode;
@@ -4507,7 +4528,7 @@ var ts;
             }
         }
         function getStrictModeEvalOrArgumentsMessage(node) {
-            // Provide specialized messages to help the user understand why we think they're in 
+            // Provide specialized messages to help the user understand why we think they're in
             // strict mode.
             if (ts.getContainingClass(node)) {
                 return ts.Diagnostics.Invalid_use_of_0_Class_definitions_are_automatically_in_strict_mode;
@@ -4565,17 +4586,17 @@ var ts;
                 updateStrictMode(node);
             }
             // First we bind declaration nodes to a symbol if possible.  We'll both create a symbol
-            // and then potentially add the symbol to an appropriate symbol table. Possible 
+            // and then potentially add the symbol to an appropriate symbol table. Possible
             // destination symbol tables are:
-            // 
+            //
             //  1) The 'exports' table of the current container's symbol.
             //  2) The 'members' table of the current container's symbol.
             //  3) The 'locals' table of the current container.
             //
-            // However, not all symbols will end up in any of these tables.  'Anonymous' symbols 
+            // However, not all symbols will end up in any of these tables.  'Anonymous' symbols
             // (like TypeLiterals for example) will not be put in any table.
             bindWorker(node);
-            // Then we recurse into the children of the node to bind them as well.  For certain 
+            // Then we recurse into the children of the node to bind them as well.  For certain
             // symbols we do specialized work when we recurse.  For example, we'll keep track of
             // the current 'container' node when it changes.  This helps us know which symbol table
             // a local should go into for example.
@@ -4755,9 +4776,9 @@ var ts;
             }
             var symbol = node.symbol;
             // TypeScript 1.0 spec (April 2014): 8.4
-            // Every class automatically contains a static property member named 'prototype', the 
+            // Every class automatically contains a static property member named 'prototype', the
             // type of which is an instantiation of the class type with type Any supplied as a type
-            // argument for each type parameter. It is an error to explicitly declare a static 
+            // argument for each type parameter. It is an error to explicitly declare a static
             // property member with the name 'prototype'.
             //
             // Note: we check for this here because this class may be merging into a module.  The
@@ -4815,7 +4836,7 @@ var ts;
             else {
                 declareSymbolAndAddToSymbolTable(node, 1 /* FunctionScopedVariable */, 107455 /* ParameterExcludes */);
             }
-            // If this is a property-parameter, then also declare the property symbol into the 
+            // If this is a property-parameter, then also declare the property symbol into the
             // containing class.
             if (node.flags & 112 /* AccessibilityModifier */ &&
                 node.parent.kind === 141 /* Constructor */ &&
@@ -4837,10 +4858,12 @@ var ts;
 (function (ts) {
     function getDeclarationOfKind(symbol, kind) {
         var declarations = symbol.declarations;
-        for (var _i = 0; _i < declarations.length; _i++) {
-            var declaration = declarations[_i];
-            if (declaration.kind === kind) {
-                return declaration;
+        if (declarations) {
+            for (var _i = 0; _i < declarations.length; _i++) {
+                var declaration = declarations[_i];
+                if (declaration.kind === kind) {
+                    return declaration;
+                }
             }
         }
         return undefined;
@@ -4895,7 +4918,7 @@ var ts;
             //  b) any of it's children reported that it had an error.
             var thisNodeOrAnySubNodesHasError = ((node.parserContextFlags & 16 /* ThisNodeHasError */) !== 0) ||
                 ts.forEachChild(node, containsParseError);
-            // If so, mark ourselves accordingly. 
+            // If so, mark ourselves accordingly.
             if (thisNodeOrAnySubNodesHasError) {
                 node.parserContextFlags |= 64 /* ThisNodeOrAnySubNodesHasError */;
             }
@@ -4930,13 +4953,13 @@ var ts;
     ts.getStartPosOfNode = getStartPosOfNode;
     // Returns true if this node is missing from the actual source code.  'missing' is different
     // from 'undefined/defined'.  When a node is undefined (which can happen for optional nodes
-    // in the tree), it is definitel missing.  HOwever, a node may be defined, but still be 
+    // in the tree), it is definitel missing.  HOwever, a node may be defined, but still be
     // missing.  This happens whenever the parser knows it needs to parse something, but can't
     // get anything in the source code that it expects at that location.  For example:
     //
     //          let a: ;
     //
-    // Here, the Type in the Type-Annotation is not-optional (as there is a colon in the source 
+    // Here, the Type in the Type-Annotation is not-optional (as there is a colon in the source
     // code).  So the parser will attempt to parse out a type, and will create an actual node.
     // However, this node will be 'missing' in the sense that no actual source-code/tokens are
     // contained within it.
@@ -5009,7 +5032,7 @@ var ts;
             isCatchClauseVariableDeclaration(declaration);
     }
     ts.isBlockOrCatchScoped = isBlockOrCatchScoped;
-    // Gets the nearest enclosing block scope container that has the provided node 
+    // Gets the nearest enclosing block scope container that has the provided node
     // as a descendant, that is not the provided node.
     function getEnclosingBlockScopeContainer(node) {
         var current = node.parent;
@@ -5103,7 +5126,7 @@ var ts;
                 break;
         }
         if (errorNode === undefined) {
-            // If we don't have a better node, then just set the error on the first token of 
+            // If we don't have a better node, then just set the error on the first token of
             // construct.
             return getSpanOfTokenAtPosition(sourceFile, node.pos);
         }
@@ -5131,10 +5154,10 @@ var ts;
         }
         return node;
     }
-    // Returns the node flags for this node and all relevant parent nodes.  This is done so that 
+    // Returns the node flags for this node and all relevant parent nodes.  This is done so that
     // nodes like variable declarations and binding elements can returned a view of their flags
     // that includes the modifiers from their container.  i.e. flags like export/declare aren't
-    // stored on the variable declaration directly, but on the containing variable statement 
+    // stored on the variable declaration directly, but on the containing variable statement
     // (if it has one).  Similarly, flags for let/const are store on the variable declaration
     // list.  By calling this function, all those flags are combined so that the client can treat
     // the node as if it actually had those flags.
@@ -5323,11 +5346,11 @@ var ts;
                     return;
                 default:
                     if (isFunctionLike(node)) {
-                        var name_4 = node.name;
-                        if (name_4 && name_4.kind === 133 /* ComputedPropertyName */) {
+                        var name_5 = node.name;
+                        if (name_5 && name_5.kind === 133 /* ComputedPropertyName */) {
                             // Note that we will not include methods/accessors of a class because they would require
                             // first descending into the class. This is by design.
-                            traverse(name_4.expression);
+                            traverse(name_5.expression);
                             return;
                         }
                     }
@@ -5436,7 +5459,7 @@ var ts;
                     node = node.parent;
                     break;
                 case 136 /* Decorator */:
-                    // Decorators are always applied outside of the body of a class or method. 
+                    // Decorators are always applied outside of the body of a class or method.
                     if (node.parent.kind === 135 /* Parameter */ && isClassElement(node.parent.parent)) {
                         // If the decorator's parent is a Parameter, we resolve the this container from
                         // the grandparent class declaration.
@@ -5492,7 +5515,7 @@ var ts;
                     node = node.parent;
                     break;
                 case 136 /* Decorator */:
-                    // Decorators are always applied outside of the body of a class or method. 
+                    // Decorators are always applied outside of the body of a class or method.
                     if (node.parent.kind === 135 /* Parameter */ && isClassElement(node.parent.parent)) {
                         // If the decorator's parent is a Parameter, we resolve the this container from
                         // the grandparent class declaration.
@@ -5789,7 +5812,7 @@ var ts;
     ts.getJSDocTemplateTag = getJSDocTemplateTag;
     function getCorrespondingJSDocParameterTag(parameter) {
         if (parameter.name && parameter.name.kind === 66 /* Identifier */) {
-            // If it's a parameter, see if the parent has a jsdoc comment with an @param 
+            // If it's a parameter, see if the parent has a jsdoc comment with an @param
             // annotation.
             var parameterName = parameter.name.text;
             var docComment = parameter.parent.jsDocComment;
@@ -5797,8 +5820,8 @@ var ts;
                 return ts.forEach(docComment.tags, function (t) {
                     if (t.kind === 264 /* JSDocParameterTag */) {
                         var parameterTag = t;
-                        var name_5 = parameterTag.preParameterName || parameterTag.postParameterName;
-                        if (name_5.text === parameterName) {
+                        var name_6 = parameterTag.preParameterName || parameterTag.postParameterName;
+                        if (name_6.text === parameterName) {
                             return t;
                         }
                     }
@@ -6412,6 +6435,10 @@ var ts;
         });
     }
     ts.getFirstConstructorWithBody = getFirstConstructorWithBody;
+    function getSetAccessorTypeAnnotationNode(accessor) {
+        return accessor && accessor.parameters.length > 0 && accessor.parameters[0].type;
+    }
+    ts.getSetAccessorTypeAnnotationNode = getSetAccessorTypeAnnotationNode;
     function shouldEmitToOwnFile(sourceFile, compilerOptions) {
         if (!isDeclarationFile(sourceFile)) {
             if ((isExternalModule(sourceFile) || !compilerOptions.out)) {
@@ -6888,17 +6915,17 @@ var ts;
             //
             //      0         10        20        30        40        50        60        70        80        90        100
             //      -------------------------------------------------------------------------------------------------------
-            //                |                                                 /                                          
-            //                |                                            /----                                           
-            //  T1            |                                       /----                                                
-            //                |                                  /----                                                     
-            //                |                             /----                                                          
+            //                |                                                 /
+            //                |                                            /----
+            //  T1            |                                       /----
+            //                |                                  /----
+            //                |                             /----
             //      -------------------------------------------------------------------------------------------------------
-            //                                     |                            \                                          
-            //                                     |                               \                                       
-            //   T2                                |                                 \                                     
-            //                                     |                                   \                                   
-            //                                     |                                      \                                
+            //                                     |                            \
+            //                                     |                               \
+            //   T2                                |                                 \
+            //                                     |                                   \
+            //                                     |                                      \
             //      -------------------------------------------------------------------------------------------------------
             //
             // Merging these turns out to not be too difficult.  First, determining the new start of the change is trivial
@@ -6906,17 +6933,17 @@ var ts;
             //
             //      0         10        20        30        40        50        60        70        80        90        100
             //      ------------------------------------------------------------*------------------------------------------
-            //                |                                                 /                                          
-            //                |                                            /----                                           
-            //  T1            |                                       /----                                                
-            //                |                                  /----                                                     
-            //                |                             /----                                                          
+            //                |                                                 /
+            //                |                                            /----
+            //  T1            |                                       /----
+            //                |                                  /----
+            //                |                             /----
             //      ----------------------------------------$-------------------$------------------------------------------
-            //                .                    |                            \                                          
-            //                .                    |                               \                                       
-            //   T2           .                    |                                 \                                     
-            //                .                    |                                   \                                   
-            //                .                    |                                      \                                
+            //                .                    |                            \
+            //                .                    |                               \
+            //   T2           .                    |                                 \
+            //                .                    |                                   \
+            //                .                    |                                      \
             //      ----------------------------------------------------------------------*--------------------------------
             //
             // (Note the dots represent the newly inferrred start.
@@ -6927,22 +6954,22 @@ var ts;
             //
             //      0         10        20        30        40        50        60        70        80        90        100
             //      --------------------------------------------------------------------------------*----------------------
-            //                |                                                                     /                      
-            //                |                                                                /----                       
-            //  T1            |                                                           /----                            
-            //                |                                                      /----                                 
-            //                |                                                 /----                                      
+            //                |                                                                     /
+            //                |                                                                /----
+            //  T1            |                                                           /----
+            //                |                                                      /----
+            //                |                                                 /----
             //      ------------------------------------------------------------$------------------------------------------
-            //                .                    |                            \                                          
-            //                .                    |                               \                                       
-            //   T2           .                    |                                 \                                     
-            //                .                    |                                   \                                   
-            //                .                    |                                      \                                
+            //                .                    |                            \
+            //                .                    |                               \
+            //   T2           .                    |                                 \
+            //                .                    |                                   \
+            //                .                    |                                      \
             //      ----------------------------------------------------------------------*--------------------------------
             //
             // In other words (in this case), we're recognizing that the second edit happened after where the first edit
             // ended with a delta of 20 characters (60 - 40).  Thus, if we go back in time to where the first edit started
-            // that's the same as if we started at char 80 instead of 60.  
+            // that's the same as if we started at char 80 instead of 60.
             //
             // As it so happens, the same logic applies if the second edit precedes the first edit.  In that case rahter
             // than pusing the first edit forward to match the second, we'll push the second edit forward to match the
@@ -6952,7 +6979,7 @@ var ts;
             // semantics: { { start: 10, length: 70 }, newLength: 60 }
             //
             // The math then works out as follows.
-            // If we have { oldStart1, oldEnd1, newEnd1 } and { oldStart2, oldEnd2, newEnd2 } then we can compute the 
+            // If we have { oldStart1, oldEnd1, newEnd1 } and { oldStart2, oldEnd2, newEnd2 } then we can compute the
             // final result like so:
             //
             // {
@@ -7546,7 +7573,7 @@ var ts;
             if (setParentNodes) {
                 fixupParentReferences(sourceFile);
             }
-            // If this is a javascript file, proactively see if we can get JSDoc comments for 
+            // If this is a javascript file, proactively see if we can get JSDoc comments for
             // relevant nodes in the file.  We'll use these to provide typing informaion if they're
             // available.
             if (ts.isJavaScript(fileName)) {
@@ -7636,11 +7663,11 @@ var ts;
             setContextFlag(val, 8 /* Await */);
         }
         function doOutsideOfContext(context, func) {
-            // contextFlagsToClear will contain only the context flags that are 
+            // contextFlagsToClear will contain only the context flags that are
             // currently set that we need to temporarily clear
             // We don't just blindly reset to the previous flags to ensure
             // that we do not mutate cached flags for the incremental
-            // parser (ThisNodeHasError, ThisNodeOrAnySubNodesHasError, and 
+            // parser (ThisNodeHasError, ThisNodeOrAnySubNodesHasError, and
             // HasAggregatedChildData).
             var contextFlagsToClear = context & contextFlags;
             if (contextFlagsToClear) {
@@ -7659,7 +7686,7 @@ var ts;
             // are not currently set that we need to temporarily enable.
             // We don't just blindly reset to the previous flags to ensure
             // that we do not mutate cached flags for the incremental
-            // parser (ThisNodeHasError, ThisNodeOrAnySubNodesHasError, and 
+            // parser (ThisNodeHasError, ThisNodeOrAnySubNodesHasError, and
             // HasAggregatedChildData).
             var contextFlagsToSet = context & ~contextFlags;
             if (contextFlagsToSet) {
@@ -8090,7 +8117,7 @@ var ts;
                 // if we see  "extends {}" then only treat the {} as what we're extending (and not
                 // the class body) if we have:
                 //
-                //      extends {} { 
+                //      extends {} {
                 //      extends {},
                 //      extends {} extends
                 //      extends {} implements
@@ -9158,7 +9185,7 @@ var ts;
         }
         function parseType() {
             // The rules about 'yield' only apply to actual code/expression contexts.  They don't
-            // apply to 'type' contexts.  So we disable these parameters here before moving on.            
+            // apply to 'type' contexts.  So we disable these parameters here before moving on.
             return doOutsideOfContext(10 /* TypeExcludesFlags */, parseTypeWorker);
         }
         function parseTypeWorker() {
@@ -10037,7 +10064,7 @@ var ts;
                     expression = finishNode(propertyAccess);
                     continue;
                 }
-                // when in the [Decorator] context, we do not parse ElementAccess as it could be part of a ComputedPropertyName                
+                // when in the [Decorator] context, we do not parse ElementAccess as it could be part of a ComputedPropertyName
                 if (!inDecoratorContext() && parseOptional(18 /* OpenBracketToken */)) {
                     var indexedAccess = createNode(164 /* ElementAccessExpression */, expression.pos);
                     indexedAccess.expression = expression;
@@ -10145,7 +10172,7 @@ var ts;
                 case 23 /* CommaToken */: // foo<x>,
                 case 14 /* OpenBraceToken */: // foo<x> {
                 // We don't want to treat these as type arguments.  Otherwise we'll parse this
-                // as an invocation expression.  Instead, we want to parse out the expression 
+                // as an invocation expression.  Instead, we want to parse out the expression
                 // in isolation from the type arguments.
                 default:
                     // Anything else treat as an expression.
@@ -10171,7 +10198,7 @@ var ts;
                 case 14 /* OpenBraceToken */:
                     return parseObjectLiteralExpression();
                 case 115 /* AsyncKeyword */:
-                    // Async arrow functions are parsed earlier in parseAssignmentExpressionOrHigher. 
+                    // Async arrow functions are parsed earlier in parseAssignmentExpressionOrHigher.
                     // If we encounter `async [no LineTerminator here] function` then this is an async
                     // function; otherwise, its an identifier.
                     if (!lookAhead(nextTokenIsFunctionKeywordOnSameLine)) {
@@ -10335,7 +10362,7 @@ var ts;
             setYieldContext(allowYield);
             var savedAwaitContext = inAwaitContext();
             setAwaitContext(allowAwait);
-            // We may be in a [Decorator] context when parsing a function expression or 
+            // We may be in a [Decorator] context when parsing a function expression or
             // arrow function. The body of the function is not in [Decorator] context.
             var saveDecoratorContext = inDecoratorContext();
             if (saveDecoratorContext) {
@@ -10695,7 +10722,7 @@ var ts;
             return isIdentifier() || token === 14 /* OpenBraceToken */ || token === 18 /* OpenBracketToken */;
         }
         function isLetDeclaration() {
-            // In ES6 'let' always starts a lexical declaration if followed by an identifier or { 
+            // In ES6 'let' always starts a lexical declaration if followed by an identifier or {
             // or [.
             return lookAhead(nextTokenIsIdentifierOrStartOfDestructuring);
         }
@@ -10799,7 +10826,7 @@ var ts;
                 default:
                     if (decorators || modifiers) {
                         // We reached this point because we encountered decorators and/or modifiers and assumed a declaration
-                        // would follow. For recovery and error reporting purposes, return an incomplete declaration.                        
+                        // would follow. For recovery and error reporting purposes, return an incomplete declaration.
                         var node = createMissingNode(228 /* MissingDeclaration */, true, ts.Diagnostics.Declaration_expected);
                         node.pos = fullStart;
                         node.decorators = decorators;
@@ -11166,8 +11193,8 @@ var ts;
             }
             if (decorators || modifiers) {
                 // treat this as a property declaration with a missing name.
-                var name_6 = createMissingNode(66 /* Identifier */, true, ts.Diagnostics.Declaration_expected);
-                return parsePropertyDeclaration(fullStart, decorators, modifiers, name_6, undefined);
+                var name_7 = createMissingNode(66 /* Identifier */, true, ts.Diagnostics.Declaration_expected);
+                return parsePropertyDeclaration(fullStart, decorators, modifiers, name_7, undefined);
             }
             // 'isClassMemberStart' should have hinted not to attempt parsing.
             ts.Debug.fail("Should not have attempted to parse class member declaration.");
@@ -11191,7 +11218,7 @@ var ts;
             node.heritageClauses = parseHeritageClauses(true);
             if (parseExpected(14 /* OpenBraceToken */)) {
                 // ClassTail[Yield,Await] : (Modified) See 14.5
-                //      ClassHeritage[?Yield,?Await]opt { ClassBody[?Yield,?Await]opt }                
+                //      ClassHeritage[?Yield,?Await]opt { ClassBody[?Yield,?Await]opt }
                 node.members = parseClassMembers();
                 parseExpected(15 /* CloseBraceToken */);
             }
@@ -11379,7 +11406,7 @@ var ts;
             return finishNode(importDeclaration);
         }
         function parseImportClause(identifier, fullStart) {
-            //ImportClause:
+            // ImportClause:
             //  ImportedDefaultBinding
             //  NameSpaceImport
             //  NamedImports
@@ -11927,8 +11954,8 @@ var ts;
                 ts.Debug.assert(end <= content.length);
                 var tags;
                 var pos;
-                // NOTE(cyrusn): This is essentially a handwritten scanner for JSDocComments. I 
-                // considered using an actual Scanner, but this would complicate things.  The 
+                // NOTE(cyrusn): This is essentially a handwritten scanner for JSDocComments. I
+                // considered using an actual Scanner, but this would complicate things.  The
                 // scanner would need to know it was in a Doc Comment.  Otherwise, it would then
                 // produce comments *inside* the doc comment.  In the end it was just easier to
                 // write a simple scanner rather than go that route.
@@ -12110,13 +12137,13 @@ var ts;
                     while (true) {
                         skipWhitespace();
                         var startPos = pos;
-                        var name_7 = scanIdentifier();
-                        if (!name_7) {
+                        var name_8 = scanIdentifier();
+                        if (!name_8) {
                             parseErrorAtPosition(startPos, 0, ts.Diagnostics.Identifier_expected);
                             return undefined;
                         }
-                        var typeParameter = createNode(134 /* TypeParameter */, name_7.pos);
-                        typeParameter.name = name_7;
+                        var typeParameter = createNode(134 /* TypeParameter */, name_8.pos);
+                        typeParameter.name = name_8;
                         finishNode(typeParameter, pos);
                         typeParameters.push(typeParameter);
                         skipWhitespace();
@@ -12236,8 +12263,9 @@ var ts;
             }
             return;
             function visitNode(node) {
+                var text = '';
                 if (aggressiveChecks && shouldCheckNode(node)) {
-                    var text = oldText.substring(node.pos, node.end);
+                    text = oldText.substring(node.pos, node.end);
                 }
                 // Ditch any existing LS children we may have created.  This way we can avoid
                 // moving them forward.
@@ -13320,15 +13348,15 @@ var ts;
             var moduleSymbol = resolveExternalModuleName(node, node.moduleSpecifier);
             var targetSymbol = resolveESModuleSymbol(moduleSymbol, node.moduleSpecifier);
             if (targetSymbol) {
-                var name_8 = specifier.propertyName || specifier.name;
-                if (name_8.text) {
-                    var symbolFromModule = getExportOfModule(targetSymbol, name_8.text);
-                    var symbolFromVariable = getPropertyOfVariable(targetSymbol, name_8.text);
+                var name_9 = specifier.propertyName || specifier.name;
+                if (name_9.text) {
+                    var symbolFromModule = getExportOfModule(targetSymbol, name_9.text);
+                    var symbolFromVariable = getPropertyOfVariable(targetSymbol, name_9.text);
                     var symbol = symbolFromModule && symbolFromVariable ?
                         combineValueAndTypeSymbols(symbolFromVariable, symbolFromModule) :
                         symbolFromModule || symbolFromVariable;
                     if (!symbol) {
-                        error(name_8, ts.Diagnostics.Module_0_has_no_exported_member_1, getFullyQualifiedName(moduleSymbol), ts.declarationNameToString(name_8));
+                        error(name_9, ts.Diagnostics.Module_0_has_no_exported_member_1, getFullyQualifiedName(moduleSymbol), ts.declarationNameToString(name_9));
                     }
                     return symbol;
                 }
@@ -13446,14 +13474,14 @@ var ts;
             return symbol.parent ? getFullyQualifiedName(symbol.parent) + "." + symbolToString(symbol) : symbolToString(symbol);
         }
         // Resolves a qualified name and any involved aliases
-        function resolveEntityName(name, meaning) {
+        function resolveEntityName(name, meaning, ignoreErrors) {
             if (ts.nodeIsMissing(name)) {
                 return undefined;
             }
             var symbol;
             if (name.kind === 66 /* Identifier */) {
                 var message = meaning === 1536 /* Namespace */ ? ts.Diagnostics.Cannot_find_namespace_0 : ts.Diagnostics.Cannot_find_name_0;
-                symbol = resolveName(name, name.text, meaning, message, name);
+                symbol = resolveName(name, name.text, meaning, ignoreErrors ? undefined : message, name);
                 if (!symbol) {
                     return undefined;
                 }
@@ -13461,13 +13489,15 @@ var ts;
             else if (name.kind === 132 /* QualifiedName */ || name.kind === 163 /* PropertyAccessExpression */) {
                 var left = name.kind === 132 /* QualifiedName */ ? name.left : name.expression;
                 var right = name.kind === 132 /* QualifiedName */ ? name.right : name.name;
-                var namespace = resolveEntityName(left, 1536 /* Namespace */);
+                var namespace = resolveEntityName(left, 1536 /* Namespace */, ignoreErrors);
                 if (!namespace || namespace === unknownSymbol || ts.nodeIsMissing(right)) {
                     return undefined;
                 }
                 symbol = getSymbol(getExportsOfSymbol(namespace), right.text, meaning);
                 if (!symbol) {
-                    error(right, ts.Diagnostics.Module_0_has_no_exported_member_1, getFullyQualifiedName(namespace), ts.declarationNameToString(right));
+                    if (!ignoreErrors) {
+                        error(right, ts.Diagnostics.Module_0_has_no_exported_member_1, getFullyQualifiedName(namespace), ts.declarationNameToString(right));
+                    }
                     return undefined;
                 }
             }
@@ -14693,14 +14723,14 @@ var ts;
             var type;
             if (pattern.kind === 158 /* ObjectBindingPattern */) {
                 // Use explicitly specified property name ({ p: xxx } form), or otherwise the implied name ({ p } form)
-                var name_9 = declaration.propertyName || declaration.name;
+                var name_10 = declaration.propertyName || declaration.name;
                 // Use type of the specified property, or otherwise, for a numeric name, the type of the numeric index signature,
                 // or otherwise the type of the string index signature.
-                type = getTypeOfPropertyOfType(parentType, name_9.text) ||
-                    isNumericLiteralName(name_9.text) && getIndexTypeOfType(parentType, 1 /* Number */) ||
+                type = getTypeOfPropertyOfType(parentType, name_10.text) ||
+                    isNumericLiteralName(name_10.text) && getIndexTypeOfType(parentType, 1 /* Number */) ||
                     getIndexTypeOfType(parentType, 0 /* String */);
                 if (!type) {
-                    error(name_9, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(parentType), ts.declarationNameToString(name_9));
+                    error(name_10, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(parentType), ts.declarationNameToString(name_10));
                     return unknownType;
                 }
             }
@@ -14912,16 +14942,13 @@ var ts;
             }
             return links.type;
         }
-        function getSetAccessorTypeAnnotationNode(accessor) {
-            return accessor && accessor.parameters.length > 0 && accessor.parameters[0].type;
-        }
         function getAnnotatedAccessorType(accessor) {
             if (accessor) {
                 if (accessor.kind === 142 /* GetAccessor */) {
                     return accessor.type && getTypeFromTypeNode(accessor.type);
                 }
                 else {
-                    var setterTypeAnnotation = getSetAccessorTypeAnnotationNode(accessor);
+                    var setterTypeAnnotation = ts.getSetAccessorTypeAnnotationNode(accessor);
                     return setterTypeAnnotation && getTypeFromTypeNode(setterTypeAnnotation);
                 }
             }
@@ -15757,6 +15784,14 @@ var ts;
         // maps primitive types and type parameters are to their apparent types.
         function getSignaturesOfType(type, kind) {
             return getSignaturesOfStructuredType(getApparentType(type), kind);
+        }
+        function typeHasConstructSignatures(type) {
+            var apparentType = getApparentType(type);
+            if (apparentType.flags & (80896 /* ObjectType */ | 16384 /* Union */)) {
+                var resolved = resolveStructuredTypeMembers(type);
+                return resolved.constructSignatures.length > 0;
+            }
+            return false;
         }
         function typeHasCallOrConstructSignatures(type) {
             var apparentType = getApparentType(type);
@@ -16983,7 +17018,6 @@ var ts;
                 }
                 var id = relation !== identityRelation || source.id < target.id ? source.id + "," + target.id : target.id + "," + source.id;
                 var related = relation[id];
-                //let related: RelationComparisonResult = undefined; // relation[id];
                 if (related !== undefined) {
                     // If we computed this relation already and it was failed and reported, or if we're not being asked to elaborate
                     // errors, we can use the cached value. Otherwise, recompute the relation
@@ -18545,7 +18579,7 @@ var ts;
             // corresponding set accessor has a type annotation, return statements in the function are contextually typed
             if (functionDecl.type ||
                 functionDecl.kind === 141 /* Constructor */ ||
-                functionDecl.kind === 142 /* GetAccessor */ && getSetAccessorTypeAnnotationNode(ts.getDeclarationOfKind(functionDecl.symbol, 143 /* SetAccessor */))) {
+                functionDecl.kind === 142 /* GetAccessor */ && ts.getSetAccessorTypeAnnotationNode(ts.getDeclarationOfKind(functionDecl.symbol, 143 /* SetAccessor */))) {
                 return getReturnTypeOfSignature(getSignatureFromDeclaration(functionDecl));
             }
             // Otherwise, if the containing function is contextually typed by a function type with exactly one call signature
@@ -19435,7 +19469,6 @@ var ts;
         function checkClassPropertyAccess(node, left, type, prop) {
             var flags = getDeclarationFlagsFromSymbol(prop);
             var declaringClass = getDeclaredTypeOfSymbol(prop.parent);
-            ;
             if (left.kind === 92 /* SuperKeyword */) {
                 var errorNode = node.kind === 163 /* PropertyAccessExpression */ ?
                     node.name :
@@ -19579,15 +19612,15 @@ var ts;
             // - Otherwise, if IndexExpr is of type Any, the String or Number primitive type, or an enum type, the property access is of type Any.
             // See if we can index as a property.
             if (node.argumentExpression) {
-                var name_10 = getPropertyNameForIndexedAccess(node.argumentExpression, indexType);
-                if (name_10 !== undefined) {
-                    var prop = getPropertyOfType(objectType, name_10);
+                var name_11 = getPropertyNameForIndexedAccess(node.argumentExpression, indexType);
+                if (name_11 !== undefined) {
+                    var prop = getPropertyOfType(objectType, name_11);
                     if (prop) {
                         getNodeLinks(node).resolvedSymbol = prop;
                         return getTypeOfSymbol(prop);
                     }
                     else if (isConstEnum) {
-                        error(node.argumentExpression, ts.Diagnostics.Property_0_does_not_exist_on_const_enum_1, name_10, symbolToString(objectType.symbol));
+                        error(node.argumentExpression, ts.Diagnostics.Property_0_does_not_exist_on_const_enum_1, name_11, symbolToString(objectType.symbol));
                         return unknownType;
                     }
                 }
@@ -21000,8 +21033,8 @@ var ts;
                         var index = n.argumentExpression;
                         var symbol = findSymbol(n.expression);
                         if (symbol && index && index.kind === 8 /* StringLiteral */) {
-                            var name_11 = index.text;
-                            var prop = getPropertyOfType(getTypeOfSymbol(symbol), name_11);
+                            var name_12 = index.text;
+                            var prop = getPropertyOfType(getTypeOfSymbol(symbol), name_12);
                             return prop && (prop.flags & 3 /* Variable */) !== 0 && (getDeclarationFlagsFromSymbol(prop) & 32768 /* Const */) !== 0;
                         }
                         return false;
@@ -21154,17 +21187,17 @@ var ts;
                 var p = properties[_i];
                 if (p.kind === 242 /* PropertyAssignment */ || p.kind === 243 /* ShorthandPropertyAssignment */) {
                     // TODO(andersh): Computed property support
-                    var name_12 = p.name;
+                    var name_13 = p.name;
                     var type = isTypeAny(sourceType)
                         ? sourceType
-                        : getTypeOfPropertyOfType(sourceType, name_12.text) ||
-                            isNumericLiteralName(name_12.text) && getIndexTypeOfType(sourceType, 1 /* Number */) ||
+                        : getTypeOfPropertyOfType(sourceType, name_13.text) ||
+                            isNumericLiteralName(name_13.text) && getIndexTypeOfType(sourceType, 1 /* Number */) ||
                             getIndexTypeOfType(sourceType, 0 /* String */);
                     if (type) {
-                        checkDestructuringAssignment(p.initializer || name_12, type);
+                        checkDestructuringAssignment(p.initializer || name_13, type);
                     }
                     else {
-                        error(name_12, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(sourceType), ts.declarationNameToString(name_12));
+                        error(name_13, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(sourceType), ts.declarationNameToString(name_13));
                     }
                 }
                 else {
@@ -22610,13 +22643,10 @@ var ts;
             // as if it were an expression so that we can emit the type in a value position when we
             // serialize the type metadata.
             if (node && node.kind === 148 /* TypeReference */) {
-                var type = getTypeFromTypeNode(node);
-                var shouldCheckIfUnknownType = type === unknownType && compilerOptions.isolatedModules;
-                if (!type || (!shouldCheckIfUnknownType && type.flags & (4194431 /* Intrinsic */ | 132 /* NumberLike */ | 258 /* StringLike */))) {
-                    return;
-                }
-                if (shouldCheckIfUnknownType || type.symbol.valueDeclaration) {
-                    checkExpression(node.typeName);
+                var root = getFirstIdentifier(node.typeName);
+                var rootSymbol = resolveName(root, root.text, 107455 /* Value */, undefined, undefined);
+                if (rootSymbol && rootSymbol.flags & 8388608 /* Alias */ && !isInTypeQuery(node) && !isConstEnumOrConstEnumOnlyModule(resolveAlias(rootSymbol))) {
+                    markAliasSymbolAsReferenced(rootSymbol);
                 }
             }
         }
@@ -22639,7 +22669,7 @@ var ts;
                     checkTypeNodeAsExpression(node.type);
                     break;
                 case 143 /* SetAccessor */:
-                    checkTypeNodeAsExpression(getSetAccessorTypeAnnotationNode(node));
+                    checkTypeNodeAsExpression(ts.getSetAccessorTypeAnnotationNode(node));
                     break;
             }
         }
@@ -22916,8 +22946,8 @@ var ts;
                         // otherwise if variable has an initializer - show error that initialization will fail
                         // since LHS will be block scoped name instead of function scoped
                         if (!namesShareScope) {
-                            var name_13 = symbolToString(localDeclarationSymbol);
-                            error(node, ts.Diagnostics.Cannot_initialize_outer_scoped_variable_0_in_the_same_scope_as_block_scoped_declaration_1, name_13, name_13);
+                            var name_14 = symbolToString(localDeclarationSymbol);
+                            error(node, ts.Diagnostics.Cannot_initialize_outer_scoped_variable_0_in_the_same_scope_as_block_scoped_declaration_1, name_14, name_14);
                         }
                     }
                 }
@@ -23383,7 +23413,7 @@ var ts;
             // TODO: Check that target label is valid
         }
         function isGetAccessorWithAnnotatatedSetAccessor(node) {
-            return !!(node.kind === 142 /* GetAccessor */ && getSetAccessorTypeAnnotationNode(ts.getDeclarationOfKind(node.symbol, 143 /* SetAccessor */)));
+            return !!(node.kind === 142 /* GetAccessor */ && ts.getSetAccessorTypeAnnotationNode(ts.getDeclarationOfKind(node.symbol, 143 /* SetAccessor */)));
         }
         function checkReturnStatement(node) {
             // Grammar checking
@@ -24768,18 +24798,25 @@ var ts;
                             copySymbols(getSymbolOfNode(location).exports, meaning & 8 /* EnumMember */);
                             break;
                         case 183 /* ClassExpression */:
-                            if (location.name) {
+                            var className = location.name;
+                            if (className) {
                                 copySymbol(location.symbol, meaning);
                             }
-                        // Fall through
+                        // fall through; this fall-through is necessary because we would like to handle
+                        // type parameter inside class expression similar to how we handle it in classDeclaration and interface Declaration
                         case 211 /* ClassDeclaration */:
                         case 212 /* InterfaceDeclaration */:
+                            // If we didn't come from static member of class or interface,
+                            // add the type parameters into the symbol table 
+                            // (type parameters of classDeclaration/classExpression and interface are in member property of the symbol.
+                            // Note: that the memberFlags come from previous iteration.
                             if (!(memberFlags & 128 /* Static */)) {
                                 copySymbols(getSymbolOfNode(location).members, meaning & 793056 /* Type */);
                             }
                             break;
                         case 170 /* FunctionExpression */:
-                            if (location.name) {
+                            var funcName = location.name;
+                            if (funcName) {
                                 copySymbol(location.symbol, meaning);
                             }
                             break;
@@ -24789,11 +24826,20 @@ var ts;
                 }
                 copySymbols(globals, meaning);
             }
-            // Returns 'true' if we should stop processing symbols.
+            /**
+             * Copy the given symbol into symbol tables if the symbol has the given meaning
+             * and it doesn't already existed in the symbol table
+             * @param key a key for storing in symbol table; if undefined, use symbol.name
+             * @param symbol the symbol to be added into symbol table
+             * @param meaning meaning of symbol to filter by before adding to symbol table
+             */
             function copySymbol(symbol, meaning) {
                 if (symbol.flags & meaning) {
                     var id = symbol.name;
-                    if (!isReservedMemberName(id) && !ts.hasProperty(symbols, id)) {
+                    // We will copy all symbol regardless of its reserved name because
+                    // symbolsToArray will check whether the key is a reserved name and
+                    // it will not copy symbol with reserved name to the array
+                    if (!ts.hasProperty(symbols, id)) {
                         symbols[id] = symbol;
                     }
                 }
@@ -24801,9 +24847,8 @@ var ts;
             function copySymbols(source, meaning) {
                 if (meaning) {
                     for (var id in source) {
-                        if (ts.hasProperty(source, id)) {
-                            copySymbol(source[id], meaning);
-                        }
+                        var symbol = source[id];
+                        copySymbol(symbol, meaning);
                     }
                 }
             }
@@ -25060,9 +25105,9 @@ var ts;
         function getRootSymbols(symbol) {
             if (symbol.flags & 268435456 /* SyntheticProperty */) {
                 var symbols = [];
-                var name_14 = symbol.name;
+                var name_15 = symbol.name;
                 ts.forEach(getSymbolLinks(symbol).containingType.types, function (t) {
-                    symbols.push(getPropertyOfType(t, name_14));
+                    symbols.push(getPropertyOfType(t, name_15));
                 });
                 return symbols;
             }
@@ -25230,196 +25275,50 @@ var ts;
             }
             return undefined;
         }
-        /** Serializes an EntityName (with substitutions) to an appropriate JS constructor value. Used by the __metadata decorator. */
-        function serializeEntityName(node, fallbackPath) {
-            if (node.kind === 66 /* Identifier */) {
-                // TODO(ron.buckton): The getExpressionNameSubstitution function has been removed, but calling it
-                // here has no effect anyway as an identifier in a type name is not an expression.
-                // var substitution = getExpressionNameSubstitution(<Identifier>node, getGeneratedNameForNode);
-                // var text = substitution || (<Identifier>node).text;
-                var text = node.text;
-                if (fallbackPath) {
-                    fallbackPath.push(text);
-                }
-                else {
-                    return text;
-                }
+        function isFunctionType(type) {
+            return type.flags & 80896 /* ObjectType */ && getSignaturesOfType(type, 0 /* Call */).length > 0;
+        }
+        function getTypeReferenceSerializationKind(node) {
+            // Resolve the symbol as a value to ensure the type can be reached at runtime during emit.
+            var symbol = resolveEntityName(node.typeName, 107455 /* Value */, true);
+            var constructorType = symbol ? getTypeOfSymbol(symbol) : undefined;
+            if (constructorType && isConstructorType(constructorType)) {
+                return ts.TypeReferenceSerializationKind.TypeWithConstructSignatureAndValue;
+            }
+            var type = getTypeFromTypeNode(node);
+            if (type === unknownType) {
+                return ts.TypeReferenceSerializationKind.Unknown;
+            }
+            else if (type.flags & 1 /* Any */) {
+                return ts.TypeReferenceSerializationKind.ObjectType;
+            }
+            else if (allConstituentTypesHaveKind(type, 16 /* Void */)) {
+                return ts.TypeReferenceSerializationKind.VoidType;
+            }
+            else if (allConstituentTypesHaveKind(type, 8 /* Boolean */)) {
+                return ts.TypeReferenceSerializationKind.BooleanType;
+            }
+            else if (allConstituentTypesHaveKind(type, 132 /* NumberLike */)) {
+                return ts.TypeReferenceSerializationKind.NumberLikeType;
+            }
+            else if (allConstituentTypesHaveKind(type, 258 /* StringLike */)) {
+                return ts.TypeReferenceSerializationKind.StringLikeType;
+            }
+            else if (allConstituentTypesHaveKind(type, 8192 /* Tuple */)) {
+                return ts.TypeReferenceSerializationKind.ArrayLikeType;
+            }
+            else if (allConstituentTypesHaveKind(type, 4194304 /* ESSymbol */)) {
+                return ts.TypeReferenceSerializationKind.ESSymbolType;
+            }
+            else if (isFunctionType(type)) {
+                return ts.TypeReferenceSerializationKind.TypeWithCallSignature;
+            }
+            else if (isArrayType(type)) {
+                return ts.TypeReferenceSerializationKind.ArrayLikeType;
             }
             else {
-                var left = serializeEntityName(node.left, fallbackPath);
-                var right = serializeEntityName(node.right, fallbackPath);
-                if (!fallbackPath) {
-                    return left + "." + right;
-                }
+                return ts.TypeReferenceSerializationKind.ObjectType;
             }
-        }
-        /** Serializes a TypeReferenceNode to an appropriate JS constructor value. Used by the __metadata decorator. */
-        function serializeTypeReferenceNode(node) {
-            // serialization of a TypeReferenceNode uses the following rules:
-            //
-            // * The serialized type of a TypeReference that is `void` is "void 0".
-            // * The serialized type of a TypeReference that is a `boolean` is "Boolean".
-            // * The serialized type of a TypeReference that is an enum or `number` is "Number".
-            // * The serialized type of a TypeReference that is a string literal or `string` is "String".
-            // * The serialized type of a TypeReference that is a tuple is "Array".
-            // * The serialized type of a TypeReference that is a `symbol` is "Symbol".
-            // * The serialized type of a TypeReference with a value declaration is its entity name.
-            // * The serialized type of a TypeReference with a call or construct signature is "Function".
-            // * The serialized type of any other type is "Object".
-            var type = getTypeFromTypeNode(node);
-            if (type.flags & 16 /* Void */) {
-                return "void 0";
-            }
-            else if (type.flags & 8 /* Boolean */) {
-                return "Boolean";
-            }
-            else if (type.flags & 132 /* NumberLike */) {
-                return "Number";
-            }
-            else if (type.flags & 258 /* StringLike */) {
-                return "String";
-            }
-            else if (type.flags & 8192 /* Tuple */) {
-                return "Array";
-            }
-            else if (type.flags & 4194304 /* ESSymbol */) {
-                return "Symbol";
-            }
-            else if (type === unknownType) {
-                var fallbackPath = [];
-                serializeEntityName(node.typeName, fallbackPath);
-                return fallbackPath;
-            }
-            else if (type.symbol && type.symbol.valueDeclaration) {
-                return serializeEntityName(node.typeName);
-            }
-            else if (typeHasCallOrConstructSignatures(type)) {
-                return "Function";
-            }
-            return "Object";
-        }
-        /** Serializes a TypeNode to an appropriate JS constructor value. Used by the __metadata decorator. */
-        function serializeTypeNode(node) {
-            // serialization of a TypeNode uses the following rules:
-            //
-            // * The serialized type of `void` is "void 0" (undefined).
-            // * The serialized type of a parenthesized type is the serialized type of its nested type.
-            // * The serialized type of a Function or Constructor type is "Function".
-            // * The serialized type of an Array or Tuple type is "Array".
-            // * The serialized type of `boolean` is "Boolean".
-            // * The serialized type of `string` or a string-literal type is "String".
-            // * The serialized type of a type reference is handled by `serializeTypeReferenceNode`.
-            // * The serialized type of any other type node is "Object".
-            if (node) {
-                switch (node.kind) {
-                    case 100 /* VoidKeyword */:
-                        return "void 0";
-                    case 157 /* ParenthesizedType */:
-                        return serializeTypeNode(node.type);
-                    case 149 /* FunctionType */:
-                    case 150 /* ConstructorType */:
-                        return "Function";
-                    case 153 /* ArrayType */:
-                    case 154 /* TupleType */:
-                        return "Array";
-                    case 117 /* BooleanKeyword */:
-                        return "Boolean";
-                    case 127 /* StringKeyword */:
-                    case 8 /* StringLiteral */:
-                        return "String";
-                    case 125 /* NumberKeyword */:
-                        return "Number";
-                    case 148 /* TypeReference */:
-                        return serializeTypeReferenceNode(node);
-                    case 151 /* TypeQuery */:
-                    case 152 /* TypeLiteral */:
-                    case 155 /* UnionType */:
-                    case 156 /* IntersectionType */:
-                    case 114 /* AnyKeyword */:
-                        break;
-                    default:
-                        ts.Debug.fail("Cannot serialize unexpected type node.");
-                        break;
-                }
-            }
-            return "Object";
-        }
-        /** Serializes the type of a declaration to an appropriate JS constructor value. Used by the __metadata decorator for a class member. */
-        function serializeTypeOfNode(node) {
-            // serialization of the type of a declaration uses the following rules:
-            //
-            // * The serialized type of a ClassDeclaration is "Function"
-            // * The serialized type of a ParameterDeclaration is the serialized type of its type annotation.
-            // * The serialized type of a PropertyDeclaration is the serialized type of its type annotation.
-            // * The serialized type of an AccessorDeclaration is the serialized type of the return type annotation of its getter or parameter type annotation of its setter.
-            // * The serialized type of any other FunctionLikeDeclaration is "Function".
-            // * The serialized type of any other node is "void 0".
-            //
-            // For rules on serializing type annotations, see `serializeTypeNode`.
-            switch (node.kind) {
-                case 211 /* ClassDeclaration */: return "Function";
-                case 138 /* PropertyDeclaration */: return serializeTypeNode(node.type);
-                case 135 /* Parameter */: return serializeTypeNode(node.type);
-                case 142 /* GetAccessor */: return serializeTypeNode(node.type);
-                case 143 /* SetAccessor */: return serializeTypeNode(getSetAccessorTypeAnnotationNode(node));
-            }
-            if (ts.isFunctionLike(node)) {
-                return "Function";
-            }
-            return "void 0";
-        }
-        /** Serializes the parameter types of a function or the constructor of a class. Used by the __metadata decorator for a method or set accessor. */
-        function serializeParameterTypesOfNode(node) {
-            // serialization of parameter types uses the following rules:
-            //
-            // * If the declaration is a class, the parameters of the first constructor with a body are used.
-            // * If the declaration is function-like and has a body, the parameters of the function are used.
-            //
-            // For the rules on serializing the type of each parameter declaration, see `serializeTypeOfDeclaration`.
-            if (node) {
-                var valueDeclaration;
-                if (node.kind === 211 /* ClassDeclaration */) {
-                    valueDeclaration = ts.getFirstConstructorWithBody(node);
-                }
-                else if (ts.isFunctionLike(node) && ts.nodeIsPresent(node.body)) {
-                    valueDeclaration = node;
-                }
-                if (valueDeclaration) {
-                    var result;
-                    var parameters = valueDeclaration.parameters;
-                    var parameterCount = parameters.length;
-                    if (parameterCount > 0) {
-                        result = new Array(parameterCount);
-                        for (var i = 0; i < parameterCount; i++) {
-                            if (parameters[i].dotDotDotToken) {
-                                var parameterType = parameters[i].type;
-                                if (parameterType.kind === 153 /* ArrayType */) {
-                                    parameterType = parameterType.elementType;
-                                }
-                                else if (parameterType.kind === 148 /* TypeReference */ && parameterType.typeArguments && parameterType.typeArguments.length === 1) {
-                                    parameterType = parameterType.typeArguments[0];
-                                }
-                                else {
-                                    parameterType = undefined;
-                                }
-                                result[i] = serializeTypeNode(parameterType);
-                            }
-                            else {
-                                result[i] = serializeTypeOfNode(parameters[i]);
-                            }
-                        }
-                        return result;
-                    }
-                }
-            }
-            return emptyArray;
-        }
-        /** Serializes the return type of function. Used by the __metadata decorator for a method. */
-        function serializeReturnTypeOfNode(node) {
-            if (node && ts.isFunctionLike(node)) {
-                return serializeTypeNode(node.type);
-            }
-            return "void 0";
         }
         function writeTypeOfDeclaration(declaration, enclosingDeclaration, flags, writer) {
             // Get type of the symbol if this is the valid symbol otherwise get type at location
@@ -25500,9 +25399,7 @@ var ts;
                 collectLinkedAliases: collectLinkedAliases,
                 getBlockScopedVariableId: getBlockScopedVariableId,
                 getReferencedValueDeclaration: getReferencedValueDeclaration,
-                serializeTypeOfNode: serializeTypeOfNode,
-                serializeParameterTypesOfNode: serializeParameterTypesOfNode,
-                serializeReturnTypeOfNode: serializeReturnTypeOfNode
+                getTypeReferenceSerializationKind: getTypeReferenceSerializationKind
             };
         }
         function initializeTypeChecker() {
@@ -26064,11 +25961,11 @@ var ts;
             var GetOrSetAccessor = GetAccessor | SetAccesor;
             for (var _i = 0, _a = node.properties; _i < _a.length; _i++) {
                 var prop = _a[_i];
-                var name_15 = prop.name;
+                var name_16 = prop.name;
                 if (prop.kind === 184 /* OmittedExpression */ ||
-                    name_15.kind === 133 /* ComputedPropertyName */) {
+                    name_16.kind === 133 /* ComputedPropertyName */) {
                     // If the name is not a ComputedPropertyName, the grammar checking will skip it
-                    checkGrammarComputedPropertyName(name_15);
+                    checkGrammarComputedPropertyName(name_16);
                     continue;
                 }
                 // ECMA-262 11.1.5 Object Initialiser
@@ -26083,8 +25980,8 @@ var ts;
                 if (prop.kind === 242 /* PropertyAssignment */ || prop.kind === 243 /* ShorthandPropertyAssignment */) {
                     // Grammar checking for computedPropertName and shorthandPropertyAssignment
                     checkGrammarForInvalidQuestionMark(prop, prop.questionToken, ts.Diagnostics.An_object_member_cannot_be_declared_optional);
-                    if (name_15.kind === 7 /* NumericLiteral */) {
-                        checkGrammarNumericLiteral(name_15);
+                    if (name_16.kind === 7 /* NumericLiteral */) {
+                        checkGrammarNumericLiteral(name_16);
                     }
                     currentKind = Property;
                 }
@@ -26100,24 +25997,24 @@ var ts;
                 else {
                     ts.Debug.fail("Unexpected syntax kind:" + prop.kind);
                 }
-                if (!ts.hasProperty(seen, name_15.text)) {
-                    seen[name_15.text] = currentKind;
+                if (!ts.hasProperty(seen, name_16.text)) {
+                    seen[name_16.text] = currentKind;
                 }
                 else {
-                    var existingKind = seen[name_15.text];
+                    var existingKind = seen[name_16.text];
                     if (currentKind === Property && existingKind === Property) {
                         continue;
                     }
                     else if ((currentKind & GetOrSetAccessor) && (existingKind & GetOrSetAccessor)) {
                         if (existingKind !== GetOrSetAccessor && currentKind !== existingKind) {
-                            seen[name_15.text] = currentKind | existingKind;
+                            seen[name_16.text] = currentKind | existingKind;
                         }
                         else {
-                            return grammarErrorOnNode(name_15, ts.Diagnostics.An_object_literal_cannot_have_multiple_get_Slashset_accessors_with_the_same_name);
+                            return grammarErrorOnNode(name_16, ts.Diagnostics.An_object_literal_cannot_have_multiple_get_Slashset_accessors_with_the_same_name);
                         }
                     }
                     else {
-                        return grammarErrorOnNode(name_15, ts.Diagnostics.An_object_literal_cannot_have_property_and_accessor_with_the_same_name);
+                        return grammarErrorOnNode(name_16, ts.Diagnostics.An_object_literal_cannot_have_property_and_accessor_with_the_same_name);
                     }
                 }
             }
@@ -26130,12 +26027,12 @@ var ts;
                     continue;
                 }
                 var jsxAttr = attr;
-                var name_16 = jsxAttr.name;
-                if (!ts.hasProperty(seen, name_16.text)) {
-                    seen[name_16.text] = true;
+                var name_17 = jsxAttr.name;
+                if (!ts.hasProperty(seen, name_17.text)) {
+                    seen[name_17.text] = true;
                 }
                 else {
-                    return grammarErrorOnNode(name_16, ts.Diagnostics.JSX_elements_cannot_have_multiple_attributes_with_the_same_name);
+                    return grammarErrorOnNode(name_17, ts.Diagnostics.JSX_elements_cannot_have_multiple_attributes_with_the_same_name);
                 }
                 var initializer = jsxAttr.initializer;
                 if (initializer && initializer.kind === 237 /* JsxExpression */ && !initializer.expression) {
@@ -26983,9 +26880,9 @@ var ts;
             }
             var count = 0;
             while (true) {
-                var name_17 = baseName + "_" + (++count);
-                if (!ts.hasProperty(currentSourceFile.identifiers, name_17)) {
-                    return name_17;
+                var name_18 = baseName + "_" + (++count);
+                if (!ts.hasProperty(currentSourceFile.identifiers, name_18)) {
+                    return name_18;
                 }
             }
         }
@@ -28197,10 +28094,10 @@ var ts;
             // Note that names generated by makeTempVariableName and makeUniqueName will never conflict.
             function makeTempVariableName(flags) {
                 if (flags && !(tempFlags & flags)) {
-                    var name = flags === 268435456 /* _i */ ? "_i" : "_n";
-                    if (isUniqueName(name)) {
+                    var name_19 = flags === 268435456 /* _i */ ? "_i" : "_n";
+                    if (isUniqueName(name_19)) {
                         tempFlags |= flags;
-                        return name;
+                        return name_19;
                     }
                 }
                 while (true) {
@@ -28208,9 +28105,9 @@ var ts;
                     tempFlags++;
                     // Skip over 'i' and 'n'
                     if (count !== 8 && count !== 13) {
-                        var name_18 = count < 26 ? "_" + String.fromCharCode(97 /* a */ + count) : "_" + (count - 26);
-                        if (isUniqueName(name_18)) {
-                            return name_18;
+                        var name_20 = count < 26 ? "_" + String.fromCharCode(97 /* a */ + count) : "_" + (count - 26);
+                        if (isUniqueName(name_20)) {
+                            return name_20;
                         }
                     }
                 }
@@ -28435,8 +28332,8 @@ var ts;
                                 // Child scopes are always shown with a dot (even if they have no name),
                                 // unless it is a computed property. Then it is shown with brackets,
                                 // but the brackets are included in the name.
-                                var name_19 = node.name;
-                                if (!name_19 || name_19.kind !== 133 /* ComputedPropertyName */) {
+                                var name_21 = node.name;
+                                if (!name_21 || name_21.kind !== 133 /* ComputedPropertyName */) {
                                     scopeName = "." + scopeName;
                                 }
                                 scopeName = sourceMapData.sourceMapNames[parentIndex] + scopeName;
@@ -28465,10 +28362,10 @@ var ts;
                         node.kind === 214 /* EnumDeclaration */) {
                         // Declaration and has associated name use it
                         if (node.name) {
-                            var name_20 = node.name;
+                            var name_22 = node.name;
                             // For computed property names, the text will include the brackets
-                            scopeName = name_20.kind === 133 /* ComputedPropertyName */
-                                ? ts.getTextOfNode(name_20)
+                            scopeName = name_22.kind === 133 /* ComputedPropertyName */
+                                ? ts.getTextOfNode(name_22)
                                 : node.name.text;
                         }
                         recordScopeNameStart(scopeName);
@@ -29173,7 +29070,7 @@ var ts;
                 }
                 else if (node.kind === 133 /* ComputedPropertyName */) {
                     // if this is a decorated computed property, we will need to capture the result
-                    // of the property expression so that we can apply decorators later. This is to ensure 
+                    // of the property expression so that we can apply decorators later. This is to ensure
                     // we don't introduce unintended side effects:
                     //
                     //   class C {
@@ -29767,8 +29664,8 @@ var ts;
                 }
                 return false;
             }
-            // Returns 'true' if the code was actually indented, false otherwise. 
-            // If the code is not indented, an optional valueToWriteWhenNotIndenting will be 
+            // Returns 'true' if the code was actually indented, false otherwise.
+            // If the code is not indented, an optional valueToWriteWhenNotIndenting will be
             // emitted instead.
             function indentIfOnDifferentLines(parent, node1, node2, valueToWriteWhenNotIndenting) {
                 var realNodesAreOnDifferentLines = !ts.nodeIsSynthesized(parent) && !nodeEndIsOnSameLineAsNodeStart(node1, node2);
@@ -29792,7 +29689,7 @@ var ts;
                 }
                 emit(node.expression);
                 var indentedBeforeDot = indentIfOnDifferentLines(node, node.expression, node.dotToken);
-                // 1 .toString is a valid property access, emit a space after the literal 
+                // 1 .toString is a valid property access, emit a space after the literal
                 var shouldEmitSpace;
                 if (!indentedBeforeDot && node.expression.kind === 7 /* NumericLiteral */) {
                     var text = ts.getSourceTextOfNodeFromSourceFile(currentSourceFile, node.expression);
@@ -29812,6 +29709,40 @@ var ts;
                 emit(node.left);
                 write(".");
                 emit(node.right);
+            }
+            function emitQualifiedNameAsExpression(node, useFallback) {
+                if (node.left.kind === 66 /* Identifier */) {
+                    emitEntityNameAsExpression(node.left, useFallback);
+                }
+                else if (useFallback) {
+                    var temp = createAndRecordTempVariable(0 /* Auto */);
+                    write("(");
+                    emitNodeWithoutSourceMap(temp);
+                    write(" = ");
+                    emitEntityNameAsExpression(node.left, true);
+                    write(") && ");
+                    emitNodeWithoutSourceMap(temp);
+                }
+                else {
+                    emitEntityNameAsExpression(node.left, false);
+                }
+                write(".");
+                emitNodeWithoutSourceMap(node.right);
+            }
+            function emitEntityNameAsExpression(node, useFallback) {
+                switch (node.kind) {
+                    case 66 /* Identifier */:
+                        if (useFallback) {
+                            write("typeof ");
+                            emitExpressionIdentifier(node);
+                            write(" !== 'undefined' && ");
+                        }
+                        emitExpressionIdentifier(node);
+                        break;
+                    case 132 /* QualifiedName */:
+                        emitQualifiedNameAsExpression(node, useFallback);
+                        break;
+                }
             }
             function emitIndexedAccess(node) {
                 if (tryEmitConstantValue(node)) {
@@ -30158,7 +30089,7 @@ var ts;
                 emit(node.whenFalse);
                 decreaseIndentIf(indentedBeforeColon, indentedAfterColon);
             }
-            // Helper function to decrease the indent if we previously indented.  Allows multiple 
+            // Helper function to decrease the indent if we previously indented.  Allows multiple
             // previous indent values to be considered at a time.  This also allows caller to just
             // call this once, passing in all their appropriate indent values, instead of needing
             // to call this helper function multiple times.
@@ -31002,12 +30933,12 @@ var ts;
             function emitParameter(node) {
                 if (languageVersion < 2 /* ES6 */) {
                     if (ts.isBindingPattern(node.name)) {
-                        var name_21 = createTempVariable(0 /* Auto */);
+                        var name_23 = createTempVariable(0 /* Auto */);
                         if (!tempParameters) {
                             tempParameters = [];
                         }
-                        tempParameters.push(name_21);
-                        emit(name_21);
+                        tempParameters.push(name_23);
+                        emit(name_23);
                     }
                     else {
                         emit(node.name);
@@ -31206,7 +31137,7 @@ var ts;
                 // An async function is emit as an outer function that calls an inner
                 // generator function. To preserve lexical bindings, we pass the current
                 // `this` and `arguments` objects to `__awaiter`. The generator function
-                // passed to `__awaiter` is executed inside of the callback to the 
+                // passed to `__awaiter` is executed inside of the callback to the
                 // promise constructor.
                 //
                 // The emit for an async arrow without a lexical `arguments` binding might be:
@@ -31316,7 +31247,7 @@ var ts;
             }
             function emitFunctionBody(node) {
                 if (!node.body) {
-                    // There can be no body when there are parse errors.  Just emit an empty block 
+                    // There can be no body when there are parse errors.  Just emit an empty block
                     // in that case.
                     write(" { }");
                 }
@@ -31369,7 +31300,7 @@ var ts;
                     emitDownLevelExpressionFunctionBody(node, body);
                     return;
                 }
-                // For es6 and higher we can emit the expression as is.  However, in the case 
+                // For es6 and higher we can emit the expression as is.  However, in the case
                 // where the expression might end up looking like a block when emitted, we'll
                 // also wrap it in parentheses first.  For example if you have: a => <foo>{}
                 // then we need to generate: a => ({})
@@ -31846,9 +31777,9 @@ var ts;
                     }
                 }
                 // If the class has static properties, and it's a class expression, then we'll need
-                // to specialize the emit a bit.  for a class expression of the form: 
+                // to specialize the emit a bit.  for a class expression of the form:
                 //
-                //      class C { static a = 1; static b = 2; ... } 
+                //      class C { static a = 1; static b = 2; ... }
                 //
                 // We'll emit:
                 //
@@ -32110,7 +32041,7 @@ var ts;
                     //
                     // The emit for a method is:
                     //
-                    //   Object.defineProperty(C.prototype, "method", 
+                    //   Object.defineProperty(C.prototype, "method",
                     //       __decorate([
                     //           dec,
                     //           __param(0, dec2),
@@ -32118,10 +32049,10 @@ var ts;
                     //           __metadata("design:paramtypes", [Object]),
                     //           __metadata("design:returntype", void 0)
                     //       ], C.prototype, "method", Object.getOwnPropertyDescriptor(C.prototype, "method")));
-                    // 
+                    //
                     // The emit for an accessor is:
                     //
-                    //   Object.defineProperty(C.prototype, "accessor", 
+                    //   Object.defineProperty(C.prototype, "accessor",
                     //       __decorate([
                     //           dec
                     //       ], C.prototype, "accessor", Object.getOwnPropertyDescriptor(C.prototype, "accessor")));
@@ -32203,7 +32134,7 @@ var ts;
             }
             function shouldEmitTypeMetadata(node) {
                 // This method determines whether to emit the "design:type" metadata based on the node's kind.
-                // The caller should have already tested whether the node has decorators and whether the emitDecoratorMetadata 
+                // The caller should have already tested whether the node has decorators and whether the emitDecoratorMetadata
                 // compiler option is set.
                 switch (node.kind) {
                     case 140 /* MethodDeclaration */:
@@ -32216,7 +32147,7 @@ var ts;
             }
             function shouldEmitReturnTypeMetadata(node) {
                 // This method determines whether to emit the "design:returntype" metadata based on the node's kind.
-                // The caller should have already tested whether the node has decorators and whether the emitDecoratorMetadata 
+                // The caller should have already tested whether the node has decorators and whether the emitDecoratorMetadata
                 // compiler option is set.
                 switch (node.kind) {
                     case 140 /* MethodDeclaration */:
@@ -32226,7 +32157,7 @@ var ts;
             }
             function shouldEmitParamTypesMetadata(node) {
                 // This method determines whether to emit the "design:paramtypes" metadata based on the node's kind.
-                // The caller should have already tested whether the node has decorators and whether the emitDecoratorMetadata 
+                // The caller should have already tested whether the node has decorators and whether the emitDecoratorMetadata
                 // compiler option is set.
                 switch (node.kind) {
                     case 211 /* ClassDeclaration */:
@@ -32236,78 +32167,225 @@ var ts;
                 }
                 return false;
             }
+            /** Serializes the type of a declaration to an appropriate JS constructor value. Used by the __metadata decorator for a class member. */
+            function emitSerializedTypeOfNode(node) {
+                // serialization of the type of a declaration uses the following rules:
+                //
+                // * The serialized type of a ClassDeclaration is "Function"
+                // * The serialized type of a ParameterDeclaration is the serialized type of its type annotation.
+                // * The serialized type of a PropertyDeclaration is the serialized type of its type annotation.
+                // * The serialized type of an AccessorDeclaration is the serialized type of the return type annotation of its getter or parameter type annotation of its setter.
+                // * The serialized type of any other FunctionLikeDeclaration is "Function".
+                // * The serialized type of any other node is "void 0".
+                // 
+                // For rules on serializing type annotations, see `serializeTypeNode`.
+                switch (node.kind) {
+                    case 211 /* ClassDeclaration */:
+                        write("Function");
+                        return;
+                    case 138 /* PropertyDeclaration */:
+                        emitSerializedTypeNode(node.type);
+                        return;
+                    case 135 /* Parameter */:
+                        emitSerializedTypeNode(node.type);
+                        return;
+                    case 142 /* GetAccessor */:
+                        emitSerializedTypeNode(node.type);
+                        return;
+                    case 143 /* SetAccessor */:
+                        emitSerializedTypeNode(ts.getSetAccessorTypeAnnotationNode(node));
+                        return;
+                }
+                if (ts.isFunctionLike(node)) {
+                    write("Function");
+                    return;
+                }
+                write("void 0");
+            }
+            function emitSerializedTypeNode(node) {
+                switch (node.kind) {
+                    case 100 /* VoidKeyword */:
+                        write("void 0");
+                        return;
+                    case 157 /* ParenthesizedType */:
+                        emitSerializedTypeNode(node.type);
+                        return;
+                    case 149 /* FunctionType */:
+                    case 150 /* ConstructorType */:
+                        write("Function");
+                        return;
+                    case 153 /* ArrayType */:
+                    case 154 /* TupleType */:
+                        write("Array");
+                        return;
+                    case 147 /* TypePredicate */:
+                    case 117 /* BooleanKeyword */:
+                        write("Boolean");
+                        return;
+                    case 127 /* StringKeyword */:
+                    case 8 /* StringLiteral */:
+                        write("String");
+                        return;
+                    case 125 /* NumberKeyword */:
+                        write("Number");
+                        return;
+                    case 128 /* SymbolKeyword */:
+                        write("Symbol");
+                        return;
+                    case 148 /* TypeReference */:
+                        emitSerializedTypeReferenceNode(node);
+                        return;
+                    case 151 /* TypeQuery */:
+                    case 152 /* TypeLiteral */:
+                    case 155 /* UnionType */:
+                    case 156 /* IntersectionType */:
+                    case 114 /* AnyKeyword */:
+                        break;
+                    default:
+                        ts.Debug.fail("Cannot serialize unexpected type node.");
+                        break;
+                }
+                write("Object");
+            }
+            /** Serializes a TypeReferenceNode to an appropriate JS constructor value. Used by the __metadata decorator. */
+            function emitSerializedTypeReferenceNode(node) {
+                var typeName = node.typeName;
+                var result = resolver.getTypeReferenceSerializationKind(node);
+                switch (result) {
+                    case ts.TypeReferenceSerializationKind.Unknown:
+                        var temp = createAndRecordTempVariable(0 /* Auto */);
+                        write("(typeof (");
+                        emitNodeWithoutSourceMap(temp);
+                        write(" = ");
+                        emitEntityNameAsExpression(typeName, true);
+                        write(") === 'function' && ");
+                        emitNodeWithoutSourceMap(temp);
+                        write(") || Object");
+                        break;
+                    case ts.TypeReferenceSerializationKind.TypeWithConstructSignatureAndValue:
+                        emitEntityNameAsExpression(typeName, false);
+                        break;
+                    case ts.TypeReferenceSerializationKind.VoidType:
+                        write("void 0");
+                        break;
+                    case ts.TypeReferenceSerializationKind.BooleanType:
+                        write("Boolean");
+                        break;
+                    case ts.TypeReferenceSerializationKind.NumberLikeType:
+                        write("Number");
+                        break;
+                    case ts.TypeReferenceSerializationKind.StringLikeType:
+                        write("String");
+                        break;
+                    case ts.TypeReferenceSerializationKind.ArrayLikeType:
+                        write("Array");
+                        break;
+                    case ts.TypeReferenceSerializationKind.ESSymbolType:
+                        if (languageVersion < 2 /* ES6 */) {
+                            write("typeof Symbol === 'function' ? Symbol : Object");
+                        }
+                        else {
+                            write("Symbol");
+                        }
+                        break;
+                    case ts.TypeReferenceSerializationKind.TypeWithCallSignature:
+                        write("Function");
+                        break;
+                    case ts.TypeReferenceSerializationKind.ObjectType:
+                        write("Object");
+                        break;
+                }
+            }
+            /** Serializes the parameter types of a function or the constructor of a class. Used by the __metadata decorator for a method or set accessor. */
+            function emitSerializedParameterTypesOfNode(node) {
+                // serialization of parameter types uses the following rules:
+                //
+                // * If the declaration is a class, the parameters of the first constructor with a body are used.
+                // * If the declaration is function-like and has a body, the parameters of the function are used.
+                // 
+                // For the rules on serializing the type of each parameter declaration, see `serializeTypeOfDeclaration`.
+                if (node) {
+                    var valueDeclaration;
+                    if (node.kind === 211 /* ClassDeclaration */) {
+                        valueDeclaration = ts.getFirstConstructorWithBody(node);
+                    }
+                    else if (ts.isFunctionLike(node) && ts.nodeIsPresent(node.body)) {
+                        valueDeclaration = node;
+                    }
+                    if (valueDeclaration) {
+                        var parameters = valueDeclaration.parameters;
+                        var parameterCount = parameters.length;
+                        if (parameterCount > 0) {
+                            for (var i = 0; i < parameterCount; i++) {
+                                if (i > 0) {
+                                    write(", ");
+                                }
+                                if (parameters[i].dotDotDotToken) {
+                                    var parameterType = parameters[i].type;
+                                    if (parameterType.kind === 153 /* ArrayType */) {
+                                        parameterType = parameterType.elementType;
+                                    }
+                                    else if (parameterType.kind === 148 /* TypeReference */ && parameterType.typeArguments && parameterType.typeArguments.length === 1) {
+                                        parameterType = parameterType.typeArguments[0];
+                                    }
+                                    else {
+                                        parameterType = undefined;
+                                    }
+                                    emitSerializedTypeNode(parameterType);
+                                }
+                                else {
+                                    emitSerializedTypeOfNode(parameters[i]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            /** Serializes the return type of function. Used by the __metadata decorator for a method. */
+            function emitSerializedReturnTypeOfNode(node) {
+                if (node && ts.isFunctionLike(node)) {
+                    emitSerializedTypeNode(node.type);
+                    return;
+                }
+                write("void 0");
+            }
             function emitSerializedTypeMetadata(node, writeComma) {
                 // This method emits the serialized type metadata for a decorator target.
                 // The caller should have already tested whether the node has decorators.
                 var argumentsWritten = 0;
                 if (compilerOptions.emitDecoratorMetadata) {
                     if (shouldEmitTypeMetadata(node)) {
-                        var serializedType = resolver.serializeTypeOfNode(node);
-                        if (serializedType) {
-                            if (writeComma) {
-                                write(", ");
-                            }
-                            writeLine();
-                            write("__metadata('design:type', ");
-                            emitSerializedType(node, serializedType);
-                            write(")");
-                            argumentsWritten++;
+                        if (writeComma) {
+                            write(", ");
                         }
+                        writeLine();
+                        write("__metadata('design:type', ");
+                        emitSerializedTypeOfNode(node);
+                        write(")");
+                        argumentsWritten++;
                     }
                     if (shouldEmitParamTypesMetadata(node)) {
-                        var serializedTypes = resolver.serializeParameterTypesOfNode(node);
-                        if (serializedTypes) {
-                            if (writeComma || argumentsWritten) {
-                                write(", ");
-                            }
-                            writeLine();
-                            write("__metadata('design:paramtypes', [");
-                            for (var i = 0; i < serializedTypes.length; ++i) {
-                                if (i > 0) {
-                                    write(", ");
-                                }
-                                emitSerializedType(node, serializedTypes[i]);
-                            }
-                            write("])");
-                            argumentsWritten++;
+                        if (writeComma || argumentsWritten) {
+                            write(", ");
                         }
+                        writeLine();
+                        write("__metadata('design:paramtypes', [");
+                        emitSerializedParameterTypesOfNode(node);
+                        write("])");
+                        argumentsWritten++;
                     }
                     if (shouldEmitReturnTypeMetadata(node)) {
-                        var serializedType = resolver.serializeReturnTypeOfNode(node);
-                        if (serializedType) {
-                            if (writeComma || argumentsWritten) {
-                                write(", ");
-                            }
-                            writeLine();
-                            write("__metadata('design:returntype', ");
-                            emitSerializedType(node, serializedType);
-                            write(")");
-                            argumentsWritten++;
+                        if (writeComma || argumentsWritten) {
+                            write(", ");
                         }
+                        writeLine();
+                        write("__metadata('design:returntype', ");
+                        emitSerializedReturnTypeOfNode(node);
+                        write(")");
+                        argumentsWritten++;
                     }
                 }
                 return argumentsWritten;
-            }
-            function serializeTypeNameSegment(location, path, index) {
-                switch (index) {
-                    case 0:
-                        return "typeof " + path[index] + " !== 'undefined' && " + path[index];
-                    case 1:
-                        return serializeTypeNameSegment(location, path, index - 1) + "." + path[index];
-                    default:
-                        var temp = createAndRecordTempVariable(0 /* Auto */).text;
-                        return "(" + temp + " = " + serializeTypeNameSegment(location, path, index - 1) + ") && " + temp + "." + path[index];
-                }
-            }
-            function emitSerializedType(location, name) {
-                if (typeof name === "string") {
-                    write(name);
-                    return;
-                }
-                else {
-                    ts.Debug.assert(name.length > 0, "Invalid serialized type name");
-                    write("(" + serializeTypeNameSegment(location, name, name.length - 1) + ") || Object");
-                }
             }
             function emitInterfaceDeclaration(node) {
                 emitOnlyPinnedOrTripleSlashComments(node);
@@ -32816,8 +32894,8 @@ var ts;
                                 // export { x, y }
                                 for (var _c = 0, _d = node.exportClause.elements; _c < _d.length; _c++) {
                                     var specifier = _d[_c];
-                                    var name_22 = (specifier.propertyName || specifier.name).text;
-                                    (exportSpecifiers[name_22] || (exportSpecifiers[name_22] = [])).push(specifier);
+                                    var name_24 = (specifier.propertyName || specifier.name).text;
+                                    (exportSpecifiers[name_24] || (exportSpecifiers[name_24] = [])).push(specifier);
                                 }
                             }
                             break;
@@ -32979,7 +33057,7 @@ var ts;
                 }
                 function writeExportedName(node) {
                     // do not record default exports
-                    // they are local to module and never overwritten (explicitly skipped) by star export 
+                    // they are local to module and never overwritten (explicitly skipped) by star export
                     if (node.kind !== 66 /* Identifier */ && node.flags & 1024 /* Default */) {
                         return;
                     }
@@ -33001,7 +33079,7 @@ var ts;
                 }
             }
             function processTopLevelVariableAndFunctionDeclarations(node) {
-                // per ES6 spec: 
+                // per ES6 spec:
                 // 15.2.1.16.4 ModuleDeclarationInstantiation() Concrete Method
                 // - var declarations are initialized to undefined - 14.a.ii
                 // - function/generator declarations are instantiated - 16.a.iv
@@ -33020,12 +33098,12 @@ var ts;
                     var seen = {};
                     for (var i = 0; i < hoistedVars.length; ++i) {
                         var local = hoistedVars[i];
-                        var name_23 = local.kind === 66 /* Identifier */
+                        var name_25 = local.kind === 66 /* Identifier */
                             ? local
                             : local.name;
-                        if (name_23) {
+                        if (name_25) {
                             // do not emit duplicate entries (in case of declaration merging) in the list of hoisted variables
-                            var text = ts.unescapeIdentifier(name_23.text);
+                            var text = ts.unescapeIdentifier(name_25.text);
                             if (ts.hasProperty(seen, text)) {
                                 continue;
                             }
@@ -33104,15 +33182,15 @@ var ts;
                     }
                     if (node.kind === 208 /* VariableDeclaration */ || node.kind === 160 /* BindingElement */) {
                         if (shouldHoistVariable(node, false)) {
-                            var name_24 = node.name;
-                            if (name_24.kind === 66 /* Identifier */) {
+                            var name_26 = node.name;
+                            if (name_26.kind === 66 /* Identifier */) {
                                 if (!hoistedVars) {
                                     hoistedVars = [];
                                 }
-                                hoistedVars.push(name_24);
+                                hoistedVars.push(name_26);
                             }
                             else {
-                                ts.forEachChild(name_24, visit);
+                                ts.forEachChild(name_26, visit);
                             }
                         }
                         return;
@@ -33133,7 +33211,7 @@ var ts;
                 // hoist variable if
                 // - it is not block scoped
                 // - it is top level block scoped
-                // if block scoped variables are nested in some another block then 
+                // if block scoped variables are nested in some another block then
                 // no other functions can use them except ones that are defined at least in the same block
                 return (ts.getCombinedNodeFlags(node) & 49152 /* BlockScoped */) === 0 ||
                     ts.getEnclosingBlockScopeContainer(node).kind === 245 /* SourceFile */;
@@ -33317,14 +33395,15 @@ var ts;
                 // System modules has the following shape
                 // System.register(['dep-1', ... 'dep-n'], function(exports) {/* module body function */})
                 // 'exports' here is a function 'exports<T>(name: string, value: T): T' that is used to publish exported values.
-                // 'exports' returns its 'value' argument so in most cases expressions 
+                // 'exports' returns its 'value' argument so in most cases expressions
                 // that mutate exported values can be rewritten as:
-                // expr -> exports('name', expr). 
-                // The only exception in this rule is postfix unary operators, 
+                // expr -> exports('name', expr).
+                // The only exception in this rule is postfix unary operators,
                 // see comment to 'emitPostfixUnaryExpression' for more details
                 ts.Debug.assert(!exportFunctionForFile);
                 // make sure that  name of 'exports' function does not conflict with existing identifiers
                 exportFunctionForFile = makeUniqueName("exports");
+                writeLine();
                 write("System.register(");
                 if (node.moduleName) {
                     write("\"" + node.moduleName + "\", ");
@@ -33358,12 +33437,12 @@ var ts;
                 // To ensure this is true in cases of modules with no aliases, e.g.:
                 // `import "module"` or `<amd-dependency path= "a.css" />`
                 // we need to add modules without alias names to the end of the dependencies list
-                var aliasedModuleNames = []; // names of modules with corresponding parameter in the
-                // factory function.
-                var unaliasedModuleNames = []; // names of modules with no corresponding parameters in
-                // factory function.
-                var importAliasNames = []; // names of the parameters in the factory function; these 
-                // parameters need to match the indexes of the corresponding 
+                // names of modules with corresponding parameter in the factory function
+                var aliasedModuleNames = [];
+                // names of modules with no corresponding parameters in factory function
+                var unaliasedModuleNames = [];
+                var importAliasNames = []; // names of the parameters in the factory function; these
+                // parameters need to match the indexes of the corresponding
                 // module names in aliasedModuleNames.
                 // Fill in amd-dependency tags
                 for (var _a = 0, _b = node.amdDependencies; _a < _b.length; _a++) {
@@ -33456,7 +33535,7 @@ var ts;
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);
                 emitTempDeclarations(true);
-                // Emit exportDefault if it exists will happen as part 
+                // Emit exportDefault if it exists will happen as part
                 // or normal statement emit.
             }
             function emitExportEquals(emitAsReturn) {
@@ -33675,7 +33754,7 @@ var ts;
                         // emitting the module as well.
                         return shouldEmitEnumDeclaration(node);
                 }
-                // If this is the expression body of an arrow function that we're down-leveling, 
+                // If this is the expression body of an arrow function that we're down-leveling,
                 // then we don't want to emit comments when we emit the body.  It will have already
                 // been taken care of when we emitted the 'return' statement for the function
                 // expression body.
@@ -34208,8 +34287,8 @@ var ts;
         }
         function emitWorker(program, sourceFile, writeFileCallback, cancellationToken) {
             // If the noEmitOnError flag is set, then check if we have any errors so far.  If so,
-            // immediately bail out.  Note that we pass 'undefined' for 'sourceFile' so that we 
-            // get any preEmit diagnostics, not just the ones 
+            // immediately bail out.  Note that we pass 'undefined' for 'sourceFile' so that we
+            // get any preEmit diagnostics, not just the ones
             if (options.noEmitOnError && getPreEmitDiagnostics(program, undefined, cancellationToken).length > 0) {
                 return { diagnostics: [], sourceMaps: undefined, emitSkipped: true };
             }
@@ -34261,14 +34340,14 @@ var ts;
             }
             catch (e) {
                 if (e instanceof ts.OperationCanceledException) {
-                    // We were canceled while performing the operation.  Because our type checker 
+                    // We were canceled while performing the operation.  Because our type checker
                     // might be a bad state, we need to throw it away.
                     //
                     // Note: we are overly agressive here.  We do not actually *have* to throw away
                     // the "noDiagnosticsTypeChecker".  However, for simplicity, i'd like to keep
                     // the lifetimes of these two TypeCheckers the same.  Also, we generally only
                     // cancel when the user has made a change anyways.  And, in that case, we (the
-                    // program instance) will get thrown away anyways.  So trying to keep one of 
+                    // program instance) will get thrown away anyways.  So trying to keep one of
                     // these type checkers alive doesn't serve much purpose.
                     noDiagnosticsTypeChecker = undefined;
                     diagnosticsProducingTypeChecker = undefined;
@@ -34291,8 +34370,8 @@ var ts;
                 if (!ts.isDeclarationFile(sourceFile)) {
                     var resolver = getDiagnosticsProducingTypeChecker().getEmitResolver(sourceFile, cancellationToken);
                     // Don't actually write any files since we're just getting diagnostics.
-                    var writeFile = function () { };
-                    return ts.getDeclarationDiagnostics(getEmitHost(writeFile), resolver, sourceFile);
+                    var writeFile_1 = function () { };
+                    return ts.getDeclarationDiagnostics(getEmitHost(writeFile_1), resolver, sourceFile);
                 }
             });
         }
@@ -34442,7 +34521,7 @@ var ts;
                 }
                 else if (node.kind === 215 /* ModuleDeclaration */ && node.name.kind === 8 /* StringLiteral */ && (node.flags & 2 /* Ambient */ || ts.isDeclarationFile(file))) {
                     // TypeScript 1.0 spec (April 2014): 12.1.6
-                    // An AmbientExternalModuleDeclaration declares an external module. 
+                    // An AmbientExternalModuleDeclaration declares an external module.
                     // This type of declaration is permitted only in the global module.
                     // The StringLiteral must specify a top - level external module name.
                     // Relative external module names are not permitted
@@ -34453,7 +34532,7 @@ var ts;
                             var moduleName = nameLiteral.text;
                             if (moduleName) {
                                 // TypeScript 1.0 spec (April 2014): 12.1.6
-                                // An ExternalImportDeclaration in anAmbientExternalModuleDeclaration may reference other external modules 
+                                // An ExternalImportDeclaration in anAmbientExternalModuleDeclaration may reference other external modules
                                 // only through top - level external module names. Relative external module names are not permitted.
                                 var searchName = ts.normalizePath(ts.combinePaths(basePath, moduleName));
                                 ts.forEach(ts.supportedExtensions, function (extension) { return findModuleSourceFile(searchName + extension, nameLiteral); });
@@ -34571,7 +34650,7 @@ var ts;
                 }
             }
             else if (firstExternalModuleSourceFile && languageVersion < 2 /* ES6 */ && !options.module) {
-                // We cannot use createDiagnosticFromNode because nodes do not have parents yet 
+                // We cannot use createDiagnosticFromNode because nodes do not have parents yet
                 var span = ts.getErrorSpanForNode(firstExternalModuleSourceFile, firstExternalModuleSourceFile.externalModuleIndicator);
                 diagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_unless_the_module_flag_is_provided));
             }
@@ -34594,7 +34673,7 @@ var ts;
                     commonSourceDirectory = computeCommonSourceDirectory(files);
                 }
                 if (commonSourceDirectory && commonSourceDirectory[commonSourceDirectory.length - 1] !== ts.directorySeparator) {
-                    // Make sure directory path ends with directory separator so this string can directly 
+                    // Make sure directory path ends with directory separator so this string can directly
                     // used to replace with "" to get the relative path of the source file and the relative path doesn't
                     // start with / making it rooted path
                     commonSourceDirectory += ts.directorySeparator;
@@ -34891,10 +34970,10 @@ var ts;
                                 break;
                             // If not a primitive, the possible types are specified in what is effectively a map of options.
                             default:
-                                var map = opt.type;
+                                var map_2 = opt.type;
                                 var key = (args[i++] || "").toLowerCase();
-                                if (ts.hasProperty(map, key)) {
-                                    options[opt.name] = map[key];
+                                if (ts.hasProperty(map_2, key)) {
+                                    options[opt.name] = map_2[key];
                                 }
                                 else {
                                     errors.push(ts.createCompilerDiagnostic(opt.error));
@@ -34951,8 +35030,9 @@ var ts;
       * @param fileName The path to the config file
       */
     function readConfigFile(fileName) {
+        var text = '';
         try {
-            var text = ts.sys.readFile(fileName);
+            text = ts.sys.readFile(fileName);
         }
         catch (e) {
             return { error: ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, e.message) };
@@ -35039,20 +35119,20 @@ var ts;
                 var exclude = json["exclude"] instanceof Array ? ts.map(json["exclude"], ts.normalizeSlashes) : undefined;
                 var sysFiles = host.readDirectory(basePath, ".ts", exclude).concat(host.readDirectory(basePath, ".tsx", exclude));
                 for (var i = 0; i < sysFiles.length; i++) {
-                    var name_25 = sysFiles[i];
-                    if (ts.fileExtensionIs(name_25, ".d.ts")) {
-                        var baseName = name_25.substr(0, name_25.length - ".d.ts".length);
+                    var name_27 = sysFiles[i];
+                    if (ts.fileExtensionIs(name_27, ".d.ts")) {
+                        var baseName = name_27.substr(0, name_27.length - ".d.ts".length);
                         if (!ts.contains(sysFiles, baseName + ".tsx") && !ts.contains(sysFiles, baseName + ".ts")) {
-                            fileNames.push(name_25);
+                            fileNames.push(name_27);
                         }
                     }
-                    else if (ts.fileExtensionIs(name_25, ".ts")) {
-                        if (!ts.contains(sysFiles, name_25 + "x")) {
-                            fileNames.push(name_25);
+                    else if (ts.fileExtensionIs(name_27, ".ts")) {
+                        if (!ts.contains(sysFiles, name_27 + "x")) {
+                            fileNames.push(name_27);
                         }
                     }
                     else {
-                        fileNames.push(name_25);
+                        fileNames.push(name_27);
                     }
                 }
             }
@@ -35235,12 +35315,12 @@ var ts;
             ts.forEach(program.getSourceFiles(), function (sourceFile) {
                 cancellationToken.throwIfCancellationRequested();
                 var nameToDeclarations = sourceFile.getNamedDeclarations();
-                for (var name_26 in nameToDeclarations) {
-                    var declarations = ts.getProperty(nameToDeclarations, name_26);
+                for (var name_28 in nameToDeclarations) {
+                    var declarations = ts.getProperty(nameToDeclarations, name_28);
                     if (declarations) {
                         // First do a quick check to see if the name of the declaration matches the 
                         // last portion of the (possibly) dotted name they're searching for.
-                        var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_26);
+                        var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_28);
                         if (!matches) {
                             continue;
                         }
@@ -35253,14 +35333,14 @@ var ts;
                                 if (!containers) {
                                     return undefined;
                                 }
-                                matches = patternMatcher.getMatches(containers, name_26);
+                                matches = patternMatcher.getMatches(containers, name_28);
                                 if (!matches) {
                                     continue;
                                 }
                             }
                             var fileName = sourceFile.fileName;
                             var matchKind = bestMatchKind(matches);
-                            rawItems.push({ name: name_26, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
+                            rawItems.push({ name: name_28, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
                         }
                     }
                 }
@@ -35643,9 +35723,9 @@ var ts;
                     case 208 /* VariableDeclaration */:
                     case 160 /* BindingElement */:
                         var variableDeclarationNode;
-                        var name_27;
+                        var name_29;
                         if (node.kind === 160 /* BindingElement */) {
-                            name_27 = node.name;
+                            name_29 = node.name;
                             variableDeclarationNode = node;
                             // binding elements are added only for variable declarations
                             // bubble up to the containing variable declaration
@@ -35657,16 +35737,16 @@ var ts;
                         else {
                             ts.Debug.assert(!ts.isBindingPattern(node.name));
                             variableDeclarationNode = node;
-                            name_27 = node.name;
+                            name_29 = node.name;
                         }
                         if (ts.isConst(variableDeclarationNode)) {
-                            return createItem(node, getTextOfNode(name_27), ts.ScriptElementKind.constElement);
+                            return createItem(node, getTextOfNode(name_29), ts.ScriptElementKind.constElement);
                         }
                         else if (ts.isLet(variableDeclarationNode)) {
-                            return createItem(node, getTextOfNode(name_27), ts.ScriptElementKind.letElement);
+                            return createItem(node, getTextOfNode(name_29), ts.ScriptElementKind.letElement);
                         }
                         else {
-                            return createItem(node, getTextOfNode(name_27), ts.ScriptElementKind.variableElement);
+                            return createItem(node, getTextOfNode(name_29), ts.ScriptElementKind.variableElement);
                         }
                     case 141 /* Constructor */:
                         return createItem(node, "constructor", ts.ScriptElementKind.constructorImplementationElement);
@@ -37607,7 +37687,7 @@ var ts;
         // since that symbol has the "true" name.
         var localExportDefaultSymbol = ts.getLocalSymbolForExportDefault(symbol);
         var name = typeChecker.symbolToString(localExportDefaultSymbol || symbol);
-        return stripQuotes(name);
+        return name;
     }
     ts.getDeclaredName = getDeclaredName;
     function isImportOrExportSpecifierName(location) {
@@ -37616,9 +37696,16 @@ var ts;
             location.parent.propertyName === location;
     }
     ts.isImportOrExportSpecifierName = isImportOrExportSpecifierName;
+    /**
+     * Strip off existed single quotes or double quotes from a given string
+     *
+     * @return non-quoted string
+     */
     function stripQuotes(name) {
         var length = name.length;
-        if (length >= 2 && name.charCodeAt(0) === 34 /* doubleQuote */ && name.charCodeAt(length - 1) === 34 /* doubleQuote */) {
+        if (length >= 2 &&
+            name.charCodeAt(0) === name.charCodeAt(length - 1) &&
+            (name.charCodeAt(0) === 34 /* doubleQuote */ || name.charCodeAt(0) === 39 /* singleQuote */)) {
             return name.substring(1, length - 1);
         }
         ;
@@ -38285,9 +38372,9 @@ var ts;
             }
             Rules.prototype.getRuleName = function (rule) {
                 var o = this;
-                for (var name_28 in o) {
-                    if (o[name_28] === rule) {
-                        return name_28;
+                for (var name_30 in o) {
+                    if (o[name_30] === rule) {
+                        return name_30;
                     }
                 }
                 throw new Error("Unknown rule");
@@ -40969,6 +41056,8 @@ var ts;
         ScriptElementKind.moduleElement = "module";
         // class X {}
         ScriptElementKind.classElement = "class";
+        // var x = class X {}
+        ScriptElementKind.localClassElement = "local class";
         // interface Y {}
         ScriptElementKind.interfaceElement = "interface";
         // type T = ...
@@ -42136,17 +42225,14 @@ var ts;
             synchronizeHostData();
             return program.getOptionsDiagnostics(cancellationToken).concat(program.getGlobalDiagnostics(cancellationToken));
         }
-        /// Completion
-        function getCompletionEntryDisplayNameForSymbol(symbol, target, performCharacterChecks) {
-            var displayName = symbol.getName();
+        /**
+         * Get the name to be display in completion from a given symbol.
+         *
+         * @return undefined if the name is of external module otherwise a name with striped of any quote
+         */
+        function getCompletionEntryDisplayNameForSymbol(symbol, target, performCharacterChecks, location) {
+            var displayName = ts.getDeclaredName(program.getTypeChecker(), symbol, location);
             if (displayName) {
-                // If this is the default export, get the name of the declaration if it exists
-                if (displayName === "default") {
-                    var localSymbol = ts.getLocalSymbolForExportDefault(symbol);
-                    if (localSymbol && localSymbol.name) {
-                        displayName = symbol.valueDeclaration.localSymbol.name;
-                    }
-                }
                 var firstCharCode = displayName.charCodeAt(0);
                 // First check of the displayName is not external module; if it is an external module, it is not valid entry
                 if ((symbol.flags & 1536 /* Namespace */) && (firstCharCode === 39 /* singleQuote */ || firstCharCode === 34 /* doubleQuote */)) {
@@ -42157,32 +42243,33 @@ var ts;
             }
             return getCompletionEntryDisplayName(displayName, target, performCharacterChecks);
         }
-        function getCompletionEntryDisplayName(displayName, target, performCharacterChecks) {
-            if (!displayName) {
+        /**
+         * Get a displayName from a given for completion list, performing any necessary quotes stripping
+         * and checking whether the name is valid identifier name.
+         */
+        function getCompletionEntryDisplayName(name, target, performCharacterChecks) {
+            if (!name) {
                 return undefined;
             }
-            var firstCharCode = displayName.charCodeAt(0);
-            if (displayName.length >= 2 &&
-                firstCharCode === displayName.charCodeAt(displayName.length - 1) &&
-                (firstCharCode === 39 /* singleQuote */ || firstCharCode === 34 /* doubleQuote */)) {
-                // If the user entered name for the symbol was quoted, removing the quotes is not enough, as the name could be an
-                // invalid identifier name. We need to check if whatever was inside the quotes is actually a valid identifier name.
-                displayName = displayName.substring(1, displayName.length - 1);
-            }
-            if (!displayName) {
+            name = ts.stripQuotes(name);
+            if (!name) {
                 return undefined;
             }
+            // If the user entered name for the symbol was quoted, removing the quotes is not enough, as the name could be an
+            // invalid identifier name. We need to check if whatever was inside the quotes is actually a valid identifier name.
+            // e.g "b a" is valid quoted name but when we strip off the quotes, it is invalid.
+            // We, thus, need to check if whatever was inside the quotes is actually a valid identifier name.
             if (performCharacterChecks) {
-                if (!ts.isIdentifierStart(displayName.charCodeAt(0), target)) {
+                if (!ts.isIdentifierStart(name.charCodeAt(0), target)) {
                     return undefined;
                 }
-                for (var i = 1, n = displayName.length; i < n; i++) {
-                    if (!ts.isIdentifierPart(displayName.charCodeAt(i), target)) {
+                for (var i = 1, n = name.length; i < n; i++) {
+                    if (!ts.isIdentifierPart(name.charCodeAt(i), target)) {
                         return undefined;
                     }
                 }
             }
-            return ts.unescapeIdentifier(displayName);
+            return name;
         }
         function getCompletionData(fileName, position) {
             var typeChecker = program.getTypeChecker();
@@ -42703,6 +42790,10 @@ var ts;
                 if (importDeclaration.importClause.namedBindings &&
                     importDeclaration.importClause.namedBindings.kind === 222 /* NamedImports */) {
                     ts.forEach(importDeclaration.importClause.namedBindings.elements, function (el) {
+                        // If this is the current item we are editing right now, do not filter it out
+                        if (el.getStart() <= position && position <= el.getEnd()) {
+                            return;
+                        }
                         var name = el.propertyName || el.name;
                         exisingImports[name.text] = true;
                     });
@@ -42749,23 +42840,27 @@ var ts;
                 });
                 return filteredMembers;
             }
-        }
-        function filterJsxAttributes(attributes, symbols) {
-            var seenNames = {};
-            for (var _i = 0; _i < attributes.length; _i++) {
-                var attr = attributes[_i];
-                if (attr.kind === 235 /* JsxAttribute */) {
-                    seenNames[attr.name.text] = true;
+            function filterJsxAttributes(attributes, symbols) {
+                var seenNames = {};
+                for (var _i = 0; _i < attributes.length; _i++) {
+                    var attr = attributes[_i];
+                    // If this is the current item we are editing right now, do not filter it out
+                    if (attr.getStart() <= position && position <= attr.getEnd()) {
+                        continue;
+                    }
+                    if (attr.kind === 235 /* JsxAttribute */) {
+                        seenNames[attr.name.text] = true;
+                    }
                 }
-            }
-            var result = [];
-            for (var _a = 0; _a < symbols.length; _a++) {
-                var sym = symbols[_a];
-                if (!seenNames[sym.name]) {
-                    result.push(sym);
+                var result = [];
+                for (var _a = 0; _a < symbols.length; _a++) {
+                    var sym = symbols[_a];
+                    if (!seenNames[sym.name]) {
+                        result.push(sym);
+                    }
                 }
+                return result;
             }
-            return result;
         }
         function getCompletionsAtPosition(fileName, position) {
             synchronizeHostData();
@@ -42797,10 +42892,10 @@ var ts;
                 for (var _i = 0, _a = program.getSourceFiles(); _i < _a.length; _i++) {
                     var sourceFile = _a[_i];
                     var nameTable = getNameTable(sourceFile);
-                    for (var name_29 in nameTable) {
-                        if (!allNames[name_29]) {
-                            allNames[name_29] = name_29;
-                            var displayName = getCompletionEntryDisplayName(name_29, target, true);
+                    for (var name_31 in nameTable) {
+                        if (!allNames[name_31]) {
+                            allNames[name_31] = name_31;
+                            var displayName = getCompletionEntryDisplayName(name_31, target, true);
                             if (displayName) {
                                 var entry = {
                                     name: displayName,
@@ -42819,7 +42914,7 @@ var ts;
                 // Try to get a valid display name for this symbol, if we could not find one, then ignore it. 
                 // We would like to only show things that can be added after a dot, so for instance numeric properties can
                 // not be accessed with a dot (a.1 <- invalid)
-                var displayName = getCompletionEntryDisplayNameForSymbol(symbol, program.getCompilerOptions().target, true);
+                var displayName = getCompletionEntryDisplayNameForSymbol(symbol, program.getCompilerOptions().target, true, location);
                 if (!displayName) {
                     return undefined;
                 }
@@ -42869,7 +42964,7 @@ var ts;
                 // We don't need to perform character checks here because we're only comparing the 
                 // name against 'entryName' (which is known to be good), not building a new 
                 // completion entry.
-                var symbol = ts.forEach(symbols, function (s) { return getCompletionEntryDisplayNameForSymbol(s, target, false) === entryName ? s : undefined; });
+                var symbol = ts.forEach(symbols, function (s) { return getCompletionEntryDisplayNameForSymbol(s, target, false, location_2) === entryName ? s : undefined; });
                 if (symbol) {
                     var _a = getSymbolDisplayPartsDocumentationAndSymbolKind(symbol, getValidSourceFile(fileName), location_2, location_2, 7 /* All */), displayParts = _a.displayParts, documentation = _a.documentation, symbolKind = _a.symbolKind;
                     return {
@@ -42898,7 +42993,8 @@ var ts;
         function getSymbolKind(symbol, location) {
             var flags = symbol.getFlags();
             if (flags & 32 /* Class */)
-                return ScriptElementKind.classElement;
+                return ts.getDeclarationOfKind(symbol, 183 /* ClassExpression */) ?
+                    ScriptElementKind.localClassElement : ScriptElementKind.classElement;
             if (flags & 384 /* Enum */)
                 return ScriptElementKind.enumElement;
             if (flags & 524288 /* TypeAlias */)
@@ -43099,7 +43195,16 @@ var ts;
                 }
             }
             if (symbolFlags & 32 /* Class */ && !hasAddedSymbolInfo) {
-                displayParts.push(ts.keywordPart(70 /* ClassKeyword */));
+                if (ts.getDeclarationOfKind(symbol, 183 /* ClassExpression */)) {
+                    // Special case for class expressions because we would like to indicate that
+                    // the class name is local to the class body (similar to function expression)
+                    //      (local class) class <className>
+                    pushTypePart(ScriptElementKind.localClassElement);
+                }
+                else {
+                    // Class declaration has name which is not local.
+                    displayParts.push(ts.keywordPart(70 /* ClassKeyword */));
+                }
                 displayParts.push(ts.spacePart());
                 addFullSymbolName(symbol);
                 writeTypeParametersOfSymbol(symbol, sourceFile);
@@ -44130,7 +44235,7 @@ var ts;
             var searchMeaning = getIntersectingMeaningFromDeclarations(getMeaningFromLocation(node), declarations);
             // Get the text to search for.
             // Note: if this is an external module symbol, the name doesn't include quotes.
-            var declaredName = ts.getDeclaredName(typeChecker, symbol, node);
+            var declaredName = ts.stripQuotes(ts.getDeclaredName(typeChecker, symbol, node));
             // Try to get the smallest valid scope that we can limit our search to;
             // otherwise we'll need to search globally (i.e. include each file).
             var scope = getSymbolScope(symbol);
@@ -44195,10 +44300,10 @@ var ts;
              * a reference to a symbol can occur anywhere.
              */
             function getSymbolScope(symbol) {
-                // If this is the symbol of a function expression, then named references
-                // are limited to its own scope.
+                // If this is the symbol of a named function expression or named class expression,
+                // then named references are limited to its own scope.
                 var valueDeclaration = symbol.valueDeclaration;
-                if (valueDeclaration && valueDeclaration.kind === 170 /* FunctionExpression */) {
+                if (valueDeclaration && (valueDeclaration.kind === 170 /* FunctionExpression */ || valueDeclaration.kind === 183 /* ClassExpression */)) {
                     return valueDeclaration;
                 }
                 // If this is private property or method, the scope is the containing class
@@ -44656,19 +44761,19 @@ var ts;
                 if (isNameOfPropertyAssignment(node)) {
                     var objectLiteral = node.parent.parent;
                     var contextualType = typeChecker.getContextualType(objectLiteral);
-                    var name_30 = node.text;
+                    var name_32 = node.text;
                     if (contextualType) {
                         if (contextualType.flags & 16384 /* Union */) {
                             // This is a union type, first see if the property we are looking for is a union property (i.e. exists in all types)
                             // if not, search the constituent types for the property
-                            var unionProperty = contextualType.getProperty(name_30);
+                            var unionProperty = contextualType.getProperty(name_32);
                             if (unionProperty) {
                                 return [unionProperty];
                             }
                             else {
                                 var result_4 = [];
                                 ts.forEach(contextualType.types, function (t) {
-                                    var symbol = t.getProperty(name_30);
+                                    var symbol = t.getProperty(name_32);
                                     if (symbol) {
                                         result_4.push(symbol);
                                     }
@@ -44677,7 +44782,7 @@ var ts;
                             }
                         }
                         else {
-                            var symbol_1 = contextualType.getProperty(name_30);
+                            var symbol_1 = contextualType.getProperty(name_32);
                             if (symbol_1) {
                                 return [symbol_1];
                             }
@@ -45608,7 +45713,7 @@ var ts;
                                 }
                             }
                         }
-                        var displayName = ts.getDeclaredName(typeChecker, symbol, node);
+                        var displayName = ts.stripQuotes(ts.getDeclaredName(typeChecker, symbol, node));
                         var kind = getSymbolKind(symbol, node);
                         if (kind) {
                             return {
