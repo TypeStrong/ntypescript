@@ -12651,12 +12651,12 @@ var ts;
         // Cancellation that controls whether or not we can cancel in the middle of type checking.
         // In general cancelling is *not* safe for the type checker.  We might be in the middle of
         // computing something, and we will leave our internals in an inconsistent state.  Callers
-        // who set the cancellation token should catch if a cancellation exception occurs, and 
+        // who set the cancellation token should catch if a cancellation exception occurs, and
         // should throw away and create a new TypeChecker.
         //
         // Currently we only support setting the cancellation token when getting diagnostics.  This
         // is because diagnostics can be quite expensive, and we want to allow hosts to bail out if
-        // they no longer need the information (for example, if the user started editing again).  
+        // they no longer need the information (for example, if the user started editing again).
         var cancellationToken;
         var Symbol = ts.objectAllocator.getSymbolConstructor();
         var Type = ts.objectAllocator.getTypeConstructor();
@@ -13127,7 +13127,7 @@ var ts;
                         }
                         break;
                     case 136 /* Decorator */:
-                        // Decorators are resolved at the class declaration. Resolving at the parameter 
+                        // Decorators are resolved at the class declaration. Resolving at the parameter
                         // or member would result in looking up locals in the method.
                         //
                         //   function y() {}
@@ -14418,7 +14418,18 @@ var ts;
                     writePunctuation(writer, 52 /* ColonToken */);
                 }
                 writeSpace(writer);
-                buildTypeDisplay(getReturnTypeOfSignature(signature), writer, enclosingDeclaration, flags, symbolStack);
+                var returnType;
+                if (signature.typePredicate) {
+                    writer.writeParameter(signature.typePredicate.parameterName);
+                    writeSpace(writer);
+                    writeKeyword(writer, 121 /* IsKeyword */);
+                    writeSpace(writer);
+                    returnType = signature.typePredicate.type;
+                }
+                else {
+                    returnType = getReturnTypeOfSignature(signature);
+                }
+                buildTypeDisplay(returnType, writer, enclosingDeclaration, flags, symbolStack);
             }
             function buildSignatureDisplay(signature, writer, enclosingDeclaration, flags, symbolStack) {
                 if (signature.target && (flags & 32 /* WriteTypeArgumentsOfSignature */)) {
@@ -14555,7 +14566,7 @@ var ts;
                     case 156 /* IntersectionType */:
                     case 157 /* ParenthesizedType */:
                         return isDeclarationVisible(node.parent);
-                    // Default binding, import specifier and namespace import is visible 
+                    // Default binding, import specifier and namespace import is visible
                     // only on demand so by default it is not visible
                     case 220 /* ImportClause */:
                     case 221 /* NamespaceImport */:
@@ -17727,7 +17738,7 @@ var ts;
                     }
                 }
                 else if (source.flags & 80896 /* ObjectType */ && (target.flags & (4096 /* Reference */ | 8192 /* Tuple */) ||
-                    (target.flags & 65536 /* Anonymous */) && target.symbol && target.symbol.flags & (8192 /* Method */ | 2048 /* TypeLiteral */))) {
+                    (target.flags & 65536 /* Anonymous */) && target.symbol && target.symbol.flags & (8192 /* Method */ | 2048 /* TypeLiteral */ | 32 /* Class */))) {
                     // If source is an object type, and target is a type reference, a tuple type, the type of a method, or a type literal, infer from members
                     if (isInProcess(source, target)) {
                         return;
@@ -18865,7 +18876,7 @@ var ts;
                     // c is represented in the tree as a spread element in an array literal.
                     // But c really functions as a rest element, and its purpose is to provide
                     // a contextual type for the right hand side of the assignment. Therefore,
-                    // instead of calling checkExpression on "...c", which will give an error 
+                    // instead of calling checkExpression on "...c", which will give an error
                     // if c is not iterable/array-like, we need to act as if we are trying to
                     // get the contextual element type from it. So we do something similar to
                     // getContextualTypeForElementExpression, which will crucially not error
@@ -19444,7 +19455,7 @@ var ts;
                 }
                 if (flags & 256 /* Abstract */) {
                     // A method cannot be accessed in a super property access if the method is abstract.
-                    // This error could mask a private property access error. But, a member 
+                    // This error could mask a private property access error. But, a member
                     // cannot simultaneously be private and abstract, so this will trigger an
                     // additional error elsewhere.
                     error(errorNode, ts.Diagnostics.Abstract_method_0_in_class_1_cannot_be_accessed_via_super_expression, symbolToString(prop), typeToString(declaringClass));
@@ -19859,7 +19870,7 @@ var ts;
                 if (arg === undefined || arg.kind !== 184 /* OmittedExpression */) {
                     var paramType = getTypeAtPosition(signature, i);
                     var argType = getEffectiveArgumentType(node, i, arg);
-                    // If the effective argument type is 'undefined', there is no synthetic type 
+                    // If the effective argument type is 'undefined', there is no synthetic type
                     // for the argument. In that case, we should check the argument.
                     if (argType === undefined) {
                         // For context sensitive arguments we pass the identityMapper, which is a signal to treat all
@@ -19919,7 +19930,7 @@ var ts;
                     // Check spread elements against rest type (from arity check we know spread argument corresponds to a rest parameter)
                     var paramType = getTypeAtPosition(signature, i);
                     var argType = getEffectiveArgumentType(node, i, arg);
-                    // If the effective argument type is 'undefined', there is no synthetic type 
+                    // If the effective argument type is 'undefined', there is no synthetic type
                     // for the argument. In that case, we should check the argument.
                     if (argType === undefined) {
                         argType = arg.kind === 8 /* StringLiteral */ && !reportErrors
@@ -19988,7 +19999,7 @@ var ts;
                         // A class decorator will have one argument (see `ClassDecorator` in core.d.ts)
                         return 1;
                     case 138 /* PropertyDeclaration */:
-                        // A property declaration decorator will have two arguments (see 
+                        // A property declaration decorator will have two arguments (see
                         // `PropertyDecorator` in core.d.ts)
                         return 2;
                     case 140 /* MethodDeclaration */:
@@ -19996,11 +20007,11 @@ var ts;
                     case 143 /* SetAccessor */:
                         // A method or accessor declaration decorator will have two or three arguments (see
                         // `PropertyDecorator` and `MethodDecorator` in core.d.ts)
-                        // If the method decorator signature only accepts a target and a key, we will only  
+                        // If the method decorator signature only accepts a target and a key, we will only
                         // type check those arguments.
                         return signature.parameters.length >= 3 ? 3 : 2;
                     case 135 /* Parameter */:
-                        // A parameter declaration decorator will have three arguments (see 
+                        // A parameter declaration decorator will have three arguments (see
                         // `ParameterDecorator` in core.d.ts)
                         return 3;
                 }
@@ -20026,13 +20037,13 @@ var ts;
             switch (node.kind) {
                 case 211 /* ClassDeclaration */:
                 case 183 /* ClassExpression */:
-                    // For a class decorator, the `target` is the type of the class (e.g. the 
+                    // For a class decorator, the `target` is the type of the class (e.g. the
                     // "static" or "constructor" side of the class)
                     var classSymbol = getSymbolOfNode(node);
                     return getTypeOfSymbol(classSymbol);
                 case 135 /* Parameter */:
-                    // For a parameter decorator, the `target` is the parent type of the 
-                    // parameter's containing method. 
+                    // For a parameter decorator, the `target` is the parent type of the
+                    // parameter's containing method.
                     node = node.parent;
                     if (node.kind === 141 /* Constructor */) {
                         var classSymbol_1 = getSymbolOfNode(node);
@@ -20045,7 +20056,7 @@ var ts;
                 case 143 /* SetAccessor */:
                     // For a property or method decorator, the `target` is the
                     // "static"-side type of the parent of the member if the member is
-                    // declared "static"; otherwise, it is the "instance"-side type of the 
+                    // declared "static"; otherwise, it is the "instance"-side type of the
                     // parent of the member.
                     return getParentTypeOfClassElement(node);
                 default:
@@ -20088,7 +20099,7 @@ var ts;
                 case 142 /* GetAccessor */:
                 case 143 /* SetAccessor */:
                     // The `propertyKey` for a property or method decorator will be a
-                    // string literal type if the member name is an identifier, number, or string; 
+                    // string literal type if the member name is an identifier, number, or string;
                     // otherwise, if the member name is a computed property name it will
                     // be either string or symbol.
                     var element = node;
@@ -20166,7 +20177,7 @@ var ts;
           * Gets the effective argument type for an argument in a call expression.
           */
         function getEffectiveArgumentType(node, argIndex, arg) {
-            // Decorators provide special arguments, a tagged template expression provides 
+            // Decorators provide special arguments, a tagged template expression provides
             // a special first argument, and string literals get string literal types
             // unless we're reporting errors
             if (node.kind === 136 /* Decorator */) {
@@ -20176,7 +20187,7 @@ var ts;
                 return globalTemplateStringsArrayType;
             }
             // This is not a synthetic argument, so we return 'undefined'
-            // to signal that the caller needs to check the argument.            
+            // to signal that the caller needs to check the argument.
             return undefined;
         }
         /**
@@ -20237,7 +20248,7 @@ var ts;
             // For a tagged template, then the first argument be 'undefined' if necessary
             // because it represents a TemplateStringsArray.
             //
-            // For a decorator, no arguments are susceptible to contextual typing due to the fact 
+            // For a decorator, no arguments are susceptible to contextual typing due to the fact
             // decorators are applied to a declaration by the emitter, and not to an expression.
             var excludeArgument;
             if (!isDecorator) {
@@ -20692,9 +20703,9 @@ var ts;
             if (func.body.kind !== 189 /* Block */) {
                 type = checkExpressionCached(func.body, contextualMapper);
                 if (isAsync) {
-                    // From within an async function you can return either a non-promise value or a promise. Any 
-                    // Promise/A+ compatible implementation will always assimilate any foreign promise, so the 
-                    // return type of the body should be unwrapped to its awaited type, which we will wrap in 
+                    // From within an async function you can return either a non-promise value or a promise. Any
+                    // Promise/A+ compatible implementation will always assimilate any foreign promise, so the
+                    // return type of the body should be unwrapped to its awaited type, which we will wrap in
                     // the native Promise<T> type later in this function.
                     type = checkAwaitedType(type, func, ts.Diagnostics.Return_expression_in_async_function_does_not_have_a_valid_callable_then_member);
                 }
@@ -20751,8 +20762,8 @@ var ts;
             }
             var widenedType = getWidenedType(type);
             if (isAsync) {
-                // From within an async function you can return either a non-promise value or a promise. Any 
-                // Promise/A+ compatible implementation will always assimilate any foreign promise, so the 
+                // From within an async function you can return either a non-promise value or a promise. Any
+                // Promise/A+ compatible implementation will always assimilate any foreign promise, so the
                 // return type of the body is awaited type of the body, wrapped in a native Promise<T> type.
                 var promiseType = createPromiseType(widenedType);
                 if (promiseType === emptyObjectType) {
@@ -20789,9 +20800,9 @@ var ts;
                 if (expr) {
                     var type = checkExpressionCached(expr, contextualMapper);
                     if (isAsync) {
-                        // From within an async function you can return either a non-promise value or a promise. Any 
-                        // Promise/A+ compatible implementation will always assimilate any foreign promise, so the 
-                        // return type of the body should be unwrapped to its awaited type, which should be wrapped in 
+                        // From within an async function you can return either a non-promise value or a promise. Any
+                        // Promise/A+ compatible implementation will always assimilate any foreign promise, so the
+                        // return type of the body should be unwrapped to its awaited type, which should be wrapped in
                         // the native Promise<T> type by the caller.
                         type = checkAwaitedType(type, body.parent, ts.Diagnostics.Return_expression_in_async_function_does_not_have_a_valid_callable_then_member);
                     }
@@ -20913,10 +20924,10 @@ var ts;
                     checkSourceElement(node.body);
                 }
                 else {
-                    // From within an async function you can return either a non-promise value or a promise. Any 
-                    // Promise/A+ compatible implementation will always assimilate any foreign promise, so we 
-                    // should not be checking assignability of a promise to the return type. Instead, we need to 
-                    // check assignability of the awaited type of the expression body against the promised type of 
+                    // From within an async function you can return either a non-promise value or a promise. Any
+                    // Promise/A+ compatible implementation will always assimilate any foreign promise, so we
+                    // should not be checking assignability of a promise to the return type. Instead, we need to
+                    // check assignability of the awaited type of the expression body against the promised type of
                     // its return type annotation.
                     var exprType = checkExpression(node.body);
                     if (returnType) {
@@ -22362,7 +22373,7 @@ var ts;
             //          ) => any
             //      ): any;
             //  }
-            // 
+            //
             if (promise.flags & 1 /* Any */) {
                 return undefined;
             }
@@ -22420,7 +22431,7 @@ var ts;
                     var promisedType = getPromisedType(type);
                     if (promisedType === undefined) {
                         // The type was not a PromiseLike, so it could not be unwrapped any further.
-                        // As long as the type does not have a callable "then" property, it is 
+                        // As long as the type does not have a callable "then" property, it is
                         // safe to return the type; otherwise, an error will have been reported in
                         // the call to checkNonThenableType and we will return unknownType.
                         //
@@ -22431,7 +22442,7 @@ var ts;
                         // The "thenable" does not match the minimal definition for a PromiseLike. When
                         // a Promise/A+-compatible or ES6 promise tries to adopt this value, the promise
                         // will never settle. We treat this as an error to help flag an early indicator
-                        // of a runtime problem. If the user wants to return this value from an async 
+                        // of a runtime problem. If the user wants to return this value from an async
                         // function, they would need to wrap it in some other value. If they want it to
                         // be treated as a promise, they can cast to <any>.
                         return checkNonThenableType(type, location, message);
@@ -22439,35 +22450,35 @@ var ts;
                     else {
                         if (type.id === promisedType.id || awaitedTypeStack.indexOf(promisedType.id) >= 0) {
                             // We have a bad actor in the form of a promise whose promised type is
-                            // the same promise type, or a mutually recursive promise. Return the 
-                            // unknown type as we cannot guess the shape. If this were the actual 
+                            // the same promise type, or a mutually recursive promise. Return the
+                            // unknown type as we cannot guess the shape. If this were the actual
                             // case in the JavaScript, this Promise would never resolve.
                             //
-                            // An example of a bad actor with a singly-recursive promise type might 
+                            // An example of a bad actor with a singly-recursive promise type might
                             // be:
                             //
                             //  interface BadPromise {
                             //      then(
-                            //          onfulfilled: (value: BadPromise) => any, 
+                            //          onfulfilled: (value: BadPromise) => any,
                             //          onrejected: (error: any) => any): BadPromise;
                             //  }
                             //
-                            // The above interface will pass the PromiseLike check, and return a 
-                            // promised type of `BadPromise`. Since this is a self reference, we 
+                            // The above interface will pass the PromiseLike check, and return a
+                            // promised type of `BadPromise`. Since this is a self reference, we
                             // don't want to keep recursing ad infinitum.
                             //
-                            // An example of a bad actor in the form of a mutually-recursive 
+                            // An example of a bad actor in the form of a mutually-recursive
                             // promise type might be:
                             //
                             //  interface BadPromiseA {
                             //      then(
-                            //          onfulfilled: (value: BadPromiseB) => any, 
+                            //          onfulfilled: (value: BadPromiseB) => any,
                             //          onrejected: (error: any) => any): BadPromiseB;
                             //  }
                             //
                             //  interface BadPromiseB {
                             //      then(
-                            //          onfulfilled: (value: BadPromiseA) => any, 
+                            //          onfulfilled: (value: BadPromiseA) => any,
                             //          onrejected: (error: any) => any): BadPromiseA;
                             //  }
                             //
@@ -22508,7 +22519,7 @@ var ts;
             }
             // As part of our emit for an async function, we will need to emit the entity name of
             // the return type annotation as an expression. To meet the necessary runtime semantics
-            // for __awaiter, we must also check that the type of the declaration (e.g. the static 
+            // for __awaiter, we must also check that the type of the declaration (e.g. the static
             // side or "constructor" of the promise type) is compatible `PromiseConstructorLike`.
             //
             // An example might be (from lib.es6.d.ts):
@@ -22516,11 +22527,11 @@ var ts;
             //  interface Promise<T> { ... }
             //  interface PromiseConstructor {
             //      new <T>(...): Promise<T>;
-            //  } 
+            //  }
             //  declare var Promise: PromiseConstructor;
             //
-            // When an async function declares a return type annotation of `Promise<T>`, we 
-            // need to get the type of the `Promise` variable declaration above, which would 
+            // When an async function declares a return type annotation of `Promise<T>`, we
+            // need to get the type of the `Promise` variable declaration above, which would
             // be `PromiseConstructor`.
             //
             // The same case applies to a class:
@@ -22534,7 +22545,7 @@ var ts;
             // side of the `Promise` class, which would be `{ new <T>(...): Promise<T> }`.
             var promiseType = getTypeFromTypeNode(node.type);
             if (promiseType === unknownType && compilerOptions.isolatedModules) {
-                // If we are compiling with isolatedModules, we may not be able to resolve the 
+                // If we are compiling with isolatedModules, we may not be able to resolve the
                 // type as a value. As such, we will just return unknownType;
                 return unknownType;
             }
@@ -22596,7 +22607,7 @@ var ts;
         /** Checks a type reference node as an expression. */
         function checkTypeNodeAsExpression(node) {
             // When we are emitting type metadata for decorators, we need to try to check the type
-            // as if it were an expression so that we can emit the type in a value position when we 
+            // as if it were an expression so that we can emit the type in a value position when we
             // serialize the type metadata.
             if (node && node.kind === 148 /* TypeReference */) {
                 var type = getTypeFromTypeNode(node);
@@ -23745,8 +23756,8 @@ var ts;
                         // derived class inherits base without override/redeclaration
                         var derivedClassDecl = ts.getDeclarationOfKind(type.symbol, 211 /* ClassDeclaration */);
                         // It is an error to inherit an abstract member without implementing it or being declared abstract.
-                        // If there is no declaration for the derived class (as in the case of class expressions), 
-                        // then the class cannot be declared abstract. 
+                        // If there is no declaration for the derived class (as in the case of class expressions),
+                        // then the class cannot be declared abstract.
                         if (baseDeclarationFlags & 256 /* Abstract */ && (!derivedClassDecl || !(derivedClassDecl.flags & 256 /* Abstract */))) {
                             error(derivedClassDecl, ts.Diagnostics.Non_abstract_class_0_does_not_implement_inherited_abstract_member_1_from_class_2, typeToString(type), symbolToString(baseProperty), typeToString(baseType));
                         }
@@ -24173,7 +24184,7 @@ var ts;
                             error(node.name, ts.Diagnostics.A_namespace_declaration_cannot_be_located_prior_to_a_class_or_function_with_which_it_is_merged);
                         }
                     }
-                    // if the module merges with a class declaration in the same lexical scope, 
+                    // if the module merges with a class declaration in the same lexical scope,
                     // we need to track this to ensure the correct emit.
                     var mergedClass = ts.getDeclarationOfKind(symbol, 211 /* ClassDeclaration */);
                     if (mergedClass &&
@@ -25343,7 +25354,7 @@ var ts;
             // * The serialized type of an AccessorDeclaration is the serialized type of the return type annotation of its getter or parameter type annotation of its setter.
             // * The serialized type of any other FunctionLikeDeclaration is "Function".
             // * The serialized type of any other node is "void 0".
-            // 
+            //
             // For rules on serializing type annotations, see `serializeTypeNode`.
             switch (node.kind) {
                 case 211 /* ClassDeclaration */: return "Function";
@@ -25363,7 +25374,7 @@ var ts;
             //
             // * If the declaration is a class, the parameters of the first constructor with a body are used.
             // * If the declaration is function-like and has a body, the parameters of the function are used.
-            // 
+            //
             // For the rules on serializing the type of each parameter declaration, see `serializeTypeOfDeclaration`.
             if (node) {
                 var valueDeclaration;
@@ -25937,20 +25948,20 @@ var ts;
             return checkGrammarForDisallowedTrailingComma(typeArguments) ||
                 checkGrammarForAtLeastOneTypeArgument(node, typeArguments);
         }
-        function checkGrammarForOmittedArgument(node, arguments) {
-            if (arguments) {
+        function checkGrammarForOmittedArgument(node, args) {
+            if (args) {
                 var sourceFile = ts.getSourceFileOfNode(node);
-                for (var _i = 0; _i < arguments.length; _i++) {
-                    var arg = arguments[_i];
+                for (var _i = 0; _i < args.length; _i++) {
+                    var arg = args[_i];
                     if (arg.kind === 184 /* OmittedExpression */) {
                         return grammarErrorAtPos(sourceFile, arg.pos, 0, ts.Diagnostics.Argument_expression_expected);
                     }
                 }
             }
         }
-        function checkGrammarArguments(node, arguments) {
-            return checkGrammarForDisallowedTrailingComma(arguments) ||
-                checkGrammarForOmittedArgument(node, arguments);
+        function checkGrammarArguments(node, args) {
+            return checkGrammarForDisallowedTrailingComma(args) ||
+                checkGrammarForOmittedArgument(node, args);
         }
         function checkGrammarHeritageClause(node) {
             var types = node.types;
@@ -26735,7 +26746,7 @@ var ts;
                 // we would write alias foo declaration when we visit it since it would now be marked as visible
                 if (moduleElementEmitInfo) {
                     if (moduleElementEmitInfo.node.kind === 219 /* ImportDeclaration */) {
-                        // we have to create asynchronous output only after we have collected complete information 
+                        // we have to create asynchronous output only after we have collected complete information
                         // because it is possible to enable multiple bindings as asynchronously visible
                         moduleElementEmitInfo.isVisible = true;
                     }
@@ -26874,6 +26885,20 @@ var ts;
                     return emitEntityName(type);
                 case 132 /* QualifiedName */:
                     return emitEntityName(type);
+                case 147 /* TypePredicate */:
+                    return emitTypePredicate(type);
+            }
+            function writeEntityName(entityName) {
+                if (entityName.kind === 66 /* Identifier */) {
+                    writeTextOfNode(currentSourceFile, entityName);
+                }
+                else {
+                    var left = entityName.kind === 132 /* QualifiedName */ ? entityName.left : entityName.expression;
+                    var right = entityName.kind === 132 /* QualifiedName */ ? entityName.right : entityName.name;
+                    writeEntityName(left);
+                    write(".");
+                    writeTextOfNode(currentSourceFile, right);
+                }
             }
             function emitEntityName(entityName) {
                 var visibilityResult = resolver.isEntityNameVisible(entityName, 
@@ -26881,18 +26906,6 @@ var ts;
                 entityName.parent.kind === 218 /* ImportEqualsDeclaration */ ? entityName.parent : enclosingDeclaration);
                 handleSymbolAccessibilityError(visibilityResult);
                 writeEntityName(entityName);
-                function writeEntityName(entityName) {
-                    if (entityName.kind === 66 /* Identifier */) {
-                        writeTextOfNode(currentSourceFile, entityName);
-                    }
-                    else {
-                        var left = entityName.kind === 132 /* QualifiedName */ ? entityName.left : entityName.expression;
-                        var right = entityName.kind === 132 /* QualifiedName */ ? entityName.right : entityName.name;
-                        writeEntityName(left);
-                        write(".");
-                        writeTextOfNode(currentSourceFile, right);
-                    }
-                }
             }
             function emitExpressionWithTypeArguments(node) {
                 if (ts.isSupportedExpressionWithTypeArguments(node)) {
@@ -26912,6 +26925,11 @@ var ts;
                     emitCommaList(type.typeArguments, emitType);
                     write(">");
                 }
+            }
+            function emitTypePredicate(type) {
+                writeTextOfNode(currentSourceFile, type.parameterName);
+                write(" is ");
+                emitType(type.type);
             }
             function emitTypeQuery(type) {
                 write("typeof ");
@@ -27094,7 +27112,7 @@ var ts;
             }
         }
         function writeImportEqualsDeclaration(node) {
-            // note usage of writer. methods instead of aliases created, just to make sure we are using 
+            // note usage of writer. methods instead of aliases created, just to make sure we are using
             // correct writer especially to handle asynchronous alias writing
             emitJsDocComments(node);
             if (node.flags & 1 /* Export */) {
@@ -27133,7 +27151,7 @@ var ts;
         }
         function writeImportDeclaration(node) {
             if (!node.importClause && !(node.flags & 1 /* Export */)) {
-                // do not write non-exported import declarations that don't have import clauses 
+                // do not write non-exported import declarations that don't have import clauses
                 return;
             }
             emitJsDocComments(node);

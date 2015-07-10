@@ -12024,7 +12024,18 @@ var ts;
                     writePunctuation(writer, 52);
                 }
                 writeSpace(writer);
-                buildTypeDisplay(getReturnTypeOfSignature(signature), writer, enclosingDeclaration, flags, symbolStack);
+                var returnType;
+                if (signature.typePredicate) {
+                    writer.writeParameter(signature.typePredicate.parameterName);
+                    writeSpace(writer);
+                    writeKeyword(writer, 121);
+                    writeSpace(writer);
+                    returnType = signature.typePredicate.type;
+                }
+                else {
+                    returnType = getReturnTypeOfSignature(signature);
+                }
+                buildTypeDisplay(returnType, writer, enclosingDeclaration, flags, symbolStack);
             }
             function buildSignatureDisplay(signature, writer, enclosingDeclaration, flags, symbolStack) {
                 if (signature.target && (flags & 32)) {
@@ -14999,7 +15010,7 @@ var ts;
                     }
                 }
                 else if (source.flags & 80896 && (target.flags & (4096 | 8192) ||
-                    (target.flags & 65536) && target.symbol && target.symbol.flags & (8192 | 2048))) {
+                    (target.flags & 65536) && target.symbol && target.symbol.flags & (8192 | 2048 | 32))) {
                     if (isInProcess(source, target)) {
                         return;
                     }
@@ -18736,7 +18747,7 @@ var ts;
             //          ) => any
             //      ): any;
             //  }
-            // 
+            //
             if (promise.flags & 1) {
                 return undefined;
             }
@@ -21774,20 +21785,20 @@ var ts;
             return checkGrammarForDisallowedTrailingComma(typeArguments) ||
                 checkGrammarForAtLeastOneTypeArgument(node, typeArguments);
         }
-        function checkGrammarForOmittedArgument(node, arguments) {
-            if (arguments) {
+        function checkGrammarForOmittedArgument(node, args) {
+            if (args) {
                 var sourceFile = ts.getSourceFileOfNode(node);
-                for (var _i = 0; _i < arguments.length; _i++) {
-                    var arg = arguments[_i];
+                for (var _i = 0; _i < args.length; _i++) {
+                    var arg = args[_i];
                     if (arg.kind === 184) {
                         return grammarErrorAtPos(sourceFile, arg.pos, 0, ts.Diagnostics.Argument_expression_expected);
                     }
                 }
             }
         }
-        function checkGrammarArguments(node, arguments) {
-            return checkGrammarForDisallowedTrailingComma(arguments) ||
-                checkGrammarForOmittedArgument(node, arguments);
+        function checkGrammarArguments(node, args) {
+            return checkGrammarForDisallowedTrailingComma(args) ||
+                checkGrammarForOmittedArgument(node, args);
         }
         function checkGrammarHeritageClause(node) {
             var types = node.types;
@@ -22628,23 +22639,25 @@ var ts;
                     return emitEntityName(type);
                 case 132:
                     return emitEntityName(type);
+                case 147:
+                    return emitTypePredicate(type);
+            }
+            function writeEntityName(entityName) {
+                if (entityName.kind === 66) {
+                    writeTextOfNode(currentSourceFile, entityName);
+                }
+                else {
+                    var left = entityName.kind === 132 ? entityName.left : entityName.expression;
+                    var right = entityName.kind === 132 ? entityName.right : entityName.name;
+                    writeEntityName(left);
+                    write(".");
+                    writeTextOfNode(currentSourceFile, right);
+                }
             }
             function emitEntityName(entityName) {
                 var visibilityResult = resolver.isEntityNameVisible(entityName, entityName.parent.kind === 218 ? entityName.parent : enclosingDeclaration);
                 handleSymbolAccessibilityError(visibilityResult);
                 writeEntityName(entityName);
-                function writeEntityName(entityName) {
-                    if (entityName.kind === 66) {
-                        writeTextOfNode(currentSourceFile, entityName);
-                    }
-                    else {
-                        var left = entityName.kind === 132 ? entityName.left : entityName.expression;
-                        var right = entityName.kind === 132 ? entityName.right : entityName.name;
-                        writeEntityName(left);
-                        write(".");
-                        writeTextOfNode(currentSourceFile, right);
-                    }
-                }
             }
             function emitExpressionWithTypeArguments(node) {
                 if (ts.isSupportedExpressionWithTypeArguments(node)) {
@@ -22664,6 +22677,11 @@ var ts;
                     emitCommaList(type.typeArguments, emitType);
                     write(">");
                 }
+            }
+            function emitTypePredicate(type) {
+                writeTextOfNode(currentSourceFile, type.parameterName);
+                write(" is ");
+                emitType(type.type);
             }
             function emitTypeQuery(type) {
                 write("typeof ");

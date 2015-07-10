@@ -7302,12 +7302,12 @@ interface Document extends Node, GlobalEventHandlers, NodeSelector, DocumentEven
       * @param elementId String that specifies the ID value. Case-insensitive.
       */
     getElementById(elementId: string): HTMLElement;
-    getElementsByClassName(classNames: string): NodeList;
+    getElementsByClassName(classNames: string): NodeListOf<Element>;
     /**
       * Gets a collection of objects based on the value of the NAME or ID attribute.
       * @param elementName Gets a collection of objects based on the value of the NAME or ID attribute.
       */
-    getElementsByName(elementName: string): NodeList;
+    getElementsByName(elementName: string): NodeListOf<Element>;
     /**
       * Retrieves a collection of objects based on the specified element name.
       * @param name Specifies the name of an element.
@@ -7485,8 +7485,8 @@ interface Document extends Node, GlobalEventHandlers, NodeSelector, DocumentEven
     getElementsByTagName(tagname: "wbr"): NodeListOf<HTMLElement>;
     getElementsByTagName(tagname: "x-ms-webview"): NodeListOf<MSHTMLWebViewElement>;
     getElementsByTagName(tagname: "xmp"): NodeListOf<HTMLBlockElement>;
-    getElementsByTagName(tagname: string): NodeList;
-    getElementsByTagNameNS(namespaceURI: string, localName: string): NodeList;
+    getElementsByTagName(tagname: string): NodeListOf<Element>;
+    getElementsByTagNameNS(namespaceURI: string, localName: string): NodeListOf<Element>;
     /**
       * Returns an object representing the current selection of the document that is loaded into the object displaying a webpage.
       */
@@ -7759,6 +7759,8 @@ interface Element extends Node, GlobalEventHandlers, ElementTraversal, NodeSelec
     scrollTop: number;
     scrollWidth: number;
     tagName: string;
+    id: string;
+    className: string;
     getAttribute(name?: string): string;
     getAttributeNS(namespaceURI: string, localName: string): string;
     getAttributeNode(name: string): Attr;
@@ -7938,8 +7940,8 @@ interface Element extends Node, GlobalEventHandlers, ElementTraversal, NodeSelec
     getElementsByTagName(name: "wbr"): NodeListOf<HTMLElement>;
     getElementsByTagName(name: "x-ms-webview"): NodeListOf<MSHTMLWebViewElement>;
     getElementsByTagName(name: "xmp"): NodeListOf<HTMLBlockElement>;
-    getElementsByTagName(name: string): NodeList;
-    getElementsByTagNameNS(namespaceURI: string, localName: string): NodeList;
+    getElementsByTagName(name: string): NodeListOf<Element>;
+    getElementsByTagNameNS(namespaceURI: string, localName: string): NodeListOf<Element>;
     hasAttribute(name: string): boolean;
     hasAttributeNS(namespaceURI: string, localName: string): boolean;
     msGetRegionContent(): MSRangeCollection;
@@ -8120,7 +8122,7 @@ interface FormData {
 
 declare var FormData: {
     prototype: FormData;
-    new(): FormData;
+    new (form?: HTMLFormElement): FormData;
 }
 
 interface GainNode extends AudioNode {
@@ -8857,14 +8859,12 @@ declare var HTMLDocument: {
 interface HTMLElement extends Element {
     accessKey: string;
     children: HTMLCollection;
-    className: string;
     contentEditable: string;
     dataset: DOMStringMap;
     dir: string;
     draggable: boolean;
     hidden: boolean;
     hideFocus: boolean;
-    id: string;
     innerHTML: string;
     innerText: string;
     isContentEditable: boolean;
@@ -8951,7 +8951,7 @@ interface HTMLElement extends Element {
     contains(child: HTMLElement): boolean;
     dragDrop(): boolean;
     focus(): void;
-    getElementsByClassName(classNames: string): NodeList;
+    getElementsByClassName(classNames: string): NodeListOf<Element>;
     insertAdjacentElement(position: string, insertedElement: Element): Element;
     insertAdjacentHTML(where: string, html: string): void;
     insertAdjacentText(where: string, text: string): void;
@@ -13763,6 +13763,7 @@ declare var SVGDescElement: {
 
 interface SVGElement extends Element {
     id: string;
+    className: any;
     onclick: (ev: MouseEvent) => any;
     ondblclick: (ev: MouseEvent) => any;
     onfocusin: (ev: FocusEvent) => any;
@@ -17032,6 +17033,7 @@ interface Window extends EventTarget, WindowTimers, WindowSessionStorage, Window
     toolbar: BarProp;
     top: Window;
     window: Window;
+    URL: URL;
     alert(message?: any): void;
     blur(): void;
     cancelAnimationFrame(handle: number): void;
@@ -17535,7 +17537,7 @@ interface NavigatorStorageUtils {
 
 interface NodeSelector {
     querySelector(selectors: string): Element;
-    querySelectorAll(selectors: string): NodeList;
+    querySelectorAll(selectors: string): NodeListOf<Element>;
 }
 
 interface RandomSource {
@@ -17583,7 +17585,7 @@ interface SVGLocatable {
 }
 
 interface SVGStylable {
-    className: SVGAnimatedString;
+    className: any;
     style: CSSStyleDeclaration;
 }
 
@@ -17670,7 +17672,7 @@ interface EventListenerObject {
 declare type EventListenerOrEventListenerObject = EventListener | EventListenerObject;
 
 interface ErrorEventHandler {
-    (event: Event | string, source?: string, fileno?: number, columnNumber?: number): void;
+    (message: string, filename?: string, lineno?: number, colno?: number, error?:Error): void;
 }
 interface PositionCallback {
     (position: Position): void;
@@ -17846,6 +17848,7 @@ declare var styleMedia: StyleMedia;
 declare var toolbar: BarProp;
 declare var top: Window;
 declare var window: Window;
+declare var URL: URL;
 declare function alert(message?: any): void;
 declare function blur(): void;
 declare function cancelAnimationFrame(handle: number): void;
