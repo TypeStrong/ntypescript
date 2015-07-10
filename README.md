@@ -72,7 +72,7 @@ Because of the limited testing we do you might want to stick to *fixed* version 
 ```bash
 npm install ntypescript@latest --save --save-exact --force
 ```
-Here it will save to package.json (`save`), use exact version (`--save-exact`) and replace any current version (`force`).
+Here it will save to package.json (`--save`), use exact version (`--save-exact`) and replace any current version (`--force`).
 
 # About
 Note that this is a personal endeavor, not officially by Microsoft.
