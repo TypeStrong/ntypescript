@@ -2,7 +2,7 @@
   "name": "ntypescript",
   "version": "1.201507102254.1+a78421fea0c6b51f78f42842d8ae8333490903bf",
   "description": "Latest code from microsoft/typescript packaged and released",
-  "main": "./bin/typescript.js",
+  "main": "./bin/ts",
   "bin": {
     "ntsc": "./bin/tsc",
     "ntsserver": "./bin/tsserver",
