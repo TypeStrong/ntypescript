@@ -6,10 +6,11 @@ Nightly build snapshots of [Microsoft/TypeScript](https://github.com/Microsoft/T
 
 Niceties:
 
-* Automatic builds
-* `package.json` links you to typescript definitions (using `typescript.definition` entry)
-* We expose the internal APIs
 * Consistent side by side usage (just add an `n` prefix): `require('ntypescript')`, `ntsc`, `ntsserver`
+* `package.json` links you to typescript definitions (using `typescript.definition` entry)
+* We expose the internal APIs (the ones that have `/* internal */`)
+* We expose the global `ts` variable. Just `require('ntypescript')` once and start using `ts` like you are in the actual compiler source code.
+* More frequent releases
 
 ## Install
 Similar to `typescript` you can install and use `ntypescript` globally:
