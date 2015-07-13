@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+
 var ts = require('./typescript.js')
-global.ts = ts;
+if (typeof global !== "undefined") {
+    global.ts = ts;
+}
+if (typeof window !== "undefined") {
+    window.ts = ts;
+}
 module.exports = ts;

@@ -35,6 +35,16 @@ You can use `ntsc` and the `ntsserver` command line tools.
 ### Require
 Use `require('ntypescript')`
 
+### Global `ts`
+In addition to returning what `typescript` returns we also expose `ts` as a global.
+
+```ts
+declare var require: any;
+require('ntypescript');
+console.log(ts.createScanner);
+```
+Which makes it easy to use the compiler API if you are using it heavily. Note you only need to `require` *once* from any file.
+
 ### Replace TypeScript
 For `require('typescript')` you can do that quite simply using your package.json: 
 
