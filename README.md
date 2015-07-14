@@ -22,7 +22,7 @@ npm install ntypescript -g
 or in your package.json
 
 ```sh
-npm install ntypescript --save --save-exact
+npm install ntypescript@latest --save --save-exact
 ```
 
 Each release is named after the day it was built and the git commit hash in Microsoft/TypeScript/master that it was built from. We recommend adding `save-exact` as there are no guarantees on when stuff might break and you want your users to get the same version you tested.
@@ -77,13 +77,6 @@ module.exports = function(grunt) {
     grunt.registerTask('default', ['ntypescript']);
 };
 ```
-### Keeping it updated
-Because of the limited testing we do you might want to stick to *fixed* version numbers and then update using: 
-
-```bash
-npm install ntypescript@latest --save --save-exact --force
-```
-Here it will save to package.json (`--save`), use exact version (`--save-exact`) and replace any current version (`--force`).
 
 # About
 Note that this is a personal endeavor, not officially by Microsoft.
