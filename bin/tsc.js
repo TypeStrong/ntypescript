@@ -933,7 +933,14 @@ var ts;
                 newLine: _os.EOL,
                 useCaseSensitiveFileNames: useCaseSensitiveFileNames,
                 write: function (s) {
-                    _fs.writeSync(1, s);
+                    var buffer = new Buffer(s, 'utf8');
+                    var offset = 0;
+                    var toWrite = buffer.length;
+                    var written = 0;
+                    while ((written = _fs.writeSync(1, buffer, offset, toWrite)) < toWrite) {
+                        offset += written;
+                        toWrite -= written;
+                    }
                 },
                 readFile: readFile,
                 writeFile: writeFile,
@@ -1401,7 +1408,7 @@ var ts;
         Classes_containing_abstract_methods_must_be_marked_abstract: { code: 2514, category: ts.DiagnosticCategory.Error, key: "Classes containing abstract methods must be marked abstract." },
         Non_abstract_class_0_does_not_implement_inherited_abstract_member_1_from_class_2: { code: 2515, category: ts.DiagnosticCategory.Error, key: "Non-abstract class '{0}' does not implement inherited abstract member '{1}' from class '{2}'." },
         All_declarations_of_an_abstract_method_must_be_consecutive: { code: 2516, category: ts.DiagnosticCategory.Error, key: "All declarations of an abstract method must be consecutive." },
-        Constructor_objects_of_abstract_type_cannot_be_assigned_to_constructor_objects_of_non_abstract_type: { code: 2517, category: ts.DiagnosticCategory.Error, key: "Constructor objects of abstract type cannot be assigned to constructor objects of non-abstract type" },
+        Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type: { code: 2517, category: ts.DiagnosticCategory.Error, key: "Cannot assign an abstract constructor type to a non-abstract constructor type." },
         Only_an_ambient_class_can_be_merged_with_an_interface: { code: 2518, category: ts.DiagnosticCategory.Error, key: "Only an ambient class can be merged with an interface." },
         Duplicate_identifier_0_Compiler_uses_declaration_1_to_support_async_functions: { code: 2520, category: ts.DiagnosticCategory.Error, key: "Duplicate identifier '{0}'. Compiler uses declaration '{1}' to support async functions." },
         Expression_resolves_to_variable_declaration_0_that_compiler_uses_to_support_async_functions: { code: 2521, category: ts.DiagnosticCategory.Error, key: "Expression resolves to variable declaration '{0}' that compiler uses to support async functions." },
@@ -14084,10 +14091,29 @@ var ts;
                 var targetSignatures = getSignaturesOfType(target, kind);
                 var result = -1;
                 var saveErrorInfo = errorInfo;
+                var sourceSig = sourceSignatures[0];
+                var targetSig = targetSignatures[0];
+                if (sourceSig && targetSig) {
+                    var sourceErasedSignature = getErasedSignature(sourceSig);
+                    var targetErasedSignature = getErasedSignature(targetSig);
+                    var sourceReturnType = sourceErasedSignature && getReturnTypeOfSignature(sourceErasedSignature);
+                    var targetReturnType = targetErasedSignature && getReturnTypeOfSignature(targetErasedSignature);
+                    var sourceReturnDecl = sourceReturnType && sourceReturnType.symbol && ts.getDeclarationOfKind(sourceReturnType.symbol, 211);
+                    var targetReturnDecl = targetReturnType && targetReturnType.symbol && ts.getDeclarationOfKind(targetReturnType.symbol, 211);
+                    var sourceIsAbstract = sourceReturnDecl && sourceReturnDecl.flags & 256;
+                    var targetIsAbstract = targetReturnDecl && targetReturnDecl.flags & 256;
+                    if (sourceIsAbstract && !targetIsAbstract) {
+                        if (reportErrors) {
+                            reportError(ts.Diagnostics.Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type);
+                        }
+                        return 0;
+                    }
+                }
                 outer: for (var _i = 0; _i < targetSignatures.length; _i++) {
                     var t = targetSignatures[_i];
                     if (!t.hasStringLiterals || target.flags & 262144) {
                         var localErrors = reportErrors;
+                        var checkedAbstractAssignability = false;
                         for (var _a = 0; _a < sourceSignatures.length; _a++) {
                             var s = sourceSignatures[_a];
                             if (!s.hasStringLiterals || source.flags & 262144) {
@@ -14135,12 +14161,12 @@ var ts;
                 target = getErasedSignature(target);
                 var result = -1;
                 for (var i = 0; i < checkCount; i++) {
-                    var s_1 = i < sourceMax ? getTypeOfSymbol(source.parameters[i]) : getRestTypeOfSignature(source);
-                    var t_1 = i < targetMax ? getTypeOfSymbol(target.parameters[i]) : getRestTypeOfSignature(target);
+                    var s = i < sourceMax ? getTypeOfSymbol(source.parameters[i]) : getRestTypeOfSignature(source);
+                    var t = i < targetMax ? getTypeOfSymbol(target.parameters[i]) : getRestTypeOfSignature(target);
                     var saveErrorInfo = errorInfo;
-                    var related = isRelatedTo(s_1, t_1, reportErrors);
+                    var related = isRelatedTo(s, t, reportErrors);
                     if (!related) {
-                        related = isRelatedTo(t_1, s_1, false);
+                        related = isRelatedTo(t, s, false);
                         if (!related) {
                             if (reportErrors) {
                                 reportError(ts.Diagnostics.Types_of_parameters_0_and_1_are_incompatible, source.parameters[i < sourceMax ? i : sourceMax].name, target.parameters[i < targetMax ? i : targetMax].name);
@@ -14178,11 +14204,11 @@ var ts;
                     }
                     return 0;
                 }
-                var t = getReturnTypeOfSignature(target);
-                if (t === voidType)
+                var targetReturnType = getReturnTypeOfSignature(target);
+                if (targetReturnType === voidType)
                     return result;
-                var s = getReturnTypeOfSignature(source);
-                return result & isRelatedTo(s, t, reportErrors);
+                var sourceReturnType = getReturnTypeOfSignature(source);
+                return result & isRelatedTo(sourceReturnType, targetReturnType, reportErrors);
             }
             function signaturesIdenticalTo(source, target, kind) {
                 var sourceSignatures = getSignaturesOfType(source, kind);

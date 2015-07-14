@@ -3901,7 +3901,7 @@ declare module "typescript" {
             category: DiagnosticCategory;
             key: string;
         };
-        Constructor_objects_of_abstract_type_cannot_be_assigned_to_constructor_objects_of_non_abstract_type: {
+        Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type: {
             code: number;
             category: DiagnosticCategory;
             key: string;

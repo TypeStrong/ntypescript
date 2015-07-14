@@ -933,7 +933,14 @@ var ts;
                 newLine: _os.EOL,
                 useCaseSensitiveFileNames: useCaseSensitiveFileNames,
                 write: function (s) {
-                    _fs.writeSync(1, s);
+                    var buffer = new Buffer(s, 'utf8');
+                    var offset = 0;
+                    var toWrite = buffer.length;
+                    var written = 0;
+                    while ((written = _fs.writeSync(1, buffer, offset, toWrite)) < toWrite) {
+                        offset += written;
+                        toWrite -= written;
+                    }
                 },
                 readFile: readFile,
                 writeFile: writeFile,
@@ -1401,7 +1408,7 @@ var ts;
         Classes_containing_abstract_methods_must_be_marked_abstract: { code: 2514, category: ts.DiagnosticCategory.Error, key: "Classes containing abstract methods must be marked abstract." },
         Non_abstract_class_0_does_not_implement_inherited_abstract_member_1_from_class_2: { code: 2515, category: ts.DiagnosticCategory.Error, key: "Non-abstract class '{0}' does not implement inherited abstract member '{1}' from class '{2}'." },
         All_declarations_of_an_abstract_method_must_be_consecutive: { code: 2516, category: ts.DiagnosticCategory.Error, key: "All declarations of an abstract method must be consecutive." },
-        Constructor_objects_of_abstract_type_cannot_be_assigned_to_constructor_objects_of_non_abstract_type: { code: 2517, category: ts.DiagnosticCategory.Error, key: "Constructor objects of abstract type cannot be assigned to constructor objects of non-abstract type" },
+        Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type: { code: 2517, category: ts.DiagnosticCategory.Error, key: "Cannot assign an abstract constructor type to a non-abstract constructor type." },
         Only_an_ambient_class_can_be_merged_with_an_interface: { code: 2518, category: ts.DiagnosticCategory.Error, key: "Only an ambient class can be merged with an interface." },
         Duplicate_identifier_0_Compiler_uses_declaration_1_to_support_async_functions: { code: 2520, category: ts.DiagnosticCategory.Error, key: "Duplicate identifier '{0}'. Compiler uses declaration '{1}' to support async functions." },
         Expression_resolves_to_variable_declaration_0_that_compiler_uses_to_support_async_functions: { code: 2521, category: ts.DiagnosticCategory.Error, key: "Expression resolves to variable declaration '{0}' that compiler uses to support async functions." },
@@ -14507,10 +14514,29 @@ var ts;
                 var targetSignatures = getSignaturesOfType(target, kind);
                 var result = -1;
                 var saveErrorInfo = errorInfo;
+                var sourceSig = sourceSignatures[0];
+                var targetSig = targetSignatures[0];
+                if (sourceSig && targetSig) {
+                    var sourceErasedSignature = getErasedSignature(sourceSig);
+                    var targetErasedSignature = getErasedSignature(targetSig);
+                    var sourceReturnType = sourceErasedSignature && getReturnTypeOfSignature(sourceErasedSignature);
+                    var targetReturnType = targetErasedSignature && getReturnTypeOfSignature(targetErasedSignature);
+                    var sourceReturnDecl = sourceReturnType && sourceReturnType.symbol && ts.getDeclarationOfKind(sourceReturnType.symbol, 211);
+                    var targetReturnDecl = targetReturnType && targetReturnType.symbol && ts.getDeclarationOfKind(targetReturnType.symbol, 211);
+                    var sourceIsAbstract = sourceReturnDecl && sourceReturnDecl.flags & 256;
+                    var targetIsAbstract = targetReturnDecl && targetReturnDecl.flags & 256;
+                    if (sourceIsAbstract && !targetIsAbstract) {
+                        if (reportErrors) {
+                            reportError(ts.Diagnostics.Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type);
+                        }
+                        return 0;
+                    }
+                }
                 outer: for (var _i = 0; _i < targetSignatures.length; _i++) {
                     var t = targetSignatures[_i];
                     if (!t.hasStringLiterals || target.flags & 262144) {
                         var localErrors = reportErrors;
+                        var checkedAbstractAssignability = false;
                         for (var _a = 0; _a < sourceSignatures.length; _a++) {
                             var s = sourceSignatures[_a];
                             if (!s.hasStringLiterals || source.flags & 262144) {
@@ -14558,12 +14584,12 @@ var ts;
                 target = getErasedSignature(target);
                 var result = -1;
                 for (var i = 0; i < checkCount; i++) {
-                    var s_1 = i < sourceMax ? getTypeOfSymbol(source.parameters[i]) : getRestTypeOfSignature(source);
-                    var t_1 = i < targetMax ? getTypeOfSymbol(target.parameters[i]) : getRestTypeOfSignature(target);
+                    var s = i < sourceMax ? getTypeOfSymbol(source.parameters[i]) : getRestTypeOfSignature(source);
+                    var t = i < targetMax ? getTypeOfSymbol(target.parameters[i]) : getRestTypeOfSignature(target);
                     var saveErrorInfo = errorInfo;
-                    var related = isRelatedTo(s_1, t_1, reportErrors);
+                    var related = isRelatedTo(s, t, reportErrors);
                     if (!related) {
-                        related = isRelatedTo(t_1, s_1, false);
+                        related = isRelatedTo(t, s, false);
                         if (!related) {
                             if (reportErrors) {
                                 reportError(ts.Diagnostics.Types_of_parameters_0_and_1_are_incompatible, source.parameters[i < sourceMax ? i : sourceMax].name, target.parameters[i < targetMax ? i : targetMax].name);
@@ -14601,11 +14627,11 @@ var ts;
                     }
                     return 0;
                 }
-                var t = getReturnTypeOfSignature(target);
-                if (t === voidType)
+                var targetReturnType = getReturnTypeOfSignature(target);
+                if (targetReturnType === voidType)
                     return result;
-                var s = getReturnTypeOfSignature(source);
-                return result & isRelatedTo(s, t, reportErrors);
+                var sourceReturnType = getReturnTypeOfSignature(source);
+                return result & isRelatedTo(sourceReturnType, targetReturnType, reportErrors);
             }
             function signaturesIdenticalTo(source, target, kind) {
                 var sourceSignatures = getSignaturesOfType(source, kind);
@@ -31937,15 +31963,15 @@ var ts;
                 var t;
                 var pos = scanner.getStartPos();
                 while (pos < endPos) {
-                    var t_2 = scanner.getToken();
-                    if (!ts.isTrivia(t_2)) {
+                    var t_1 = scanner.getToken();
+                    if (!ts.isTrivia(t_1)) {
                         break;
                     }
                     scanner.scan();
                     var item = {
                         pos: pos,
                         end: scanner.getStartPos(),
-                        kind: t_2
+                        kind: t_1
                     };
                     pos = scanner.getStartPos();
                     if (!leadingTrivia) {
@@ -33289,6 +33315,8 @@ var ts;
                             case 15:
                             case 18:
                             case 19:
+                            case 16:
+                            case 17:
                             case 77:
                             case 101:
                             case 53:
@@ -33390,7 +33418,7 @@ var ts;
                             }
                             else if (tokenInfo.token.kind === listStartToken) {
                                 startLine = sourceFile.getLineAndCharacterOfPosition(tokenInfo.token.pos).line;
-                                var indentation_1 = computeIndentation(tokenInfo.token, startLine, -1, parent, parentDynamicIndentation, startLine);
+                                var indentation_1 = computeIndentation(tokenInfo.token, startLine, -1, parent, parentDynamicIndentation, parentStartLine);
                                 listDynamicIndentation = getDynamicIndentation(parent, parentStartLine, indentation_1.indentation, indentation_1.delta);
                                 consumeTokenAndAdvanceScanner(tokenInfo, parent, listDynamicIndentation);
                             }
@@ -37117,6 +37145,7 @@ var ts;
                                 if (hasKind(node.parent, 142) || hasKind(node.parent, 143)) {
                                     return getGetAndSetOccurrences(node.parent);
                                 }
+                                break;
                             default:
                                 if (ts.isModifier(node.kind) && node.parent &&
                                     (ts.isDeclaration(node.parent) || node.parent.kind === 190)) {
@@ -37230,6 +37259,11 @@ var ts;
                             return undefined;
                         }
                     }
+                    else if (modifier === 112) {
+                        if (!(container.kind === 211 || declaration.kind === 211)) {
+                            return undefined;
+                        }
+                    }
                     else {
                         return undefined;
                     }
@@ -37239,7 +37273,12 @@ var ts;
                     switch (container.kind) {
                         case 216:
                         case 245:
-                            nodes = container.statements;
+                            if (modifierFlag & 256) {
+                                nodes = declaration.members.concat(declaration);
+                            }
+                            else {
+                                nodes = container.statements;
+                            }
                             break;
                         case 141:
                             nodes = container.parameters.concat(container.parent.members);
@@ -37253,6 +37292,9 @@ var ts;
                                 if (constructor) {
                                     nodes = nodes.concat(constructor.parameters);
                                 }
+                            }
+                            else if (modifierFlag & 256) {
+                                nodes = nodes.concat(container);
                             }
                             break;
                         default:
@@ -37278,6 +37320,8 @@ var ts;
                                 return 1;
                             case 119:
                                 return 2;
+                            case 112:
+                                return 256;
                             default:
                                 ts.Debug.fail();
                         }
@@ -38593,7 +38637,7 @@ var ts;
                                 return;
                         }
                     }
-                    return 9;
+                    return 2;
                 }
             }
             function processElement(element) {
@@ -39337,10 +39381,113 @@ var ts;
                 this.fileHash = {};
                 this.nextFileId = 1;
                 this.changeSeq = 0;
+                this.handlers = (_a = {},
+                    _a[CommandNames.Exit] = function () {
+                        _this.exit();
+                        return {};
+                    },
+                    _a[CommandNames.Definition] = function (request) {
+                        var defArgs = request.arguments;
+                        return { response: _this.getDefinition(defArgs.line, defArgs.offset, defArgs.file) };
+                    },
+                    _a[CommandNames.TypeDefinition] = function (request) {
+                        var defArgs = request.arguments;
+                        return { response: _this.getTypeDefinition(defArgs.line, defArgs.offset, defArgs.file) };
+                    },
+                    _a[CommandNames.References] = function (request) {
+                        var defArgs = request.arguments;
+                        return { response: _this.getReferences(defArgs.line, defArgs.offset, defArgs.file) };
+                    },
+                    _a[CommandNames.Rename] = function (request) {
+                        var renameArgs = request.arguments;
+                        return { response: _this.getRenameLocations(renameArgs.line, renameArgs.offset, renameArgs.file, renameArgs.findInComments, renameArgs.findInStrings) };
+                    },
+                    _a[CommandNames.Open] = function (request) {
+                        var openArgs = request.arguments;
+                        _this.openClientFile(openArgs.file);
+                        return {};
+                    },
+                    _a[CommandNames.Quickinfo] = function (request) {
+                        var quickinfoArgs = request.arguments;
+                        return { response: _this.getQuickInfo(quickinfoArgs.line, quickinfoArgs.offset, quickinfoArgs.file) };
+                    },
+                    _a[CommandNames.Format] = function (request) {
+                        var formatArgs = request.arguments;
+                        return { response: _this.getFormattingEditsForRange(formatArgs.line, formatArgs.offset, formatArgs.endLine, formatArgs.endOffset, formatArgs.file) };
+                    },
+                    _a[CommandNames.Formatonkey] = function (request) {
+                        var formatOnKeyArgs = request.arguments;
+                        return { response: _this.getFormattingEditsAfterKeystroke(formatOnKeyArgs.line, formatOnKeyArgs.offset, formatOnKeyArgs.key, formatOnKeyArgs.file) };
+                    },
+                    _a[CommandNames.Completions] = function (request) {
+                        var completionsArgs = request.arguments;
+                        return { response: _this.getCompletions(completionsArgs.line, completionsArgs.offset, completionsArgs.prefix, completionsArgs.file) };
+                    },
+                    _a[CommandNames.CompletionDetails] = function (request) {
+                        var completionDetailsArgs = request.arguments;
+                        return { response: _this.getCompletionEntryDetails(completionDetailsArgs.line, completionDetailsArgs.offset, completionDetailsArgs.entryNames, completionDetailsArgs.file) };
+                    },
+                    _a[CommandNames.SignatureHelp] = function (request) {
+                        var signatureHelpArgs = request.arguments;
+                        return { response: _this.getSignatureHelpItems(signatureHelpArgs.line, signatureHelpArgs.offset, signatureHelpArgs.file) };
+                    },
+                    _a[CommandNames.Geterr] = function (request) {
+                        var geterrArgs = request.arguments;
+                        return { response: _this.getDiagnostics(geterrArgs.delay, geterrArgs.files), responseRequired: false };
+                    },
+                    _a[CommandNames.Change] = function (request) {
+                        var changeArgs = request.arguments;
+                        _this.change(changeArgs.line, changeArgs.offset, changeArgs.endLine, changeArgs.endOffset, changeArgs.insertString, changeArgs.file);
+                        return { responseRequired: false };
+                    },
+                    _a[CommandNames.Configure] = function (request) {
+                        var configureArgs = request.arguments;
+                        _this.projectService.setHostConfiguration(configureArgs);
+                        _this.output(undefined, CommandNames.Configure, request.seq);
+                        return { responseRequired: false };
+                    },
+                    _a[CommandNames.Reload] = function (request) {
+                        var reloadArgs = request.arguments;
+                        _this.reload(reloadArgs.file, reloadArgs.tmpfile, request.seq);
+                        return { responseRequired: false };
+                    },
+                    _a[CommandNames.Saveto] = function (request) {
+                        var savetoArgs = request.arguments;
+                        _this.saveToTmp(savetoArgs.file, savetoArgs.tmpfile);
+                        return { responseRequired: false };
+                    },
+                    _a[CommandNames.Close] = function (request) {
+                        var closeArgs = request.arguments;
+                        _this.closeClientFile(closeArgs.file);
+                        return { responseRequired: false };
+                    },
+                    _a[CommandNames.Navto] = function (request) {
+                        var navtoArgs = request.arguments;
+                        return { response: _this.getNavigateToItems(navtoArgs.searchValue, navtoArgs.file, navtoArgs.maxResultCount) };
+                    },
+                    _a[CommandNames.Brace] = function (request) {
+                        var braceArguments = request.arguments;
+                        return { response: _this.getBraceMatching(braceArguments.line, braceArguments.offset, braceArguments.file) };
+                    },
+                    _a[CommandNames.NavBar] = function (request) {
+                        var navBarArgs = request.arguments;
+                        return { response: _this.getNavigationBarItems(navBarArgs.file) };
+                    },
+                    _a[CommandNames.Occurrences] = function (request) {
+                        var _a = request.arguments, line = _a.line, offset = _a.offset, fileName = _a.file;
+                        return { response: _this.getOccurrences(line, offset, fileName) };
+                    },
+                    _a[CommandNames.ProjectInfo] = function (request) {
+                        var _a = request.arguments, file = _a.file, needFileNameList = _a.needFileNameList;
+                        return { response: _this.getProjectInfo(file, needFileNameList) };
+                    },
+                    _a
+                );
                 this.projectService =
                     new server.ProjectService(host, logger, function (eventName, project, fileName) {
                         _this.handleEvent(eventName, project, fileName);
                     });
+                var _a;
             }
             Session.prototype.handleEvent = function (eventName, project, fileName) {
                 var _this = this;
@@ -39957,6 +40104,23 @@ var ts;
             };
             Session.prototype.exit = function () {
             };
+            Session.prototype.addProtocolHandler = function (command, handler) {
+                if (this.handlers[command]) {
+                    throw new Error("Protocol handler already exists for command \"" + command + "\"");
+                }
+                this.handlers[command] = handler;
+            };
+            Session.prototype.executeCommand = function (request) {
+                var handler = this.handlers[request.command];
+                if (handler) {
+                    return handler(request);
+                }
+                else {
+                    this.projectService.log("Unrecognized JSON command: " + JSON.stringify(request));
+                    this.output(undefined, CommandNames.Unknown, request.seq, "Unrecognized JSON command: " + request.command);
+                    return { responseRequired: false };
+                }
+            };
             Session.prototype.onMessage = function (message) {
                 if (this.logger.isVerbose()) {
                     this.logger.info("request: " + message);
@@ -39964,140 +40128,7 @@ var ts;
                 }
                 try {
                     var request = JSON.parse(message);
-                    var response;
-                    var errorMessage;
-                    var responseRequired = true;
-                    switch (request.command) {
-                        case CommandNames.Exit: {
-                            this.exit();
-                            responseRequired = false;
-                            break;
-                        }
-                        case CommandNames.Definition: {
-                            var defArgs = request.arguments;
-                            response = this.getDefinition(defArgs.line, defArgs.offset, defArgs.file);
-                            break;
-                        }
-                        case CommandNames.TypeDefinition: {
-                            var defArgs = request.arguments;
-                            response = this.getTypeDefinition(defArgs.line, defArgs.offset, defArgs.file);
-                            break;
-                        }
-                        case CommandNames.References: {
-                            var refArgs = request.arguments;
-                            response = this.getReferences(refArgs.line, refArgs.offset, refArgs.file);
-                            break;
-                        }
-                        case CommandNames.Rename: {
-                            var renameArgs = request.arguments;
-                            response = this.getRenameLocations(renameArgs.line, renameArgs.offset, renameArgs.file, renameArgs.findInComments, renameArgs.findInStrings);
-                            break;
-                        }
-                        case CommandNames.Open: {
-                            var openArgs = request.arguments;
-                            this.openClientFile(openArgs.file);
-                            responseRequired = false;
-                            break;
-                        }
-                        case CommandNames.Quickinfo: {
-                            var quickinfoArgs = request.arguments;
-                            response = this.getQuickInfo(quickinfoArgs.line, quickinfoArgs.offset, quickinfoArgs.file);
-                            break;
-                        }
-                        case CommandNames.Format: {
-                            var formatArgs = request.arguments;
-                            response = this.getFormattingEditsForRange(formatArgs.line, formatArgs.offset, formatArgs.endLine, formatArgs.endOffset, formatArgs.file);
-                            break;
-                        }
-                        case CommandNames.Formatonkey: {
-                            var formatOnKeyArgs = request.arguments;
-                            response = this.getFormattingEditsAfterKeystroke(formatOnKeyArgs.line, formatOnKeyArgs.offset, formatOnKeyArgs.key, formatOnKeyArgs.file);
-                            break;
-                        }
-                        case CommandNames.Completions: {
-                            var completionsArgs = request.arguments;
-                            response = this.getCompletions(completionsArgs.line, completionsArgs.offset, completionsArgs.prefix, completionsArgs.file);
-                            break;
-                        }
-                        case CommandNames.CompletionDetails: {
-                            var completionDetailsArgs = request.arguments;
-                            response =
-                                this.getCompletionEntryDetails(completionDetailsArgs.line, completionDetailsArgs.offset, completionDetailsArgs.entryNames, completionDetailsArgs.file);
-                            break;
-                        }
-                        case CommandNames.SignatureHelp: {
-                            var signatureHelpArgs = request.arguments;
-                            response = this.getSignatureHelpItems(signatureHelpArgs.line, signatureHelpArgs.offset, signatureHelpArgs.file);
-                            break;
-                        }
-                        case CommandNames.Geterr: {
-                            var geterrArgs = request.arguments;
-                            response = this.getDiagnostics(geterrArgs.delay, geterrArgs.files);
-                            responseRequired = false;
-                            break;
-                        }
-                        case CommandNames.Change: {
-                            var changeArgs = request.arguments;
-                            this.change(changeArgs.line, changeArgs.offset, changeArgs.endLine, changeArgs.endOffset, changeArgs.insertString, changeArgs.file);
-                            responseRequired = false;
-                            break;
-                        }
-                        case CommandNames.Configure: {
-                            var configureArgs = request.arguments;
-                            this.projectService.setHostConfiguration(configureArgs);
-                            this.output(undefined, CommandNames.Configure, request.seq);
-                            responseRequired = false;
-                            break;
-                        }
-                        case CommandNames.Reload: {
-                            var reloadArgs = request.arguments;
-                            this.reload(reloadArgs.file, reloadArgs.tmpfile, request.seq);
-                            responseRequired = false;
-                            break;
-                        }
-                        case CommandNames.Saveto: {
-                            var savetoArgs = request.arguments;
-                            this.saveToTmp(savetoArgs.file, savetoArgs.tmpfile);
-                            responseRequired = false;
-                            break;
-                        }
-                        case CommandNames.Close: {
-                            var closeArgs = request.arguments;
-                            this.closeClientFile(closeArgs.file);
-                            responseRequired = false;
-                            break;
-                        }
-                        case CommandNames.Navto: {
-                            var navtoArgs = request.arguments;
-                            response = this.getNavigateToItems(navtoArgs.searchValue, navtoArgs.file, navtoArgs.maxResultCount);
-                            break;
-                        }
-                        case CommandNames.Brace: {
-                            var braceArguments = request.arguments;
-                            response = this.getBraceMatching(braceArguments.line, braceArguments.offset, braceArguments.file);
-                            break;
-                        }
-                        case CommandNames.NavBar: {
-                            var navBarArgs = request.arguments;
-                            response = this.getNavigationBarItems(navBarArgs.file);
-                            break;
-                        }
-                        case CommandNames.Occurrences: {
-                            var _a = request.arguments, line = _a.line, offset = _a.offset, fileName = _a.file;
-                            response = this.getOccurrences(line, offset, fileName);
-                            break;
-                        }
-                        case CommandNames.ProjectInfo: {
-                            var _b = request.arguments, file = _b.file, needFileNameList = _b.needFileNameList;
-                            response = this.getProjectInfo(file, needFileNameList);
-                            break;
-                        }
-                        default: {
-                            this.projectService.log("Unrecognized JSON command: " + message);
-                            this.output(undefined, CommandNames.Unknown, request.seq, "Unrecognized JSON command: " + request.command);
-                            break;
-                        }
-                    }
+                    var _a = this.executeCommand(request), response = _a.response, responseRequired = _a.responseRequired;
                     if (this.logger.isVerbose()) {
                         var elapsed = this.hrtime(start);
                         var seconds = elapsed[0];

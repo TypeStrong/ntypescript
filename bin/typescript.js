@@ -1775,8 +1775,15 @@ var ts;
                 newLine: _os.EOL,
                 useCaseSensitiveFileNames: useCaseSensitiveFileNames,
                 write: function (s) {
+                    var buffer = new Buffer(s, 'utf8');
+                    var offset = 0;
+                    var toWrite = buffer.length;
+                    var written = 0;
                     // 1 is a standard descriptor for stdout
-                    _fs.writeSync(1, s);
+                    while ((written = _fs.writeSync(1, buffer, offset, toWrite)) < toWrite) {
+                        offset += written;
+                        toWrite -= written;
+                    }
                 },
                 readFile: readFile,
                 writeFile: writeFile,
@@ -2247,7 +2254,7 @@ var ts;
         Classes_containing_abstract_methods_must_be_marked_abstract: { code: 2514, category: ts.DiagnosticCategory.Error, key: "Classes containing abstract methods must be marked abstract." },
         Non_abstract_class_0_does_not_implement_inherited_abstract_member_1_from_class_2: { code: 2515, category: ts.DiagnosticCategory.Error, key: "Non-abstract class '{0}' does not implement inherited abstract member '{1}' from class '{2}'." },
         All_declarations_of_an_abstract_method_must_be_consecutive: { code: 2516, category: ts.DiagnosticCategory.Error, key: "All declarations of an abstract method must be consecutive." },
-        Constructor_objects_of_abstract_type_cannot_be_assigned_to_constructor_objects_of_non_abstract_type: { code: 2517, category: ts.DiagnosticCategory.Error, key: "Constructor objects of abstract type cannot be assigned to constructor objects of non-abstract type" },
+        Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type: { code: 2517, category: ts.DiagnosticCategory.Error, key: "Cannot assign an abstract constructor type to a non-abstract constructor type." },
         Only_an_ambient_class_can_be_merged_with_an_interface: { code: 2518, category: ts.DiagnosticCategory.Error, key: "Only an ambient class can be merged with an interface." },
         Duplicate_identifier_0_Compiler_uses_declaration_1_to_support_async_functions: { code: 2520, category: ts.DiagnosticCategory.Error, key: "Duplicate identifier '{0}'. Compiler uses declaration '{1}' to support async functions." },
         Expression_resolves_to_variable_declaration_0_that_compiler_uses_to_support_async_functions: { code: 2521, category: ts.DiagnosticCategory.Error, key: "Expression resolves to variable declaration '{0}' that compiler uses to support async functions." },
@@ -17200,10 +17207,33 @@ var ts;
                 var targetSignatures = getSignaturesOfType(target, kind);
                 var result = -1 /* True */;
                 var saveErrorInfo = errorInfo;
+                // Because the "abstractness" of a class is the same across all construct signatures
+                // (internally we are checking the corresponding declaration), it is enough to perform 
+                // the check and report an error once over all pairs of source and target construct signatures.
+                var sourceSig = sourceSignatures[0];
+                // Note that in an extends-clause, targetSignatures is stripped, so the check never proceeds.
+                var targetSig = targetSignatures[0];
+                if (sourceSig && targetSig) {
+                    var sourceErasedSignature = getErasedSignature(sourceSig);
+                    var targetErasedSignature = getErasedSignature(targetSig);
+                    var sourceReturnType = sourceErasedSignature && getReturnTypeOfSignature(sourceErasedSignature);
+                    var targetReturnType = targetErasedSignature && getReturnTypeOfSignature(targetErasedSignature);
+                    var sourceReturnDecl = sourceReturnType && sourceReturnType.symbol && ts.getDeclarationOfKind(sourceReturnType.symbol, 211 /* ClassDeclaration */);
+                    var targetReturnDecl = targetReturnType && targetReturnType.symbol && ts.getDeclarationOfKind(targetReturnType.symbol, 211 /* ClassDeclaration */);
+                    var sourceIsAbstract = sourceReturnDecl && sourceReturnDecl.flags & 256 /* Abstract */;
+                    var targetIsAbstract = targetReturnDecl && targetReturnDecl.flags & 256 /* Abstract */;
+                    if (sourceIsAbstract && !targetIsAbstract) {
+                        if (reportErrors) {
+                            reportError(ts.Diagnostics.Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type);
+                        }
+                        return 0 /* False */;
+                    }
+                }
                 outer: for (var _i = 0; _i < targetSignatures.length; _i++) {
                     var t = targetSignatures[_i];
                     if (!t.hasStringLiterals || target.flags & 262144 /* FromSignature */) {
                         var localErrors = reportErrors;
+                        var checkedAbstractAssignability = false;
                         for (var _a = 0; _a < sourceSignatures.length; _a++) {
                             var s = sourceSignatures[_a];
                             if (!s.hasStringLiterals || source.flags & 262144 /* FromSignature */) {
@@ -17254,12 +17284,12 @@ var ts;
                 target = getErasedSignature(target);
                 var result = -1 /* True */;
                 for (var i = 0; i < checkCount; i++) {
-                    var s_1 = i < sourceMax ? getTypeOfSymbol(source.parameters[i]) : getRestTypeOfSignature(source);
-                    var t_1 = i < targetMax ? getTypeOfSymbol(target.parameters[i]) : getRestTypeOfSignature(target);
+                    var s = i < sourceMax ? getTypeOfSymbol(source.parameters[i]) : getRestTypeOfSignature(source);
+                    var t = i < targetMax ? getTypeOfSymbol(target.parameters[i]) : getRestTypeOfSignature(target);
                     var saveErrorInfo = errorInfo;
-                    var related = isRelatedTo(s_1, t_1, reportErrors);
+                    var related = isRelatedTo(s, t, reportErrors);
                     if (!related) {
-                        related = isRelatedTo(t_1, s_1, false);
+                        related = isRelatedTo(t, s, false);
                         if (!related) {
                             if (reportErrors) {
                                 reportError(ts.Diagnostics.Types_of_parameters_0_and_1_are_incompatible, source.parameters[i < sourceMax ? i : sourceMax].name, target.parameters[i < targetMax ? i : targetMax].name);
@@ -17297,11 +17327,11 @@ var ts;
                     }
                     return 0 /* False */;
                 }
-                var t = getReturnTypeOfSignature(target);
-                if (t === voidType)
+                var targetReturnType = getReturnTypeOfSignature(target);
+                if (targetReturnType === voidType)
                     return result;
-                var s = getReturnTypeOfSignature(source);
-                return result & isRelatedTo(s, t, reportErrors);
+                var sourceReturnType = getReturnTypeOfSignature(source);
+                return result & isRelatedTo(sourceReturnType, targetReturnType, reportErrors);
             }
             function signaturesIdenticalTo(source, target, kind) {
                 var sourceSignatures = getSignaturesOfType(source, kind);
@@ -37768,8 +37798,8 @@ var ts;
                 var pos = scanner.getStartPos();
                 // Read leading trivia and token
                 while (pos < endPos) {
-                    var t_2 = scanner.getToken();
-                    if (!ts.isTrivia(t_2)) {
+                    var t_1 = scanner.getToken();
+                    if (!ts.isTrivia(t_1)) {
                         break;
                     }
                     // consume leading trivia
@@ -37777,7 +37807,7 @@ var ts;
                     var item = {
                         pos: pos,
                         end: scanner.getStartPos(),
-                        kind: t_2
+                        kind: t_1
                     };
                     pos = scanner.getStartPos();
                     if (!leadingTrivia) {
@@ -39359,6 +39389,8 @@ var ts;
                             case 15 /* CloseBraceToken */:
                             case 18 /* OpenBracketToken */:
                             case 19 /* CloseBracketToken */:
+                            case 16 /* OpenParenToken */:
+                            case 17 /* CloseParenToken */:
                             case 77 /* ElseKeyword */:
                             case 101 /* WhileKeyword */:
                             case 53 /* AtToken */:
@@ -39483,7 +39515,7 @@ var ts;
                             else if (tokenInfo.token.kind === listStartToken) {
                                 // consume list start token
                                 startLine = sourceFile.getLineAndCharacterOfPosition(tokenInfo.token.pos).line;
-                                var indentation_1 = computeIndentation(tokenInfo.token, startLine, -1 /* Unknown */, parent, parentDynamicIndentation, startLine);
+                                var indentation_1 = computeIndentation(tokenInfo.token, startLine, -1 /* Unknown */, parent, parentDynamicIndentation, parentStartLine);
                                 listDynamicIndentation = getDynamicIndentation(parent, parentStartLine, indentation_1.indentation, indentation_1.delta);
                                 consumeTokenAndAdvanceScanner(tokenInfo, parent, listDynamicIndentation);
                             }
@@ -43764,6 +43796,7 @@ var ts;
                                 if (hasKind(node.parent, 142 /* GetAccessor */) || hasKind(node.parent, 143 /* SetAccessor */)) {
                                     return getGetAndSetOccurrences(node.parent);
                                 }
+                                break;
                             default:
                                 if (ts.isModifier(node.kind) && node.parent &&
                                     (ts.isDeclaration(node.parent) || node.parent.kind === 190 /* VariableStatement */)) {
@@ -43893,6 +43926,11 @@ var ts;
                             return undefined;
                         }
                     }
+                    else if (modifier === 112 /* AbstractKeyword */) {
+                        if (!(container.kind === 211 /* ClassDeclaration */ || declaration.kind === 211 /* ClassDeclaration */)) {
+                            return undefined;
+                        }
+                    }
                     else {
                         // unsupported modifier
                         return undefined;
@@ -43903,7 +43941,13 @@ var ts;
                     switch (container.kind) {
                         case 216 /* ModuleBlock */:
                         case 245 /* SourceFile */:
-                            nodes = container.statements;
+                            // Container is either a class declaration or the declaration is a classDeclaration
+                            if (modifierFlag & 256 /* Abstract */) {
+                                nodes = declaration.members.concat(declaration);
+                            }
+                            else {
+                                nodes = container.statements;
+                            }
                             break;
                         case 141 /* Constructor */:
                             nodes = container.parameters.concat(container.parent.members);
@@ -43919,6 +43963,9 @@ var ts;
                                 if (constructor) {
                                     nodes = nodes.concat(constructor.parameters);
                                 }
+                            }
+                            else if (modifierFlag & 256 /* Abstract */) {
+                                nodes = nodes.concat(container);
                             }
                             break;
                         default:
@@ -43944,6 +43991,8 @@ var ts;
                                 return 1 /* Export */;
                             case 119 /* DeclareKeyword */:
                                 return 2 /* Ambient */;
+                            case 112 /* AbstractKeyword */:
+                                return 256 /* Abstract */;
                             default:
                                 ts.Debug.fail();
                         }
@@ -45464,7 +45513,7 @@ var ts;
                                 return;
                         }
                     }
-                    return 9 /* text */;
+                    return 2 /* identifier */;
                 }
             }
             function processElement(element) {
