@@ -34,3 +34,4 @@ cp ./built/local/* ./bin/tsc ./bin/tsserver ../bin/
 git reset --hard origin/master
 
 # add custom extension
+node ../extensions/addExtensions.js
