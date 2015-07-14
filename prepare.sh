@@ -33,5 +33,4 @@ cp ./built/local/* ./bin/tsc ./bin/tsserver ../bin/
 # Reset sub typescript
 git reset --hard origin/master
 
-# TODO: 
-# merge the two typescript defs to a single `ts.d.ts` and then point the definition to this
+# add custom extension
