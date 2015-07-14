@@ -25,7 +25,7 @@ or in your package.json
 npm install ntypescript --save --save-exact
 ```
 
-Each release is named after the day it was built and the git commit hash in Microsoft/TypeScript/master that it was built from.
+Each release is named after the day it was built and the git commit hash in Microsoft/TypeScript/master that it was built from. We recommend adding `save-exact` as there are no guarantees on when stuff might break and you want your users to get the same version you tested.
 
 ## Usage
 
