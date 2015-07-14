@@ -11,9 +11,7 @@ function writeFile(filePath: string, content: string) {
     fs.writeFileSync(__dirname + '/' + filePath, content);
 }
 var dtsWithGlobal = readFile('../bin/typescriptServices.d.ts');
-var dtsWithNameSpace = readFile('../bin/typescript.d.ts').replace(/"typescript"/g, '"ntypescipt"');
 var dtsExtensionsGlobal = readFile('./extensions.d.ts');
-var dtsExtensionsWithNameSpace = dtsExtensionsGlobal.replace(/declare module ts/g, 'declare module "ts"');
 
 var jsOriginal = readFile('../bin/typescript.js');
 var jsExtensions = readFile('./extensions.js');
@@ -21,7 +19,11 @@ var jsExtensions = readFile('./extensions.js');
 var finalDtsLocation = '../bin/ntypescript.d.ts';
 var finalJsLocation = '../bin/ntypescript.js';
 
-var finalDtsContent = dtsWithGlobal + EOL + dtsWithNameSpace + EOL + dtsExtensionsGlobal + EOL + dtsExtensionsWithNameSpace;
+var finalDtsContent = dtsWithGlobal + EOL + dtsExtensionsGlobal + EOL + `
+declare module "ntypescript" {
+    export = ts;
+}
+`;
 var finalJsContent = jsOriginal + EOL + jsExtensions;
 
 writeFile(finalDtsLocation, finalDtsContent);
