@@ -22,7 +22,7 @@ npm install ntypescript -g
 or in your package.json
 
 ```sh
-npm install ntypescript --save
+npm install ntypescript --save --save-exact
 ```
 
 Each release is named after the day it was built and the git commit hash in Microsoft/TypeScript/master that it was built from.
