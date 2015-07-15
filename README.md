@@ -2,7 +2,7 @@
 
 [![BuildStatus](https://travis-ci.org/TypeStrong/ntypescript.svg)](https://travis-ci.org/TypeStrong/ntypescript)
 
-Nightly build snapshots of [Microsoft/TypeScript](https://github.com/Microsoft/TypeScript).
+**N**ot an official build of [**TypeScript**](https://github.com/Microsoft/TypeScript).
 
 Niceties:
 
