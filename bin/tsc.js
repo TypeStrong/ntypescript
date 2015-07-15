@@ -9194,7 +9194,8 @@ var ts;
             }
             else {
                 node.exportClause = parseNamedImportsOrExports(226);
-                if (parseOptional(130)) {
+                if (token === 130 || (token === 8 && !scanner.hasPrecedingLineBreak())) {
+                    parseExpected(130);
                     node.moduleSpecifier = parseModuleSpecifier();
                 }
             }
@@ -13270,7 +13271,7 @@ var ts;
             var id = getTypeListId(elementTypes);
             var type = tupleTypes[id];
             if (!type) {
-                type = tupleTypes[id] = createObjectType(8192);
+                type = tupleTypes[id] = createObjectType(8192 | getWideningFlagsOfTypes(elementTypes));
                 type.elementTypes = elementTypes;
             }
             return type;
@@ -14421,7 +14422,7 @@ var ts;
             return !!getPropertyOfType(type, "0");
         }
         function isTupleType(type) {
-            return (type.flags & 8192) && !!type.elementTypes;
+            return !!(type.flags & 8192);
         }
         function getWidenedTypeOfObjectLiteral(type) {
             var properties = getPropertiesOfObjectType(type);
@@ -14463,25 +14464,36 @@ var ts;
                 if (isArrayType(type)) {
                     return createArrayType(getWidenedType(type.typeArguments[0]));
                 }
+                if (isTupleType(type)) {
+                    return createTupleType(ts.map(type.elementTypes, getWidenedType));
+                }
             }
             return type;
         }
         function reportWideningErrorsInType(type) {
+            var errorReported = false;
             if (type.flags & 16384) {
-                var errorReported = false;
-                ts.forEach(type.types, function (t) {
+                for (var _i = 0, _a = type.types; _i < _a.length; _i++) {
+                    var t = _a[_i];
                     if (reportWideningErrorsInType(t)) {
                         errorReported = true;
                     }
-                });
-                return errorReported;
+                }
             }
             if (isArrayType(type)) {
                 return reportWideningErrorsInType(type.typeArguments[0]);
             }
+            if (isTupleType(type)) {
+                for (var _b = 0, _c = type.elementTypes; _b < _c.length; _b++) {
+                    var t = _c[_b];
+                    if (reportWideningErrorsInType(t)) {
+                        errorReported = true;
+                    }
+                }
+            }
             if (type.flags & 524288) {
-                var errorReported = false;
-                ts.forEach(getPropertiesOfObjectType(type), function (p) {
+                for (var _d = 0, _e = getPropertiesOfObjectType(type); _d < _e.length; _d++) {
+                    var p = _e[_d];
                     var t = getTypeOfSymbol(p);
                     if (t.flags & 1048576) {
                         if (!reportWideningErrorsInType(t)) {
@@ -14489,10 +14501,9 @@ var ts;
                         }
                         errorReported = true;
                     }
-                });
-                return errorReported;
+                }
             }
-            return false;
+            return errorReported;
         }
         function reportImplicitAnyError(declaration, type) {
             var typeAsString = typeToString(getWidenedType(type));
@@ -14640,28 +14651,31 @@ var ts;
                         inferFromTypes(sourceType, target);
                     }
                 }
-                else if (source.flags & 80896 && (target.flags & (4096 | 8192) ||
-                    (target.flags & 65536) && target.symbol && target.symbol.flags & (8192 | 2048 | 32))) {
-                    if (isInProcess(source, target)) {
-                        return;
+                else {
+                    source = getApparentType(source);
+                    if (source.flags & 80896 && (target.flags & (4096 | 8192) ||
+                        (target.flags & 65536) && target.symbol && target.symbol.flags & (8192 | 2048 | 32))) {
+                        if (isInProcess(source, target)) {
+                            return;
+                        }
+                        if (isDeeplyNestedGeneric(source, sourceStack, depth) && isDeeplyNestedGeneric(target, targetStack, depth)) {
+                            return;
+                        }
+                        if (depth === 0) {
+                            sourceStack = [];
+                            targetStack = [];
+                        }
+                        sourceStack[depth] = source;
+                        targetStack[depth] = target;
+                        depth++;
+                        inferFromProperties(source, target);
+                        inferFromSignatures(source, target, 0);
+                        inferFromSignatures(source, target, 1);
+                        inferFromIndexTypes(source, target, 0, 0);
+                        inferFromIndexTypes(source, target, 1, 1);
+                        inferFromIndexTypes(source, target, 0, 1);
+                        depth--;
                     }
-                    if (isDeeplyNestedGeneric(source, sourceStack, depth) && isDeeplyNestedGeneric(target, targetStack, depth)) {
-                        return;
-                    }
-                    if (depth === 0) {
-                        sourceStack = [];
-                        targetStack = [];
-                    }
-                    sourceStack[depth] = source;
-                    targetStack[depth] = target;
-                    depth++;
-                    inferFromProperties(source, target);
-                    inferFromSignatures(source, target, 0);
-                    inferFromSignatures(source, target, 1);
-                    inferFromIndexTypes(source, target, 0, 0);
-                    inferFromIndexTypes(source, target, 1, 1);
-                    inferFromIndexTypes(source, target, 0, 1);
-                    depth--;
                 }
             }
             function inferFromProperties(source, target) {

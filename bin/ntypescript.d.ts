@@ -5840,6 +5840,8 @@ declare namespace ts {
          * not happen and the entire document will be re - parsed.
          */
         getChangeRange(oldSnapshot: IScriptSnapshot): TextChangeRange;
+        /** Releases all resources held by this script snapshot */
+        dispose?(): void;
     }
     module ScriptSnapshot {
         function fromString(text: string): IScriptSnapshot;
@@ -6356,6 +6358,8 @@ declare namespace ts {
          * Or undefined value if there was no change.
          */
         getChangeRange(oldSnapshot: ScriptSnapshotShim): string;
+        /** Releases all resources held by this script snapshot */
+        dispose?(): void;
     }
     interface Logger {
         log(s: string): void;
