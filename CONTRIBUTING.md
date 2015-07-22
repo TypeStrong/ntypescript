@@ -2,7 +2,7 @@
 
 ## Quickly
 
-Quick workflow (runs `prepare` and `release`): 
+Quick workflow (runs `prepare` and `release`):
 
 ```sh
 quick.sh
@@ -29,8 +29,9 @@ You can try the globals using:
 npm link
 ```
 
-# Inspiration 
+# Inspiration
 https://github.com/Arnavion/typescript-github
 
 # Travis
-Cron job setup using : http://traviscron.pythonanywhere.com/ for daily
+* NPM deploy setup by simply running `travis setup npm` (you get `travis` from `gem install`).
+* Cron job setup using https://nightli.es/  (we also tried http://traviscron.pythonanywhere.com/ but it didn't work).
