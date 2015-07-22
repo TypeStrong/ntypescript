@@ -15,16 +15,14 @@ after_success:
 - echo "https://${GH_TOKEN}:@github.com" > .git/credentials
 - git config --global push.default matching
 - bash release.sh
-
-# Only master kicks a build
 branches:
   only:
-    - master
-
+  - master
 deploy:
   provider: npm
   email: basaratali@gmail.com
   api_key:
-    secure: qUecySLzb8peMNoWTuKuPM6YgHTwyLhs0mOyuWmeovJZzpxoLxG3qCfQjxekCSnGmLqd3nSKuP2T8DXaytJqEcB/c2eSrsv13jcw4hfAl1EAQjqFL18xzf7zO6mpjDZWP+eWdNwr1jH+Z+uvu1Qkb0uVvDtYgaWai31JpY4q7Vz+OKKz3V+loqeygysm5IZFEpzV96XI39EZZSwMa0pC51g1gZVx71AbORWI9zyPEw0QDysSr4NkU5DaqCvk0GVVGwU03YMFRJVQWs2H8B0SfQT1Nj8glUIYfXZ8BuZr7nTYwCnOSa27Yn5H17XHc+Zl8CPRtTNlkaVUSpDEF4hpMj2fKpePd4OXRzkud2aXMyd+IEmvf/s9kZRstFic7mly9vKS06jtQsWISeI1fULF121DKtoQX+zmwU2TFD21xo/VeuSHD2YpSkfbVnb9/ezqOAx/eqQXaTIOfw31+eR2eAb2bhgW0T6p7aJXMrIBw+VaPxa6Ckls6ItOKMBj/l00Hn/fP8oucNte9FlgevcS+ieOmzGw4Y2tb1RK5AUYQA+F39xXRH0upiYk8BxvLq9Qg/xuCUbMxJ8Ax37ObVW2QBdVhJlNleMt3iZMQQS/OLUHgGPyFmrXmavc3yQM38Bot6ScOsUehe/ViOIMeNO4mRCxUdgKEAyi0SgL604nFKE=
+    secure: I37/GqFRAVr2AGU+iNomEPSyxvM8RwQM8hnVzJ2ICsu8FEE+QVN12XZzbfemDSuvYOdhr6xAI9naJOIMz/W/monRwjNE57SY3xibpm/GJ/68yXJm9naHKNGhwZoCfPHA/kdsc7X9L3v6xNmnc5B+0+NDKEhqIZzYwsxurAmsdPE/IFfcxP6T7WTGuRPncNbD8UZU61avVIyWfkY5XzujVIjh/zKqYese0dPUzngy22zk/iIx5GRIkoAXmMPrvl8dfj9jqJC+FHBb/nBvhOJsLEk6vsYig44q2VUMR54wmg9y6GB0/7Sia6032i4LPrBV4k4HUQQDrk/NEelk6qG+3Mbkzz7TmEkImHKwgUPSjsQq/BtVXNz1WAeB7OBuOldOaGm74tb4hjR20G7vp24Gx6KGNnVgUM71xKMxsjWxEJaAExuLCTFgm84UjGwPJemmW8f4YCMsuvIGGh+aXpyZz3fxWUSBmJCJFJtBHi8RH/PfEbxVjHofyCq3oacPK05pulDF3ThjQcs892hZBodNZOuScVHKsQUpN+rzGyPTyaD9GNdVGlSQw79ui07bRl/Neolh7YHPn/sfYxHn/WP+v/jN0KC2y7LgeIqAY1KJQ1Ut229OfqaNFRVfw9c0txrPjj2MQOsWRJkPdimMxS6m/74A4lv2ITQaui2t9PMyI4s=
   on:
+    tags: true
     repo: TypeStrong/ntypescript
