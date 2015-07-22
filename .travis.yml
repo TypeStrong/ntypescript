@@ -7,7 +7,7 @@ env:
 before_script:
 - git config --global user.email "basaratali@gmail.com"
 - git config --global user.name "Travis-CI"
-- git remote set-url origin https://github.com/basarat/ntypescript.git
+- git remote set-url origin https://github.com/TypeStrong/ntypescript.git
 script:
 - bash prepare.sh
 after_success:

@@ -33,5 +33,5 @@ npm link
 https://github.com/Arnavion/typescript-github
 
 # Travis
-* NPM deploy setup by simply running `travis setup npm` (you get `travis` from `gem install`).
+* NPM deploy setup by simply running `travis setup npm` (you get `travis` from `gem install travis`).
 * Cron job setup using https://nightli.es/  (we also tried http://traviscron.pythonanywhere.com/ but it didn't work).
