@@ -1357,17 +1357,18 @@ declare module "typescript" {
         Instantiated = 131072,
         FromSignature = 262144,
         ObjectLiteral = 524288,
-        ContainsUndefinedOrNull = 1048576,
-        ContainsObjectLiteral = 2097152,
-        ESSymbol = 4194304,
-        Intrinsic = 4194431,
-        Primitive = 4194814,
+        FreshObjectLiteral = 1048576,
+        ContainsUndefinedOrNull = 2097152,
+        ContainsObjectLiteral = 4194304,
+        ESSymbol = 8388608,
+        Intrinsic = 8388735,
+        Primitive = 8389118,
         StringLike = 258,
         NumberLike = 132,
         ObjectType = 80896,
         UnionOrIntersection = 49152,
         StructuredType = 130048,
-        RequiresWidening = 3145728,
+        RequiresWidening = 6291456,
     }
     interface Type {
         flags: TypeFlags;
@@ -1424,6 +1425,9 @@ declare module "typescript" {
         stringIndexType?: Type;
         numberIndexType?: Type;
     }
+    interface FreshObjectLiteralType extends ResolvedType {
+        regularType: ResolvedType;
+    }
     interface IterableOrIteratorType extends ObjectType, UnionType {
         iterableElementType?: Type;
         iteratorElementType?: Type;
@@ -1458,6 +1462,7 @@ declare module "typescript" {
     }
     interface TypeMapper {
         (t: TypeParameter): Type;
+        context?: InferenceContext;
     }
     interface TypeInferences {
         primary: Type[];
@@ -1716,6 +1721,7 @@ declare module "typescript" {
     }
     interface CompilerHost {
         getSourceFile(fileName: string, languageVersion: ScriptTarget, onError?: (message: string) => void): SourceFile;
+        getCancellationToken?(): CancellationToken;
         getDefaultLibFileName(options: CompilerOptions): string;
         writeFile: WriteFileCallback;
         getCurrentDirectory(): string;
@@ -3132,6 +3138,11 @@ declare module "typescript" {
             key: string;
         };
         Neither_type_0_nor_type_1_is_assignable_to_the_other: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Object_literal_may_only_specify_known_properties_and_0_does_not_exist_in_type_1: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5058,7 +5069,7 @@ declare module "typescript" {
     function isTypeNode(node: Node): boolean;
     function forEachReturnStatement<T>(body: Block, visitor: (stmt: ReturnStatement) => T): T;
     function forEachYieldExpression(body: Block, visitor: (expr: YieldExpression) => void): void;
-    function isVariableLike(node: Node): boolean;
+    function isVariableLike(node: Node): node is VariableLikeDeclaration;
     function isAccessor(node: Node): boolean;
     function isClassLike(node: Node): boolean;
     function isFunctionLike(node: Node): boolean;
@@ -5078,7 +5089,7 @@ declare module "typescript" {
     function isInstantiatedModule(node: ModuleDeclaration, preserveConstEnums: boolean): boolean;
     function isExternalModuleImportEqualsDeclaration(node: Node): boolean;
     function getExternalModuleImportEqualsDeclarationExpression(node: Node): Expression;
-    function isInternalModuleImportEqualsDeclaration(node: Node): boolean;
+    function isInternalModuleImportEqualsDeclaration(node: Node): node is ImportEqualsDeclaration;
     function getExternalModuleName(node: Node): Expression;
     function hasQuestionToken(node: Node): boolean;
     function isJSDocConstructSignature(node: Node): boolean;
@@ -5184,6 +5195,7 @@ declare module "typescript" {
     function isExpressionWithTypeArgumentsInClassExtendsClause(node: Node): boolean;
     function isSupportedExpressionWithTypeArguments(node: ExpressionWithTypeArguments): boolean;
     function isRightSideOfQualifiedNameOrPropertyAccess(node: Node): boolean;
+    function isEmptyObjectLiteralOrArrayLiteral(expression: Node): boolean;
     function getLocalSymbolForExportDefault(symbol: Symbol): Symbol;
     function isJavaScript(fileName: string): boolean;
     function isTsx(fileName: string): boolean;
@@ -5965,6 +5977,7 @@ declare module "typescript" {
         const writtenReference: string;
     }
     interface HighlightSpan {
+        fileName?: string;
         textSpan: TextSpan;
         kind: string;
     }
@@ -6234,6 +6247,7 @@ declare module "typescript" {
           * @param compilationSettings The compilation settings used to acquire the file
           */
         releaseDocument(fileName: string, compilationSettings: CompilerOptions): void;
+        reportStats(): string;
     }
     module ScriptElementKind {
         const unknown: string;
@@ -6383,8 +6397,13 @@ declare module "typescript" {
     }
     /** Public interface of the the of a config service shim instance.*/
     interface CoreServicesShimHost extends Logger {
-        /** Returns a JSON-encoded value of the type: string[] */
-        readDirectory(rootDir: string, extension: string): string;
+        /**
+         * Returns a JSON-encoded value of the type: string[]
+         *
+         * @param exclude A JSON encoded string[] containing the paths to exclude
+         *  when enumerating the directory.
+         */
+        readDirectory(rootDir: string, extension: string, exclude?: string): string;
     }
     interface IFileReference {
         path: string;
@@ -6520,13 +6539,14 @@ declare module "typescript" {
     class CoreServicesShimHostAdapter implements ParseConfigHost {
         private shimHost;
         constructor(shimHost: CoreServicesShimHost);
-        readDirectory(rootDir: string, extension: string): string[];
+        readDirectory(rootDir: string, extension: string, exclude: string[]): string[];
     }
     function realizeDiagnostics(diagnostics: Diagnostic[], newLine: string): {
         message: string;
         start: number;
         length: number;
         category: string;
+        code: number;
     }[];
     class TypeScriptServicesFactory implements ShimFactory {
         private _shims;
