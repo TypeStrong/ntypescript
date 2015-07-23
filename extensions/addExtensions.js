@@ -14,5 +14,6 @@ var finalDtsLocation = '../bin/ntypescript.d.ts';
 var finalJsLocation = '../bin/ntypescript.js';
 var finalDtsContent = dtsWithGlobal + EOL + dtsExtensionsGlobal + EOL + "\ndeclare module \"ntypescript\" {\n    export = ts;\n}\n";
 var finalJsContent = jsOriginal + EOL + jsExtensions;
+finalDtsContent = finalDtsContent.replace(/const enum/g, 'enum');
 writeFile(finalDtsLocation, finalDtsContent);
 writeFile(finalJsLocation, finalJsContent);
