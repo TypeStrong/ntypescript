@@ -28,7 +28,7 @@ var finalJsContent = jsOriginal + EOL + jsExtensions;
 
 // Fixups
 // I think the `const enum` causes more pain than its worth for dev tools (everything needs to be rebuilt). So change to enum to prevent inlining
-finalDtsContent = finalDtsContent.replace(/const enum/g, 'enum');
+finalDtsContent = finalDtsContent.replace(/const enum /g, 'enum ');
 
 writeFile(finalDtsLocation, finalDtsContent);
 writeFile(finalJsLocation, finalJsContent);
