@@ -28,7 +28,7 @@ declare namespace ts {
         pos: number;
         end: number;
     }
-    const enum SyntaxKind {
+    enum SyntaxKind {
         Unknown = 0,
         EndOfFileToken = 1,
         SingleLineCommentTrivia = 2,
@@ -323,7 +323,7 @@ declare namespace ts {
         LastBinaryOperator = 65,
         FirstNode = 132,
     }
-    const enum NodeFlags {
+    enum NodeFlags {
         Export = 1,
         Ambient = 2,
         Public = 16,
@@ -345,7 +345,7 @@ declare namespace ts {
         AccessibilityModifier = 112,
         BlockScoped = 49152,
     }
-    const enum ParserContextFlags {
+    enum ParserContextFlags {
         None = 0,
         DisallowIn = 1,
         Yield = 2,
@@ -358,7 +358,7 @@ declare namespace ts {
         ThisNodeOrAnySubNodesHasError = 64,
         HasAggregatedChildData = 128,
     }
-    const enum JsxFlags {
+    enum JsxFlags {
         None = 0,
         IntrinsicNamedElement = 1,
         IntrinsicIndexedElement = 2,
@@ -366,7 +366,7 @@ declare namespace ts {
         UnknownElement = 8,
         IntrinsicElement = 3,
     }
-    const enum RelationComparisonResult {
+    enum RelationComparisonResult {
         Succeeded = 1,
         Failed = 2,
         FailedAndReported = 3,
@@ -1130,7 +1130,7 @@ declare namespace ts {
         clear(): void;
         trackSymbol(symbol: Symbol, enclosingDeclaration?: Node, meaning?: SymbolFlags): void;
     }
-    const enum TypeFormatFlags {
+    enum TypeFormatFlags {
         None = 0,
         WriteArrayAsGenericType = 1,
         UseTypeOfFunction = 2,
@@ -1141,12 +1141,12 @@ declare namespace ts {
         InElementType = 64,
         UseFullyQualifiedType = 128,
     }
-    const enum SymbolFormatFlags {
+    enum SymbolFormatFlags {
         None = 0,
         WriteTypeParametersOrArguments = 1,
         UseOnlyExternalAliasing = 2,
     }
-    const enum SymbolAccessibility {
+    enum SymbolAccessibility {
         Accessible = 0,
         NotAccessible = 1,
         CannotBeNamed = 2,
@@ -1203,7 +1203,7 @@ declare namespace ts {
         getReferencedValueDeclaration(reference: Identifier): Declaration;
         getTypeReferenceSerializationKind(node: TypeReferenceNode): TypeReferenceSerializationKind;
     }
-    const enum SymbolFlags {
+    enum SymbolFlags {
         None = 0,
         FunctionScopedVariable = 1,
         BlockScopedVariable = 2,
@@ -1301,7 +1301,7 @@ declare namespace ts {
     interface SymbolTable {
         [index: string]: Symbol;
     }
-    const enum NodeCheckFlags {
+    enum NodeCheckFlags {
         TypeChecked = 1,
         LexicalThis = 2,
         CaptureThis = 4,
@@ -1336,7 +1336,7 @@ declare namespace ts {
         jsxFlags?: JsxFlags;
         resolvedJsxType?: Type;
     }
-    const enum TypeFlags {
+    enum TypeFlags {
         Any = 1,
         String = 2,
         Number = 4,
@@ -1437,7 +1437,7 @@ declare namespace ts {
         target?: TypeParameter;
         mapper?: TypeMapper;
     }
-    const enum SignatureKind {
+    enum SignatureKind {
         Call = 0,
         Construct = 1,
     }
@@ -1456,7 +1456,7 @@ declare namespace ts {
         erasedSignatureCache?: Signature;
         isolatedSignatureType?: ObjectType;
     }
-    const enum IndexKind {
+    enum IndexKind {
         String = 0,
         Number = 1,
     }
@@ -1548,19 +1548,19 @@ declare namespace ts {
         skipDefaultLibCheck?: boolean;
         [option: string]: string | number | boolean;
     }
-    const enum ModuleKind {
+    enum ModuleKind {
         None = 0,
         CommonJS = 1,
         AMD = 2,
         UMD = 3,
         System = 4,
     }
-    const enum JsxEmit {
+    enum JsxEmit {
         None = 0,
         Preserve = 1,
         React = 2,
     }
-    const enum NewLineKind {
+    enum NewLineKind {
         CarriageReturnLineFeed = 0,
         LineFeed = 1,
     }
@@ -1568,13 +1568,13 @@ declare namespace ts {
         line: number;
         character: number;
     }
-    const enum ScriptTarget {
+    enum ScriptTarget {
         ES3 = 0,
         ES5 = 1,
         ES6 = 2,
         Latest = 2,
     }
-    const enum LanguageVariant {
+    enum LanguageVariant {
         Standard = 0,
         JSX = 1,
     }
@@ -1593,7 +1593,7 @@ declare namespace ts {
         error?: DiagnosticMessage;
         experimental?: boolean;
     }
-    const enum CharacterCodes {
+    enum CharacterCodes {
         nullCharacter = 0,
         maxAsciiCharacter = 127,
         lineFeed = 10,
@@ -1754,13 +1754,13 @@ declare namespace ts {
      * x | y is Maybe if either x or y is Maybe, but neither x or y is True.
      * x | y is True if either x or y is True.
      */
-    const enum Ternary {
+    enum Ternary {
         False = 0,
         Maybe = 1,
         True = -1,
     }
     function createFileMap<T>(getCanonicalFileName: (fileName: string) => string): FileMap<T>;
-    const enum Comparison {
+    enum Comparison {
         LessThan = -1,
         EqualTo = 0,
         GreaterThan = 1,
@@ -1849,7 +1849,7 @@ declare namespace ts {
         getSignatureConstructor(): new (checker: TypeChecker) => Signature;
     }
     let objectAllocator: ObjectAllocator;
-    const enum AssertionLevel {
+    enum AssertionLevel {
         None = 0,
         Normal = 1,
         Aggressive = 2,
@@ -5000,7 +5000,7 @@ declare namespace ts {
 }
 declare namespace ts {
     let bindTime: number;
-    const enum ModuleInstanceState {
+    enum ModuleInstanceState {
         NonInstantiated = 0,
         Instantiated = 1,
         ConstEnumOnly = 2,
@@ -5447,7 +5447,7 @@ declare namespace ts.formatting {
     }
 }
 declare namespace ts.formatting {
-    const enum FormattingRequestKind {
+    enum FormattingRequestKind {
         FormatDocument = 0,
         FormatSelection = 1,
         FormatOnEnter = 2,
@@ -5465,7 +5465,7 @@ declare namespace ts.formatting {
     }
 }
 declare namespace ts.formatting {
-    const enum RuleAction {
+    enum RuleAction {
         Ignore = 1,
         Space = 2,
         NewLine = 4,
@@ -5485,7 +5485,7 @@ declare namespace ts.formatting {
     }
 }
 declare namespace ts.formatting {
-    const enum RuleFlags {
+    enum RuleFlags {
         None = 0,
         CanDeleteNewLines = 1,
     }
@@ -6131,7 +6131,7 @@ declare namespace ts {
         outputFiles: OutputFile[];
         emitSkipped: boolean;
     }
-    const enum OutputFileType {
+    enum OutputFileType {
         JavaScript = 0,
         SourceMap = 1,
         Declaration = 2,
@@ -6141,7 +6141,7 @@ declare namespace ts {
         writeByteOrderMark: boolean;
         text: string;
     }
-    const enum EndOfLineState {
+    enum EndOfLineState {
         None = 0,
         InMultiLineCommentTrivia = 1,
         InSingleQuoteStringLiteral = 2,
@@ -6259,7 +6259,7 @@ declare namespace ts {
         const localClassElement: string;
         const interfaceElement: string;
         const typeElement: string;
-        const enumElement: string;
+        enumElement: string;
         const variableElement: string;
         const localVariableElement: string;
         const functionElement: string;
@@ -6309,7 +6309,7 @@ declare namespace ts {
         static parameterName: string;
         static docCommentTagName: string;
     }
-    const enum ClassificationType {
+    enum ClassificationType {
         comment = 1,
         identifier = 2,
         keyword = 3,
