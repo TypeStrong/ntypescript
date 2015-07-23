@@ -6259,7 +6259,7 @@ declare namespace ts {
         const localClassElement: string;
         const interfaceElement: string;
         const typeElement: string;
-        enumElement: string;
+        const enumElement: string;
         const variableElement: string;
         const localVariableElement: string;
         const functionElement: string;
