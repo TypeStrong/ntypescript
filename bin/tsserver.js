@@ -18571,11 +18571,22 @@ var ts;
                         ts.forEach(node.parameters, function (p) { return p.flags & (16 | 32 | 64); });
                     if (superCallShouldBeFirst) {
                         var statements = node.body.statements;
-                        if (!statements.length || statements[0].kind !== 192 || !isSuperCallExpression(statements[0].expression)) {
+                        var superCallStatement;
+                        for (var _i = 0; _i < statements.length; _i++) {
+                            var statement = statements[_i];
+                            if (statement.kind === 192 && isSuperCallExpression(statement.expression)) {
+                                superCallStatement = statement;
+                                break;
+                            }
+                            if (!ts.isPrologueDirective(statement)) {
+                                break;
+                            }
+                        }
+                        if (!superCallStatement) {
                             error(node, ts.Diagnostics.A_super_call_must_be_the_first_statement_in_the_constructor_when_a_class_contains_initialized_properties_or_has_parameter_properties);
                         }
                         else {
-                            markThisReferencesAsErrors(statements[0].expression);
+                            markThisReferencesAsErrors(superCallStatement.expression);
                         }
                     }
                 }
@@ -24830,6 +24841,7 @@ var ts;
                     case 193:
                     case 231:
                     case 232:
+                    case 237:
                     case 166:
                     case 169:
                     case 177:

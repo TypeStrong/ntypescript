@@ -22201,20 +22201,34 @@ var ts;
             // constructors of derived classes must contain at least one super call somewhere in their function body.
             if (ts.getClassExtendsHeritageClauseElement(node.parent)) {
                 if (containsSuperCall(node.body)) {
-                    // The first statement in the body of a constructor must be a super call if both of the following are true:
+                    // The first statement in the body of a constructor (excluding prologue directives) must be a super call
+                    // if both of the following are true:
                     // - The containing class is a derived class.
                     // - The constructor declares parameter properties
                     //   or the containing class declares instance member variables with initializers.
                     var superCallShouldBeFirst = ts.forEach(node.parent.members, isInstancePropertyWithInitializer) ||
                         ts.forEach(node.parameters, function (p) { return p.flags & (16 /* Public */ | 32 /* Private */ | 64 /* Protected */); });
+                    // Skip past any prologue directives to find the first statement
+                    // to ensure that it was a super call.
                     if (superCallShouldBeFirst) {
                         var statements = node.body.statements;
-                        if (!statements.length || statements[0].kind !== 192 /* ExpressionStatement */ || !isSuperCallExpression(statements[0].expression)) {
+                        var superCallStatement;
+                        for (var _i = 0; _i < statements.length; _i++) {
+                            var statement = statements[_i];
+                            if (statement.kind === 192 /* ExpressionStatement */ && isSuperCallExpression(statement.expression)) {
+                                superCallStatement = statement;
+                                break;
+                            }
+                            if (!ts.isPrologueDirective(statement)) {
+                                break;
+                            }
+                        }
+                        if (!superCallStatement) {
                             error(node, ts.Diagnostics.A_super_call_must_be_the_first_statement_in_the_constructor_when_a_class_contains_initialized_properties_or_has_parameter_properties);
                         }
                         else {
                             // In such a required super call, it is a compile-time error for argument expressions to reference this.
-                            markThisReferencesAsErrors(statements[0].expression);
+                            markThisReferencesAsErrors(superCallStatement.expression);
                         }
                     }
                 }
@@ -29394,6 +29408,7 @@ var ts;
                     case 193 /* IfStatement */:
                     case 231 /* JsxSelfClosingElement */:
                     case 232 /* JsxOpeningElement */:
+                    case 237 /* JsxExpression */:
                     case 166 /* NewExpression */:
                     case 169 /* ParenthesizedExpression */:
                     case 177 /* PostfixUnaryExpression */:
