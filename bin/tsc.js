@@ -1510,7 +1510,6 @@ var ts;
         Option_noEmit_cannot_be_specified_with_option_out_or_outDir: { code: 5040, category: ts.DiagnosticCategory.Error, key: "Option 'noEmit' cannot be specified with option 'out' or 'outDir'." },
         Option_noEmit_cannot_be_specified_with_option_declaration: { code: 5041, category: ts.DiagnosticCategory.Error, key: "Option 'noEmit' cannot be specified with option 'declaration'." },
         Option_project_cannot_be_mixed_with_source_files_on_a_command_line: { code: 5042, category: ts.DiagnosticCategory.Error, key: "Option 'project' cannot be mixed with source files on a command line." },
-        Option_sourceMap_cannot_be_specified_with_option_isolatedModules: { code: 5043, category: ts.DiagnosticCategory.Error, key: "Option 'sourceMap' cannot be specified with option 'isolatedModules'." },
         Option_declaration_cannot_be_specified_with_option_isolatedModules: { code: 5044, category: ts.DiagnosticCategory.Error, key: "Option 'declaration' cannot be specified with option 'isolatedModules'." },
         Option_noEmitOnError_cannot_be_specified_with_option_isolatedModules: { code: 5045, category: ts.DiagnosticCategory.Error, key: "Option 'noEmitOnError' cannot be specified with option 'isolatedModules'." },
         Option_out_cannot_be_specified_with_option_isolatedModules: { code: 5046, category: ts.DiagnosticCategory.Error, key: "Option 'out' cannot be specified with option 'isolatedModules'." },
@@ -10136,6 +10135,7 @@ var ts;
             getPropertyOfType: getPropertyOfType,
             getSignaturesOfType: getSignaturesOfType,
             getIndexTypeOfType: getIndexTypeOfType,
+            getBaseTypes: getBaseTypes,
             getReturnTypeOfSignature: getReturnTypeOfSignature,
             getSymbolsInScope: getSymbolsInScope,
             getSymbolAtLocation: getSymbolAtLocation,
@@ -28786,7 +28786,7 @@ var ts;
     ts.emitTime = 0;
     ts.ioReadTime = 0;
     ts.ioWriteTime = 0;
-    ts.version = "1.5.3";
+    ts.version = "1.6.0";
     function findConfigFile(searchPath) {
         var fileName = "tsconfig.json";
         while (true) {
@@ -29248,9 +29248,6 @@ var ts;
         }
         function verifyCompilerOptions() {
             if (options.isolatedModules) {
-                if (options.sourceMap) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_sourceMap_cannot_be_specified_with_option_isolatedModules));
-                }
                 if (options.declaration) {
                     diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_declaration_cannot_be_specified_with_option_isolatedModules));
                 }

@@ -2358,7 +2358,6 @@ var ts;
         Option_noEmit_cannot_be_specified_with_option_out_or_outDir: { code: 5040, category: ts.DiagnosticCategory.Error, key: "Option 'noEmit' cannot be specified with option 'out' or 'outDir'." },
         Option_noEmit_cannot_be_specified_with_option_declaration: { code: 5041, category: ts.DiagnosticCategory.Error, key: "Option 'noEmit' cannot be specified with option 'declaration'." },
         Option_project_cannot_be_mixed_with_source_files_on_a_command_line: { code: 5042, category: ts.DiagnosticCategory.Error, key: "Option 'project' cannot be mixed with source files on a command line." },
-        Option_sourceMap_cannot_be_specified_with_option_isolatedModules: { code: 5043, category: ts.DiagnosticCategory.Error, key: "Option 'sourceMap' cannot be specified with option 'isolatedModules'." },
         Option_declaration_cannot_be_specified_with_option_isolatedModules: { code: 5044, category: ts.DiagnosticCategory.Error, key: "Option 'declaration' cannot be specified with option 'isolatedModules'." },
         Option_noEmitOnError_cannot_be_specified_with_option_isolatedModules: { code: 5045, category: ts.DiagnosticCategory.Error, key: "Option 'noEmitOnError' cannot be specified with option 'isolatedModules'." },
         Option_out_cannot_be_specified_with_option_isolatedModules: { code: 5046, category: ts.DiagnosticCategory.Error, key: "Option 'out' cannot be specified with option 'isolatedModules'." },
@@ -12746,6 +12745,7 @@ var ts;
             getPropertyOfType: getPropertyOfType,
             getSignaturesOfType: getSignaturesOfType,
             getIndexTypeOfType: getIndexTypeOfType,
+            getBaseTypes: getBaseTypes,
             getReturnTypeOfSignature: getReturnTypeOfSignature,
             getSymbolsInScope: getSymbolsInScope,
             getSymbolAtLocation: getSymbolAtLocation,
@@ -34435,7 +34435,7 @@ var ts;
     /* @internal */ ts.ioReadTime = 0;
     /* @internal */ ts.ioWriteTime = 0;
     /** The version of the TypeScript compiler release */
-    ts.version = "1.5.3";
+    ts.version = "1.6.0";
     function findConfigFile(searchPath) {
         var fileName = "tsconfig.json";
         while (true) {
@@ -34942,9 +34942,6 @@ var ts;
         }
         function verifyCompilerOptions() {
             if (options.isolatedModules) {
-                if (options.sourceMap) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_sourceMap_cannot_be_specified_with_option_isolatedModules));
-                }
                 if (options.declaration) {
                     diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_declaration_cannot_be_specified_with_option_isolatedModules));
                 }
@@ -41129,6 +41126,11 @@ var ts;
         TypeObject.prototype.getNumberIndexType = function () {
             return this.checker.getIndexTypeOfType(this, 1 /* Number */);
         };
+        TypeObject.prototype.getBaseTypes = function () {
+            return this.flags & (1024 /* Class */ | 2048 /* Interface */)
+                ? this.checker.getBaseTypes(this)
+                : undefined;
+        };
         return TypeObject;
     })();
     var SignatureObject = (function () {
@@ -41642,14 +41644,14 @@ var ts;
     /*
      * This function will compile source text from 'input' argument using specified compiler options.
      * If not options are provided - it will use a set of default compiler options.
-     * Extra compiler options that will unconditionally be used bu this function are:
+     * Extra compiler options that will unconditionally be used by this function are:
      * - isolatedModules = true
      * - allowNonTsExtensions = true
      * - noLib = true
      * - noResolve = true
      */
-    function transpile(input, compilerOptions, fileName, diagnostics, moduleName) {
-        var options = compilerOptions ? ts.clone(compilerOptions) : getDefaultCompilerOptions();
+    function transpileModule(input, transpileOptions) {
+        var options = transpileOptions.compilerOptions ? ts.clone(transpileOptions.compilerOptions) : getDefaultCompilerOptions();
         options.isolatedModules = true;
         // Filename can be non-ts file.
         options.allowNonTsExtensions = true;
@@ -41660,20 +41662,27 @@ var ts;
         // so pass --noResolve to avoid reporting missing file errors.
         options.noResolve = true;
         // Parse
-        var inputFileName = fileName || "module.ts";
+        var inputFileName = transpileOptions.fileName || "module.ts";
         var sourceFile = ts.createSourceFile(inputFileName, input, options.target);
-        if (moduleName) {
-            sourceFile.moduleName = moduleName;
+        if (transpileOptions.moduleName) {
+            sourceFile.moduleName = transpileOptions.moduleName;
         }
         var newLine = ts.getNewLineCharacter(options);
         // Output
         var outputText;
+        var sourceMapText;
         // Create a compilerHost object to allow the compiler to read and write files
         var compilerHost = {
             getSourceFile: function (fileName, target) { return fileName === inputFileName ? sourceFile : undefined; },
             writeFile: function (name, text, writeByteOrderMark) {
-                ts.Debug.assert(outputText === undefined, "Unexpected multiple outputs for the file: " + name);
-                outputText = text;
+                if (ts.fileExtensionIs(name, ".map")) {
+                    ts.Debug.assert(sourceMapText === undefined, "Unexpected multiple source map outputs for the file '" + name + "'");
+                    sourceMapText = text;
+                }
+                else {
+                    ts.Debug.assert(outputText === undefined, "Unexpected multiple outputs for the file: " + name);
+                    outputText = text;
+                }
             },
             getDefaultLibFileName: function () { return "lib.d.ts"; },
             useCaseSensitiveFileNames: function () { return false; },
@@ -41682,12 +41691,26 @@ var ts;
             getNewLine: function () { return newLine; }
         };
         var program = ts.createProgram([inputFileName], options, compilerHost);
-        ts.addRange(diagnostics, program.getSyntacticDiagnostics(sourceFile));
-        ts.addRange(diagnostics, program.getOptionsDiagnostics());
+        var diagnostics;
+        if (transpileOptions.reportDiagnostics) {
+            diagnostics = [];
+            ts.addRange(diagnostics, program.getSyntacticDiagnostics(sourceFile));
+            ts.addRange(diagnostics, program.getOptionsDiagnostics());
+        }
         // Emit
         program.emit();
         ts.Debug.assert(outputText !== undefined, "Output generation failed");
-        return outputText;
+        return { outputText: outputText, diagnostics: diagnostics, sourceMapText: sourceMapText };
+    }
+    ts.transpileModule = transpileModule;
+    /*
+     * This is a shortcut function for transpileModule - it accepts transpileOptions as parameters and returns only outputText part of the result.
+     */
+    function transpile(input, compilerOptions, fileName, diagnostics, moduleName) {
+        var output = transpileModule(input, { compilerOptions: compilerOptions, fileName: fileName, reportDiagnostics: !!diagnostics, moduleName: moduleName });
+        // addRange correctly handles cases when wither 'from' or 'to' argument is missing
+        ts.addRange(diagnostics, output.diagnostics);
+        return output.outputText;
     }
     ts.transpile = transpile;
     function createLanguageServiceSourceFile(fileName, scriptSnapshot, scriptTarget, version, setNodeParents) {

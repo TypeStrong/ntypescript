@@ -1074,6 +1074,7 @@ declare module "typescript" {
         getPropertyOfType(type: Type, propertyName: string): Symbol;
         getSignaturesOfType(type: Type, kind: SignatureKind): Signature[];
         getIndexTypeOfType(type: Type, kind: IndexKind): Type;
+        getBaseTypes(type: InterfaceType): ObjectType[];
         getReturnTypeOfSignature(signature: Signature): Type;
         getSymbolsInScope(location: Node, meaning: SymbolFlags): Symbol[];
         getSymbolAtLocation(node: Node): Symbol;
@@ -4417,11 +4418,6 @@ declare module "typescript" {
             category: DiagnosticCategory;
             key: string;
         };
-        Option_sourceMap_cannot_be_specified_with_option_isolatedModules: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
         Option_declaration_cannot_be_specified_with_option_isolatedModules: {
             code: number;
             category: DiagnosticCategory;
@@ -5816,6 +5812,7 @@ declare module "typescript" {
         getConstructSignatures(): Signature[];
         getStringIndexType(): Type;
         getNumberIndexType(): Type;
+        getBaseTypes(): ObjectType[];
     }
     interface Signature {
         getDeclaration(): SignatureDeclaration;
@@ -6334,6 +6331,18 @@ declare module "typescript" {
     }
     function displayPartsToString(displayParts: SymbolDisplayPart[]): string;
     function getDefaultCompilerOptions(): CompilerOptions;
+    interface TranspileOptions {
+        compilerOptions?: CompilerOptions;
+        fileName?: string;
+        reportDiagnostics?: boolean;
+        moduleName?: string;
+    }
+    interface TranspileOutput {
+        outputText: string;
+        diagnostics?: Diagnostic[];
+        sourceMapText?: string;
+    }
+    function transpileModule(input: string, transpileOptions?: TranspileOptions): TranspileOutput;
     function transpile(input: string, compilerOptions?: CompilerOptions, fileName?: string, diagnostics?: Diagnostic[], moduleName?: string): string;
     function createLanguageServiceSourceFile(fileName: string, scriptSnapshot: IScriptSnapshot, scriptTarget: ScriptTarget, version: string, setNodeParents: boolean): SourceFile;
     let disableIncrementalParsing: boolean;
