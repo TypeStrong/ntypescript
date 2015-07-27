@@ -1,19 +1,4 @@
-/*! *****************************************************************************
-Copyright (c) Microsoft Corporation. All rights reserved. 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use
-this file except in compliance with the License. You may obtain a copy of the
-License at http://www.apache.org/licenses/LICENSE-2.0  
- 
-THIS CODE IS PROVIDED ON AN *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
-WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE, 
-MERCHANTABLITY OR NON-INFRINGEMENT. 
- 
-See the Apache Version 2.0 License for specific language governing permissions
-and limitations under the License.
-***************************************************************************** */
-
-declare module "typescript" {
+declare namespace ts {
     interface Map<T> {
         [index: string]: T;
     }
@@ -1745,7 +1730,7 @@ declare module "typescript" {
         getModificationCount(): number;
     }
 }
-declare module "typescript" {
+declare namespace ts {
     /**
      * Ternary values are defined such that
      * x & y is False if either x or y is False.
@@ -1862,31 +1847,7 @@ declare module "typescript" {
         function fail(message?: string): void;
     }
 }
-declare module "typescript" {
-    interface System {
-        args: string[];
-        newLine: string;
-        useCaseSensitiveFileNames: boolean;
-        write(s: string): void;
-        readFile(path: string, encoding?: string): string;
-        writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
-        watchFile?(path: string, callback: (path: string) => void): FileWatcher;
-        resolvePath(path: string): string;
-        fileExists(path: string): boolean;
-        directoryExists(path: string): boolean;
-        createDirectory(path: string): void;
-        getExecutingFilePath(): string;
-        getCurrentDirectory(): string;
-        readDirectory(path: string, extension?: string, exclude?: string[]): string[];
-        getMemoryUsage?(): number;
-        exit(exitCode?: number): void;
-    }
-    interface FileWatcher {
-        close(): void;
-    }
-    var sys: System;
-}
-declare module "typescript" {
+declare namespace ts {
     var Diagnostics: {
         Unterminated_string_literal: {
             code: number;
@@ -4940,7 +4901,7 @@ declare module "typescript" {
         };
     };
 }
-declare module "typescript" {
+declare namespace ts {
     interface ErrorCallback {
         (message: DiagnosticMessage, length: number): void;
     }
@@ -4994,7 +4955,7 @@ declare module "typescript" {
     function isIdentifierPart(ch: number, languageVersion: ScriptTarget): boolean;
     function createScanner(languageVersion: ScriptTarget, skipTrivia: boolean, languageVariant?: LanguageVariant, text?: string, onError?: ErrorCallback, start?: number, length?: number): Scanner;
 }
-declare module "typescript" {
+declare namespace ts {
     let bindTime: number;
     const enum ModuleInstanceState {
         NonInstantiated = 0,
@@ -5004,7 +4965,7 @@ declare module "typescript" {
     function getModuleInstanceState(node: Node): ModuleInstanceState;
     function bindSourceFile(file: SourceFile): void;
 }
-declare module "typescript" {
+declare namespace ts {
     interface ReferencePathMatchResult {
         fileReference?: FileReference;
         diagnosticMessage?: DiagnosticMessage;
@@ -5201,7 +5162,7 @@ declare module "typescript" {
     function convertToBase64(input: string): string;
     function getNewLineCharacter(options: CompilerOptions): string;
 }
-declare module "typescript" {
+declare namespace ts {
     function getDefaultLibFileName(options: CompilerOptions): string;
     function textSpanEnd(span: TextSpan): number;
     function textSpanIsEmpty(span: TextSpan): boolean;
@@ -5231,7 +5192,7 @@ declare module "typescript" {
     function collapseTextChangeRangesAcrossMultipleVersions(changes: TextChangeRange[]): TextChangeRange;
     function getTypeParameterOwner(d: Declaration): Declaration;
 }
-declare module "typescript" {
+declare namespace ts {
     let parseTime: number;
     function getNodeConstructor(kind: SyntaxKind): new () => Node;
     function createNode(kind: SyntaxKind): Node;
@@ -5247,34 +5208,37 @@ declare module "typescript" {
         diagnostics: Diagnostic[];
     };
 }
-declare module "typescript" {
+declare namespace ts {
     function getNodeId(node: Node): number;
     let checkTime: number;
     function getSymbolId(symbol: Symbol): number;
     function createTypeChecker(host: TypeCheckerHost, produceDiagnostics: boolean): TypeChecker;
 }
-declare module "typescript" {
-    function getDeclarationDiagnostics(host: EmitHost, resolver: EmitResolver, targetSourceFile: SourceFile): Diagnostic[];
-    function writeDeclarationFile(jsFilePath: string, sourceFile: SourceFile, host: EmitHost, resolver: EmitResolver, diagnostics: Diagnostic[]): void;
+declare namespace ts {
+    interface System {
+        args: string[];
+        newLine: string;
+        useCaseSensitiveFileNames: boolean;
+        write(s: string): void;
+        readFile(path: string, encoding?: string): string;
+        writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
+        watchFile?(path: string, callback: (path: string) => void): FileWatcher;
+        resolvePath(path: string): string;
+        fileExists(path: string): boolean;
+        directoryExists(path: string): boolean;
+        createDirectory(path: string): void;
+        getExecutingFilePath(): string;
+        getCurrentDirectory(): string;
+        readDirectory(path: string, extension?: string, exclude?: string[]): string[];
+        getMemoryUsage?(): number;
+        exit(exitCode?: number): void;
+    }
+    interface FileWatcher {
+        close(): void;
+    }
+    var sys: System;
 }
-declare module "typescript" {
-    function isExternalModuleOrDeclarationFile(sourceFile: SourceFile): boolean;
-    function emitFiles(resolver: EmitResolver, host: EmitHost, targetSourceFile: SourceFile): EmitResult;
-}
-declare module "typescript" {
-    let programTime: number;
-    let emitTime: number;
-    let ioReadTime: number;
-    let ioWriteTime: number;
-    /** The version of the TypeScript compiler release */
-    const version: string;
-    function findConfigFile(searchPath: string): string;
-    function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
-    function getPreEmitDiagnostics(program: Program, sourceFile?: SourceFile, cancellationToken?: CancellationToken): Diagnostic[];
-    function flattenDiagnosticMessageText(messageText: string | DiagnosticMessageChain, newLine: string): string;
-    function createProgram(rootNames: string[], options: CompilerOptions, host?: CompilerHost): Program;
-}
-declare module "typescript" {
+declare namespace ts {
     let optionDeclarations: CommandLineOption[];
     function parseCommandLine(commandLine: string[]): ParsedCommandLine;
     /**
@@ -5302,18 +5266,49 @@ declare module "typescript" {
       */
     function parseConfigFile(json: any, host: ParseConfigHost, basePath: string): ParsedCommandLine;
 }
-declare module "typescript" {
+declare namespace ts {
+    function getDeclarationDiagnostics(host: EmitHost, resolver: EmitResolver, targetSourceFile: SourceFile): Diagnostic[];
+    function writeDeclarationFile(jsFilePath: string, sourceFile: SourceFile, host: EmitHost, resolver: EmitResolver, diagnostics: Diagnostic[]): void;
+}
+declare namespace ts {
+    function isExternalModuleOrDeclarationFile(sourceFile: SourceFile): boolean;
+    function emitFiles(resolver: EmitResolver, host: EmitHost, targetSourceFile: SourceFile): EmitResult;
+}
+declare namespace ts {
+    let programTime: number;
+    let emitTime: number;
+    let ioReadTime: number;
+    let ioWriteTime: number;
+    /** The version of the TypeScript compiler release */
+    const version: string;
+    function findConfigFile(searchPath: string): string;
+    function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
+    function getPreEmitDiagnostics(program: Program, sourceFile?: SourceFile, cancellationToken?: CancellationToken): Diagnostic[];
+    function flattenDiagnosticMessageText(messageText: string | DiagnosticMessageChain, newLine: string): string;
+    function createProgram(rootNames: string[], options: CompilerOptions, host?: CompilerHost): Program;
+}
+declare namespace ts {
+    interface SourceFile {
+        fileWatcher?: FileWatcher;
+    }
+    function executeCommandLine(args: string[]): void;
+}
+declare module ts {
+    function syntaxKindToName(kind: ts.SyntaxKind): string;
+}
+declare var global: any;
+declare namespace ts {
     module OutliningElementsCollector {
         function collectElements(sourceFile: SourceFile): OutliningSpan[];
     }
 }
-declare module "typescript".NavigateTo {
+declare namespace ts.NavigateTo {
     function getNavigateToItems(program: Program, cancellationToken: CancellationToken, searchValue: string, maxResultCount: number): NavigateToItem[];
 }
-declare module "typescript".NavigationBar {
+declare namespace ts.NavigationBar {
     function getNavigationBarItems(sourceFile: SourceFile): ts.NavigationBarItem[];
 }
-declare module "typescript" {
+declare namespace ts {
     enum PatternMatchKind {
         exact = 0,
         prefix = 1,
@@ -5335,10 +5330,10 @@ declare module "typescript" {
     function breakIntoCharacterSpans(identifier: string): TextSpan[];
     function breakIntoWordSpans(identifier: string): TextSpan[];
 }
-declare module "typescript".SignatureHelp {
+declare namespace ts.SignatureHelp {
     function getSignatureHelpItems(program: Program, sourceFile: SourceFile, position: number, cancellationToken: CancellationToken): SignatureHelpItems;
 }
-declare module "typescript" {
+declare namespace ts {
     interface ListItemInfo {
         listItemIndex: number;
         list: Node;
@@ -5383,7 +5378,7 @@ declare module "typescript" {
     function isAccessibilityModifier(kind: SyntaxKind): boolean;
     function compareDataObjects(dst: any, src: any): boolean;
 }
-declare module "typescript" {
+declare namespace ts {
     function isFirstDeclarationOfSymbolParameter(symbol: Symbol): boolean;
     function symbolPart(text: string, symbol: Symbol): SymbolDisplayPart;
     function displayPart(text: string, kind: SymbolDisplayPartKind, symbol?: Symbol): SymbolDisplayPart;
@@ -5407,7 +5402,7 @@ declare module "typescript" {
      */
     function stripQuotes(name: string): string;
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     interface FormattingScanner {
         advance(): void;
         isOnToken(): boolean;
@@ -5417,7 +5412,7 @@ declare module "typescript".formatting {
     }
     function getFormattingScanner(sourceFile: SourceFile, startPos: number, endPos: number): FormattingScanner;
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     class FormattingContext {
         sourceFile: SourceFile;
         formattingRequestKind: FormattingRequestKind;
@@ -5442,7 +5437,7 @@ declare module "typescript".formatting {
         private BlockIsOnOneLine(node);
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     const enum FormattingRequestKind {
         FormatDocument = 0,
         FormatSelection = 1,
@@ -5451,7 +5446,7 @@ declare module "typescript".formatting {
         FormatOnClosingCurlyBrace = 4,
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     class Rule {
         Descriptor: RuleDescriptor;
         Operation: RuleOperation;
@@ -5460,7 +5455,7 @@ declare module "typescript".formatting {
         toString(): string;
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     const enum RuleAction {
         Ignore = 1,
         Space = 2,
@@ -5468,7 +5463,7 @@ declare module "typescript".formatting {
         Delete = 8,
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     class RuleDescriptor {
         LeftTokenRange: Shared.TokenRange;
         RightTokenRange: Shared.TokenRange;
@@ -5480,13 +5475,13 @@ declare module "typescript".formatting {
         static create4(left: Shared.TokenRange, right: Shared.TokenRange): RuleDescriptor;
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     const enum RuleFlags {
         None = 0,
         CanDeleteNewLines = 1,
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     class RuleOperation {
         Context: RuleOperationContext;
         Action: RuleAction;
@@ -5496,7 +5491,7 @@ declare module "typescript".formatting {
         static create2(context: RuleOperationContext, action: RuleAction): RuleOperation;
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     class RuleOperationContext {
         private customContextChecks;
         constructor(...funcs: {
@@ -5507,7 +5502,7 @@ declare module "typescript".formatting {
         InContext(context: FormattingContext): boolean;
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     class Rules {
         getRuleName(rule: Rule): any;
         [name: string]: any;
@@ -5646,7 +5641,7 @@ declare module "typescript".formatting {
         static IsYieldOrYieldStarWithOperand(context: FormattingContext): boolean;
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     class RulesMap {
         map: RulesBucket[];
         mapRowLength: number;
@@ -5679,7 +5674,7 @@ declare module "typescript".formatting {
         AddRule(rule: Rule, specificTokens: boolean, constructionState: RulesBucketConstructionState[], rulesBucketIndex: number): void;
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     module Shared {
         interface ITokenAccess {
             GetTokens(): SyntaxKind[];
@@ -5734,7 +5729,7 @@ declare module "typescript".formatting {
         }
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     class RulesProvider {
         private globalRules;
         private options;
@@ -5748,7 +5743,7 @@ declare module "typescript".formatting {
         private createActiveRules(options);
     }
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     interface TextRangeWithKind extends TextRange {
         kind: SyntaxKind;
     }
@@ -5764,7 +5759,7 @@ declare module "typescript".formatting {
     function formatSelection(start: number, end: number, sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
     function getIndentationString(indentation: number, options: FormatCodeOptions): string;
 }
-declare module "typescript".formatting {
+declare namespace ts.formatting {
     module SmartIndenter {
         function getIndentation(position: number, sourceFile: SourceFile, options: EditorOptions): number;
         function getIndentationForNode(n: Node, ignoreActualIndentationRange: TextRange, sourceFile: SourceFile, options: FormatCodeOptions): number;
@@ -5777,7 +5772,7 @@ declare module "typescript".formatting {
         function shouldIndentChildNode(parent: SyntaxKind, child: SyntaxKind): boolean;
     }
 }
-declare module "typescript" {
+declare namespace ts {
     /** The version of the language service API */
     let servicesVersion: string;
     interface Node {
@@ -6361,14 +6356,14 @@ declare module "typescript" {
       */
     function getDefaultLibFilePath(options: CompilerOptions): string;
 }
-declare module "typescript".BreakpointResolver {
+declare namespace ts.BreakpointResolver {
     /**
      * Get the breakpoint span in given sourceFile
      */
     function spanInSourceFileAtLocation(sourceFile: SourceFile, position: number): TextSpan;
 }
 declare var debugObjectHost: any;
-declare module "typescript" {
+declare namespace ts {
     interface ScriptSnapshotShim {
         /** Gets a portion of the script snapshot specified by [start, end). */
         getText(start: number, end: number): string;

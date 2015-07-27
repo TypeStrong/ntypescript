@@ -7,7 +7,7 @@
         "jsx": "react",
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
-        "declaration": true,
+        "declaration": false,
         "noImplicitAny": false,
         "removeComments": true,
         "noLib": false,
@@ -18,13 +18,10 @@
         "./**/*.ts",
         "./**/*.tsx",
         "!./node_modules/**/*",
-        "../bin/typescriptServices.d.ts",
-        "!./extensions.d.ts",
-        "!./addExtensions.d.ts"
+        "../bin/typescriptServices.d.ts"
     ],
     "files": [
         "./addExtensions.ts",
-        "./extensions.ts",
         "../bin/typescriptServices.d.ts"
     ]
 }

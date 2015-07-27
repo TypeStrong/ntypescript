@@ -1,3 +1,6 @@
+/**
+ * This script is responsible for making required modifications to our version of TypeScript
+ */
 var fs = require('fs');
 var EOL = require('os').EOL;
 function readFile(filePath) {
@@ -6,14 +9,13 @@ function readFile(filePath) {
 function writeFile(filePath, content) {
     fs.writeFileSync(__dirname + '/' + filePath, content);
 }
-var dtsWithGlobal = readFile('../bin/typescriptServices.d.ts');
-var dtsExtensionsGlobal = readFile('./extensions.d.ts');
+var dtsOriginal = readFile('../bin/typescript.d.ts');
 var jsOriginal = readFile('../bin/typescript.js');
-var jsExtensions = readFile('./extensions.js');
 var finalDtsLocation = '../bin/ntypescript.d.ts';
 var finalJsLocation = '../bin/ntypescript.js';
-var finalDtsContent = dtsWithGlobal + EOL + dtsExtensionsGlobal + EOL + "\ndeclare module \"ntypescript\" {\n    export = ts;\n}\n";
-var finalJsContent = jsOriginal + EOL + jsExtensions;
+var finalDtsContent = dtsOriginal;
+var finalJsContent = jsOriginal;
+finalDtsContent = finalDtsContent + EOL + "\ndeclare module \"ntypescript\" {\n    export = ts;\n}\n";
 finalDtsContent = finalDtsContent.replace(/const enum /g, 'enum ');
 writeFile(finalDtsLocation, finalDtsContent);
 writeFile(finalJsLocation, finalJsContent);

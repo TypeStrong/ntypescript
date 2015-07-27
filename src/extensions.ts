@@ -3,6 +3,7 @@ module ts {
         return (<any>ts).SyntaxKind[kind];
     }
 }
+declare var global: any;
 if (typeof global !== "undefined") {
     (global as any).ts = ts;
 }

@@ -4,9 +4,7 @@ set -e
 git submodule update --recursive --init
 
 # Official Microsoft/TypeScript clone
-typeScriptDirectory='./TypeScript'
-
-cd $typeScriptDirectory
+cd ./TypeScript
 
 git clean -xfd
 git fetch origin
@@ -19,18 +17,23 @@ mv Jakefile.new.js Jakefile.js
 # Install jake
 npm install jake
 
-# Build once with LKG
+# Build once to get a new LKG
 ./node_modules/.bin/jake release tsc --trace
 cp ./built/local/* ./bin/
 
-# Rebuild with itself
-./node_modules/.bin/jake release clean local --trace
+# Copy the source TypeScript compiler and services, but not the tsconfig.json files
+cp ./src/compiler/* ../src/compiler
+cp -r ./src/services/* ../src/services
+rm ../src/services/tsconfig.json ../src/compiler/tsconfig.json
+# Now build using the LKG
+./bin/tsc -p ../src
 
-# Copy output
-cp ./built/local/* ./bin/tsc ./bin/tsserver ../bin/
-
-# Reset sub typescript
-git reset --hard origin/master
+# Also copy the lib.* stuff from LKG
+cp ./bin/lib* ../bin
 
 # add custom extension
 node ../extensions/addExtensions.js
+
+# Reset sub typescript
+git reset --hard origin/master
+cd ..

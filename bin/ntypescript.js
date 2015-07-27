@@ -1,18 +1,3 @@
-/*! *****************************************************************************
-Copyright (c) Microsoft Corporation. All rights reserved. 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use
-this file except in compliance with the License. You may obtain a copy of the
-License at http://www.apache.org/licenses/LICENSE-2.0  
- 
-THIS CODE IS PROVIDED ON AN *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
-WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE, 
-MERCHANTABLITY OR NON-INFRINGEMENT. 
- 
-See the Apache Version 2.0 License for specific language governing permissions
-and limitations under the License.
-***************************************************************************** */
-
 var ts;
 (function (ts) {
     // token > SyntaxKind.Identifer => token is a keyword
@@ -1165,7 +1150,7 @@ var ts;
             length: length,
             messageText: text,
             category: message.category,
-            code: message.code
+            code: message.code,
         };
     }
     ts.createFileDiagnostic = createFileDiagnostic;
@@ -1519,7 +1504,7 @@ var ts;
                 pos: -1,
                 end: -1,
                 flags: 0,
-                parent: undefined
+                parent: undefined,
             };
             return Node;
         },
@@ -1556,295 +1541,6 @@ var ts;
         }
         Debug.fail = fail;
     })(Debug = ts.Debug || (ts.Debug = {}));
-})(ts || (ts = {}));
-/// <reference path="core.ts"/>
-var ts;
-(function (ts) {
-    ts.sys = (function () {
-        function getWScriptSystem() {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
-            var fileStream = new ActiveXObject("ADODB.Stream");
-            fileStream.Type = 2 /*text*/;
-            var binaryStream = new ActiveXObject("ADODB.Stream");
-            binaryStream.Type = 1 /*binary*/;
-            var args = [];
-            for (var i = 0; i < WScript.Arguments.length; i++) {
-                args[i] = WScript.Arguments.Item(i);
-            }
-            function readFile(fileName, encoding) {
-                if (!fso.FileExists(fileName)) {
-                    return undefined;
-                }
-                fileStream.Open();
-                try {
-                    if (encoding) {
-                        fileStream.Charset = encoding;
-                        fileStream.LoadFromFile(fileName);
-                    }
-                    else {
-                        // Load file and read the first two bytes into a string with no interpretation
-                        fileStream.Charset = "x-ansi";
-                        fileStream.LoadFromFile(fileName);
-                        var bom = fileStream.ReadText(2) || "";
-                        // Position must be at 0 before encoding can be changed
-                        fileStream.Position = 0;
-                        // [0xFF,0xFE] and [0xFE,0xFF] mean utf-16 (little or big endian), otherwise default to utf-8
-                        fileStream.Charset = bom.length >= 2 && (bom.charCodeAt(0) === 0xFF && bom.charCodeAt(1) === 0xFE || bom.charCodeAt(0) === 0xFE && bom.charCodeAt(1) === 0xFF) ? "unicode" : "utf-8";
-                    }
-                    // ReadText method always strips byte order mark from resulting string
-                    return fileStream.ReadText();
-                }
-                catch (e) {
-                    throw e;
-                }
-                finally {
-                    fileStream.Close();
-                }
-            }
-            function writeFile(fileName, data, writeByteOrderMark) {
-                fileStream.Open();
-                binaryStream.Open();
-                try {
-                    // Write characters in UTF-8 encoding
-                    fileStream.Charset = "utf-8";
-                    fileStream.WriteText(data);
-                    // If we don't want the BOM, then skip it by setting the starting location to 3 (size of BOM).
-                    // If not, start from position 0, as the BOM will be added automatically when charset==utf8.
-                    if (writeByteOrderMark) {
-                        fileStream.Position = 0;
-                    }
-                    else {
-                        fileStream.Position = 3;
-                    }
-                    fileStream.CopyTo(binaryStream);
-                    binaryStream.SaveToFile(fileName, 2 /*overwrite*/);
-                }
-                finally {
-                    binaryStream.Close();
-                    fileStream.Close();
-                }
-            }
-            function getCanonicalPath(path) {
-                return path.toLowerCase();
-            }
-            function getNames(collection) {
-                var result = [];
-                for (var e = new Enumerator(collection); !e.atEnd(); e.moveNext()) {
-                    result.push(e.item().Name);
-                }
-                return result.sort();
-            }
-            function readDirectory(path, extension, exclude) {
-                var result = [];
-                exclude = ts.map(exclude, function (s) { return getCanonicalPath(ts.combinePaths(path, s)); });
-                visitDirectory(path);
-                return result;
-                function visitDirectory(path) {
-                    var folder = fso.GetFolder(path || ".");
-                    var files = getNames(folder.files);
-                    for (var _i = 0; _i < files.length; _i++) {
-                        var current = files[_i];
-                        var name_1 = ts.combinePaths(path, current);
-                        if ((!extension || ts.fileExtensionIs(name_1, extension)) && !ts.contains(exclude, getCanonicalPath(name_1))) {
-                            result.push(name_1);
-                        }
-                    }
-                    var subfolders = getNames(folder.subfolders);
-                    for (var _a = 0; _a < subfolders.length; _a++) {
-                        var current = subfolders[_a];
-                        var name_2 = ts.combinePaths(path, current);
-                        if (!ts.contains(exclude, getCanonicalPath(name_2))) {
-                            visitDirectory(name_2);
-                        }
-                    }
-                }
-            }
-            return {
-                args: args,
-                newLine: "\r\n",
-                useCaseSensitiveFileNames: false,
-                write: function (s) {
-                    WScript.StdOut.Write(s);
-                },
-                readFile: readFile,
-                writeFile: writeFile,
-                resolvePath: function (path) {
-                    return fso.GetAbsolutePathName(path);
-                },
-                fileExists: function (path) {
-                    return fso.FileExists(path);
-                },
-                directoryExists: function (path) {
-                    return fso.FolderExists(path);
-                },
-                createDirectory: function (directoryName) {
-                    if (!this.directoryExists(directoryName)) {
-                        fso.CreateFolder(directoryName);
-                    }
-                },
-                getExecutingFilePath: function () {
-                    return WScript.ScriptFullName;
-                },
-                getCurrentDirectory: function () {
-                    return new ActiveXObject("WScript.Shell").CurrentDirectory;
-                },
-                readDirectory: readDirectory,
-                exit: function (exitCode) {
-                    try {
-                        WScript.Quit(exitCode);
-                    }
-                    catch (e) {
-                    }
-                }
-            };
-        }
-        function getNodeSystem() {
-            var _fs = require("fs");
-            var _path = require("path");
-            var _os = require('os');
-            var platform = _os.platform();
-            // win32\win64 are case insensitive platforms, MacOS (darwin) by default is also case insensitive
-            var useCaseSensitiveFileNames = platform !== "win32" && platform !== "win64" && platform !== "darwin";
-            function readFile(fileName, encoding) {
-                if (!_fs.existsSync(fileName)) {
-                    return undefined;
-                }
-                var buffer = _fs.readFileSync(fileName);
-                var len = buffer.length;
-                if (len >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
-                    // Big endian UTF-16 byte order mark detected. Since big endian is not supported by node.js,
-                    // flip all byte pairs and treat as little endian.
-                    len &= ~1;
-                    for (var i = 0; i < len; i += 2) {
-                        var temp = buffer[i];
-                        buffer[i] = buffer[i + 1];
-                        buffer[i + 1] = temp;
-                    }
-                    return buffer.toString("utf16le", 2);
-                }
-                if (len >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
-                    // Little endian UTF-16 byte order mark detected
-                    return buffer.toString("utf16le", 2);
-                }
-                if (len >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
-                    // UTF-8 byte order mark detected
-                    return buffer.toString("utf8", 3);
-                }
-                // Default is UTF-8 with no byte order mark
-                return buffer.toString("utf8");
-            }
-            function writeFile(fileName, data, writeByteOrderMark) {
-                // If a BOM is required, emit one
-                if (writeByteOrderMark) {
-                    data = '\uFEFF' + data;
-                }
-                _fs.writeFileSync(fileName, data, "utf8");
-            }
-            function getCanonicalPath(path) {
-                return useCaseSensitiveFileNames ? path.toLowerCase() : path;
-            }
-            function readDirectory(path, extension, exclude) {
-                var result = [];
-                exclude = ts.map(exclude, function (s) { return getCanonicalPath(ts.combinePaths(path, s)); });
-                visitDirectory(path);
-                return result;
-                function visitDirectory(path) {
-                    var files = _fs.readdirSync(path || ".").sort();
-                    var directories = [];
-                    for (var _i = 0; _i < files.length; _i++) {
-                        var current = files[_i];
-                        var name_3 = ts.combinePaths(path, current);
-                        if (!ts.contains(exclude, getCanonicalPath(name_3))) {
-                            var stat = _fs.statSync(name_3);
-                            if (stat.isFile()) {
-                                if (!extension || ts.fileExtensionIs(name_3, extension)) {
-                                    result.push(name_3);
-                                }
-                            }
-                            else if (stat.isDirectory()) {
-                                directories.push(name_3);
-                            }
-                        }
-                    }
-                    for (var _a = 0; _a < directories.length; _a++) {
-                        var current = directories[_a];
-                        visitDirectory(current);
-                    }
-                }
-            }
-            return {
-                args: process.argv.slice(2),
-                newLine: _os.EOL,
-                useCaseSensitiveFileNames: useCaseSensitiveFileNames,
-                write: function (s) {
-                    var buffer = new Buffer(s, 'utf8');
-                    var offset = 0;
-                    var toWrite = buffer.length;
-                    var written = 0;
-                    // 1 is a standard descriptor for stdout
-                    while ((written = _fs.writeSync(1, buffer, offset, toWrite)) < toWrite) {
-                        offset += written;
-                        toWrite -= written;
-                    }
-                },
-                readFile: readFile,
-                writeFile: writeFile,
-                watchFile: function (fileName, callback) {
-                    // watchFile polls a file every 250ms, picking up file notifications.
-                    _fs.watchFile(fileName, { persistent: true, interval: 250 }, fileChanged);
-                    return {
-                        close: function () { _fs.unwatchFile(fileName, fileChanged); }
-                    };
-                    function fileChanged(curr, prev) {
-                        if (+curr.mtime <= +prev.mtime) {
-                            return;
-                        }
-                        callback(fileName);
-                    }
-                    ;
-                },
-                resolvePath: function (path) {
-                    return _path.resolve(path);
-                },
-                fileExists: function (path) {
-                    return _fs.existsSync(path);
-                },
-                directoryExists: function (path) {
-                    return _fs.existsSync(path) && _fs.statSync(path).isDirectory();
-                },
-                createDirectory: function (directoryName) {
-                    if (!this.directoryExists(directoryName)) {
-                        _fs.mkdirSync(directoryName);
-                    }
-                },
-                getExecutingFilePath: function () {
-                    return __filename;
-                },
-                getCurrentDirectory: function () {
-                    return process.cwd();
-                },
-                readDirectory: readDirectory,
-                getMemoryUsage: function () {
-                    if (global.gc) {
-                        global.gc();
-                    }
-                    return process.memoryUsage().heapUsed;
-                },
-                exit: function (exitCode) {
-                    process.exit(exitCode);
-                }
-            };
-        }
-        if (typeof WScript !== "undefined" && typeof ActiveXObject === "function") {
-            return getWScriptSystem();
-        }
-        else if (typeof module !== "undefined" && module.exports) {
-            return getNodeSystem();
-        }
-        else {
-            return undefined; // Unsupported host
-        }
-    })();
 })(ts || (ts = {}));
 // <auto-generated />
 /// <reference path="types.ts" />
@@ -2461,7 +2157,7 @@ var ts;
         JSX_elements_cannot_have_multiple_attributes_with_the_same_name: { code: 17001, category: ts.DiagnosticCategory.Error, key: "JSX elements cannot have multiple attributes with the same name." },
         Expected_corresponding_JSX_closing_tag_for_0: { code: 17002, category: ts.DiagnosticCategory.Error, key: "Expected corresponding JSX closing tag for '{0}'." },
         JSX_attribute_expected: { code: 17003, category: ts.DiagnosticCategory.Error, key: "JSX attribute expected." },
-        Cannot_use_JSX_unless_the_jsx_flag_is_provided: { code: 17004, category: ts.DiagnosticCategory.Error, key: "Cannot use JSX unless the '--jsx' flag is provided." }
+        Cannot_use_JSX_unless_the_jsx_flag_is_provided: { code: 17004, category: ts.DiagnosticCategory.Error, key: "Cannot use JSX unless the '--jsx' flag is provided." },
     };
 })(ts || (ts = {}));
 /// <reference path="core.ts"/>
@@ -2585,7 +2281,7 @@ var ts;
         "&=": 63 /* AmpersandEqualsToken */,
         "|=": 64 /* BarEqualsToken */,
         "^=": 65 /* CaretEqualsToken */,
-        "@": 53 /* AtToken */
+        "@": 53 /* AtToken */,
     };
     /*
         As per ECMAScript Language Specification 3th Edition, Section 7.6: Identifiers
@@ -2671,9 +2367,9 @@ var ts;
     }
     function makeReverseMap(source) {
         var result = [];
-        for (var name_4 in source) {
-            if (source.hasOwnProperty(name_4)) {
-                result[source[name_4]] = name_4;
+        for (var name_1 in source) {
+            if (source.hasOwnProperty(name_1)) {
+                result[source[name_1]] = name_1;
             }
         }
         return result;
@@ -3068,7 +2764,7 @@ var ts;
             setOnError: setOnError,
             setTextPos: setTextPos,
             tryScan: tryScan,
-            lookAhead: lookAhead
+            lookAhead: lookAhead,
         };
         function error(message, length) {
             if (onError) {
@@ -5362,11 +5058,11 @@ var ts;
                     return;
                 default:
                     if (isFunctionLike(node)) {
-                        var name_5 = node.name;
-                        if (name_5 && name_5.kind === 133 /* ComputedPropertyName */) {
+                        var name_2 = node.name;
+                        if (name_2 && name_2.kind === 133 /* ComputedPropertyName */) {
                             // Note that we will not include methods/accessors of a class because they would require
                             // first descending into the class. This is by design.
-                            traverse(name_5.expression);
+                            traverse(name_2.expression);
                             return;
                         }
                     }
@@ -5836,8 +5532,8 @@ var ts;
                 return ts.forEach(docComment.tags, function (t) {
                     if (t.kind === 264 /* JSDocParameterTag */) {
                         var parameterTag = t;
-                        var name_6 = parameterTag.preParameterName || parameterTag.postParameterName;
-                        if (name_6.text === parameterName) {
+                        var name_3 = parameterTag.preParameterName || parameterTag.postParameterName;
+                        if (name_3.text === parameterName) {
                             return t;
                         }
                     }
@@ -6411,7 +6107,7 @@ var ts;
             getTextPos: function () { return output.length; },
             getLine: function () { return lineCount + 1; },
             getColumn: function () { return lineStart ? indent * getIndentSize() + 1 : output.length - linePos + 1; },
-            getText: function () { return output; }
+            getText: function () { return output; },
         };
     }
     ts.createTextWriter = createTextWriter;
@@ -11220,8 +10916,8 @@ var ts;
             }
             if (decorators || modifiers) {
                 // treat this as a property declaration with a missing name.
-                var name_7 = createMissingNode(66 /* Identifier */, true, ts.Diagnostics.Declaration_expected);
-                return parsePropertyDeclaration(fullStart, decorators, modifiers, name_7, undefined);
+                var name_4 = createMissingNode(66 /* Identifier */, true, ts.Diagnostics.Declaration_expected);
+                return parsePropertyDeclaration(fullStart, decorators, modifiers, name_4, undefined);
             }
             // 'isClassMemberStart' should have hinted not to attempt parsing.
             ts.Debug.fail("Should not have attempted to parse class member declaration.");
@@ -12168,13 +11864,13 @@ var ts;
                     while (true) {
                         skipWhitespace();
                         var startPos = pos;
-                        var name_8 = scanIdentifier();
-                        if (!name_8) {
+                        var name_5 = scanIdentifier();
+                        if (!name_5) {
                             parseErrorAtPosition(startPos, 0, ts.Diagnostics.Identifier_expected);
                             return undefined;
                         }
-                        var typeParameter = createNode(134 /* TypeParameter */, name_8.pos);
-                        typeParameter.name = name_8;
+                        var typeParameter = createNode(134 /* TypeParameter */, name_5.pos);
+                        typeParameter.name = name_5;
                         finishNode(typeParameter, pos);
                         typeParameters.push(typeParameter);
                         skipWhitespace();
@@ -13390,15 +13086,15 @@ var ts;
             var moduleSymbol = resolveExternalModuleName(node, node.moduleSpecifier);
             var targetSymbol = resolveESModuleSymbol(moduleSymbol, node.moduleSpecifier);
             if (targetSymbol) {
-                var name_9 = specifier.propertyName || specifier.name;
-                if (name_9.text) {
-                    var symbolFromModule = getExportOfModule(targetSymbol, name_9.text);
-                    var symbolFromVariable = getPropertyOfVariable(targetSymbol, name_9.text);
+                var name_6 = specifier.propertyName || specifier.name;
+                if (name_6.text) {
+                    var symbolFromModule = getExportOfModule(targetSymbol, name_6.text);
+                    var symbolFromVariable = getPropertyOfVariable(targetSymbol, name_6.text);
                     var symbol = symbolFromModule && symbolFromVariable ?
                         combineValueAndTypeSymbols(symbolFromVariable, symbolFromModule) :
                         symbolFromModule || symbolFromVariable;
                     if (!symbol) {
-                        error(name_9, ts.Diagnostics.Module_0_has_no_exported_member_1, getFullyQualifiedName(moduleSymbol), ts.declarationNameToString(name_9));
+                        error(name_6, ts.Diagnostics.Module_0_has_no_exported_member_1, getFullyQualifiedName(moduleSymbol), ts.declarationNameToString(name_6));
                     }
                     return symbol;
                 }
@@ -13874,7 +13570,7 @@ var ts;
                             return {
                                 accessibility: 1 /* NotAccessible */,
                                 errorSymbolName: symbolToString(initialSymbol, enclosingDeclaration, meaning),
-                                errorModuleName: symbol !== initialSymbol ? symbolToString(symbol, enclosingDeclaration, 1536 /* Namespace */) : undefined
+                                errorModuleName: symbol !== initialSymbol ? symbolToString(symbol, enclosingDeclaration, 1536 /* Namespace */) : undefined,
                             };
                         }
                         return hasAccessibleDeclarations;
@@ -13911,7 +13607,7 @@ var ts;
                 // Just a local name that is not accessible
                 return {
                     accessibility: 1 /* NotAccessible */,
-                    errorSymbolName: symbolToString(initialSymbol, enclosingDeclaration, meaning)
+                    errorSymbolName: symbolToString(initialSymbol, enclosingDeclaration, meaning),
                 };
             }
             return { accessibility: 0 /* Accessible */ };
@@ -14793,14 +14489,14 @@ var ts;
             var type;
             if (pattern.kind === 158 /* ObjectBindingPattern */) {
                 // Use explicitly specified property name ({ p: xxx } form), or otherwise the implied name ({ p } form)
-                var name_10 = declaration.propertyName || declaration.name;
+                var name_7 = declaration.propertyName || declaration.name;
                 // Use type of the specified property, or otherwise, for a numeric name, the type of the numeric index signature,
                 // or otherwise the type of the string index signature.
-                type = getTypeOfPropertyOfType(parentType, name_10.text) ||
-                    isNumericLiteralName(name_10.text) && getIndexTypeOfType(parentType, 1 /* Number */) ||
+                type = getTypeOfPropertyOfType(parentType, name_7.text) ||
+                    isNumericLiteralName(name_7.text) && getIndexTypeOfType(parentType, 1 /* Number */) ||
                     getIndexTypeOfType(parentType, 0 /* String */);
                 if (!type) {
-                    error(name_10, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(parentType), ts.declarationNameToString(name_10));
+                    error(name_7, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(parentType), ts.declarationNameToString(name_7));
                     return unknownType;
                 }
             }
@@ -17905,7 +17601,7 @@ var ts;
                 typeParameters: typeParameters,
                 inferUnionTypes: inferUnionTypes,
                 inferences: inferences,
-                inferredTypes: new Array(typeParameters.length)
+                inferredTypes: new Array(typeParameters.length),
             };
         }
         function inferTypes(context, source, target) {
@@ -19812,15 +19508,15 @@ var ts;
             // - Otherwise, if IndexExpr is of type Any, the String or Number primitive type, or an enum type, the property access is of type Any.
             // See if we can index as a property.
             if (node.argumentExpression) {
-                var name_11 = getPropertyNameForIndexedAccess(node.argumentExpression, indexType);
-                if (name_11 !== undefined) {
-                    var prop = getPropertyOfType(objectType, name_11);
+                var name_8 = getPropertyNameForIndexedAccess(node.argumentExpression, indexType);
+                if (name_8 !== undefined) {
+                    var prop = getPropertyOfType(objectType, name_8);
                     if (prop) {
                         getNodeLinks(node).resolvedSymbol = prop;
                         return getTypeOfSymbol(prop);
                     }
                     else if (isConstEnum) {
-                        error(node.argumentExpression, ts.Diagnostics.Property_0_does_not_exist_on_const_enum_1, name_11, symbolToString(objectType.symbol));
+                        error(node.argumentExpression, ts.Diagnostics.Property_0_does_not_exist_on_const_enum_1, name_8, symbolToString(objectType.symbol));
                         return unknownType;
                     }
                 }
@@ -21281,8 +20977,8 @@ var ts;
                         var index = n.argumentExpression;
                         var symbol = findSymbol(n.expression);
                         if (symbol && index && index.kind === 8 /* StringLiteral */) {
-                            var name_12 = index.text;
-                            var prop = getPropertyOfType(getTypeOfSymbol(symbol), name_12);
+                            var name_9 = index.text;
+                            var prop = getPropertyOfType(getTypeOfSymbol(symbol), name_9);
                             return prop && (prop.flags & 3 /* Variable */) !== 0 && (getDeclarationFlagsFromSymbol(prop) & 32768 /* Const */) !== 0;
                         }
                         return false;
@@ -21435,17 +21131,17 @@ var ts;
                 var p = properties[_i];
                 if (p.kind === 242 /* PropertyAssignment */ || p.kind === 243 /* ShorthandPropertyAssignment */) {
                     // TODO(andersh): Computed property support
-                    var name_13 = p.name;
+                    var name_10 = p.name;
                     var type = isTypeAny(sourceType)
                         ? sourceType
-                        : getTypeOfPropertyOfType(sourceType, name_13.text) ||
-                            isNumericLiteralName(name_13.text) && getIndexTypeOfType(sourceType, 1 /* Number */) ||
+                        : getTypeOfPropertyOfType(sourceType, name_10.text) ||
+                            isNumericLiteralName(name_10.text) && getIndexTypeOfType(sourceType, 1 /* Number */) ||
                             getIndexTypeOfType(sourceType, 0 /* String */);
                     if (type) {
-                        checkDestructuringAssignment(p.initializer || name_13, type);
+                        checkDestructuringAssignment(p.initializer || name_10, type);
                     }
                     else {
-                        error(name_13, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(sourceType), ts.declarationNameToString(name_13));
+                        error(name_10, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(sourceType), ts.declarationNameToString(name_10));
                     }
                 }
                 else {
@@ -23208,8 +22904,8 @@ var ts;
                         // otherwise if variable has an initializer - show error that initialization will fail
                         // since LHS will be block scoped name instead of function scoped
                         if (!namesShareScope) {
-                            var name_14 = symbolToString(localDeclarationSymbol);
-                            error(node, ts.Diagnostics.Cannot_initialize_outer_scoped_variable_0_in_the_same_scope_as_block_scoped_declaration_1, name_14, name_14);
+                            var name_11 = symbolToString(localDeclarationSymbol);
+                            error(node, ts.Diagnostics.Cannot_initialize_outer_scoped_variable_0_in_the_same_scope_as_block_scoped_declaration_1, name_11, name_11);
                         }
                     }
                 }
@@ -25378,9 +25074,9 @@ var ts;
         function getRootSymbols(symbol) {
             if (symbol.flags & 268435456 /* SyntheticProperty */) {
                 var symbols = [];
-                var name_15 = symbol.name;
+                var name_12 = symbol.name;
                 ts.forEach(getSymbolLinks(symbol).containingType.types, function (t) {
-                    symbols.push(getPropertyOfType(t, name_15));
+                    symbols.push(getPropertyOfType(t, name_12));
                 });
                 return symbols;
             }
@@ -25676,7 +25372,7 @@ var ts;
                 collectLinkedAliases: collectLinkedAliases,
                 getBlockScopedVariableId: getBlockScopedVariableId,
                 getReferencedValueDeclaration: getReferencedValueDeclaration,
-                getTypeReferenceSerializationKind: getTypeReferenceSerializationKind
+                getTypeReferenceSerializationKind: getTypeReferenceSerializationKind,
             };
         }
         function initializeTypeChecker() {
@@ -26238,11 +25934,11 @@ var ts;
             var GetOrSetAccessor = GetAccessor | SetAccesor;
             for (var _i = 0, _a = node.properties; _i < _a.length; _i++) {
                 var prop = _a[_i];
-                var name_16 = prop.name;
+                var name_13 = prop.name;
                 if (prop.kind === 184 /* OmittedExpression */ ||
-                    name_16.kind === 133 /* ComputedPropertyName */) {
+                    name_13.kind === 133 /* ComputedPropertyName */) {
                     // If the name is not a ComputedPropertyName, the grammar checking will skip it
-                    checkGrammarComputedPropertyName(name_16);
+                    checkGrammarComputedPropertyName(name_13);
                     continue;
                 }
                 // ECMA-262 11.1.5 Object Initialiser
@@ -26257,8 +25953,8 @@ var ts;
                 if (prop.kind === 242 /* PropertyAssignment */ || prop.kind === 243 /* ShorthandPropertyAssignment */) {
                     // Grammar checking for computedPropertName and shorthandPropertyAssignment
                     checkGrammarForInvalidQuestionMark(prop, prop.questionToken, ts.Diagnostics.An_object_member_cannot_be_declared_optional);
-                    if (name_16.kind === 7 /* NumericLiteral */) {
-                        checkGrammarNumericLiteral(name_16);
+                    if (name_13.kind === 7 /* NumericLiteral */) {
+                        checkGrammarNumericLiteral(name_13);
                     }
                     currentKind = Property;
                 }
@@ -26274,24 +25970,24 @@ var ts;
                 else {
                     ts.Debug.fail("Unexpected syntax kind:" + prop.kind);
                 }
-                if (!ts.hasProperty(seen, name_16.text)) {
-                    seen[name_16.text] = currentKind;
+                if (!ts.hasProperty(seen, name_13.text)) {
+                    seen[name_13.text] = currentKind;
                 }
                 else {
-                    var existingKind = seen[name_16.text];
+                    var existingKind = seen[name_13.text];
                     if (currentKind === Property && existingKind === Property) {
                         continue;
                     }
                     else if ((currentKind & GetOrSetAccessor) && (existingKind & GetOrSetAccessor)) {
                         if (existingKind !== GetOrSetAccessor && currentKind !== existingKind) {
-                            seen[name_16.text] = currentKind | existingKind;
+                            seen[name_13.text] = currentKind | existingKind;
                         }
                         else {
-                            return grammarErrorOnNode(name_16, ts.Diagnostics.An_object_literal_cannot_have_multiple_get_Slashset_accessors_with_the_same_name);
+                            return grammarErrorOnNode(name_13, ts.Diagnostics.An_object_literal_cannot_have_multiple_get_Slashset_accessors_with_the_same_name);
                         }
                     }
                     else {
-                        return grammarErrorOnNode(name_16, ts.Diagnostics.An_object_literal_cannot_have_property_and_accessor_with_the_same_name);
+                        return grammarErrorOnNode(name_13, ts.Diagnostics.An_object_literal_cannot_have_property_and_accessor_with_the_same_name);
                     }
                 }
             }
@@ -26304,12 +26000,12 @@ var ts;
                     continue;
                 }
                 var jsxAttr = attr;
-                var name_17 = jsxAttr.name;
-                if (!ts.hasProperty(seen, name_17.text)) {
-                    seen[name_17.text] = true;
+                var name_14 = jsxAttr.name;
+                if (!ts.hasProperty(seen, name_14.text)) {
+                    seen[name_14.text] = true;
                 }
                 else {
-                    return grammarErrorOnNode(name_17, ts.Diagnostics.JSX_elements_cannot_have_multiple_attributes_with_the_same_name);
+                    return grammarErrorOnNode(name_14, ts.Diagnostics.JSX_elements_cannot_have_multiple_attributes_with_the_same_name);
                 }
                 var initializer = jsxAttr.initializer;
                 if (initializer && initializer.kind === 237 /* JsxExpression */ && !initializer.expression) {
@@ -26768,6 +26464,737 @@ var ts;
     }
     ts.createTypeChecker = createTypeChecker;
 })(ts || (ts = {}));
+/// <reference path="core.ts"/>
+var ts;
+(function (ts) {
+    ts.sys = (function () {
+        function getWScriptSystem() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var fileStream = new ActiveXObject("ADODB.Stream");
+            fileStream.Type = 2 /*text*/;
+            var binaryStream = new ActiveXObject("ADODB.Stream");
+            binaryStream.Type = 1 /*binary*/;
+            var args = [];
+            for (var i = 0; i < WScript.Arguments.length; i++) {
+                args[i] = WScript.Arguments.Item(i);
+            }
+            function readFile(fileName, encoding) {
+                if (!fso.FileExists(fileName)) {
+                    return undefined;
+                }
+                fileStream.Open();
+                try {
+                    if (encoding) {
+                        fileStream.Charset = encoding;
+                        fileStream.LoadFromFile(fileName);
+                    }
+                    else {
+                        // Load file and read the first two bytes into a string with no interpretation
+                        fileStream.Charset = "x-ansi";
+                        fileStream.LoadFromFile(fileName);
+                        var bom = fileStream.ReadText(2) || "";
+                        // Position must be at 0 before encoding can be changed
+                        fileStream.Position = 0;
+                        // [0xFF,0xFE] and [0xFE,0xFF] mean utf-16 (little or big endian), otherwise default to utf-8
+                        fileStream.Charset = bom.length >= 2 && (bom.charCodeAt(0) === 0xFF && bom.charCodeAt(1) === 0xFE || bom.charCodeAt(0) === 0xFE && bom.charCodeAt(1) === 0xFF) ? "unicode" : "utf-8";
+                    }
+                    // ReadText method always strips byte order mark from resulting string
+                    return fileStream.ReadText();
+                }
+                catch (e) {
+                    throw e;
+                }
+                finally {
+                    fileStream.Close();
+                }
+            }
+            function writeFile(fileName, data, writeByteOrderMark) {
+                fileStream.Open();
+                binaryStream.Open();
+                try {
+                    // Write characters in UTF-8 encoding
+                    fileStream.Charset = "utf-8";
+                    fileStream.WriteText(data);
+                    // If we don't want the BOM, then skip it by setting the starting location to 3 (size of BOM).
+                    // If not, start from position 0, as the BOM will be added automatically when charset==utf8.
+                    if (writeByteOrderMark) {
+                        fileStream.Position = 0;
+                    }
+                    else {
+                        fileStream.Position = 3;
+                    }
+                    fileStream.CopyTo(binaryStream);
+                    binaryStream.SaveToFile(fileName, 2 /*overwrite*/);
+                }
+                finally {
+                    binaryStream.Close();
+                    fileStream.Close();
+                }
+            }
+            function getCanonicalPath(path) {
+                return path.toLowerCase();
+            }
+            function getNames(collection) {
+                var result = [];
+                for (var e = new Enumerator(collection); !e.atEnd(); e.moveNext()) {
+                    result.push(e.item().Name);
+                }
+                return result.sort();
+            }
+            function readDirectory(path, extension, exclude) {
+                var result = [];
+                exclude = ts.map(exclude, function (s) { return getCanonicalPath(ts.combinePaths(path, s)); });
+                visitDirectory(path);
+                return result;
+                function visitDirectory(path) {
+                    var folder = fso.GetFolder(path || ".");
+                    var files = getNames(folder.files);
+                    for (var _i = 0; _i < files.length; _i++) {
+                        var current = files[_i];
+                        var name_15 = ts.combinePaths(path, current);
+                        if ((!extension || ts.fileExtensionIs(name_15, extension)) && !ts.contains(exclude, getCanonicalPath(name_15))) {
+                            result.push(name_15);
+                        }
+                    }
+                    var subfolders = getNames(folder.subfolders);
+                    for (var _a = 0; _a < subfolders.length; _a++) {
+                        var current = subfolders[_a];
+                        var name_16 = ts.combinePaths(path, current);
+                        if (!ts.contains(exclude, getCanonicalPath(name_16))) {
+                            visitDirectory(name_16);
+                        }
+                    }
+                }
+            }
+            return {
+                args: args,
+                newLine: "\r\n",
+                useCaseSensitiveFileNames: false,
+                write: function (s) {
+                    WScript.StdOut.Write(s);
+                },
+                readFile: readFile,
+                writeFile: writeFile,
+                resolvePath: function (path) {
+                    return fso.GetAbsolutePathName(path);
+                },
+                fileExists: function (path) {
+                    return fso.FileExists(path);
+                },
+                directoryExists: function (path) {
+                    return fso.FolderExists(path);
+                },
+                createDirectory: function (directoryName) {
+                    if (!this.directoryExists(directoryName)) {
+                        fso.CreateFolder(directoryName);
+                    }
+                },
+                getExecutingFilePath: function () {
+                    return WScript.ScriptFullName;
+                },
+                getCurrentDirectory: function () {
+                    return new ActiveXObject("WScript.Shell").CurrentDirectory;
+                },
+                readDirectory: readDirectory,
+                exit: function (exitCode) {
+                    try {
+                        WScript.Quit(exitCode);
+                    }
+                    catch (e) {
+                    }
+                }
+            };
+        }
+        function getNodeSystem() {
+            var _fs = require("fs");
+            var _path = require("path");
+            var _os = require('os');
+            var platform = _os.platform();
+            // win32\win64 are case insensitive platforms, MacOS (darwin) by default is also case insensitive
+            var useCaseSensitiveFileNames = platform !== "win32" && platform !== "win64" && platform !== "darwin";
+            function readFile(fileName, encoding) {
+                if (!_fs.existsSync(fileName)) {
+                    return undefined;
+                }
+                var buffer = _fs.readFileSync(fileName);
+                var len = buffer.length;
+                if (len >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
+                    // Big endian UTF-16 byte order mark detected. Since big endian is not supported by node.js,
+                    // flip all byte pairs and treat as little endian.
+                    len &= ~1;
+                    for (var i = 0; i < len; i += 2) {
+                        var temp = buffer[i];
+                        buffer[i] = buffer[i + 1];
+                        buffer[i + 1] = temp;
+                    }
+                    return buffer.toString("utf16le", 2);
+                }
+                if (len >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
+                    // Little endian UTF-16 byte order mark detected
+                    return buffer.toString("utf16le", 2);
+                }
+                if (len >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+                    // UTF-8 byte order mark detected
+                    return buffer.toString("utf8", 3);
+                }
+                // Default is UTF-8 with no byte order mark
+                return buffer.toString("utf8");
+            }
+            function writeFile(fileName, data, writeByteOrderMark) {
+                // If a BOM is required, emit one
+                if (writeByteOrderMark) {
+                    data = '\uFEFF' + data;
+                }
+                _fs.writeFileSync(fileName, data, "utf8");
+            }
+            function getCanonicalPath(path) {
+                return useCaseSensitiveFileNames ? path.toLowerCase() : path;
+            }
+            function readDirectory(path, extension, exclude) {
+                var result = [];
+                exclude = ts.map(exclude, function (s) { return getCanonicalPath(ts.combinePaths(path, s)); });
+                visitDirectory(path);
+                return result;
+                function visitDirectory(path) {
+                    var files = _fs.readdirSync(path || ".").sort();
+                    var directories = [];
+                    for (var _i = 0; _i < files.length; _i++) {
+                        var current = files[_i];
+                        var name_17 = ts.combinePaths(path, current);
+                        if (!ts.contains(exclude, getCanonicalPath(name_17))) {
+                            var stat = _fs.statSync(name_17);
+                            if (stat.isFile()) {
+                                if (!extension || ts.fileExtensionIs(name_17, extension)) {
+                                    result.push(name_17);
+                                }
+                            }
+                            else if (stat.isDirectory()) {
+                                directories.push(name_17);
+                            }
+                        }
+                    }
+                    for (var _a = 0; _a < directories.length; _a++) {
+                        var current = directories[_a];
+                        visitDirectory(current);
+                    }
+                }
+            }
+            return {
+                args: process.argv.slice(2),
+                newLine: _os.EOL,
+                useCaseSensitiveFileNames: useCaseSensitiveFileNames,
+                write: function (s) {
+                    var buffer = new Buffer(s, 'utf8');
+                    var offset = 0;
+                    var toWrite = buffer.length;
+                    var written = 0;
+                    // 1 is a standard descriptor for stdout
+                    while ((written = _fs.writeSync(1, buffer, offset, toWrite)) < toWrite) {
+                        offset += written;
+                        toWrite -= written;
+                    }
+                },
+                readFile: readFile,
+                writeFile: writeFile,
+                watchFile: function (fileName, callback) {
+                    // watchFile polls a file every 250ms, picking up file notifications.
+                    _fs.watchFile(fileName, { persistent: true, interval: 250 }, fileChanged);
+                    return {
+                        close: function () { _fs.unwatchFile(fileName, fileChanged); }
+                    };
+                    function fileChanged(curr, prev) {
+                        if (+curr.mtime <= +prev.mtime) {
+                            return;
+                        }
+                        callback(fileName);
+                    }
+                    ;
+                },
+                resolvePath: function (path) {
+                    return _path.resolve(path);
+                },
+                fileExists: function (path) {
+                    return _fs.existsSync(path);
+                },
+                directoryExists: function (path) {
+                    return _fs.existsSync(path) && _fs.statSync(path).isDirectory();
+                },
+                createDirectory: function (directoryName) {
+                    if (!this.directoryExists(directoryName)) {
+                        _fs.mkdirSync(directoryName);
+                    }
+                },
+                getExecutingFilePath: function () {
+                    return __filename;
+                },
+                getCurrentDirectory: function () {
+                    return process.cwd();
+                },
+                readDirectory: readDirectory,
+                getMemoryUsage: function () {
+                    if (global.gc) {
+                        global.gc();
+                    }
+                    return process.memoryUsage().heapUsed;
+                },
+                exit: function (exitCode) {
+                    process.exit(exitCode);
+                }
+            };
+        }
+        if (typeof WScript !== "undefined" && typeof ActiveXObject === "function") {
+            return getWScriptSystem();
+        }
+        else if (typeof module !== "undefined" && module.exports) {
+            return getNodeSystem();
+        }
+        else {
+            return undefined; // Unsupported host
+        }
+    })();
+})(ts || (ts = {}));
+/// <reference path="sys.ts"/>
+/// <reference path="types.ts"/>
+/// <reference path="core.ts"/>
+/// <reference path="scanner.ts"/>
+var ts;
+(function (ts) {
+    /* @internal */
+    ts.optionDeclarations = [
+        {
+            name: "charset",
+            type: "string",
+        },
+        {
+            name: "declaration",
+            shortName: "d",
+            type: "boolean",
+            description: ts.Diagnostics.Generates_corresponding_d_ts_file,
+        },
+        {
+            name: "diagnostics",
+            type: "boolean",
+        },
+        {
+            name: "emitBOM",
+            type: "boolean"
+        },
+        {
+            name: "help",
+            shortName: "h",
+            type: "boolean",
+            description: ts.Diagnostics.Print_this_message,
+        },
+        {
+            name: "inlineSourceMap",
+            type: "boolean",
+        },
+        {
+            name: "inlineSources",
+            type: "boolean",
+        },
+        {
+            name: "jsx",
+            type: {
+                "preserve": 1 /* Preserve */,
+                "react": 2 /* React */
+            },
+            paramType: ts.Diagnostics.KIND,
+            description: ts.Diagnostics.Specify_JSX_code_generation_Colon_preserve_or_react,
+            error: ts.Diagnostics.Argument_for_jsx_must_be_preserve_or_react
+        },
+        {
+            name: "listFiles",
+            type: "boolean",
+        },
+        {
+            name: "locale",
+            type: "string",
+        },
+        {
+            name: "mapRoot",
+            type: "string",
+            isFilePath: true,
+            description: ts.Diagnostics.Specifies_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations,
+            paramType: ts.Diagnostics.LOCATION,
+        },
+        {
+            name: "module",
+            shortName: "m",
+            type: {
+                "commonjs": 1 /* CommonJS */,
+                "amd": 2 /* AMD */,
+                "system": 4 /* System */,
+                "umd": 3 /* UMD */,
+            },
+            description: ts.Diagnostics.Specify_module_code_generation_Colon_commonjs_amd_system_or_umd,
+            paramType: ts.Diagnostics.KIND,
+            error: ts.Diagnostics.Argument_for_module_option_must_be_commonjs_amd_system_or_umd
+        },
+        {
+            name: "newLine",
+            type: {
+                "crlf": 0 /* CarriageReturnLineFeed */,
+                "lf": 1 /* LineFeed */
+            },
+            description: ts.Diagnostics.Specifies_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix,
+            paramType: ts.Diagnostics.NEWLINE,
+            error: ts.Diagnostics.Argument_for_newLine_option_must_be_CRLF_or_LF
+        },
+        {
+            name: "noEmit",
+            type: "boolean",
+            description: ts.Diagnostics.Do_not_emit_outputs,
+        },
+        {
+            name: "noEmitHelpers",
+            type: "boolean"
+        },
+        {
+            name: "noEmitOnError",
+            type: "boolean",
+            description: ts.Diagnostics.Do_not_emit_outputs_if_any_errors_were_reported,
+        },
+        {
+            name: "noImplicitAny",
+            type: "boolean",
+            description: ts.Diagnostics.Raise_error_on_expressions_and_declarations_with_an_implied_any_type,
+        },
+        {
+            name: "noLib",
+            type: "boolean",
+        },
+        {
+            name: "noResolve",
+            type: "boolean",
+        },
+        {
+            name: "skipDefaultLibCheck",
+            type: "boolean",
+        },
+        {
+            name: "out",
+            type: "string",
+            isFilePath: true,
+            description: ts.Diagnostics.Concatenate_and_emit_output_to_single_file,
+            paramType: ts.Diagnostics.FILE,
+        },
+        {
+            name: "outDir",
+            type: "string",
+            isFilePath: true,
+            description: ts.Diagnostics.Redirect_output_structure_to_the_directory,
+            paramType: ts.Diagnostics.DIRECTORY,
+        },
+        {
+            name: "preserveConstEnums",
+            type: "boolean",
+            description: ts.Diagnostics.Do_not_erase_const_enum_declarations_in_generated_code
+        },
+        {
+            name: "project",
+            shortName: "p",
+            type: "string",
+            isFilePath: true,
+            description: ts.Diagnostics.Compile_the_project_in_the_given_directory,
+            paramType: ts.Diagnostics.DIRECTORY
+        },
+        {
+            name: "removeComments",
+            type: "boolean",
+            description: ts.Diagnostics.Do_not_emit_comments_to_output,
+        },
+        {
+            name: "rootDir",
+            type: "string",
+            isFilePath: true,
+            description: ts.Diagnostics.Specifies_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDir,
+            paramType: ts.Diagnostics.LOCATION,
+        },
+        {
+            name: "isolatedModules",
+            type: "boolean",
+        },
+        {
+            name: "sourceMap",
+            type: "boolean",
+            description: ts.Diagnostics.Generates_corresponding_map_file,
+        },
+        {
+            name: "sourceRoot",
+            type: "string",
+            isFilePath: true,
+            description: ts.Diagnostics.Specifies_the_location_where_debugger_should_locate_TypeScript_files_instead_of_source_locations,
+            paramType: ts.Diagnostics.LOCATION,
+        },
+        {
+            name: "suppressImplicitAnyIndexErrors",
+            type: "boolean",
+            description: ts.Diagnostics.Suppress_noImplicitAny_errors_for_indexing_objects_lacking_index_signatures,
+        },
+        {
+            name: "stripInternal",
+            type: "boolean",
+            description: ts.Diagnostics.Do_not_emit_declarations_for_code_that_has_an_internal_annotation,
+            experimental: true
+        },
+        {
+            name: "target",
+            shortName: "t",
+            type: { "es3": 0 /* ES3 */, "es5": 1 /* ES5 */, "es6": 2 /* ES6 */ },
+            description: ts.Diagnostics.Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES6_experimental,
+            paramType: ts.Diagnostics.VERSION,
+            error: ts.Diagnostics.Argument_for_target_option_must_be_ES3_ES5_or_ES6
+        },
+        {
+            name: "version",
+            shortName: "v",
+            type: "boolean",
+            description: ts.Diagnostics.Print_the_compiler_s_version,
+        },
+        {
+            name: "watch",
+            shortName: "w",
+            type: "boolean",
+            description: ts.Diagnostics.Watch_input_files,
+        },
+        {
+            name: "experimentalAsyncFunctions",
+            type: "boolean",
+            description: ts.Diagnostics.Enables_experimental_support_for_ES7_async_functions
+        },
+        {
+            name: "experimentalDecorators",
+            type: "boolean",
+            description: ts.Diagnostics.Enables_experimental_support_for_ES7_decorators
+        },
+        {
+            name: "emitDecoratorMetadata",
+            type: "boolean",
+            experimental: true,
+            description: ts.Diagnostics.Enables_experimental_support_for_emitting_type_metadata_for_decorators
+        }
+    ];
+    function parseCommandLine(commandLine) {
+        var options = {};
+        var fileNames = [];
+        var errors = [];
+        var shortOptionNames = {};
+        var optionNameMap = {};
+        ts.forEach(ts.optionDeclarations, function (option) {
+            optionNameMap[option.name.toLowerCase()] = option;
+            if (option.shortName) {
+                shortOptionNames[option.shortName] = option.name;
+            }
+        });
+        parseStrings(commandLine);
+        return {
+            options: options,
+            fileNames: fileNames,
+            errors: errors
+        };
+        function parseStrings(args) {
+            var i = 0;
+            while (i < args.length) {
+                var s = args[i++];
+                if (s.charCodeAt(0) === 64 /* at */) {
+                    parseResponseFile(s.slice(1));
+                }
+                else if (s.charCodeAt(0) === 45 /* minus */) {
+                    s = s.slice(s.charCodeAt(1) === 45 /* minus */ ? 2 : 1).toLowerCase();
+                    // Try to translate short option names to their full equivalents.
+                    if (ts.hasProperty(shortOptionNames, s)) {
+                        s = shortOptionNames[s];
+                    }
+                    if (ts.hasProperty(optionNameMap, s)) {
+                        var opt = optionNameMap[s];
+                        // Check to see if no argument was provided (e.g. "--locale" is the last command-line argument).
+                        if (!args[i] && opt.type !== "boolean") {
+                            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_expects_an_argument, opt.name));
+                        }
+                        switch (opt.type) {
+                            case "number":
+                                options[opt.name] = parseInt(args[i++]);
+                                break;
+                            case "boolean":
+                                options[opt.name] = true;
+                                break;
+                            case "string":
+                                options[opt.name] = args[i++] || "";
+                                break;
+                            // If not a primitive, the possible types are specified in what is effectively a map of options.
+                            default:
+                                var map_1 = opt.type;
+                                var key = (args[i++] || "").toLowerCase();
+                                if (ts.hasProperty(map_1, key)) {
+                                    options[opt.name] = map_1[key];
+                                }
+                                else {
+                                    errors.push(ts.createCompilerDiagnostic(opt.error));
+                                }
+                        }
+                    }
+                    else {
+                        errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_compiler_option_0, s));
+                    }
+                }
+                else {
+                    fileNames.push(s);
+                }
+            }
+        }
+        function parseResponseFile(fileName) {
+            var text = ts.sys.readFile(fileName);
+            if (!text) {
+                errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.File_0_not_found, fileName));
+                return;
+            }
+            var args = [];
+            var pos = 0;
+            while (true) {
+                while (pos < text.length && text.charCodeAt(pos) <= 32 /* space */)
+                    pos++;
+                if (pos >= text.length)
+                    break;
+                var start = pos;
+                if (text.charCodeAt(start) === 34 /* doubleQuote */) {
+                    pos++;
+                    while (pos < text.length && text.charCodeAt(pos) !== 34 /* doubleQuote */)
+                        pos++;
+                    if (pos < text.length) {
+                        args.push(text.substring(start + 1, pos));
+                        pos++;
+                    }
+                    else {
+                        errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unterminated_quoted_string_in_response_file_0, fileName));
+                    }
+                }
+                else {
+                    while (text.charCodeAt(pos) > 32 /* space */)
+                        pos++;
+                    args.push(text.substring(start, pos));
+                }
+            }
+            parseStrings(args);
+        }
+    }
+    ts.parseCommandLine = parseCommandLine;
+    /**
+      * Read tsconfig.json file
+      * @param fileName The path to the config file
+      */
+    function readConfigFile(fileName) {
+        var text = '';
+        try {
+            text = ts.sys.readFile(fileName);
+        }
+        catch (e) {
+            return { error: ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, e.message) };
+        }
+        return parseConfigFileText(fileName, text);
+    }
+    ts.readConfigFile = readConfigFile;
+    /**
+      * Parse the text of the tsconfig.json file
+      * @param fileName The path to the config file
+      * @param jsonText The text of the config file
+      */
+    function parseConfigFileText(fileName, jsonText) {
+        try {
+            return { config: /\S/.test(jsonText) ? JSON.parse(jsonText) : {} };
+        }
+        catch (e) {
+            return { error: ts.createCompilerDiagnostic(ts.Diagnostics.Failed_to_parse_file_0_Colon_1, fileName, e.message) };
+        }
+    }
+    ts.parseConfigFileText = parseConfigFileText;
+    /**
+      * Parse the contents of a config file (tsconfig.json).
+      * @param json The contents of the config file to parse
+      * @param basePath A root directory to resolve relative path entries in the config
+      *    file to. e.g. outDir
+      */
+    function parseConfigFile(json, host, basePath) {
+        var errors = [];
+        return {
+            options: getCompilerOptions(),
+            fileNames: getFileNames(),
+            errors: errors
+        };
+        function getCompilerOptions() {
+            var options = {};
+            var optionNameMap = {};
+            ts.forEach(ts.optionDeclarations, function (option) {
+                optionNameMap[option.name] = option;
+            });
+            var jsonOptions = json["compilerOptions"];
+            if (jsonOptions) {
+                for (var id in jsonOptions) {
+                    if (ts.hasProperty(optionNameMap, id)) {
+                        var opt = optionNameMap[id];
+                        var optType = opt.type;
+                        var value = jsonOptions[id];
+                        var expectedType = typeof optType === "string" ? optType : "string";
+                        if (typeof value === expectedType) {
+                            if (typeof optType !== "string") {
+                                var key = value.toLowerCase();
+                                if (ts.hasProperty(optType, key)) {
+                                    value = optType[key];
+                                }
+                                else {
+                                    errors.push(ts.createCompilerDiagnostic(opt.error));
+                                    value = 0;
+                                }
+                            }
+                            if (opt.isFilePath) {
+                                value = ts.normalizePath(ts.combinePaths(basePath, value));
+                            }
+                            options[opt.name] = value;
+                        }
+                        else {
+                            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, id, expectedType));
+                        }
+                    }
+                    else {
+                        errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_compiler_option_0, id));
+                    }
+                }
+            }
+            return options;
+        }
+        function getFileNames() {
+            var fileNames = [];
+            if (ts.hasProperty(json, "files")) {
+                if (json["files"] instanceof Array) {
+                    fileNames = ts.map(json["files"], function (s) { return ts.combinePaths(basePath, s); });
+                }
+            }
+            else {
+                var exclude = json["exclude"] instanceof Array ? ts.map(json["exclude"], ts.normalizeSlashes) : undefined;
+                var sysFiles = host.readDirectory(basePath, ".ts", exclude).concat(host.readDirectory(basePath, ".tsx", exclude));
+                for (var i = 0; i < sysFiles.length; i++) {
+                    var name_18 = sysFiles[i];
+                    if (ts.fileExtensionIs(name_18, ".d.ts")) {
+                        var baseName = name_18.substr(0, name_18.length - ".d.ts".length);
+                        if (!ts.contains(sysFiles, baseName + ".tsx") && !ts.contains(sysFiles, baseName + ".ts")) {
+                            fileNames.push(name_18);
+                        }
+                    }
+                    else if (ts.fileExtensionIs(name_18, ".ts")) {
+                        if (!ts.contains(sysFiles, name_18 + "x")) {
+                            fileNames.push(name_18);
+                        }
+                    }
+                    else {
+                        fileNames.push(name_18);
+                    }
+                }
+            }
+            return fileNames;
+        }
+    }
+    ts.parseConfigFile = parseConfigFile;
+})(ts || (ts = {}));
 /// <reference path="checker.ts"/>
 /* @internal */
 var ts;
@@ -26857,7 +27284,7 @@ var ts;
             reportedDeclarationError: reportedDeclarationError,
             moduleElementDeclarationEmitInfo: moduleElementDeclarationEmitInfo,
             synchronousDeclarationOutput: writer.getText(),
-            referencePathsOutput: referencePathsOutput
+            referencePathsOutput: referencePathsOutput,
         };
         function hasInternalAnnotation(range) {
             var text = currentSourceFile.text;
@@ -27157,9 +27584,9 @@ var ts;
             }
             var count = 0;
             while (true) {
-                var name_18 = baseName + "_" + (++count);
-                if (!ts.hasProperty(currentSourceFile.identifiers, name_18)) {
-                    return name_18;
+                var name_19 = baseName + "_" + (++count);
+                if (!ts.hasProperty(currentSourceFile.identifiers, name_19)) {
+                    return name_19;
                 }
             }
         }
@@ -28371,10 +28798,10 @@ var ts;
             // Note that names generated by makeTempVariableName and makeUniqueName will never conflict.
             function makeTempVariableName(flags) {
                 if (flags && !(tempFlags & flags)) {
-                    var name_19 = flags === 268435456 /* _i */ ? "_i" : "_n";
-                    if (isUniqueName(name_19)) {
+                    var name_20 = flags === 268435456 /* _i */ ? "_i" : "_n";
+                    if (isUniqueName(name_20)) {
                         tempFlags |= flags;
-                        return name_19;
+                        return name_20;
                     }
                 }
                 while (true) {
@@ -28382,9 +28809,9 @@ var ts;
                     tempFlags++;
                     // Skip over 'i' and 'n'
                     if (count !== 8 && count !== 13) {
-                        var name_20 = count < 26 ? "_" + String.fromCharCode(97 /* a */ + count) : "_" + (count - 26);
-                        if (isUniqueName(name_20)) {
-                            return name_20;
+                        var name_21 = count < 26 ? "_" + String.fromCharCode(97 /* a */ + count) : "_" + (count - 26);
+                        if (isUniqueName(name_21)) {
+                            return name_21;
                         }
                     }
                 }
@@ -28609,8 +29036,8 @@ var ts;
                                 // Child scopes are always shown with a dot (even if they have no name),
                                 // unless it is a computed property. Then it is shown with brackets,
                                 // but the brackets are included in the name.
-                                var name_21 = node.name;
-                                if (!name_21 || name_21.kind !== 133 /* ComputedPropertyName */) {
+                                var name_22 = node.name;
+                                if (!name_22 || name_22.kind !== 133 /* ComputedPropertyName */) {
                                     scopeName = "." + scopeName;
                                 }
                                 scopeName = sourceMapData.sourceMapNames[parentIndex] + scopeName;
@@ -28639,10 +29066,10 @@ var ts;
                         node.kind === 214 /* EnumDeclaration */) {
                         // Declaration and has associated name use it
                         if (node.name) {
-                            var name_22 = node.name;
+                            var name_23 = node.name;
                             // For computed property names, the text will include the brackets
-                            scopeName = name_22.kind === 133 /* ComputedPropertyName */
-                                ? ts.getTextOfNode(name_22)
+                            scopeName = name_23.kind === 133 /* ComputedPropertyName */
+                                ? ts.getTextOfNode(name_23)
                                 : node.name.text;
                         }
                         recordScopeNameStart(scopeName);
@@ -28663,7 +29090,7 @@ var ts;
                 }
                 function serializeSourceMapContents(version, file, sourceRoot, sources, names, mappings, sourcesContent) {
                     if (typeof JSON !== "undefined") {
-                        var map_1 = {
+                        var map_2 = {
                             version: version,
                             file: file,
                             sourceRoot: sourceRoot,
@@ -28672,9 +29099,9 @@ var ts;
                             mappings: mappings
                         };
                         if (sourcesContent !== undefined) {
-                            map_1.sourcesContent = sourcesContent;
+                            map_2.sourcesContent = sourcesContent;
                         }
-                        return JSON.stringify(map_1);
+                        return JSON.stringify(map_2);
                     }
                     return "{\"version\":" + version + ",\"file\":\"" + ts.escapeString(file) + "\",\"sourceRoot\":\"" + ts.escapeString(sourceRoot) + "\",\"sources\":[" + serializeStringArray(sources) + "],\"names\":[" + serializeStringArray(names) + "],\"mappings\":\"" + ts.escapeString(mappings) + "\" " + (sourcesContent !== undefined ? ",\"sourcesContent\":[" + serializeStringArray(sourcesContent) + "]" : "") + "}";
                     function serializeStringArray(list) {
@@ -31234,12 +31661,12 @@ var ts;
             function emitParameter(node) {
                 if (languageVersion < 2 /* ES6 */) {
                     if (ts.isBindingPattern(node.name)) {
-                        var name_23 = createTempVariable(0 /* Auto */);
+                        var name_24 = createTempVariable(0 /* Auto */);
                         if (!tempParameters) {
                             tempParameters = [];
                         }
-                        tempParameters.push(name_23);
-                        emit(name_23);
+                        tempParameters.push(name_24);
+                        emit(name_24);
                     }
                     else {
                         emit(node.name);
@@ -33217,8 +33644,8 @@ var ts;
                                 // export { x, y }
                                 for (var _c = 0, _d = node.exportClause.elements; _c < _d.length; _c++) {
                                     var specifier = _d[_c];
-                                    var name_24 = (specifier.propertyName || specifier.name).text;
-                                    (exportSpecifiers[name_24] || (exportSpecifiers[name_24] = [])).push(specifier);
+                                    var name_25 = (specifier.propertyName || specifier.name).text;
+                                    (exportSpecifiers[name_25] || (exportSpecifiers[name_25] = [])).push(specifier);
                                 }
                             }
                             break;
@@ -33425,12 +33852,12 @@ var ts;
                     var seen = {};
                     for (var i = 0; i < hoistedVars.length; ++i) {
                         var local = hoistedVars[i];
-                        var name_25 = local.kind === 66 /* Identifier */
+                        var name_26 = local.kind === 66 /* Identifier */
                             ? local
                             : local.name;
-                        if (name_25) {
+                        if (name_26) {
                             // do not emit duplicate entries (in case of declaration merging) in the list of hoisted variables
-                            var text = ts.unescapeIdentifier(name_25.text);
+                            var text = ts.unescapeIdentifier(name_26.text);
                             if (ts.hasProperty(seen, text)) {
                                 continue;
                             }
@@ -33509,15 +33936,15 @@ var ts;
                     }
                     if (node.kind === 208 /* VariableDeclaration */ || node.kind === 160 /* BindingElement */) {
                         if (shouldHoistVariable(node, false)) {
-                            var name_26 = node.name;
-                            if (name_26.kind === 66 /* Identifier */) {
+                            var name_27 = node.name;
+                            if (name_27.kind === 66 /* Identifier */) {
                                 if (!hoistedVars) {
                                     hoistedVars = [];
                                 }
-                                hoistedVars.push(name_26);
+                                hoistedVars.push(name_27);
                             }
                             else {
-                                ts.forEachChild(name_26, visit);
+                                ts.forEachChild(name_27, visit);
                             }
                         }
                         return;
@@ -34592,7 +35019,7 @@ var ts;
             getNodeCount: function () { return getDiagnosticsProducingTypeChecker().getNodeCount(); },
             getIdentifierCount: function () { return getDiagnosticsProducingTypeChecker().getIdentifierCount(); },
             getSymbolCount: function () { return getDiagnosticsProducingTypeChecker().getSymbolCount(); },
-            getTypeCount: function () { return getDiagnosticsProducingTypeChecker().getTypeCount(); }
+            getTypeCount: function () { return getDiagnosticsProducingTypeChecker().getTypeCount(); },
         };
         return program;
         function getClassifiableNames() {
@@ -34616,7 +35043,7 @@ var ts;
                 getNewLine: function () { return host.getNewLine(); },
                 getSourceFile: program.getSourceFile,
                 getSourceFiles: program.getSourceFiles,
-                writeFile: writeFileCallback || (function (fileName, data, writeByteOrderMark, onError) { return host.writeFile(fileName, data, writeByteOrderMark, onError); })
+                writeFile: writeFileCallback || (function (fileName, data, writeByteOrderMark, onError) { return host.writeFile(fileName, data, writeByteOrderMark, onError); }),
             };
         }
         function getDiagnosticsProducingTypeChecker() {
@@ -35040,448 +35467,428 @@ var ts;
     }
     ts.createProgram = createProgram;
 })(ts || (ts = {}));
-/// <reference path="sys.ts"/>
-/// <reference path="types.ts"/>
-/// <reference path="core.ts"/>
-/// <reference path="scanner.ts"/>
+/// <reference path="program.ts"/>
+/// <reference path="commandLineParser.ts"/>
 var ts;
 (function (ts) {
-    /* @internal */
-    ts.optionDeclarations = [
-        {
-            name: "charset",
-            type: "string"
-        },
-        {
-            name: "declaration",
-            shortName: "d",
-            type: "boolean",
-            description: ts.Diagnostics.Generates_corresponding_d_ts_file
-        },
-        {
-            name: "diagnostics",
-            type: "boolean"
-        },
-        {
-            name: "emitBOM",
-            type: "boolean"
-        },
-        {
-            name: "help",
-            shortName: "h",
-            type: "boolean",
-            description: ts.Diagnostics.Print_this_message
-        },
-        {
-            name: "inlineSourceMap",
-            type: "boolean"
-        },
-        {
-            name: "inlineSources",
-            type: "boolean"
-        },
-        {
-            name: "jsx",
-            type: {
-                "preserve": 1 /* Preserve */,
-                "react": 2 /* React */
-            },
-            paramType: ts.Diagnostics.KIND,
-            description: ts.Diagnostics.Specify_JSX_code_generation_Colon_preserve_or_react,
-            error: ts.Diagnostics.Argument_for_jsx_must_be_preserve_or_react
-        },
-        {
-            name: "listFiles",
-            type: "boolean"
-        },
-        {
-            name: "locale",
-            type: "string"
-        },
-        {
-            name: "mapRoot",
-            type: "string",
-            isFilePath: true,
-            description: ts.Diagnostics.Specifies_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations,
-            paramType: ts.Diagnostics.LOCATION
-        },
-        {
-            name: "module",
-            shortName: "m",
-            type: {
-                "commonjs": 1 /* CommonJS */,
-                "amd": 2 /* AMD */,
-                "system": 4 /* System */,
-                "umd": 3 /* UMD */
-            },
-            description: ts.Diagnostics.Specify_module_code_generation_Colon_commonjs_amd_system_or_umd,
-            paramType: ts.Diagnostics.KIND,
-            error: ts.Diagnostics.Argument_for_module_option_must_be_commonjs_amd_system_or_umd
-        },
-        {
-            name: "newLine",
-            type: {
-                "crlf": 0 /* CarriageReturnLineFeed */,
-                "lf": 1 /* LineFeed */
-            },
-            description: ts.Diagnostics.Specifies_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix,
-            paramType: ts.Diagnostics.NEWLINE,
-            error: ts.Diagnostics.Argument_for_newLine_option_must_be_CRLF_or_LF
-        },
-        {
-            name: "noEmit",
-            type: "boolean",
-            description: ts.Diagnostics.Do_not_emit_outputs
-        },
-        {
-            name: "noEmitHelpers",
-            type: "boolean"
-        },
-        {
-            name: "noEmitOnError",
-            type: "boolean",
-            description: ts.Diagnostics.Do_not_emit_outputs_if_any_errors_were_reported
-        },
-        {
-            name: "noImplicitAny",
-            type: "boolean",
-            description: ts.Diagnostics.Raise_error_on_expressions_and_declarations_with_an_implied_any_type
-        },
-        {
-            name: "noLib",
-            type: "boolean"
-        },
-        {
-            name: "noResolve",
-            type: "boolean"
-        },
-        {
-            name: "skipDefaultLibCheck",
-            type: "boolean"
-        },
-        {
-            name: "out",
-            type: "string",
-            isFilePath: true,
-            description: ts.Diagnostics.Concatenate_and_emit_output_to_single_file,
-            paramType: ts.Diagnostics.FILE
-        },
-        {
-            name: "outDir",
-            type: "string",
-            isFilePath: true,
-            description: ts.Diagnostics.Redirect_output_structure_to_the_directory,
-            paramType: ts.Diagnostics.DIRECTORY
-        },
-        {
-            name: "preserveConstEnums",
-            type: "boolean",
-            description: ts.Diagnostics.Do_not_erase_const_enum_declarations_in_generated_code
-        },
-        {
-            name: "project",
-            shortName: "p",
-            type: "string",
-            isFilePath: true,
-            description: ts.Diagnostics.Compile_the_project_in_the_given_directory,
-            paramType: ts.Diagnostics.DIRECTORY
-        },
-        {
-            name: "removeComments",
-            type: "boolean",
-            description: ts.Diagnostics.Do_not_emit_comments_to_output
-        },
-        {
-            name: "rootDir",
-            type: "string",
-            isFilePath: true,
-            description: ts.Diagnostics.Specifies_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDir,
-            paramType: ts.Diagnostics.LOCATION
-        },
-        {
-            name: "isolatedModules",
-            type: "boolean"
-        },
-        {
-            name: "sourceMap",
-            type: "boolean",
-            description: ts.Diagnostics.Generates_corresponding_map_file
-        },
-        {
-            name: "sourceRoot",
-            type: "string",
-            isFilePath: true,
-            description: ts.Diagnostics.Specifies_the_location_where_debugger_should_locate_TypeScript_files_instead_of_source_locations,
-            paramType: ts.Diagnostics.LOCATION
-        },
-        {
-            name: "suppressImplicitAnyIndexErrors",
-            type: "boolean",
-            description: ts.Diagnostics.Suppress_noImplicitAny_errors_for_indexing_objects_lacking_index_signatures
-        },
-        {
-            name: "stripInternal",
-            type: "boolean",
-            description: ts.Diagnostics.Do_not_emit_declarations_for_code_that_has_an_internal_annotation,
-            experimental: true
-        },
-        {
-            name: "target",
-            shortName: "t",
-            type: { "es3": 0 /* ES3 */, "es5": 1 /* ES5 */, "es6": 2 /* ES6 */ },
-            description: ts.Diagnostics.Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES6_experimental,
-            paramType: ts.Diagnostics.VERSION,
-            error: ts.Diagnostics.Argument_for_target_option_must_be_ES3_ES5_or_ES6
-        },
-        {
-            name: "version",
-            shortName: "v",
-            type: "boolean",
-            description: ts.Diagnostics.Print_the_compiler_s_version
-        },
-        {
-            name: "watch",
-            shortName: "w",
-            type: "boolean",
-            description: ts.Diagnostics.Watch_input_files
-        },
-        {
-            name: "experimentalAsyncFunctions",
-            type: "boolean",
-            description: ts.Diagnostics.Enables_experimental_support_for_ES7_async_functions
-        },
-        {
-            name: "experimentalDecorators",
-            type: "boolean",
-            description: ts.Diagnostics.Enables_experimental_support_for_ES7_decorators
-        },
-        {
-            name: "emitDecoratorMetadata",
-            type: "boolean",
-            experimental: true,
-            description: ts.Diagnostics.Enables_experimental_support_for_emitting_type_metadata_for_decorators
+    /**
+     * Checks to see if the locale is in the appropriate format,
+     * and if it is, attempts to set the appropriate language.
+     */
+    function validateLocaleAndSetLanguage(locale, errors) {
+        var matchResult = /^([a-z]+)([_\-]([a-z]+))?$/.exec(locale.toLowerCase());
+        if (!matchResult) {
+            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Locale_must_be_of_the_form_language_or_language_territory_For_example_0_or_1, 'en', 'ja-jp'));
+            return false;
         }
-    ];
-    function parseCommandLine(commandLine) {
-        var options = {};
-        var fileNames = [];
-        var errors = [];
-        var shortOptionNames = {};
-        var optionNameMap = {};
-        ts.forEach(ts.optionDeclarations, function (option) {
-            optionNameMap[option.name.toLowerCase()] = option;
-            if (option.shortName) {
-                shortOptionNames[option.shortName] = option.name;
-            }
+        var language = matchResult[1];
+        var territory = matchResult[3];
+        // First try the entire locale, then fall back to just language if that's all we have.
+        if (!trySetLanguageAndTerritory(language, territory, errors) &&
+            !trySetLanguageAndTerritory(language, undefined, errors)) {
+            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unsupported_locale_0, locale));
+            return false;
+        }
+        return true;
+    }
+    function trySetLanguageAndTerritory(language, territory, errors) {
+        var compilerFilePath = ts.normalizePath(ts.sys.getExecutingFilePath());
+        var containingDirectoryPath = ts.getDirectoryPath(compilerFilePath);
+        var filePath = ts.combinePaths(containingDirectoryPath, language);
+        if (territory) {
+            filePath = filePath + "-" + territory;
+        }
+        filePath = ts.sys.resolvePath(ts.combinePaths(filePath, "diagnosticMessages.generated.json"));
+        if (!ts.sys.fileExists(filePath)) {
+            return false;
+        }
+        // TODO: Add codePage support for readFile?
+        var fileContents = '';
+        try {
+            fileContents = ts.sys.readFile(filePath);
+        }
+        catch (e) {
+            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unable_to_open_file_0, filePath));
+            return false;
+        }
+        try {
+            ts.localizedDiagnosticMessages = JSON.parse(fileContents);
+        }
+        catch (e) {
+            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Corrupted_locale_file_0, filePath));
+            return false;
+        }
+        return true;
+    }
+    function countLines(program) {
+        var count = 0;
+        ts.forEach(program.getSourceFiles(), function (file) {
+            count += ts.getLineStarts(file).length;
         });
-        parseStrings(commandLine);
-        return {
-            options: options,
-            fileNames: fileNames,
-            errors: errors
-        };
-        function parseStrings(args) {
-            var i = 0;
-            while (i < args.length) {
-                var s = args[i++];
-                if (s.charCodeAt(0) === 64 /* at */) {
-                    parseResponseFile(s.slice(1));
-                }
-                else if (s.charCodeAt(0) === 45 /* minus */) {
-                    s = s.slice(s.charCodeAt(1) === 45 /* minus */ ? 2 : 1).toLowerCase();
-                    // Try to translate short option names to their full equivalents.
-                    if (ts.hasProperty(shortOptionNames, s)) {
-                        s = shortOptionNames[s];
+        return count;
+    }
+    function getDiagnosticText(message) {
+        var args = [];
+        for (var _i = 1; _i < arguments.length; _i++) {
+            args[_i - 1] = arguments[_i];
+        }
+        var diagnostic = ts.createCompilerDiagnostic.apply(undefined, arguments);
+        return diagnostic.messageText;
+    }
+    function reportDiagnostic(diagnostic) {
+        var output = "";
+        if (diagnostic.file) {
+            var loc = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start);
+            output += diagnostic.file.fileName + "(" + (loc.line + 1) + "," + (loc.character + 1) + "): ";
+        }
+        var category = ts.DiagnosticCategory[diagnostic.category].toLowerCase();
+        output += category + " TS" + diagnostic.code + ": " + ts.flattenDiagnosticMessageText(diagnostic.messageText, ts.sys.newLine) + ts.sys.newLine;
+        ts.sys.write(output);
+    }
+    function reportDiagnostics(diagnostics) {
+        for (var i = 0; i < diagnostics.length; i++) {
+            reportDiagnostic(diagnostics[i]);
+        }
+    }
+    function padLeft(s, length) {
+        while (s.length < length) {
+            s = " " + s;
+        }
+        return s;
+    }
+    function padRight(s, length) {
+        while (s.length < length) {
+            s = s + " ";
+        }
+        return s;
+    }
+    function reportStatisticalValue(name, value) {
+        ts.sys.write(padRight(name + ":", 12) + padLeft(value.toString(), 10) + ts.sys.newLine);
+    }
+    function reportCountStatistic(name, count) {
+        reportStatisticalValue(name, "" + count);
+    }
+    function reportTimeStatistic(name, time) {
+        reportStatisticalValue(name, (time / 1000).toFixed(2) + "s");
+    }
+    function isJSONSupported() {
+        return typeof JSON === "object" && typeof JSON.parse === "function";
+    }
+    function executeCommandLine(args) {
+        var commandLine = ts.parseCommandLine(args);
+        var configFileName; // Configuration file name (if any)
+        var configFileWatcher; // Configuration file watcher
+        var cachedProgram; // Program cached from last compilation
+        var rootFileNames; // Root fileNames for compilation
+        var compilerOptions; // Compiler options for compilation
+        var compilerHost; // Compiler host
+        var hostGetSourceFile; // getSourceFile method from default host
+        var timerHandle; // Handle for 0.25s wait timer
+        if (commandLine.options.locale) {
+            if (!isJSONSupported()) {
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--locale"));
+                return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
+            }
+            validateLocaleAndSetLanguage(commandLine.options.locale, commandLine.errors);
+        }
+        // If there are any errors due to command line parsing and/or
+        // setting up localization, report them and quit.
+        if (commandLine.errors.length > 0) {
+            reportDiagnostics(commandLine.errors);
+            return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
+        }
+        if (commandLine.options.version) {
+            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Version_0, ts.version));
+            return ts.sys.exit(ts.ExitStatus.Success);
+        }
+        if (commandLine.options.help) {
+            printVersion();
+            printHelp();
+            return ts.sys.exit(ts.ExitStatus.Success);
+        }
+        if (commandLine.options.project) {
+            if (!isJSONSupported()) {
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--project"));
+                return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
+            }
+            configFileName = ts.normalizePath(ts.combinePaths(commandLine.options.project, "tsconfig.json"));
+            if (commandLine.fileNames.length !== 0) {
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Option_project_cannot_be_mixed_with_source_files_on_a_command_line));
+                return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
+            }
+        }
+        else if (commandLine.fileNames.length === 0 && isJSONSupported()) {
+            var searchPath = ts.normalizePath(ts.sys.getCurrentDirectory());
+            configFileName = ts.findConfigFile(searchPath);
+        }
+        if (commandLine.fileNames.length === 0 && !configFileName) {
+            printVersion();
+            printHelp();
+            return ts.sys.exit(ts.ExitStatus.Success);
+        }
+        // Firefox has Object.prototype.watch
+        if (commandLine.options.watch && commandLine.options.hasOwnProperty("watch")) {
+            if (!ts.sys.watchFile) {
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"));
+                return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
+            }
+            if (configFileName) {
+                configFileWatcher = ts.sys.watchFile(configFileName, configFileChanged);
+            }
+        }
+        performCompilation();
+        // Invoked to perform initial compilation or re-compilation in watch mode
+        function performCompilation() {
+            if (!cachedProgram) {
+                if (configFileName) {
+                    var result = ts.readConfigFile(configFileName);
+                    if (result.error) {
+                        reportDiagnostic(result.error);
+                        return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                     }
-                    if (ts.hasProperty(optionNameMap, s)) {
-                        var opt = optionNameMap[s];
-                        // Check to see if no argument was provided (e.g. "--locale" is the last command-line argument).
-                        if (!args[i] && opt.type !== "boolean") {
-                            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_expects_an_argument, opt.name));
-                        }
-                        switch (opt.type) {
-                            case "number":
-                                options[opt.name] = parseInt(args[i++]);
-                                break;
-                            case "boolean":
-                                options[opt.name] = true;
-                                break;
-                            case "string":
-                                options[opt.name] = args[i++] || "";
-                                break;
-                            // If not a primitive, the possible types are specified in what is effectively a map of options.
-                            default:
-                                var map_2 = opt.type;
-                                var key = (args[i++] || "").toLowerCase();
-                                if (ts.hasProperty(map_2, key)) {
-                                    options[opt.name] = map_2[key];
-                                }
-                                else {
-                                    errors.push(ts.createCompilerDiagnostic(opt.error));
-                                }
-                        }
+                    var configObject = result.config;
+                    var configParseResult = ts.parseConfigFile(configObject, ts.sys, ts.getDirectoryPath(configFileName));
+                    if (configParseResult.errors.length > 0) {
+                        reportDiagnostics(configParseResult.errors);
+                        return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                     }
-                    else {
-                        errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_compiler_option_0, s));
-                    }
+                    rootFileNames = configParseResult.fileNames;
+                    compilerOptions = ts.extend(commandLine.options, configParseResult.options);
                 }
                 else {
-                    fileNames.push(s);
+                    rootFileNames = commandLine.fileNames;
+                    compilerOptions = commandLine.options;
+                }
+                compilerHost = ts.createCompilerHost(compilerOptions);
+                hostGetSourceFile = compilerHost.getSourceFile;
+                compilerHost.getSourceFile = getSourceFile;
+            }
+            var compileResult = compile(rootFileNames, compilerOptions, compilerHost);
+            if (!compilerOptions.watch) {
+                return ts.sys.exit(compileResult.exitStatus);
+            }
+            setCachedProgram(compileResult.program);
+            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Compilation_complete_Watching_for_file_changes));
+        }
+        function getSourceFile(fileName, languageVersion, onError) {
+            // Return existing SourceFile object if one is available
+            if (cachedProgram) {
+                var sourceFile_1 = cachedProgram.getSourceFile(fileName);
+                // A modified source file has no watcher and should not be reused
+                if (sourceFile_1 && sourceFile_1.fileWatcher) {
+                    return sourceFile_1;
                 }
             }
-        }
-        function parseResponseFile(fileName) {
-            var text = ts.sys.readFile(fileName);
-            if (!text) {
-                errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.File_0_not_found, fileName));
-                return;
+            // Use default host function
+            var sourceFile = hostGetSourceFile(fileName, languageVersion, onError);
+            if (sourceFile && compilerOptions.watch) {
+                // Attach a file watcher
+                sourceFile.fileWatcher = ts.sys.watchFile(sourceFile.fileName, function () { return sourceFileChanged(sourceFile); });
             }
-            var args = [];
-            var pos = 0;
-            while (true) {
-                while (pos < text.length && text.charCodeAt(pos) <= 32 /* space */)
-                    pos++;
-                if (pos >= text.length)
-                    break;
-                var start = pos;
-                if (text.charCodeAt(start) === 34 /* doubleQuote */) {
-                    pos++;
-                    while (pos < text.length && text.charCodeAt(pos) !== 34 /* doubleQuote */)
-                        pos++;
-                    if (pos < text.length) {
-                        args.push(text.substring(start + 1, pos));
-                        pos++;
+            return sourceFile;
+        }
+        // Change cached program to the given program
+        function setCachedProgram(program) {
+            if (cachedProgram) {
+                var newSourceFiles = program ? program.getSourceFiles() : undefined;
+                ts.forEach(cachedProgram.getSourceFiles(), function (sourceFile) {
+                    if (!(newSourceFiles && ts.contains(newSourceFiles, sourceFile))) {
+                        if (sourceFile.fileWatcher) {
+                            sourceFile.fileWatcher.close();
+                            sourceFile.fileWatcher = undefined;
+                        }
                     }
-                    else {
-                        errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unterminated_quoted_string_in_response_file_0, fileName));
-                    }
-                }
-                else {
-                    while (text.charCodeAt(pos) > 32 /* space */)
-                        pos++;
-                    args.push(text.substring(start, pos));
-                }
+                });
             }
-            parseStrings(args);
+            cachedProgram = program;
+        }
+        // If a source file changes, mark it as unwatched and start the recompilation timer
+        function sourceFileChanged(sourceFile) {
+            sourceFile.fileWatcher.close();
+            sourceFile.fileWatcher = undefined;
+            startTimer();
+        }
+        // If the configuration file changes, forget cached program and start the recompilation timer
+        function configFileChanged() {
+            setCachedProgram(undefined);
+            startTimer();
+        }
+        // Upon detecting a file change, wait for 250ms and then perform a recompilation. This gives batch
+        // operations (such as saving all modified files in an editor) a chance to complete before we kick
+        // off a new compilation.
+        function startTimer() {
+            if (timerHandle) {
+                clearTimeout(timerHandle);
+            }
+            timerHandle = setTimeout(recompile, 250);
+        }
+        function recompile() {
+            timerHandle = undefined;
+            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.File_change_detected_Starting_incremental_compilation));
+            performCompilation();
         }
     }
-    ts.parseCommandLine = parseCommandLine;
-    /**
-      * Read tsconfig.json file
-      * @param fileName The path to the config file
-      */
-    function readConfigFile(fileName) {
-        var text = '';
-        try {
-            text = ts.sys.readFile(fileName);
-        }
-        catch (e) {
-            return { error: ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, e.message) };
-        }
-        return parseConfigFileText(fileName, text);
-    }
-    ts.readConfigFile = readConfigFile;
-    /**
-      * Parse the text of the tsconfig.json file
-      * @param fileName The path to the config file
-      * @param jsonText The text of the config file
-      */
-    function parseConfigFileText(fileName, jsonText) {
-        try {
-            return { config: /\S/.test(jsonText) ? JSON.parse(jsonText) : {} };
-        }
-        catch (e) {
-            return { error: ts.createCompilerDiagnostic(ts.Diagnostics.Failed_to_parse_file_0_Colon_1, fileName, e.message) };
-        }
-    }
-    ts.parseConfigFileText = parseConfigFileText;
-    /**
-      * Parse the contents of a config file (tsconfig.json).
-      * @param json The contents of the config file to parse
-      * @param basePath A root directory to resolve relative path entries in the config
-      *    file to. e.g. outDir
-      */
-    function parseConfigFile(json, host, basePath) {
-        var errors = [];
-        return {
-            options: getCompilerOptions(),
-            fileNames: getFileNames(),
-            errors: errors
-        };
-        function getCompilerOptions() {
-            var options = {};
-            var optionNameMap = {};
-            ts.forEach(ts.optionDeclarations, function (option) {
-                optionNameMap[option.name] = option;
+    ts.executeCommandLine = executeCommandLine;
+    function compile(fileNames, compilerOptions, compilerHost) {
+        ts.ioReadTime = 0;
+        ts.ioWriteTime = 0;
+        ts.programTime = 0;
+        ts.bindTime = 0;
+        ts.checkTime = 0;
+        ts.emitTime = 0;
+        var program = ts.createProgram(fileNames, compilerOptions, compilerHost);
+        var exitStatus = compileProgram();
+        if (compilerOptions.listFiles) {
+            ts.forEach(program.getSourceFiles(), function (file) {
+                ts.sys.write(file.fileName + ts.sys.newLine);
             });
-            var jsonOptions = json["compilerOptions"];
-            if (jsonOptions) {
-                for (var id in jsonOptions) {
-                    if (ts.hasProperty(optionNameMap, id)) {
-                        var opt = optionNameMap[id];
-                        var optType = opt.type;
-                        var value = jsonOptions[id];
-                        var expectedType = typeof optType === "string" ? optType : "string";
-                        if (typeof value === expectedType) {
-                            if (typeof optType !== "string") {
-                                var key = value.toLowerCase();
-                                if (ts.hasProperty(optType, key)) {
-                                    value = optType[key];
-                                }
-                                else {
-                                    errors.push(ts.createCompilerDiagnostic(opt.error));
-                                    value = 0;
-                                }
-                            }
-                            if (opt.isFilePath) {
-                                value = ts.normalizePath(ts.combinePaths(basePath, value));
-                            }
-                            options[opt.name] = value;
-                        }
-                        else {
-                            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, id, expectedType));
-                        }
-                    }
-                    else {
-                        errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_compiler_option_0, id));
-                    }
-                }
-            }
-            return options;
         }
-        function getFileNames() {
-            var fileNames = [];
-            if (ts.hasProperty(json, "files")) {
-                if (json["files"] instanceof Array) {
-                    fileNames = ts.map(json["files"], function (s) { return ts.combinePaths(basePath, s); });
+        if (compilerOptions.diagnostics) {
+            var memoryUsed = ts.sys.getMemoryUsage ? ts.sys.getMemoryUsage() : -1;
+            reportCountStatistic("Files", program.getSourceFiles().length);
+            reportCountStatistic("Lines", countLines(program));
+            reportCountStatistic("Nodes", program.getNodeCount());
+            reportCountStatistic("Identifiers", program.getIdentifierCount());
+            reportCountStatistic("Symbols", program.getSymbolCount());
+            reportCountStatistic("Types", program.getTypeCount());
+            if (memoryUsed >= 0) {
+                reportStatisticalValue("Memory used", Math.round(memoryUsed / 1000) + "K");
+            }
+            // Individual component times.
+            // Note: To match the behavior of previous versions of the compiler, the reported parse time includes
+            // I/O read time and processing time for triple-slash references and module imports, and the reported
+            // emit time includes I/O write time. We preserve this behavior so we can accurately compare times.
+            reportTimeStatistic("I/O read", ts.ioReadTime);
+            reportTimeStatistic("I/O write", ts.ioWriteTime);
+            reportTimeStatistic("Parse time", ts.programTime);
+            reportTimeStatistic("Bind time", ts.bindTime);
+            reportTimeStatistic("Check time", ts.checkTime);
+            reportTimeStatistic("Emit time", ts.emitTime);
+            reportTimeStatistic("Total time", ts.programTime + ts.bindTime + ts.checkTime + ts.emitTime);
+        }
+        return { program: program, exitStatus: exitStatus };
+        function compileProgram() {
+            // First get any syntactic errors.
+            var diagnostics = program.getSyntacticDiagnostics();
+            reportDiagnostics(diagnostics);
+            // If we didn't have any syntactic errors, then also try getting the global and
+            // semantic errors.
+            if (diagnostics.length === 0) {
+                var diagnostics_1 = program.getGlobalDiagnostics();
+                reportDiagnostics(diagnostics_1);
+                if (diagnostics_1.length === 0) {
+                    var diagnostics_2 = program.getSemanticDiagnostics();
+                    reportDiagnostics(diagnostics_2);
                 }
             }
-            else {
-                var exclude = json["exclude"] instanceof Array ? ts.map(json["exclude"], ts.normalizeSlashes) : undefined;
-                var sysFiles = host.readDirectory(basePath, ".ts", exclude).concat(host.readDirectory(basePath, ".tsx", exclude));
-                for (var i = 0; i < sysFiles.length; i++) {
-                    var name_27 = sysFiles[i];
-                    if (ts.fileExtensionIs(name_27, ".d.ts")) {
-                        var baseName = name_27.substr(0, name_27.length - ".d.ts".length);
-                        if (!ts.contains(sysFiles, baseName + ".tsx") && !ts.contains(sysFiles, baseName + ".ts")) {
-                            fileNames.push(name_27);
-                        }
-                    }
-                    else if (ts.fileExtensionIs(name_27, ".ts")) {
-                        if (!ts.contains(sysFiles, name_27 + "x")) {
-                            fileNames.push(name_27);
-                        }
-                    }
-                    else {
-                        fileNames.push(name_27);
-                    }
-                }
+            // If the user doesn't want us to emit, then we're done at this point.
+            if (compilerOptions.noEmit) {
+                return diagnostics.length
+                    ? ts.ExitStatus.DiagnosticsPresent_OutputsSkipped
+                    : ts.ExitStatus.Success;
             }
-            return fileNames;
+            // Otherwise, emit and report any errors we ran into.
+            var emitOutput = program.emit();
+            reportDiagnostics(emitOutput.diagnostics);
+            // If the emitter didn't emit anything, then pass that value along.
+            if (emitOutput.emitSkipped) {
+                return ts.ExitStatus.DiagnosticsPresent_OutputsSkipped;
+            }
+            // The emitter emitted something, inform the caller if that happened in the presence
+            // of diagnostics or not.
+            if (diagnostics.length > 0 || emitOutput.diagnostics.length > 0) {
+                return ts.ExitStatus.DiagnosticsPresent_OutputsGenerated;
+            }
+            return ts.ExitStatus.Success;
         }
     }
-    ts.parseConfigFile = parseConfigFile;
+    function printVersion() {
+        ts.sys.write(getDiagnosticText(ts.Diagnostics.Version_0, ts.version) + ts.sys.newLine);
+    }
+    function printHelp() {
+        var output = "";
+        // We want to align our "syntax" and "examples" commands to a certain margin.
+        var syntaxLength = getDiagnosticText(ts.Diagnostics.Syntax_Colon_0, "").length;
+        var examplesLength = getDiagnosticText(ts.Diagnostics.Examples_Colon_0, "").length;
+        var marginLength = Math.max(syntaxLength, examplesLength);
+        // Build up the syntactic skeleton.
+        var syntax = makePadding(marginLength - syntaxLength);
+        syntax += "tsc [" + getDiagnosticText(ts.Diagnostics.options) + "] [" + getDiagnosticText(ts.Diagnostics.file) + " ...]";
+        output += getDiagnosticText(ts.Diagnostics.Syntax_Colon_0, syntax);
+        output += ts.sys.newLine + ts.sys.newLine;
+        // Build up the list of examples.
+        var padding = makePadding(marginLength);
+        output += getDiagnosticText(ts.Diagnostics.Examples_Colon_0, makePadding(marginLength - examplesLength) + "tsc hello.ts") + ts.sys.newLine;
+        output += padding + "tsc --out file.js file.ts" + ts.sys.newLine;
+        output += padding + "tsc @args.txt" + ts.sys.newLine;
+        output += ts.sys.newLine;
+        output += getDiagnosticText(ts.Diagnostics.Options_Colon) + ts.sys.newLine;
+        // Sort our options by their names, (e.g. "--noImplicitAny" comes before "--watch")
+        var optsList = ts.filter(ts.optionDeclarations.slice(), function (v) { return !v.experimental; });
+        optsList.sort(function (a, b) { return ts.compareValues(a.name.toLowerCase(), b.name.toLowerCase()); });
+        // We want our descriptions to align at the same column in our output,
+        // so we keep track of the longest option usage string.
+        marginLength = 0;
+        var usageColumn = []; // Things like "-d, --declaration" go in here.
+        var descriptionColumn = [];
+        for (var i = 0; i < optsList.length; i++) {
+            var option = optsList[i];
+            // If an option lacks a description,
+            // it is not officially supported.
+            if (!option.description) {
+                continue;
+            }
+            var usageText_1 = " ";
+            if (option.shortName) {
+                usageText_1 += "-" + option.shortName;
+                usageText_1 += getParamType(option);
+                usageText_1 += ", ";
+            }
+            usageText_1 += "--" + option.name;
+            usageText_1 += getParamType(option);
+            usageColumn.push(usageText_1);
+            descriptionColumn.push(getDiagnosticText(option.description));
+            // Set the new margin for the description column if necessary.
+            marginLength = Math.max(usageText_1.length, marginLength);
+        }
+        // Special case that can't fit in the loop.
+        var usageText = " @<" + getDiagnosticText(ts.Diagnostics.file) + ">";
+        usageColumn.push(usageText);
+        descriptionColumn.push(getDiagnosticText(ts.Diagnostics.Insert_command_line_options_and_files_from_a_file));
+        marginLength = Math.max(usageText.length, marginLength);
+        // Print out each row, aligning all the descriptions on the same column.
+        for (var i = 0; i < usageColumn.length; i++) {
+            var usage = usageColumn[i];
+            var description = descriptionColumn[i];
+            output += usage + makePadding(marginLength - usage.length + 2) + description + ts.sys.newLine;
+        }
+        ts.sys.write(output);
+        return;
+        function getParamType(option) {
+            if (option.paramType !== undefined) {
+                return " " + getDiagnosticText(option.paramType);
+            }
+            return "";
+        }
+        function makePadding(paddingLength) {
+            return Array(paddingLength + 1).join(" ");
+        }
+    }
 })(ts || (ts = {}));
+ts.executeCommandLine(ts.sys.args);
+var ts;
+(function (ts) {
+    function syntaxKindToName(kind) {
+        return ts.SyntaxKind[kind];
+    }
+    ts.syntaxKindToName = syntaxKindToName;
+})(ts || (ts = {}));
+if (typeof global !== "undefined") {
+    global.ts = ts;
+}
+if (typeof window !== "undefined") {
+    window.ts = ts;
+}
 /* @internal */
 var ts;
 (function (ts) {
@@ -37030,8 +37437,8 @@ var ts;
                 }
                 var typeChecker = program.getTypeChecker();
                 for (var _i = 0, _a = program.getSourceFiles(); _i < _a.length; _i++) {
-                    var sourceFile_1 = _a[_i];
-                    var nameToDeclarations = sourceFile_1.getNamedDeclarations();
+                    var sourceFile_2 = _a[_i];
+                    var nameToDeclarations = sourceFile_2.getNamedDeclarations();
                     var declarations = ts.getProperty(nameToDeclarations, name.text);
                     if (declarations) {
                         for (var _b = 0; _b < declarations.length; _b++) {
@@ -39728,7 +40135,7 @@ var ts;
                                 delta = 0;
                             }
                         }
-                    }
+                    },
                 };
             }
             function processNode(node, contextNode, nodeStartLine, undecoratedNodeStartLine, indentation, delta) {
@@ -43337,7 +43744,7 @@ var ts;
                     name: displayName,
                     kind: getSymbolKind(symbol, location),
                     kindModifiers: getSymbolModifiers(symbol),
-                    sortText: "0"
+                    sortText: "0",
                 };
             }
             function getCompletionEntriesFromSymbols(symbols) {
@@ -46133,9 +46540,9 @@ var ts;
                         if (defaultLibFileName) {
                             for (var _i = 0; _i < declarations.length; _i++) {
                                 var current = declarations[_i];
-                                var sourceFile_2 = current.getSourceFile();
-                                var canonicalName = getCanonicalFileName(ts.normalizePath(sourceFile_2.fileName));
-                                if (sourceFile_2 && getCanonicalFileName(ts.normalizePath(sourceFile_2.fileName)) === getCanonicalFileName(ts.normalizePath(defaultLibFileName))) {
+                                var sourceFile_3 = current.getSourceFile();
+                                var canonicalName = getCanonicalFileName(ts.normalizePath(sourceFile_3.fileName));
+                                if (sourceFile_3 && getCanonicalFileName(ts.normalizePath(sourceFile_3.fileName)) === getCanonicalFileName(ts.normalizePath(defaultLibFileName))) {
                                     return getRenameInfoError(ts.getLocaleSpecificMessage(ts.Diagnostics.You_cannot_rename_elements_that_are_defined_in_the_standard_TypeScript_library.key));
                                 }
                             }
@@ -46695,7 +47102,7 @@ var ts;
             },
             getSymbolConstructor: function () { return SymbolObject; },
             getTypeConstructor: function () { return TypeObject; },
-            getSignatureConstructor: function () { return SignatureObject; }
+            getSignatureConstructor: function () { return SignatureObject; },
         };
     }
     initializeServices();
@@ -47861,17 +48268,3 @@ var TypeScript;
 })(TypeScript || (TypeScript = {}));
 /* @internal */
 var toolsVersion = "1.5";
-
-var ts;
-(function (ts) {
-    function syntaxKindToName(kind) {
-        return ts.SyntaxKind[kind];
-    }
-    ts.syntaxKindToName = syntaxKindToName;
-})(ts || (ts = {}));
-if (typeof global !== "undefined") {
-    global.ts = ts;
-}
-if (typeof window !== "undefined") {
-    window.ts = ts;
-}

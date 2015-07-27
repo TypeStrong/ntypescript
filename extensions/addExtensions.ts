@@ -1,6 +1,8 @@
 /**
  * This script is responsible for making required modifications to our version of TypeScript
  */
+
+// Utilities
 declare var require, __dirname;
 var fs = require('fs');
 var EOL: string = require('os').EOL;
@@ -10,25 +12,35 @@ function readFile(filePath: string): string {
 function writeFile(filePath: string, content: string) {
     fs.writeFileSync(__dirname + '/' + filePath, content);
 }
-var dtsWithGlobal = readFile('../bin/typescriptServices.d.ts');
-var dtsExtensionsGlobal = readFile('./extensions.d.ts');
 
+// Read original files
+var dtsOriginal = readFile('../bin/typescript.d.ts');
 var jsOriginal = readFile('../bin/typescript.js');
-var jsExtensions = readFile('./extensions.js');
 
+// Setup final output destinations
 var finalDtsLocation = '../bin/ntypescript.d.ts';
 var finalJsLocation = '../bin/ntypescript.js';
 
-var finalDtsContent = dtsWithGlobal + EOL + dtsExtensionsGlobal + EOL + `
+// Setup final output
+var finalDtsContent = dtsOriginal;
+var finalJsContent = jsOriginal;
+
+/**
+ * Transform as needed
+ */
+
+// Add global import
+finalDtsContent = finalDtsContent + EOL + `
 declare module "ntypescript" {
     export = ts;
 }
 `;
-var finalJsContent = jsOriginal + EOL + jsExtensions;
-
-// Fixups
 // I think the `const enum` causes more pain than its worth for dev tools (everything needs to be rebuilt). So change to enum to prevent inlining
 finalDtsContent = finalDtsContent.replace(/const enum /g, 'enum ');
 
+
+/**
+ * Write out outputs
+ */
 writeFile(finalDtsLocation, finalDtsContent);
 writeFile(finalJsLocation, finalJsContent);

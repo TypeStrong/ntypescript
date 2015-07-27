@@ -11,6 +11,7 @@ Niceties:
 * We expose the internal APIs (the ones that have `/* internal */`)
 * We expose the global `ts` variable. Just `require('ntypescript')` once and start using `ts` like you are in the actual compiler source code.
 * Converts `const enum` in the compiler definition to `enum`. This decreases the typescript compiler version dependence on your dev tools TS->JS emit.
+* Easier to muck around with the compiler / language service when installed from NPM. Just open any file from `node_modules/ntypescript/src` folder in atom-typescript and press `f6` to get a new *local* rebuild.
 * Releases everyday.
 
 Design incompatibilities:
