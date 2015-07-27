@@ -16,12 +16,9 @@
     },
     "filesGlob": [
         "./**/*.ts",
-        "./**/*.tsx",
-        "!./node_modules/**/*",
-        "../bin/typescriptServices.d.ts"
+        "./**/*.tsx"
     ],
     "files": [
-        "./addExtensions.ts",
-        "../bin/typescriptServices.d.ts"
+        "./addExtensions.ts"
     ]
 }

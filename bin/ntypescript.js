@@ -35875,7 +35875,7 @@ var ts;
         }
     }
 })(ts || (ts = {}));
-ts.executeCommandLine(ts.sys.args);
+
 var ts;
 (function (ts) {
     function syntaxKindToName(kind) {

@@ -17,5 +17,6 @@ var finalDtsContent = dtsOriginal;
 var finalJsContent = jsOriginal;
 finalDtsContent = finalDtsContent + EOL + "\ndeclare module \"ntypescript\" {\n    export = ts;\n}\n";
 finalDtsContent = finalDtsContent.replace(/const enum /g, 'enum ');
+finalJsContent = finalJsContent.replace(/ts.executeCommandLine\(ts\.sys\.args\);/g, '');
 writeFile(finalDtsLocation, finalDtsContent);
 writeFile(finalJsLocation, finalJsContent);

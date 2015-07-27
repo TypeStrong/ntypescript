@@ -27,6 +27,7 @@ cp -r ./src/services/* ../src/services
 rm ../src/services/tsconfig.json ../src/compiler/tsconfig.json
 # Now build using the LKG
 ./bin/tsc -p ../src
+./bin/tsc -p ../extensions
 
 # Also copy the lib.* stuff from LKG
 cp ./bin/lib* ../bin
