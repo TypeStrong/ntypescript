@@ -2,7 +2,7 @@
 
 [![BuildStatus](https://travis-ci.org/TypeStrong/ntypescript.svg)](https://travis-ci.org/TypeStrong/ntypescript)
 
-**N**ot an official build of [**TypeScript**](https://github.com/Microsoft/TypeScript).
+**N**ot an official build of [**TypeScript**](https://github.com/Microsoft/TypeScript). Main motiviation is to make it easier to work with the compiler API.
 
 Niceties:
 
@@ -10,6 +10,7 @@ Niceties:
 * `package.json` links you to typescript definitions (using `typescript.definition` entry)
 * We expose the internal APIs (the ones that have `/* internal */`)
 * We expose the global `ts` variable. Just `require('ntypescript')` once and start using `ts` like you are in the actual compiler source code.
+* Converts `const enum` in the compiler definition to `enum`. This decreases the typescript compiler version dependence on your dev tools TS->JS emit.
 * Releases everyday.
 
 ## Install
