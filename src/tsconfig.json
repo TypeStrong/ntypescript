@@ -17,6 +17,7 @@
     "scripts": {
         "postbuild" : "node ../extensions/addExtensions.js"
     },
+    "buildOnSave": true,
     "files": [
         "./compiler/parser.ts",
         "./compiler/binder.ts",
