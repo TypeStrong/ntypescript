@@ -1,7 +1,6 @@
 #!/bin/sh
 set -e
 
-
 git submodule update --recursive --init
 
 # Official Microsoft/TypeScript clone

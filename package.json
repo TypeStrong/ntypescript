@@ -5,7 +5,6 @@
   "main": "./bin/ntypescript.js",
   "bin": {
     "ntsc": "./bin/tsc",
-    "ntsserver": "./bin/tsserver",
     "ntse": "./bin/tse"
   },
   "typescript": {
