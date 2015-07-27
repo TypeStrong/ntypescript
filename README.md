@@ -10,7 +10,7 @@ Niceties:
 * `package.json` links you to typescript definitions (using `typescript.definition` entry)
 * We expose the internal APIs (the ones that have `/* internal */`)
 * We expose the global `ts` variable. Just `require('ntypescript')` once and start using `ts` like you are in the actual compiler source code.
-* More frequent releases
+* Releases everyday.
 
 ## Install
 Similar to `typescript` you can install and use `ntypescript` globally:
