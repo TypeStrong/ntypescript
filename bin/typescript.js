@@ -1839,7 +1839,7 @@ var ts;
         Multiple_constructor_implementations_are_not_allowed: { code: 2392, category: ts.DiagnosticCategory.Error, key: "Multiple constructor implementations are not allowed." },
         Duplicate_function_implementation: { code: 2393, category: ts.DiagnosticCategory.Error, key: "Duplicate function implementation." },
         Overload_signature_is_not_compatible_with_function_implementation: { code: 2394, category: ts.DiagnosticCategory.Error, key: "Overload signature is not compatible with function implementation." },
-        Individual_declarations_in_merged_declaration_0_must_be_all_exported_or_all_local: { code: 2395, category: ts.DiagnosticCategory.Error, key: "Individual declarations in merged declaration {0} must be all exported or all local." },
+        Individual_declarations_in_merged_declaration_0_must_be_all_exported_or_all_local: { code: 2395, category: ts.DiagnosticCategory.Error, key: "Individual declarations in merged declaration '{0}' must be all exported or all local." },
         Duplicate_identifier_arguments_Compiler_uses_arguments_to_initialize_rest_parameters: { code: 2396, category: ts.DiagnosticCategory.Error, key: "Duplicate identifier 'arguments'. Compiler uses 'arguments' to initialize rest parameters." },
         Duplicate_identifier_this_Compiler_uses_variable_declaration_this_to_capture_this_reference: { code: 2399, category: ts.DiagnosticCategory.Error, key: "Duplicate identifier '_this'. Compiler uses variable declaration '_this' to capture 'this' reference." },
         Expression_resolves_to_variable_declaration_this_that_compiler_uses_to_capture_this_reference: { code: 2400, category: ts.DiagnosticCategory.Error, key: "Expression resolves to variable declaration '_this' that compiler uses to capture 'this' reference." },
@@ -1970,6 +1970,8 @@ var ts;
         JSX_element_class_does_not_support_attributes_because_it_does_not_have_a_0_property: { code: 2607, category: ts.DiagnosticCategory.Error, key: "JSX element class does not support attributes because it does not have a '{0}' property" },
         The_global_type_JSX_0_may_not_have_more_than_one_property: { code: 2608, category: ts.DiagnosticCategory.Error, key: "The global type 'JSX.{0}' may not have more than one property" },
         Cannot_emit_namespaced_JSX_elements_in_React: { code: 2650, category: ts.DiagnosticCategory.Error, key: "Cannot emit namespaced JSX elements in React" },
+        A_member_initializer_in_a_const_enum_declaration_cannot_reference_members_declared_after_it_including_members_defined_in_other_const_enums: { code: 2651, category: ts.DiagnosticCategory.Error, key: "A member initializer in a 'const' enum declaration cannot reference members declared after it, including members defined in other 'const' enums." },
+        Merged_declaration_0_cannot_include_a_default_export_declaration_Consider_adding_a_separate_export_default_0_declaration_instead: { code: 2652, category: ts.DiagnosticCategory.Error, key: "Merged declaration '{0}' cannot include a default export declaration. Consider adding a separate 'export default {0}' declaration instead." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -2158,6 +2160,7 @@ var ts;
         Expected_corresponding_JSX_closing_tag_for_0: { code: 17002, category: ts.DiagnosticCategory.Error, key: "Expected corresponding JSX closing tag for '{0}'." },
         JSX_attribute_expected: { code: 17003, category: ts.DiagnosticCategory.Error, key: "JSX attribute expected." },
         Cannot_use_JSX_unless_the_jsx_flag_is_provided: { code: 17004, category: ts.DiagnosticCategory.Error, key: "Cannot use JSX unless the '--jsx' flag is provided." },
+        A_constructor_cannot_contain_a_super_call_when_its_class_extends_null: { code: 17005, category: ts.DiagnosticCategory.Error, key: "A constructor cannot contain a 'super' call when its class extends 'null'" },
     };
 })(ts || (ts = {}));
 /// <reference path="core.ts"/>
@@ -19140,10 +19143,9 @@ var ts;
          * For example, in the element <MyClass>, the element instance type is `MyClass` (not `typeof MyClass`).
          */
         function getJsxElementInstanceType(node) {
-            if (!(getNodeLinks(node).jsxFlags & 4 /* ClassElement */)) {
-                // There is no such thing as an instance type for a non-class element
-                return undefined;
-            }
+            // There is no such thing as an instance type for a non-class element. This
+            // line shouldn't be hit.
+            ts.Debug.assert(!!(getNodeLinks(node).jsxFlags & 4 /* ClassElement */), 'Should not call getJsxElementInstanceType on non-class Element');
             var classSymbol = getJsxElementTagSymbol(node);
             if (classSymbol === unknownSymbol) {
                 // Couldn't find the class instance type. Error has already been issued
@@ -19162,15 +19164,10 @@ var ts;
                 if (signatures.length === 0) {
                     // We found no signatures at all, which is an error
                     error(node.tagName, ts.Diagnostics.JSX_element_type_0_does_not_have_any_construct_or_call_signatures, ts.getTextOfNode(node.tagName));
-                    return undefined;
+                    return unknownType;
                 }
             }
-            // Check that the constructor/factory returns an object type
-            var returnType = getUnionType(signatures.map(function (s) { return getReturnTypeOfSignature(s); }));
-            if (!isTypeAny(returnType) && !(returnType.flags & 80896 /* ObjectType */)) {
-                error(node.tagName, ts.Diagnostics.The_return_type_of_a_JSX_element_constructor_must_return_an_object_type);
-                return undefined;
-            }
+            var returnType = getUnionType(signatures.map(getReturnTypeOfSignature));
             // Issue an error if this return type isn't assignable to JSX.ElementClass
             var elemClassType = getJsxGlobalElementClassType();
             if (elemClassType) {
@@ -19221,7 +19218,7 @@ var ts;
                 if (links.jsxFlags & 4 /* ClassElement */) {
                     var elemInstanceType = getJsxElementInstanceType(node);
                     if (isTypeAny(elemInstanceType)) {
-                        return links.resolvedJsxType = anyType;
+                        return links.resolvedJsxType = elemInstanceType;
                     }
                     var propsName = getJsxElementPropertiesName();
                     if (propsName === undefined) {
@@ -21895,8 +21892,15 @@ var ts;
             // TS 1.0 spec (April 2014): 8.3.2
             // Constructors of classes with no extends clause may not contain super calls, whereas
             // constructors of derived classes must contain at least one super call somewhere in their function body.
-            if (ts.getClassExtendsHeritageClauseElement(node.parent)) {
+            var containingClassDecl = node.parent;
+            if (ts.getClassExtendsHeritageClauseElement(containingClassDecl)) {
+                var containingClassSymbol = getSymbolOfNode(containingClassDecl);
+                var containingClassInstanceType = getDeclaredTypeOfSymbol(containingClassSymbol);
+                var baseConstructorType = getBaseConstructorTypeOfClass(containingClassInstanceType);
                 if (containsSuperCall(node.body)) {
+                    if (baseConstructorType === nullType) {
+                        error(node, ts.Diagnostics.A_constructor_cannot_contain_a_super_call_when_its_class_extends_null);
+                    }
                     // The first statement in the body of a constructor (excluding prologue directives) must be a super call
                     // if both of the following are true:
                     // - The containing class is a derived class.
@@ -21928,7 +21932,7 @@ var ts;
                         }
                     }
                 }
-                else {
+                else if (baseConstructorType !== nullType) {
                     error(node, ts.Diagnostics.Constructors_for_derived_classes_must_contain_a_super_call);
                 }
             }
@@ -22278,8 +22282,6 @@ var ts;
             if (!produceDiagnostics) {
                 return;
             }
-            // Exports should be checked only if enclosing module contains both exported and non exported declarations.
-            // In case if all declarations are non-exported check is unnecessary.
             // if localSymbol is defined on node then node itself is exported - check is required
             var symbol = node.localSymbol;
             if (!symbol) {
@@ -22297,25 +22299,42 @@ var ts;
             }
             // we use SymbolFlags.ExportValue, SymbolFlags.ExportType and SymbolFlags.ExportNamespace
             // to denote disjoint declarationSpaces (without making new enum type).
-            var exportedDeclarationSpaces = 0;
-            var nonExportedDeclarationSpaces = 0;
-            ts.forEach(symbol.declarations, function (d) {
+            var exportedDeclarationSpaces = 0 /* None */;
+            var nonExportedDeclarationSpaces = 0 /* None */;
+            var defaultExportedDeclarationSpaces = 0 /* None */;
+            for (var _i = 0, _a = symbol.declarations; _i < _a.length; _i++) {
+                var d = _a[_i];
                 var declarationSpaces = getDeclarationSpaces(d);
-                if (getEffectiveDeclarationFlags(d, 1 /* Export */)) {
-                    exportedDeclarationSpaces |= declarationSpaces;
+                var effectiveDeclarationFlags = getEffectiveDeclarationFlags(d, 1 /* Export */ | 1024 /* Default */);
+                if (effectiveDeclarationFlags & 1 /* Export */) {
+                    if (effectiveDeclarationFlags & 1024 /* Default */) {
+                        defaultExportedDeclarationSpaces |= declarationSpaces;
+                    }
+                    else {
+                        exportedDeclarationSpaces |= declarationSpaces;
+                    }
                 }
                 else {
                     nonExportedDeclarationSpaces |= declarationSpaces;
                 }
-            });
-            var commonDeclarationSpace = exportedDeclarationSpaces & nonExportedDeclarationSpaces;
-            if (commonDeclarationSpace) {
+            }
+            // Spaces for anyting not declared a 'default export'.
+            var nonDefaultExportedDeclarationSpaces = exportedDeclarationSpaces | nonExportedDeclarationSpaces;
+            var commonDeclarationSpacesForExportsAndLocals = exportedDeclarationSpaces & nonExportedDeclarationSpaces;
+            var commonDeclarationSpacesForDefaultAndNonDefault = defaultExportedDeclarationSpaces & nonDefaultExportedDeclarationSpaces;
+            if (commonDeclarationSpacesForExportsAndLocals || commonDeclarationSpacesForDefaultAndNonDefault) {
                 // declaration spaces for exported and non-exported declarations intersect
-                ts.forEach(symbol.declarations, function (d) {
-                    if (getDeclarationSpaces(d) & commonDeclarationSpace) {
+                for (var _b = 0, _c = symbol.declarations; _b < _c.length; _b++) {
+                    var d = _c[_b];
+                    var declarationSpaces = getDeclarationSpaces(d);
+                    // Only error on the declarations that conributed to the intersecting spaces.
+                    if (declarationSpaces & commonDeclarationSpacesForDefaultAndNonDefault) {
+                        error(d.name, ts.Diagnostics.Merged_declaration_0_cannot_include_a_default_export_declaration_Consider_adding_a_separate_export_default_0_declaration_instead, ts.declarationNameToString(d.name));
+                    }
+                    else if (declarationSpaces & commonDeclarationSpacesForExportsAndLocals) {
                         error(d.name, ts.Diagnostics.Individual_declarations_in_merged_declaration_0_must_be_all_exported_or_all_local, ts.declarationNameToString(d.name));
                     }
-                });
+                }
             }
             function getDeclarationSpaces(d) {
                 switch (d.kind) {
@@ -23919,27 +23938,7 @@ var ts;
                     }
                     var initializer = member.initializer;
                     if (initializer) {
-                        autoValue = getConstantValueForEnumMemberInitializer(initializer);
-                        if (autoValue === undefined) {
-                            if (enumIsConst) {
-                                error(initializer, ts.Diagnostics.In_const_enum_declarations_member_initializer_must_be_constant_expression);
-                            }
-                            else if (!ambient) {
-                                // Only here do we need to check that the initializer is assignable to the enum type.
-                                // If it is a constant value (not undefined), it is syntactically constrained to be a number.
-                                // Also, we do not need to check this for ambients because there is already
-                                // a syntax error if it is not a constant.
-                                checkTypeAssignableTo(checkExpression(initializer), enumType, initializer, undefined);
-                            }
-                        }
-                        else if (enumIsConst) {
-                            if (isNaN(autoValue)) {
-                                error(initializer, ts.Diagnostics.const_enum_member_initializer_was_evaluated_to_disallowed_value_NaN);
-                            }
-                            else if (!isFinite(autoValue)) {
-                                error(initializer, ts.Diagnostics.const_enum_member_initializer_was_evaluated_to_a_non_finite_value);
-                            }
-                        }
+                        autoValue = computeConstantValueForEnumMemberInitializer(initializer, enumType, enumIsConst, ambient);
                     }
                     else if (ambient && !enumIsConst) {
                         autoValue = undefined;
@@ -23950,19 +23949,45 @@ var ts;
                 });
                 nodeLinks.flags |= 8192 /* EnumValuesComputed */;
             }
-            function getConstantValueForEnumMemberInitializer(initializer) {
-                return evalConstant(initializer);
+            function computeConstantValueForEnumMemberInitializer(initializer, enumType, enumIsConst, ambient) {
+                // Controls if error should be reported after evaluation of constant value is completed
+                // Can be false if another more precise error was already reported during evaluation.
+                var reportError = true;
+                var value = evalConstant(initializer);
+                if (reportError) {
+                    if (value === undefined) {
+                        if (enumIsConst) {
+                            error(initializer, ts.Diagnostics.In_const_enum_declarations_member_initializer_must_be_constant_expression);
+                        }
+                        else if (!ambient) {
+                            // Only here do we need to check that the initializer is assignable to the enum type.
+                            // If it is a constant value (not undefined), it is syntactically constrained to be a number.
+                            // Also, we do not need to check this for ambients because there is already
+                            // a syntax error if it is not a constant.
+                            checkTypeAssignableTo(checkExpression(initializer), enumType, initializer, undefined);
+                        }
+                    }
+                    else if (enumIsConst) {
+                        if (isNaN(value)) {
+                            error(initializer, ts.Diagnostics.const_enum_member_initializer_was_evaluated_to_disallowed_value_NaN);
+                        }
+                        else if (!isFinite(value)) {
+                            error(initializer, ts.Diagnostics.const_enum_member_initializer_was_evaluated_to_a_non_finite_value);
+                        }
+                    }
+                }
+                return value;
                 function evalConstant(e) {
                     switch (e.kind) {
                         case 176 /* PrefixUnaryExpression */:
-                            var value = evalConstant(e.operand);
-                            if (value === undefined) {
+                            var value_1 = evalConstant(e.operand);
+                            if (value_1 === undefined) {
                                 return undefined;
                             }
                             switch (e.operator) {
-                                case 34 /* PlusToken */: return value;
-                                case 35 /* MinusToken */: return -value;
-                                case 48 /* TildeToken */: return ~value;
+                                case 34 /* PlusToken */: return value_1;
+                                case 35 /* MinusToken */: return -value_1;
+                                case 48 /* TildeToken */: return ~value_1;
                             }
                             return undefined;
                         case 178 /* BinaryExpression */:
@@ -23997,12 +24022,12 @@ var ts;
                         case 163 /* PropertyAccessExpression */:
                             var member = initializer.parent;
                             var currentType = getTypeOfSymbol(getSymbolOfNode(member.parent));
-                            var enumType;
+                            var enumType_1;
                             var propertyName;
                             if (e.kind === 66 /* Identifier */) {
                                 // unqualified names can refer to member that reside in different declaration of the enum so just doing name resolution won't work.
                                 // instead pick current enum type and later try to fetch member from the type
-                                enumType = currentType;
+                                enumType_1 = currentType;
                                 propertyName = e.text;
                             }
                             else {
@@ -24032,16 +24057,16 @@ var ts;
                                         return undefined;
                                     }
                                 }
-                                enumType = checkExpression(expression);
+                                enumType_1 = checkExpression(expression);
                                 // allow references to constant members of other enums
-                                if (!(enumType.symbol && (enumType.symbol.flags & 384 /* Enum */))) {
+                                if (!(enumType_1.symbol && (enumType_1.symbol.flags & 384 /* Enum */))) {
                                     return undefined;
                                 }
                             }
                             if (propertyName === undefined) {
                                 return undefined;
                             }
-                            var property = getPropertyOfObjectType(enumType, propertyName);
+                            var property = getPropertyOfObjectType(enumType_1, propertyName);
                             if (!property || !(property.flags & 8 /* EnumMember */)) {
                                 return undefined;
                             }
@@ -24052,6 +24077,8 @@ var ts;
                             }
                             // illegal case: forward reference
                             if (!isDefinedBefore(propertyDecl, member)) {
+                                reportError = false;
+                                error(e, ts.Diagnostics.A_member_initializer_in_a_const_enum_declaration_cannot_reference_members_declared_after_it_including_members_defined_in_other_const_enums);
                                 return undefined;
                             }
                             return getNodeLinks(propertyDecl).enumMemberValue;
@@ -34723,6 +34750,11 @@ var ts;
                 }
                 return leadingComments;
             }
+            /**
+             * Removes all but the pinned or triple slash comments.
+             * @param ranges The array to be filtered
+             * @param onlyPinnedOrTripleSlashComments whether the filtering should be performed.
+             */
             function filterComments(ranges, onlyPinnedOrTripleSlashComments) {
                 // If we're removing comments, then we want to strip out all but the pinned or
                 // triple slash comments.
@@ -41182,24 +41214,20 @@ var ts;
             return this._children;
         };
         NodeObject.prototype.getFirstToken = function (sourceFile) {
-            var children = this.getChildren();
-            for (var _i = 0; _i < children.length; _i++) {
-                var child = children[_i];
-                if (child.kind < 132 /* FirstNode */) {
-                    return child;
-                }
-                return child.getFirstToken(sourceFile);
+            var children = this.getChildren(sourceFile);
+            if (!children.length) {
+                return undefined;
             }
+            var child = children[0];
+            return child.kind < 132 /* FirstNode */ ? child : child.getFirstToken(sourceFile);
         };
         NodeObject.prototype.getLastToken = function (sourceFile) {
             var children = this.getChildren(sourceFile);
-            for (var i = children.length - 1; i >= 0; i--) {
-                var child = children[i];
-                if (child.kind < 132 /* FirstNode */) {
-                    return child;
-                }
-                return child.getLastToken(sourceFile);
+            var child = ts.lastOrUndefined(children);
+            if (!child) {
+                return undefined;
             }
+            return child.kind < 132 /* FirstNode */ ? child : child.getLastToken(sourceFile);
         };
         return NodeObject;
     })();

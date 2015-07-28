@@ -3959,6 +3959,16 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        A_member_initializer_in_a_const_enum_declaration_cannot_reference_members_declared_after_it_including_members_defined_in_other_const_enums: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Merged_declaration_0_cannot_include_a_default_export_declaration_Consider_adding_a_separate_export_default_0_declaration_instead: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;
@@ -4895,6 +4905,11 @@ declare namespace ts {
             key: string;
         };
         Cannot_use_JSX_unless_the_jsx_flag_is_provided: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        A_constructor_cannot_contain_a_super_call_when_its_class_extends_null: {
             code: number;
             category: DiagnosticCategory;
             key: string;
