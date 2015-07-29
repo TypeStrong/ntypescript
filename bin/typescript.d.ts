@@ -1083,6 +1083,7 @@ declare namespace ts {
         getExportsOfModule(moduleSymbol: Symbol): Symbol[];
         getJsxElementAttributesType(elementNode: JsxOpeningLikeElement): Type;
         getJsxIntrinsicTagNames(): Symbol[];
+        isOptionalParameter(node: ParameterDeclaration): boolean;
         getDiagnostics(sourceFile?: SourceFile, cancellationToken?: CancellationToken): Diagnostic[];
         getGlobalDiagnostics(): Diagnostic[];
         getEmitResolver(sourceFile?: SourceFile, cancellationToken?: CancellationToken): EmitResolver;
@@ -1188,6 +1189,7 @@ declare namespace ts {
         getBlockScopedVariableId(node: Identifier): number;
         getReferencedValueDeclaration(reference: Identifier): Declaration;
         getTypeReferenceSerializationKind(node: TypeReferenceNode): TypeReferenceSerializationKind;
+        isOptionalParameter(node: ParameterDeclaration): boolean;
     }
     const enum SymbolFlags {
         None = 0,
@@ -1346,15 +1348,17 @@ declare namespace ts {
         FreshObjectLiteral = 1048576,
         ContainsUndefinedOrNull = 2097152,
         ContainsObjectLiteral = 4194304,
-        ESSymbol = 8388608,
-        Intrinsic = 8388735,
-        Primitive = 8389118,
+        ContainsAnyFunctionType = 8388608,
+        ESSymbol = 16777216,
+        Intrinsic = 16777343,
+        Primitive = 16777726,
         StringLike = 258,
         NumberLike = 132,
         ObjectType = 80896,
         UnionOrIntersection = 49152,
         StructuredType = 130048,
         RequiresWidening = 6291456,
+        PropagatingFlags = 14680064,
     }
     interface Type {
         flags: TypeFlags;

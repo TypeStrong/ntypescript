@@ -592,11 +592,13 @@ var ts;
         TypeFlags[TypeFlags["ContainsUndefinedOrNull"] = 2097152] = "ContainsUndefinedOrNull";
         /* @internal */
         TypeFlags[TypeFlags["ContainsObjectLiteral"] = 4194304] = "ContainsObjectLiteral";
-        TypeFlags[TypeFlags["ESSymbol"] = 8388608] = "ESSymbol";
         /* @internal */
-        TypeFlags[TypeFlags["Intrinsic"] = 8388735] = "Intrinsic";
+        TypeFlags[TypeFlags["ContainsAnyFunctionType"] = 8388608] = "ContainsAnyFunctionType";
+        TypeFlags[TypeFlags["ESSymbol"] = 16777216] = "ESSymbol";
         /* @internal */
-        TypeFlags[TypeFlags["Primitive"] = 8389118] = "Primitive";
+        TypeFlags[TypeFlags["Intrinsic"] = 16777343] = "Intrinsic";
+        /* @internal */
+        TypeFlags[TypeFlags["Primitive"] = 16777726] = "Primitive";
         TypeFlags[TypeFlags["StringLike"] = 258] = "StringLike";
         TypeFlags[TypeFlags["NumberLike"] = 132] = "NumberLike";
         TypeFlags[TypeFlags["ObjectType"] = 80896] = "ObjectType";
@@ -604,6 +606,8 @@ var ts;
         TypeFlags[TypeFlags["StructuredType"] = 130048] = "StructuredType";
         /* @internal */
         TypeFlags[TypeFlags["RequiresWidening"] = 6291456] = "RequiresWidening";
+        /* @internal */
+        TypeFlags[TypeFlags["PropagatingFlags"] = 14680064] = "PropagatingFlags";
     })(ts.TypeFlags || (ts.TypeFlags = {}));
     var TypeFlags = ts.TypeFlags;
     (function (SignatureKind) {
@@ -5483,10 +5487,8 @@ var ts;
         if (node) {
             switch (node.kind) {
                 case 135 /* Parameter */:
-                    return node.questionToken !== undefined;
                 case 140 /* MethodDeclaration */:
                 case 139 /* MethodSignature */:
-                    return node.questionToken !== undefined;
                 case 243 /* ShorthandPropertyAssignment */:
                 case 242 /* PropertyAssignment */:
                 case 138 /* PropertyDeclaration */:
@@ -12466,7 +12468,8 @@ var ts;
             getEmitResolver: getEmitResolver,
             getExportsOfModule: getExportsOfModuleAsArray,
             getJsxElementAttributesType: getJsxElementAttributesType,
-            getJsxIntrinsicTagNames: getJsxIntrinsicTagNames
+            getJsxIntrinsicTagNames: getJsxIntrinsicTagNames,
+            isOptionalParameter: isOptionalParameter
         };
         var unknownSymbol = createSymbol(4 /* Property */ | 67108864 /* Transient */, "unknown");
         var resolvingSymbol = createSymbol(67108864 /* Transient */, "__resolving__");
@@ -12474,7 +12477,7 @@ var ts;
         var stringType = createIntrinsicType(2 /* String */, "string");
         var numberType = createIntrinsicType(4 /* Number */, "number");
         var booleanType = createIntrinsicType(8 /* Boolean */, "boolean");
-        var esSymbolType = createIntrinsicType(8388608 /* ESSymbol */, "symbol");
+        var esSymbolType = createIntrinsicType(16777216 /* ESSymbol */, "symbol");
         var voidType = createIntrinsicType(16 /* Void */, "void");
         var undefinedType = createIntrinsicType(32 /* Undefined */ | 2097152 /* ContainsUndefinedOrNull */, "undefined");
         var nullType = createIntrinsicType(64 /* Null */ | 2097152 /* ContainsUndefinedOrNull */, "null");
@@ -12484,6 +12487,9 @@ var ts;
         var emptyGenericType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         emptyGenericType.instantiations = {};
         var anyFunctionType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
+        // The anyFunctionType contains the anyFunctionType by definition. The flag is further propagated
+        // in getPropagatingFlagsOfTypes, and it is checked in inferFromTypes.
+        anyFunctionType.flags |= 8388608 /* ContainsAnyFunctionType */;
         var noConstraintType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         var anySignature = createSignature(undefined, undefined, emptyArray, anyType, undefined, 0, false, false);
         var unknownSignature = createSignature(undefined, undefined, emptyArray, unknownType, undefined, 0, false, false);
@@ -12550,7 +12556,7 @@ var ts;
             },
             "symbol": {
                 type: esSymbolType,
-                flags: 8388608 /* ESSymbol */
+                flags: 16777216 /* ESSymbol */
             }
         };
         var JsxNames = {
@@ -12939,7 +12945,18 @@ var ts;
                     error(errorLocation, ts.Diagnostics.Initializer_of_instance_member_variable_0_cannot_reference_identifier_1_declared_in_the_constructor, ts.declarationNameToString(propertyName), typeof nameArg === "string" ? nameArg : ts.declarationNameToString(nameArg));
                     return undefined;
                 }
-                if (result.flags & 2 /* BlockScopedVariable */) {
+                // Only check for block-scoped variable if we are looking for the
+                // name with variable meaning
+                //      For example,
+                //          declare module foo {
+                //              interface bar {}
+                //          }
+                //      let foo/*1*/: foo/*2*/.bar;
+                // The foo at /*1*/ and /*2*/ will share same symbol with two meaning
+                // block - scope variable and namespace module. However, only when we
+                // try to resolve name in /*1*/ which is used in variable position,
+                // we want to check for block- scoped
+                if (meaning & 2 /* BlockScopedVariable */ && result.flags & 2 /* BlockScopedVariable */) {
                     checkResolvedBlockScopedVariable(result, errorLocation);
                 }
             }
@@ -13828,7 +13845,7 @@ var ts;
                 return writeType(type, globalFlags);
                 function writeType(type, flags) {
                     // Write undefined/null type as any
-                    if (type.flags & 8388735 /* Intrinsic */) {
+                    if (type.flags & 16777343 /* Intrinsic */) {
                         // Special handling for unknown / resolving types, they should show up as any and not unknown or __resolving
                         writer.writeKeyword(!(globalFlags & 16 /* WriteOwnNameForAnyLike */) && isTypeAny(type)
                             ? "any"
@@ -15463,7 +15480,7 @@ var ts;
             else if (type.flags & 8 /* Boolean */) {
                 type = globalBooleanType;
             }
-            else if (type.flags & 8388608 /* ESSymbol */) {
+            else if (type.flags & 16777216 /* ESSymbol */) {
                 type = globalESSymbolType;
             }
             return type;
@@ -15632,7 +15649,17 @@ var ts;
             return result;
         }
         function isOptionalParameter(node) {
-            return ts.hasQuestionToken(node) || !!node.initializer;
+            if (ts.hasQuestionToken(node)) {
+                return true;
+            }
+            if (node.initializer) {
+                var signatureDeclaration = node.parent;
+                var signature = getSignatureFromDeclaration(signatureDeclaration);
+                var parameterIndex = signatureDeclaration.parameters.indexOf(node);
+                ts.Debug.assert(parameterIndex >= 0);
+                return parameterIndex >= signature.minArgumentCount;
+            }
+            return false;
         }
         function getSignatureFromDeclaration(declaration) {
             var links = getNodeLinks(declaration);
@@ -15649,10 +15676,14 @@ var ts;
                     if (param.type && param.type.kind === 8 /* StringLiteral */) {
                         hasStringLiterals = true;
                     }
-                    if (minArgumentCount < 0) {
-                        if (param.initializer || param.questionToken || param.dotDotDotToken) {
+                    if (param.initializer || param.questionToken || param.dotDotDotToken) {
+                        if (minArgumentCount < 0) {
                             minArgumentCount = i;
                         }
+                    }
+                    else {
+                        // If we see any required parameters, it means the prior ones were not in fact optional.
+                        minArgumentCount = -1;
                     }
                 }
                 if (minArgumentCount < 0) {
@@ -15853,22 +15884,23 @@ var ts;
                     return result;
             }
         }
-        // This function is used to propagate widening flags when creating new object types references and union types.
-        // It is only necessary to do so if a constituent type might be the undefined type, the null type, or the type
-        // of an object literal (since those types have widening related information we need to track).
-        function getWideningFlagsOfTypes(types) {
+        // This function is used to propagate certain flags when creating new object type references and union types.
+        // It is only necessary to do so if a constituent type might be the undefined type, the null type, the type
+        // of an object literal or the anyFunctionType. This is because there are operations in the type checker
+        // that care about the presence of such types at arbitrary depth in a containing type.
+        function getPropagatingFlagsOfTypes(types) {
             var result = 0;
             for (var _i = 0; _i < types.length; _i++) {
                 var type = types[_i];
                 result |= type.flags;
             }
-            return result & 6291456 /* RequiresWidening */;
+            return result & 14680064 /* PropagatingFlags */;
         }
         function createTypeReference(target, typeArguments) {
             var id = getTypeListId(typeArguments);
             var type = target.instantiations[id];
             if (!type) {
-                var flags = 4096 /* Reference */ | getWideningFlagsOfTypes(typeArguments);
+                var flags = 4096 /* Reference */ | getPropagatingFlagsOfTypes(typeArguments);
                 type = target.instantiations[id] = createObjectType(flags, target.symbol);
                 type.target = target;
                 type.typeArguments = typeArguments;
@@ -16097,7 +16129,7 @@ var ts;
             var id = getTypeListId(elementTypes);
             var type = tupleTypes[id];
             if (!type) {
-                type = tupleTypes[id] = createObjectType(8192 /* Tuple */ | getWideningFlagsOfTypes(elementTypes));
+                type = tupleTypes[id] = createObjectType(8192 /* Tuple */ | getPropagatingFlagsOfTypes(elementTypes));
                 type.elementTypes = elementTypes;
             }
             return type;
@@ -16239,7 +16271,7 @@ var ts;
             var id = getTypeListId(typeSet);
             var type = unionTypes[id];
             if (!type) {
-                type = unionTypes[id] = createObjectType(16384 /* Union */ | getWideningFlagsOfTypes(typeSet));
+                type = unionTypes[id] = createObjectType(16384 /* Union */ | getPropagatingFlagsOfTypes(typeSet));
                 type.types = typeSet;
             }
             return type;
@@ -16271,7 +16303,7 @@ var ts;
             var id = getTypeListId(typeSet);
             var type = intersectionTypes[id];
             if (!type) {
-                type = intersectionTypes[id] = createObjectType(32768 /* Intersection */ | getWideningFlagsOfTypes(typeSet));
+                type = intersectionTypes[id] = createObjectType(32768 /* Intersection */ | getPropagatingFlagsOfTypes(typeSet));
                 type.types = typeSet;
             }
             return type;
@@ -17622,11 +17654,16 @@ var ts;
                 return false;
             }
             function inferFromTypes(source, target) {
-                if (source === anyFunctionType) {
-                    return;
-                }
                 if (target.flags & 512 /* TypeParameter */) {
-                    // If target is a type parameter, make an inference
+                    // If target is a type parameter, make an inference, unless the source type contains
+                    // the anyFunctionType (the wildcard type that's used to avoid contextually typing functions).
+                    // Because the anyFunctionType is internal, it should not be exposed to the user by adding
+                    // it as an inference candidate. Hopefully, a better candidate will come along that does
+                    // not contain anyFunctionType when we come back to this argument for its second round
+                    // of inference.
+                    if (source.flags & 8388608 /* ContainsAnyFunctionType */) {
+                        return;
+                    }
                     var typeParameters = context.typeParameters;
                     for (var i = 0; i < typeParameters.length; i++) {
                         if (target === typeParameters[i]) {
@@ -18018,7 +18055,7 @@ var ts;
                 if (assumeTrue) {
                     // Assumed result is true. If check was not for a primitive type, remove all primitive types
                     if (!typeInfo) {
-                        return removeTypesFromUnionType(type, 258 /* StringLike */ | 132 /* NumberLike */ | 8 /* Boolean */ | 8388608 /* ESSymbol */, 
+                        return removeTypesFromUnionType(type, 258 /* StringLike */ | 132 /* NumberLike */ | 8 /* Boolean */ | 16777216 /* ESSymbol */, 
                         /*isOfTypeKind*/ true, false);
                     }
                     // Check was for a primitive type, return that primitive type if it is a subtype
@@ -18876,7 +18913,7 @@ var ts;
                 links.resolvedType = checkExpression(node.expression);
                 // This will allow types number, string, symbol or any. It will also allow enums, the unknown
                 // type, and any union of these types (like string | number).
-                if (!isTypeAnyOrAllConstituentTypesHaveKind(links.resolvedType, 132 /* NumberLike */ | 258 /* StringLike */ | 8388608 /* ESSymbol */)) {
+                if (!isTypeAnyOrAllConstituentTypesHaveKind(links.resolvedType, 132 /* NumberLike */ | 258 /* StringLike */ | 16777216 /* ESSymbol */)) {
                     error(node, ts.Diagnostics.A_computed_property_name_must_be_of_type_string_number_symbol_or_any);
                 }
                 else {
@@ -18937,7 +18974,7 @@ var ts;
             var stringIndexType = getIndexType(0 /* String */);
             var numberIndexType = getIndexType(1 /* Number */);
             var result = createAnonymousType(node.symbol, propertiesTable, emptyArray, emptyArray, stringIndexType, numberIndexType);
-            result.flags |= 524288 /* ObjectLiteral */ | 1048576 /* FreshObjectLiteral */ | 4194304 /* ContainsObjectLiteral */ | (typeFlags & 2097152 /* ContainsUndefinedOrNull */);
+            result.flags |= 524288 /* ObjectLiteral */ | 1048576 /* FreshObjectLiteral */ | 4194304 /* ContainsObjectLiteral */ | (typeFlags & 14680064 /* PropagatingFlags */);
             return result;
             function getIndexType(kind) {
                 if (contextualType && contextualTypeHasIndexSignature(contextualType, kind)) {
@@ -19519,7 +19556,7 @@ var ts;
                 }
             }
             // Check for compatible indexer types.
-            if (isTypeAnyOrAllConstituentTypesHaveKind(indexType, 258 /* StringLike */ | 132 /* NumberLike */ | 8388608 /* ESSymbol */)) {
+            if (isTypeAnyOrAllConstituentTypesHaveKind(indexType, 258 /* StringLike */ | 132 /* NumberLike */ | 16777216 /* ESSymbol */)) {
                 // Try to use a number indexer.
                 if (isTypeAnyOrAllConstituentTypesHaveKind(indexType, 132 /* NumberLike */)) {
                     var numberIndexType = getIndexTypeOfType(objectType, 1 /* Number */);
@@ -19574,7 +19611,7 @@ var ts;
                 return false;
             }
             // Make sure the property type is the primitive symbol type
-            if ((expressionType.flags & 8388608 /* ESSymbol */) === 0) {
+            if ((expressionType.flags & 16777216 /* ESSymbol */) === 0) {
                 if (reportError) {
                     error(expression, ts.Diagnostics.A_computed_property_name_of_the_form_0_must_be_of_type_symbol, ts.getTextOfNode(expression));
                 }
@@ -20036,7 +20073,7 @@ var ts;
                             return getStringLiteralType(element.name);
                         case 133 /* ComputedPropertyName */:
                             var nameType = checkComputedPropertyName(element.name);
-                            if (allConstituentTypesHaveKind(nameType, 8388608 /* ESSymbol */)) {
+                            if (allConstituentTypesHaveKind(nameType, 16777216 /* ESSymbol */)) {
                                 return nameType;
                             }
                             else {
@@ -21027,7 +21064,7 @@ var ts;
                 case 34 /* PlusToken */:
                 case 35 /* MinusToken */:
                 case 48 /* TildeToken */:
-                    if (someConstituentTypeHasKind(operandType, 8388608 /* ESSymbol */)) {
+                    if (someConstituentTypeHasKind(operandType, 16777216 /* ESSymbol */)) {
                         error(node.operand, ts.Diagnostics.The_0_operator_cannot_be_applied_to_type_symbol, ts.tokenToString(node.operator));
                     }
                     return numberType;
@@ -21100,7 +21137,7 @@ var ts;
             // and the right operand to be of type Any or a subtype of the 'Function' interface type.
             // The result is always of the Boolean primitive type.
             // NOTE: do not raise error if leftType is unknown as related error was already reported
-            if (allConstituentTypesHaveKind(leftType, 8389118 /* Primitive */)) {
+            if (allConstituentTypesHaveKind(leftType, 16777726 /* Primitive */)) {
                 error(node.left, ts.Diagnostics.The_left_hand_side_of_an_instanceof_expression_must_be_of_type_any_an_object_type_or_a_type_parameter);
             }
             // NOTE: do not raise error if right is unknown as related error was already reported
@@ -21114,7 +21151,7 @@ var ts;
             // The in operator requires the left operand to be of type Any, the String primitive type, or the Number primitive type,
             // and the right operand to be of type Any, an object type, or a type parameter type.
             // The result is always of the Boolean primitive type.
-            if (!isTypeAnyOrAllConstituentTypesHaveKind(leftType, 258 /* StringLike */ | 132 /* NumberLike */ | 8388608 /* ESSymbol */)) {
+            if (!isTypeAnyOrAllConstituentTypesHaveKind(leftType, 258 /* StringLike */ | 132 /* NumberLike */ | 16777216 /* ESSymbol */)) {
                 error(node.left, ts.Diagnostics.The_left_hand_side_of_an_in_expression_must_be_of_type_any_string_number_or_symbol);
             }
             if (!isTypeAnyOrAllConstituentTypesHaveKind(rightType, 80896 /* ObjectType */ | 512 /* TypeParameter */)) {
@@ -21339,8 +21376,8 @@ var ts;
             }
             // Return true if there was no error, false if there was an error.
             function checkForDisallowedESSymbolOperand(operator) {
-                var offendingSymbolOperand = someConstituentTypeHasKind(leftType, 8388608 /* ESSymbol */) ? node.left :
-                    someConstituentTypeHasKind(rightType, 8388608 /* ESSymbol */) ? node.right :
+                var offendingSymbolOperand = someConstituentTypeHasKind(leftType, 16777216 /* ESSymbol */) ? node.left :
+                    someConstituentTypeHasKind(rightType, 16777216 /* ESSymbol */) ? node.right :
                         undefined;
                 if (offendingSymbolOperand) {
                     error(offendingSymbolOperand, ts.Diagnostics.The_0_operator_cannot_be_applied_to_type_symbol, ts.tokenToString(operator));
@@ -25307,7 +25344,7 @@ var ts;
             else if (allConstituentTypesHaveKind(type, 8192 /* Tuple */)) {
                 return ts.TypeReferenceSerializationKind.ArrayLikeType;
             }
-            else if (allConstituentTypesHaveKind(type, 8388608 /* ESSymbol */)) {
+            else if (allConstituentTypesHaveKind(type, 16777216 /* ESSymbol */)) {
                 return ts.TypeReferenceSerializationKind.ESSymbolType;
             }
             else if (isFunctionType(type)) {
@@ -25400,6 +25437,7 @@ var ts;
                 getBlockScopedVariableId: getBlockScopedVariableId,
                 getReferencedValueDeclaration: getReferencedValueDeclaration,
                 getTypeReferenceSerializationKind: getTypeReferenceSerializationKind,
+                isOptionalParameter: isOptionalParameter
             };
         }
         function initializeTypeChecker() {
@@ -25762,16 +25800,14 @@ var ts;
                         return grammarErrorOnNode(parameter.name, ts.Diagnostics.A_rest_parameter_cannot_have_an_initializer);
                     }
                 }
-                else if (parameter.questionToken || parameter.initializer) {
+                else if (parameter.questionToken) {
                     seenOptionalParameter = true;
-                    if (parameter.questionToken && parameter.initializer) {
+                    if (parameter.initializer) {
                         return grammarErrorOnNode(parameter.name, ts.Diagnostics.Parameter_cannot_have_question_mark_and_initializer);
                     }
                 }
-                else {
-                    if (seenOptionalParameter) {
-                        return grammarErrorOnNode(parameter.name, ts.Diagnostics.A_required_parameter_cannot_follow_an_optional_parameter);
-                    }
+                else if (seenOptionalParameter && !parameter.initializer) {
+                    return grammarErrorOnNode(parameter.name, ts.Diagnostics.A_required_parameter_cannot_follow_an_optional_parameter);
                 }
             }
         }
@@ -28437,7 +28473,7 @@ var ts;
             else {
                 writeTextOfNode(currentSourceFile, node.name);
             }
-            if (node.initializer || ts.hasQuestionToken(node)) {
+            if (resolver.isOptionalParameter(node)) {
                 write("?");
             }
             decreaseIndent();
@@ -37803,12 +37839,11 @@ var ts;
                     var displayParts = ts.mapToDisplayParts(function (writer) {
                         return typeChecker.getSymbolDisplayBuilder().buildParameterDisplay(parameter, writer, invocation);
                     });
-                    var isOptional = ts.hasQuestionToken(parameter.valueDeclaration);
                     return {
                         name: parameter.name,
                         documentation: parameter.getDocumentationComment(),
                         displayParts: displayParts,
-                        isOptional: isOptional
+                        isOptional: typeChecker.isOptionalParameter(parameter.valueDeclaration)
                     };
                 }
                 function createSignatureHelpParameterForTypeParameter(typeParameter) {
