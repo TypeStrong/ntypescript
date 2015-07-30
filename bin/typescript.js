@@ -27231,6 +27231,9 @@ var ts;
                 if (json["files"] instanceof Array) {
                     fileNames = ts.map(json["files"], function (s) { return ts.combinePaths(basePath, s); });
                 }
+                else {
+                    errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, 'files', 'Array'));
+                }
             }
             else {
                 var exclude = json["exclude"] instanceof Array ? ts.map(json["exclude"], ts.normalizeSlashes) : undefined;
@@ -29898,6 +29901,7 @@ var ts;
                     case 193 /* IfStatement */:
                     case 231 /* JsxSelfClosingElement */:
                     case 232 /* JsxOpeningElement */:
+                    case 236 /* JsxSpreadAttribute */:
                     case 237 /* JsxExpression */:
                     case 166 /* NewExpression */:
                     case 169 /* ParenthesizedExpression */:
