@@ -48335,3 +48335,10 @@ if (typeof global !== "undefined") {
 if (typeof window !== "undefined") {
     window.ts = ts;
 }
+/**
+ * Sample: Add additional options
+ */
+/*ts.optionDeclarations.push({
+    name: "foo",
+    type: "string",
+})*/
