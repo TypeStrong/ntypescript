@@ -6583,7 +6583,13 @@ declare module TypeScript.Services {
     var TypeScriptServicesFactory: typeof ts.TypeScriptServicesFactory;
 }
 declare let toolsVersion: string;
+/**
+ * Sample: add a new utility function
+ */
 declare module ts {
     function syntaxKindToName(kind: ts.SyntaxKind): string;
 }
+/**
+ * Make ts a global variable (this means we have a consistent typescript definition file)
+ */
 declare var global: any;
