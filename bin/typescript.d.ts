@@ -5312,10 +5312,6 @@ declare namespace ts {
     }
     function executeCommandLine(args: string[]): void;
 }
-declare module ts {
-    function syntaxKindToName(kind: ts.SyntaxKind): string;
-}
-declare var global: any;
 declare namespace ts {
     module OutliningElementsCollector {
         function collectElements(sourceFile: SourceFile): OutliningSpan[];
@@ -6587,3 +6583,7 @@ declare module TypeScript.Services {
     var TypeScriptServicesFactory: typeof ts.TypeScriptServicesFactory;
 }
 declare let toolsVersion: string;
+declare module ts {
+    function syntaxKindToName(kind: ts.SyntaxKind): string;
+}
+declare var global: any;
