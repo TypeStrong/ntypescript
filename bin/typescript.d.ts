@@ -6588,8 +6588,37 @@ declare let toolsVersion: string;
  */
 declare module ts {
     function syntaxKindToName(kind: ts.SyntaxKind): string;
+    /**
+     * Pulled straight out of `tsc.ts`. Ask to make it exported
+     */
+    function reportDiagnostic(diagnostic: Diagnostic): void;
 }
 /**
  * Make ts a global variable (this means we have a consistent typescript definition file)
  */
 declare var global: any;
+/**
+ * Sample: Add additional options
+ */
+declare module ts {
+    var NDiagnostics: {
+        initOption: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        initAlreadyExists: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        initFailed: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+    };
+    interface CompilerOptions {
+        init?: string;
+    }
+}

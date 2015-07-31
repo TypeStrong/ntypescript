@@ -1530,8 +1530,8 @@ namespace ts {
     export interface SymbolAccessiblityResult extends SymbolVisibilityResult {
         errorModuleName?: string; // If the symbol is not visible from module, module's name
     }
-    
-    /** Indicates how to serialize the name for a TypeReferenceNode when emitting decorator 
+
+    /** Indicates how to serialize the name for a TypeReferenceNode when emitting decorator
       * metadata */
     /* @internal */
     export enum TypeReferenceSerializationKind {

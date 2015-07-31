@@ -48334,6 +48334,20 @@ var ts;
         return ts.SyntaxKind[kind];
     }
     ts.syntaxKindToName = syntaxKindToName;
+    /**
+     * Pulled straight out of `tsc.ts`. Ask to make it exported
+     */
+    function reportDiagnostic(diagnostic) {
+        var output = "";
+        if (diagnostic.file) {
+            var loc = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start);
+            output += diagnostic.file.fileName + "(" + (loc.line + 1) + "," + (loc.character + 1) + "): ";
+        }
+        var category = ts.DiagnosticCategory[diagnostic.category].toLowerCase();
+        output += category + " TS" + diagnostic.code + ": " + ts.flattenDiagnosticMessageText(diagnostic.messageText, ts.sys.newLine) + ts.sys.newLine;
+        ts.sys.write(output);
+    }
+    ts.reportDiagnostic = reportDiagnostic;
 })(ts || (ts = {}));
 if (typeof global !== "undefined") {
     global.ts = ts;
@@ -48344,49 +48358,50 @@ if (typeof window !== "undefined") {
 /**
  * Sample: Add additional options
  */
-/*module ts {
-    export var NDiagnostics = {
-        initOption: { code: 20000, category: DiagnosticCategory.Message, key: "Creates a new tsconfig.json" },
-        initAlreadyExists: { code: 20001, category: DiagnosticCategory.Error, key: "A local tsconfig.json already exits" },
+var ts;
+(function (ts) {
+    ts.NDiagnostics = {
+        initOption: { code: 20000, category: ts.DiagnosticCategory.Message, key: "Creates a new tsconfig.json" },
+        initAlreadyExists: { code: 20001, category: ts.DiagnosticCategory.Error, key: "A local tsconfig.json already exits" },
+        initFailed: { code: 20002, category: ts.DiagnosticCategory.Error, key: "Failed to write a tsconfig.json" },
     };
-
-    optionDeclarations.push({
+    ts.optionDeclarations.push({
         name: 'init',
         type: 'boolean',
         shortName: 'i',
-        description: NDiagnostics.initOption
+        description: ts.NDiagnostics.initOption
     });
-
-    export interface CompilerOptions {
-        init?: string;
-    }
-
-    let parseCommandLineOld = ts.parseCommandLine;
-    ts.parseCommandLine = function(commandLine: string[]): ParsedCommandLine {
-        let oldResult: ParsedCommandLine = parseCommandLineOld.apply(null, arguments);
-
+    var parseCommandLineOld = ts.parseCommandLine;
+    ts.parseCommandLine = function (commandLine) {
+        var oldResult = parseCommandLineOld.apply(null, arguments);
         if (oldResult.options.init) {
             if (ts.sys.fileExists('./tsconfig.json')) {
-                oldResult.errors.push(ts.createCompilerDiagnostic(NDiagnostics.initAlreadyExists));
+                oldResult.errors.push(ts.createCompilerDiagnostic(ts.NDiagnostics.initAlreadyExists));
             }
         }
-
         return oldResult;
     };
-
-    let executeCommandLineOld = ts.executeCommandLine;
-    ts.executeCommandLine = function(args: string[]): void {
-        let commandLine = parseCommandLine(args);
-
+    var executeCommandLineOld = ts.executeCommandLine;
+    ts.executeCommandLine = function (args) {
+        var commandLine = ts.parseCommandLine(args);
         // If errors let the old code deal with it
         if (commandLine.errors.length > 0) {
             return executeCommandLineOld.apply(null, arguments);
         }
-
         // If not an option we've customized let the old code deal with it
-        if (commandLine.options.init){
-            
+        if (!commandLine.options.init) {
+            return executeCommandLineOld.apply(null, arguments);
         }
-        
+        // Otherwise lets do our stuff
+        if (commandLine.options.init) {
+            try {
+                ts.sys.writeFile('./tsconfig.json', '{}');
+                return ts.sys.exit(ts.ExitStatus.Success);
+            }
+            catch (e) {
+                ts.reportDiagnostic(ts.createCompilerDiagnostic(ts.NDiagnostics.initFailed));
+                return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
+            }
+        }
     };
-}*/
+})(ts || (ts = {}));
