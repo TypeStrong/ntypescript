@@ -17235,7 +17235,7 @@ var ts;
                     return indexTypesIdenticalTo(0 /* String */, source, target);
                 }
                 var targetType = getIndexTypeOfType(target, 0 /* String */);
-                if (targetType) {
+                if (targetType && !(targetType.flags & 1 /* Any */)) {
                     var sourceType = getIndexTypeOfType(source, 0 /* String */);
                     if (!sourceType) {
                         if (reportErrors) {
@@ -17259,7 +17259,7 @@ var ts;
                     return indexTypesIdenticalTo(1 /* Number */, source, target);
                 }
                 var targetType = getIndexTypeOfType(target, 1 /* Number */);
-                if (targetType) {
+                if (targetType && !(targetType.flags & 1 /* Any */)) {
                     var sourceStringType = getIndexTypeOfType(source, 0 /* String */);
                     var sourceNumberType = getIndexTypeOfType(source, 1 /* Number */);
                     if (!(sourceStringType || sourceNumberType)) {
@@ -33002,6 +33002,9 @@ var ts;
                 write("void 0");
             }
             function emitSerializedTypeNode(node) {
+                if (!node) {
+                    return;
+                }
                 switch (node.kind) {
                     case 100 /* VoidKeyword */:
                         write("void 0");
@@ -33142,7 +33145,7 @@ var ts;
             }
             /** Serializes the return type of function. Used by the __metadata decorator for a method. */
             function emitSerializedReturnTypeOfNode(node) {
-                if (node && ts.isFunctionLike(node)) {
+                if (node && ts.isFunctionLike(node) && node.type) {
                     emitSerializedTypeNode(node.type);
                     return;
                 }
@@ -34452,7 +34455,7 @@ var ts;
                         break;
                     case 1 /* Preserve */:
                     default:
-                        write(ts.getTextOfNode(node, true));
+                        writer.writeLiteral(ts.getTextOfNode(node, true));
                         break;
                 }
             }
