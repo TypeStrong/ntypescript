@@ -34260,6 +34260,7 @@ var ts;
                 write("], function(" + exportFunctionForFile + ") {");
                 writeLine();
                 increaseIndent();
+                emitEmitHelpers(node);
                 emitCaptureThisForNodeIfNecessary(node);
                 emitSystemModuleBody(node, startIndex);
                 decreaseIndent();
@@ -34326,6 +34327,7 @@ var ts;
                 }
             }
             function emitAMDModule(node, startIndex) {
+                emitEmitHelpers(node);
                 collectExternalModuleInfo(node);
                 writeLine();
                 write("define(");
@@ -34345,6 +34347,7 @@ var ts;
                 write("});");
             }
             function emitCommonJSModule(node, startIndex) {
+                emitEmitHelpers(node);
                 collectExternalModuleInfo(node);
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
@@ -34353,6 +34356,7 @@ var ts;
                 emitExportEquals(false);
             }
             function emitUMDModule(node, startIndex) {
+                emitEmitHelpers(node);
                 collectExternalModuleInfo(node);
                 // Module is detected first to support Browserify users that load into a browser with an AMD loader
                 writeLines("(function (deps, factory) {\n    if (typeof module === 'object' && typeof module.exports === 'object') {\n        var v = factory(require, exports); if (v !== undefined) module.exports = v;\n    }\n    else if (typeof define === 'function' && define.amd) {\n        define(deps, factory);\n    }\n})(");
@@ -34373,6 +34377,7 @@ var ts;
                 exportSpecifiers = undefined;
                 exportEquals = undefined;
                 hasExportStars = false;
+                emitEmitHelpers(node);
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);
                 emitTempDeclarations(true);
@@ -34499,12 +34504,7 @@ var ts;
                     }
                 }
             }
-            function emitSourceFileNode(node) {
-                // Start new file on new line
-                writeLine();
-                emitDetachedComments(node);
-                // emit prologue directives prior to __extends
-                var startIndex = emitDirectivePrologues(node.statements, false);
+            function emitEmitHelpers(node) {
                 // Only emit helpers if the user did not say otherwise.
                 if (!compilerOptions.noEmitHelpers) {
                     // Only Emit __extends function when target ES5.
@@ -34529,6 +34529,13 @@ var ts;
                         awaiterEmitted = true;
                     }
                 }
+            }
+            function emitSourceFileNode(node) {
+                // Start new file on new line
+                writeLine();
+                emitDetachedComments(node);
+                // emit prologue directives prior to __extends
+                var startIndex = emitDirectivePrologues(node.statements, false);
                 if (ts.isExternalModule(node) || compilerOptions.isolatedModules) {
                     if (languageVersion >= 2 /* ES6 */) {
                         emitES6Module(node, startIndex);
@@ -34551,6 +34558,7 @@ var ts;
                     exportSpecifiers = undefined;
                     exportEquals = undefined;
                     hasExportStars = false;
+                    emitEmitHelpers(node);
                     emitCaptureThisForNodeIfNecessary(node);
                     emitLinesStartingAt(node.statements, startIndex);
                     emitTempDeclarations(true);
@@ -35553,7 +35561,7 @@ var ts;
     function validateLocaleAndSetLanguage(locale, errors) {
         var matchResult = /^([a-z]+)([_\-]([a-z]+))?$/.exec(locale.toLowerCase());
         if (!matchResult) {
-            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Locale_must_be_of_the_form_language_or_language_territory_For_example_0_or_1, 'en', 'ja-jp'));
+            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Locale_must_be_of_the_form_language_or_language_territory_For_example_0_or_1, "en", "ja-jp"));
             return false;
         }
         var language = matchResult[1];
@@ -35578,7 +35586,7 @@ var ts;
             return false;
         }
         // TODO: Add codePage support for readFile?
-        var fileContents = '';
+        var fileContents = "";
         try {
             fileContents = ts.sys.readFile(filePath);
         }
@@ -35843,19 +35851,18 @@ var ts;
         }
         return { program: program, exitStatus: exitStatus };
         function compileProgram() {
-            // First get any syntactic errors.
-            var diagnostics = program.getSyntacticDiagnostics();
-            reportDiagnostics(diagnostics);
+            var diagnostics;
+            // First get and report any syntactic errors.
+            diagnostics = program.getSyntacticDiagnostics();
             // If we didn't have any syntactic errors, then also try getting the global and
             // semantic errors.
             if (diagnostics.length === 0) {
-                var diagnostics_1 = program.getGlobalDiagnostics();
-                reportDiagnostics(diagnostics_1);
-                if (diagnostics_1.length === 0) {
-                    var diagnostics_2 = program.getSemanticDiagnostics();
-                    reportDiagnostics(diagnostics_2);
+                diagnostics = program.getGlobalDiagnostics();
+                if (diagnostics.length === 0) {
+                    diagnostics = program.getSemanticDiagnostics();
                 }
             }
+            reportDiagnostics(diagnostics);
             // If the user doesn't want us to emit, then we're done at this point.
             if (compilerOptions.noEmit) {
                 return diagnostics.length
