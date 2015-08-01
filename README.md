@@ -83,5 +83,21 @@ module.exports = function(grunt) {
 };
 ```
 
+### NPM Scripts
+Init and setup in `package.json`
+```bash
+npm init
+npm install ntypescript@latest --save --save-exact
+```
+```json
+"scripts": {
+    "build": "ntsc -p ./src"
+},
+```
+And then you just need to do the following to build your project:
+```bash
+npm run build
+```
+
 # About
 Note that this is a personal endeavor, not officially by Microsoft.
