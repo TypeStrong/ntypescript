@@ -18341,87 +18341,94 @@ var ts;
             var classDeclaration = ts.getContainingClass(node);
             var classType = classDeclaration && getDeclaredTypeOfSymbol(getSymbolOfNode(classDeclaration));
             var baseClassType = classType && getBaseTypes(classType)[0];
+            var container = ts.getSuperContainer(node, true);
+            var needToCaptureLexicalThis = false;
+            if (!isCallExpression) {
+                // adjust the container reference in case if super is used inside arrow functions with arbitrary deep nesting                                    
+                while (container && container.kind === 171 /* ArrowFunction */) {
+                    container = ts.getSuperContainer(container, true);
+                    needToCaptureLexicalThis = languageVersion < 2 /* ES6 */;
+                }
+            }
+            var canUseSuperExpression = isLegalUsageOfSuperExpression(container);
+            var nodeCheckFlag = 0;
+            // always set NodeCheckFlags for 'super' expression node            
+            if (canUseSuperExpression) {
+                if ((container.flags & 128 /* Static */) || isCallExpression) {
+                    nodeCheckFlag = 512 /* SuperStatic */;
+                }
+                else {
+                    nodeCheckFlag = 256 /* SuperInstance */;
+                }
+                getNodeLinks(node).flags |= nodeCheckFlag;
+                if (needToCaptureLexicalThis) {
+                    // call expressions are allowed only in constructors so they should always capture correct 'this'
+                    // super property access expressions can also appear in arrow functions -
+                    // in this case they should also use correct lexical this
+                    captureLexicalThis(node.parent, container);
+                }
+            }
             if (!baseClassType) {
                 if (!classDeclaration || !ts.getClassExtendsHeritageClauseElement(classDeclaration)) {
                     error(node, ts.Diagnostics.super_can_only_be_referenced_in_a_derived_class);
                 }
                 return unknownType;
             }
-            var container = ts.getSuperContainer(node, true);
-            if (container) {
-                var canUseSuperExpression = false;
-                var needToCaptureLexicalThis;
+            if (!canUseSuperExpression) {
+                if (container && container.kind === 133 /* ComputedPropertyName */) {
+                    error(node, ts.Diagnostics.super_cannot_be_referenced_in_a_computed_property_name);
+                }
+                else if (isCallExpression) {
+                    error(node, ts.Diagnostics.Super_calls_are_not_permitted_outside_constructors_or_in_nested_functions_inside_constructors);
+                }
+                else {
+                    error(node, ts.Diagnostics.super_property_access_is_permitted_only_in_a_constructor_member_function_or_member_accessor_of_a_derived_class);
+                }
+                return unknownType;
+            }
+            if (container.kind === 141 /* Constructor */ && isInConstructorArgumentInitializer(node, container)) {
+                // issue custom error message for super property access in constructor arguments (to be aligned with old compiler)
+                error(node, ts.Diagnostics.super_cannot_be_referenced_in_constructor_arguments);
+                return unknownType;
+            }
+            return nodeCheckFlag === 512 /* SuperStatic */
+                ? getBaseConstructorTypeOfClass(classType)
+                : baseClassType;
+            function isLegalUsageOfSuperExpression(container) {
+                if (!container) {
+                    return false;
+                }
                 if (isCallExpression) {
                     // TS 1.0 SPEC (April 2014): 4.8.1
                     // Super calls are only permitted in constructors of derived classes
-                    canUseSuperExpression = container.kind === 141 /* Constructor */;
+                    return container.kind === 141 /* Constructor */;
                 }
                 else {
                     // TS 1.0 SPEC (April 2014)
                     // 'super' property access is allowed
                     // - In a constructor, instance member function, instance member accessor, or instance member variable initializer where this references a derived class instance
                     // - In a static member function or static member accessor
-                    // super property access might appear in arrow functions with arbitrary deep nesting
-                    needToCaptureLexicalThis = false;
-                    while (container && container.kind === 171 /* ArrowFunction */) {
-                        container = ts.getSuperContainer(container, true);
-                        needToCaptureLexicalThis = languageVersion < 2 /* ES6 */;
-                    }
                     // topmost container must be something that is directly nested in the class declaration
                     if (container && ts.isClassLike(container.parent)) {
                         if (container.flags & 128 /* Static */) {
-                            canUseSuperExpression =
-                                container.kind === 140 /* MethodDeclaration */ ||
-                                    container.kind === 139 /* MethodSignature */ ||
-                                    container.kind === 142 /* GetAccessor */ ||
-                                    container.kind === 143 /* SetAccessor */;
+                            return container.kind === 140 /* MethodDeclaration */ ||
+                                container.kind === 139 /* MethodSignature */ ||
+                                container.kind === 142 /* GetAccessor */ ||
+                                container.kind === 143 /* SetAccessor */;
                         }
                         else {
-                            canUseSuperExpression =
-                                container.kind === 140 /* MethodDeclaration */ ||
-                                    container.kind === 139 /* MethodSignature */ ||
-                                    container.kind === 142 /* GetAccessor */ ||
-                                    container.kind === 143 /* SetAccessor */ ||
-                                    container.kind === 138 /* PropertyDeclaration */ ||
-                                    container.kind === 137 /* PropertySignature */ ||
-                                    container.kind === 141 /* Constructor */;
+                            return container.kind === 140 /* MethodDeclaration */ ||
+                                container.kind === 139 /* MethodSignature */ ||
+                                container.kind === 142 /* GetAccessor */ ||
+                                container.kind === 143 /* SetAccessor */ ||
+                                container.kind === 138 /* PropertyDeclaration */ ||
+                                container.kind === 137 /* PropertySignature */ ||
+                                container.kind === 141 /* Constructor */;
                         }
                     }
                 }
-                if (canUseSuperExpression) {
-                    var returnType;
-                    if ((container.flags & 128 /* Static */) || isCallExpression) {
-                        getNodeLinks(node).flags |= 512 /* SuperStatic */;
-                        returnType = getBaseConstructorTypeOfClass(classType);
-                    }
-                    else {
-                        getNodeLinks(node).flags |= 256 /* SuperInstance */;
-                        returnType = baseClassType;
-                    }
-                    if (container.kind === 141 /* Constructor */ && isInConstructorArgumentInitializer(node, container)) {
-                        // issue custom error message for super property access in constructor arguments (to be aligned with old compiler)
-                        error(node, ts.Diagnostics.super_cannot_be_referenced_in_constructor_arguments);
-                        returnType = unknownType;
-                    }
-                    if (!isCallExpression && needToCaptureLexicalThis) {
-                        // call expressions are allowed only in constructors so they should always capture correct 'this'
-                        // super property access expressions can also appear in arrow functions -
-                        // in this case they should also use correct lexical this
-                        captureLexicalThis(node.parent, container);
-                    }
-                    return returnType;
-                }
+                return false;
             }
-            if (container && container.kind === 133 /* ComputedPropertyName */) {
-                error(node, ts.Diagnostics.super_cannot_be_referenced_in_a_computed_property_name);
-            }
-            else if (isCallExpression) {
-                error(node, ts.Diagnostics.Super_calls_are_not_permitted_outside_constructors_or_in_nested_functions_inside_constructors);
-            }
-            else {
-                error(node, ts.Diagnostics.super_property_access_is_permitted_only_in_a_constructor_member_function_or_member_accessor_of_a_derived_class);
-            }
-            return unknownType;
         }
         // Return contextual type of parameter or undefined if no contextual type is available
         function getContextuallyTypedParameterType(parameter) {
