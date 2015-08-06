@@ -16718,25 +16718,26 @@ var ts;
                 // both types are the same - covers 'they are the same primitive type or both are Any' or the same type parameter cases
                 if (source === target)
                     return -1 /* True */;
-                if (relation !== identityRelation) {
-                    if (isTypeAny(target))
-                        return -1 /* True */;
-                    if (source === undefinedType)
-                        return -1 /* True */;
-                    if (source === nullType && target !== undefinedType)
-                        return -1 /* True */;
-                    if (source.flags & 128 /* Enum */ && target === numberType)
-                        return -1 /* True */;
-                    if (source.flags & 256 /* StringLiteral */ && target === stringType)
-                        return -1 /* True */;
-                    if (relation === assignableRelation) {
-                        if (isTypeAny(source))
-                            return -1 /* True */;
-                        if (source === numberType && target.flags & 128 /* Enum */)
-                            return -1 /* True */;
-                    }
+                if (relation === identityRelation) {
+                    return isIdenticalTo(source, target);
                 }
-                if (relation !== identityRelation && source.flags & 1048576 /* FreshObjectLiteral */) {
+                if (isTypeAny(target))
+                    return -1 /* True */;
+                if (source === undefinedType)
+                    return -1 /* True */;
+                if (source === nullType && target !== undefinedType)
+                    return -1 /* True */;
+                if (source.flags & 128 /* Enum */ && target === numberType)
+                    return -1 /* True */;
+                if (source.flags & 256 /* StringLiteral */ && target === stringType)
+                    return -1 /* True */;
+                if (relation === assignableRelation) {
+                    if (isTypeAny(source))
+                        return -1 /* True */;
+                    if (source === numberType && target.flags & 128 /* Enum */)
+                        return -1 /* True */;
+                }
+                if (source.flags & 1048576 /* FreshObjectLiteral */) {
                     if (hasExcessProperties(source, target, reportErrors)) {
                         if (reportErrors) {
                             reportRelationError(headMessage, source, target);
@@ -16750,81 +16751,93 @@ var ts;
                     source = getRegularTypeOfObjectLiteral(source);
                 }
                 var saveErrorInfo = errorInfo;
-                if (source.flags & 4096 /* Reference */ && target.flags & 4096 /* Reference */ && source.target === target.target) {
-                    // We have type references to same target type, see if relationship holds for all type arguments
-                    if (result = typesRelatedTo(source.typeArguments, target.typeArguments, reportErrors)) {
+                // Note that the "each" checks must precede the "some" checks to produce the correct results
+                if (source.flags & 16384 /* Union */) {
+                    if (result = eachTypeRelatedToType(source, target, reportErrors)) {
                         return result;
                     }
                 }
-                else if (source.flags & 512 /* TypeParameter */ && target.flags & 512 /* TypeParameter */) {
-                    if (result = typeParameterRelatedTo(source, target, reportErrors)) {
+                else if (target.flags & 32768 /* Intersection */) {
+                    if (result = typeRelatedToEachType(source, target, reportErrors)) {
                         return result;
-                    }
-                }
-                else if (relation !== identityRelation) {
-                    // Note that the "each" checks must precede the "some" checks to produce the correct results
-                    if (source.flags & 16384 /* Union */) {
-                        if (result = eachTypeRelatedToType(source, target, reportErrors)) {
-                            return result;
-                        }
-                    }
-                    else if (target.flags & 32768 /* Intersection */) {
-                        if (result = typeRelatedToEachType(source, target, reportErrors)) {
-                            return result;
-                        }
-                    }
-                    else {
-                        // It is necessary to try "each" checks on both sides because there may be nested "some" checks
-                        // on either side that need to be prioritized. For example, A | B = (A | B) & (C | D) or
-                        // A & B = (A & B) | (C & D).
-                        if (source.flags & 32768 /* Intersection */) {
-                            // If target is a union type the following check will report errors so we suppress them here
-                            if (result = someTypeRelatedToType(source, target, reportErrors && !(target.flags & 16384 /* Union */))) {
-                                return result;
-                            }
-                        }
-                        if (target.flags & 16384 /* Union */) {
-                            if (result = typeRelatedToSomeType(source, target, reportErrors)) {
-                                return result;
-                            }
-                        }
                     }
                 }
                 else {
-                    if (source.flags & 16384 /* Union */ && target.flags & 16384 /* Union */ ||
-                        source.flags & 32768 /* Intersection */ && target.flags & 32768 /* Intersection */) {
-                        if (result = eachTypeRelatedToSomeType(source, target)) {
-                            if (result &= eachTypeRelatedToSomeType(target, source)) {
-                                return result;
-                            }
+                    // It is necessary to try "some" checks on both sides because there may be nested "each" checks
+                    // on either side that need to be prioritized. For example, A | B = (A | B) & (C | D) or
+                    // A & B = (A & B) | (C & D).
+                    if (source.flags & 32768 /* Intersection */) {
+                        // If target is a union type the following check will report errors so we suppress them here
+                        if (result = someTypeRelatedToType(source, target, reportErrors && !(target.flags & 16384 /* Union */))) {
+                            return result;
+                        }
+                    }
+                    if (target.flags & 16384 /* Union */) {
+                        if (result = typeRelatedToSomeType(source, target, reportErrors)) {
+                            return result;
                         }
                     }
                 }
-                // Even if relationship doesn't hold for unions, type parameters, or generic type references,
-                // it may hold in a structural comparison.
-                // Report structural errors only if we haven't reported any errors yet
-                var reportStructuralErrors = reportErrors && errorInfo === saveErrorInfo;
-                // Identity relation does not use apparent type
-                var sourceOrApparentType = relation === identityRelation ? source : getApparentType(source);
-                // In a check of the form X = A & B, we will have previously checked if A relates to X or B relates
-                // to X. Failing both of those we want to check if the aggregation of A and B's members structurally
-                // relates to X. Thus, we include intersection types on the source side here.
-                if (sourceOrApparentType.flags & (80896 /* ObjectType */ | 32768 /* Intersection */) && target.flags & 80896 /* ObjectType */) {
-                    if (result = objectTypeRelatedTo(sourceOrApparentType, target, reportStructuralErrors)) {
+                if (source.flags & 512 /* TypeParameter */) {
+                    var constraint = getConstraintOfTypeParameter(source);
+                    if (!constraint || constraint.flags & 1 /* Any */) {
+                        constraint = emptyObjectType;
+                    }
+                    // Report constraint errors only if the constraint is not the empty object type
+                    var reportConstraintErrors = reportErrors && constraint !== emptyObjectType;
+                    if (result = isRelatedTo(constraint, target, reportConstraintErrors)) {
                         errorInfo = saveErrorInfo;
                         return result;
                     }
                 }
-                else if (source.flags & 512 /* TypeParameter */ && sourceOrApparentType.flags & 49152 /* UnionOrIntersection */) {
-                    // We clear the errors first because the following check often gives a better error than
-                    // the union or intersection comparison above if it is applicable.
-                    errorInfo = saveErrorInfo;
-                    if (result = isRelatedTo(sourceOrApparentType, target, reportErrors)) {
-                        return result;
+                else {
+                    if (source.flags & 4096 /* Reference */ && target.flags & 4096 /* Reference */ && source.target === target.target) {
+                        // We have type references to same target type, see if relationship holds for all type arguments
+                        if (result = typesRelatedTo(source.typeArguments, target.typeArguments, reportErrors)) {
+                            return result;
+                        }
+                    }
+                    // Even if relationship doesn't hold for unions, intersections, or generic type references,
+                    // it may hold in a structural comparison.
+                    var apparentType = getApparentType(source);
+                    // In a check of the form X = A & B, we will have previously checked if A relates to X or B relates
+                    // to X. Failing both of those we want to check if the aggregation of A and B's members structurally
+                    // relates to X. Thus, we include intersection types on the source side here.
+                    if (apparentType.flags & (80896 /* ObjectType */ | 32768 /* Intersection */) && target.flags & 80896 /* ObjectType */) {
+                        // Report structural errors only if we haven't reported any errors yet
+                        var reportStructuralErrors = reportErrors && errorInfo === saveErrorInfo;
+                        if (result = objectTypeRelatedTo(apparentType, target, reportStructuralErrors)) {
+                            errorInfo = saveErrorInfo;
+                            return result;
+                        }
                     }
                 }
                 if (reportErrors) {
                     reportRelationError(headMessage, source, target);
+                }
+                return 0 /* False */;
+            }
+            function isIdenticalTo(source, target) {
+                var result;
+                if (source.flags & 80896 /* ObjectType */ && target.flags & 80896 /* ObjectType */) {
+                    if (source.flags & 4096 /* Reference */ && target.flags & 4096 /* Reference */ && source.target === target.target) {
+                        // We have type references to same target type, see if all type arguments are identical
+                        if (result = typesRelatedTo(source.typeArguments, target.typeArguments, false)) {
+                            return result;
+                        }
+                    }
+                    return objectTypeRelatedTo(source, target, false);
+                }
+                if (source.flags & 512 /* TypeParameter */ && target.flags & 512 /* TypeParameter */) {
+                    return typeParameterIdenticalTo(source, target);
+                }
+                if (source.flags & 16384 /* Union */ && target.flags & 16384 /* Union */ ||
+                    source.flags & 32768 /* Intersection */ && target.flags & 32768 /* Intersection */) {
+                    if (result = eachTypeRelatedToSomeType(source, target)) {
+                        if (result &= eachTypeRelatedToSomeType(target, source)) {
+                            return result;
+                        }
+                    }
                 }
                 return 0 /* False */;
             }
@@ -16909,31 +16922,18 @@ var ts;
                 }
                 return result;
             }
-            function typeParameterRelatedTo(source, target, reportErrors) {
-                if (relation === identityRelation) {
-                    if (source.symbol.name !== target.symbol.name) {
-                        return 0 /* False */;
-                    }
-                    // covers case when both type parameters does not have constraint (both equal to noConstraintType)
-                    if (source.constraint === target.constraint) {
-                        return -1 /* True */;
-                    }
-                    if (source.constraint === noConstraintType || target.constraint === noConstraintType) {
-                        return 0 /* False */;
-                    }
-                    return isRelatedTo(source.constraint, target.constraint, reportErrors);
-                }
-                else {
-                    while (true) {
-                        var constraint = getConstraintOfTypeParameter(source);
-                        if (constraint === target)
-                            return -1 /* True */;
-                        if (!(constraint && constraint.flags & 512 /* TypeParameter */))
-                            break;
-                        source = constraint;
-                    }
+            function typeParameterIdenticalTo(source, target) {
+                if (source.symbol.name !== target.symbol.name) {
                     return 0 /* False */;
                 }
+                // covers case when both type parameters does not have constraint (both equal to noConstraintType)
+                if (source.constraint === target.constraint) {
+                    return -1 /* True */;
+                }
+                if (source.constraint === noConstraintType || target.constraint === noConstraintType) {
+                    return 0 /* False */;
+                }
+                return isIdenticalTo(source.constraint, target.constraint);
             }
             // Determine if two object types are related by structure. First, check if the result is already available in the global cache.
             // Second, check if we have already started a comparison of the given two types in which case we assume the result to be true.
@@ -17734,6 +17734,14 @@ var ts;
                         inferFromTypes(sourceTypes[i], targetTypes[i]);
                     }
                 }
+                else if (source.flags & 8192 /* Tuple */ && target.flags & 8192 /* Tuple */ && source.elementTypes.length === target.elementTypes.length) {
+                    // If source and target are tuples of the same size, infer from element types
+                    var sourceTypes = source.elementTypes;
+                    var targetTypes = target.elementTypes;
+                    for (var i = 0; i < sourceTypes.length; i++) {
+                        inferFromTypes(sourceTypes[i], targetTypes[i]);
+                    }
+                }
                 else if (target.flags & 49152 /* UnionOrIntersection */) {
                     var targetTypes = target.types;
                     var typeParameterCount = 0;
@@ -18181,13 +18189,17 @@ var ts;
                 return type;
             }
             function getNarrowedType(originalType, narrowedTypeCandidate) {
-                // Narrow to the target type if it's a subtype of the current type
-                if (isTypeSubtypeOf(narrowedTypeCandidate, originalType)) {
-                    return narrowedTypeCandidate;
-                }
-                // If the current type is a union type, remove all constituents that aren't subtypes of the target.
+                // If the current type is a union type, remove all constituents that aren't assignable to target. If that produces
+                // 0 candidates, fall back to the assignability check
                 if (originalType.flags & 16384 /* Union */) {
-                    return getUnionType(ts.filter(originalType.types, function (t) { return isTypeSubtypeOf(t, narrowedTypeCandidate); }));
+                    var assignableConstituents = ts.filter(originalType.types, function (t) { return isTypeAssignableTo(t, narrowedTypeCandidate); });
+                    if (assignableConstituents.length) {
+                        return getUnionType(assignableConstituents);
+                    }
+                }
+                if (isTypeAssignableTo(narrowedTypeCandidate, originalType)) {
+                    // Narrow to the target type if it's assignable to the current type
+                    return narrowedTypeCandidate;
                 }
                 return originalType;
             }
@@ -30468,11 +30480,7 @@ var ts;
                 }
             }
             function tryEmitConstantValue(node) {
-                if (compilerOptions.isolatedModules) {
-                    // do not inline enum values in separate compilation mode
-                    return false;
-                }
-                var constantValue = resolver.getConstantValue(node);
+                var constantValue = tryGetConstEnumValue(node);
                 if (constantValue !== undefined) {
                     write(constantValue.toString());
                     if (!compilerOptions.removeComments) {
@@ -30482,6 +30490,14 @@ var ts;
                     return true;
                 }
                 return false;
+            }
+            function tryGetConstEnumValue(node) {
+                if (compilerOptions.isolatedModules) {
+                    return undefined;
+                }
+                return node.kind === 164 /* PropertyAccessExpression */ || node.kind === 165 /* ElementAccessExpression */
+                    ? resolver.getConstantValue(node)
+                    : undefined;
             }
             // Returns 'true' if the code was actually indented, false otherwise.
             // If the code is not indented, an optional valueToWriteWhenNotIndenting will be
@@ -30509,10 +30525,20 @@ var ts;
                 emit(node.expression);
                 var indentedBeforeDot = indentIfOnDifferentLines(node, node.expression, node.dotToken);
                 // 1 .toString is a valid property access, emit a space after the literal
+                // Also emit a space if expression is a integer const enum value - it will appear in generated code as numeric literal
                 var shouldEmitSpace;
-                if (!indentedBeforeDot && node.expression.kind === 8 /* NumericLiteral */) {
-                    var text = ts.getSourceTextOfNodeFromSourceFile(currentSourceFile, node.expression);
-                    shouldEmitSpace = text.indexOf(ts.tokenToString(21 /* DotToken */)) < 0;
+                if (!indentedBeforeDot) {
+                    if (node.expression.kind === 8 /* NumericLiteral */) {
+                        // check if numeric literal was originally written with a dot
+                        var text = ts.getSourceTextOfNodeFromSourceFile(currentSourceFile, node.expression);
+                        shouldEmitSpace = text.indexOf(ts.tokenToString(21 /* DotToken */)) < 0;
+                    }
+                    else {
+                        // check if constant enum value is integer
+                        var constantValue = tryGetConstEnumValue(node.expression);
+                        // isFinite handles cases when constantValue is undefined
+                        shouldEmitSpace = isFinite(constantValue) && Math.floor(constantValue) === constantValue;
+                    }
                 }
                 if (shouldEmitSpace) {
                     write(" .");
