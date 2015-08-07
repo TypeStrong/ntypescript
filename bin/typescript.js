@@ -1287,7 +1287,7 @@ var ts;
         if (path.lastIndexOf("file:///", 0) === 0) {
             return "file:///".length;
         }
-        var idx = path.indexOf('://');
+        var idx = path.indexOf("://");
         if (idx !== -1) {
             return idx + "://".length;
         }
@@ -3789,7 +3789,7 @@ var ts;
         function getDeclarationName(node) {
             if (node.name) {
                 if (node.kind === 216 /* ModuleDeclaration */ && node.name.kind === 9 /* StringLiteral */) {
-                    return '"' + node.name.text + '"';
+                    return "\"" + node.name.text + "\"";
                 }
                 if (node.name.kind === 134 /* ComputedPropertyName */) {
                     var nameExpression = node.name.expression;
@@ -4397,7 +4397,7 @@ var ts;
             var nodeText = ts.getTextOfNodeFromSourceText(file.text, node.expression);
             // Note: the node text must be exactly "use strict" or 'use strict'.  It is not ok for the
             // string to contain unicode escapes (as per ES5).
-            return nodeText === '"use strict"' || nodeText === "'use strict'";
+            return nodeText === "\"use strict\"" || nodeText === "'use strict'";
         }
         function bindWorker(node) {
             switch (node.kind) {
@@ -4493,7 +4493,7 @@ var ts;
         function bindSourceFileIfExternalModule() {
             setExportContextFlag(file);
             if (ts.isExternalModule(file)) {
-                bindAnonymousDeclaration(file, 512 /* ValueModule */, '"' + ts.removeFileExtension(file.fileName) + '"');
+                bindAnonymousDeclaration(file, 512 /* ValueModule */, "\"" + ts.removeFileExtension(file.fileName) + "\"");
             }
         }
         function bindExportAssignment(node) {
@@ -5950,6 +5950,22 @@ var ts;
         return isFunctionLike(n) || n.kind === 216 /* ModuleDeclaration */ || n.kind === 246 /* SourceFile */;
     }
     ts.nodeStartsNewLexicalEnvironment = nodeStartsNewLexicalEnvironment;
+    function cloneEntityName(node) {
+        if (node.kind === 67 /* Identifier */) {
+            var clone_1 = createSynthesizedNode(67 /* Identifier */);
+            clone_1.text = node.text;
+            return clone_1;
+        }
+        else {
+            var clone_2 = createSynthesizedNode(133 /* QualifiedName */);
+            clone_2.left = cloneEntityName(node.left);
+            clone_2.left.parent = clone_2;
+            clone_2.right = cloneEntityName(node.right);
+            clone_2.right.parent = clone_2;
+            return clone_2;
+        }
+    }
+    ts.cloneEntityName = cloneEntityName;
     function nodeIsSynthesized(node) {
         return node.pos === -1;
     }
@@ -6343,7 +6359,7 @@ var ts;
         }
         function writeTrimmedCurrentLine(pos, nextLineStart) {
             var end = Math.min(comment.end, nextLineStart - 1);
-            var currentLineText = currentSourceFile.text.substring(pos, end).replace(/^\s+|\s+$/g, '');
+            var currentLineText = currentSourceFile.text.substring(pos, end).replace(/^\s+|\s+$/g, "");
             if (currentLineText) {
                 // trimmed forward and ending spaces text
                 writer.write(currentLineText);
@@ -9718,7 +9734,7 @@ var ts;
                 case 25 /* LessThanToken */:
                     return parseJsxElementOrSelfClosingElement();
             }
-            ts.Debug.fail('Unknown JSX child kind ' + token);
+            ts.Debug.fail("Unknown JSX child kind " + token);
         }
         function parseJsxChildren(openingTagName) {
             var result = [];
@@ -12035,7 +12051,7 @@ var ts;
             }
             return;
             function visitNode(node) {
-                var text = '';
+                var text = "";
                 if (aggressiveChecks && shouldCheckNode(node)) {
                     text = oldText.substring(node.pos, node.end);
                 }
@@ -12609,6 +12625,8 @@ var ts;
         var subtypeRelation = {};
         var assignableRelation = {};
         var identityRelation = {};
+        // This is for caching the result of getSymbolDisplayBuilder. Do not access directly.
+        var _displayBuilder;
         var TypeSystemPropertyName;
         (function (TypeSystemPropertyName) {
             TypeSystemPropertyName[TypeSystemPropertyName["Type"] = 0] = "Type";
@@ -13323,7 +13341,7 @@ var ts;
                 return;
             var isRelative = isExternalModuleNameRelative(moduleName);
             if (!isRelative) {
-                var symbol = getSymbol(globals, '"' + moduleName + '"', 512 /* ValueModule */);
+                var symbol = getSymbol(globals, "\"" + moduleName + "\"", 512 /* ValueModule */);
                 if (symbol) {
                     return symbol;
                 }
@@ -13786,8 +13804,6 @@ var ts;
             }
             return undefined;
         }
-        // This is for caching the result of getSymbolDisplayBuilder. Do not access directly.
-        var _displayBuilder;
         function getSymbolDisplayBuilder() {
             function getNameOfSymbol(symbol) {
                 if (symbol.declarations && symbol.declarations.length) {
@@ -19073,12 +19089,16 @@ var ts;
                 tagNamesAreEquivalent(lhs.left, rhs.left);
         }
         function checkJsxElement(node) {
+            // Check attributes
+            checkJsxOpeningLikeElement(node.openingElement);
             // Check that the closing tag matches
             if (!tagNamesAreEquivalent(node.openingElement.tagName, node.closingElement.tagName)) {
                 error(node.closingElement, ts.Diagnostics.Expected_corresponding_JSX_closing_tag_for_0, ts.getTextOfNode(node.openingElement.tagName));
             }
-            // Check attributes
-            checkJsxOpeningLikeElement(node.openingElement);
+            else {
+                // Perform resolution on the closing tag so that rename/go to definition/etc work
+                getJsxElementTagSymbol(node.closingElement);
+            }
             // Check children
             for (var _i = 0, _a = node.children; _i < _a.length; _i++) {
                 var child = _a[_i];
@@ -19127,10 +19147,19 @@ var ts;
             else if (elementAttributesType && !isTypeAny(elementAttributesType)) {
                 var correspondingPropSymbol = getPropertyOfType(elementAttributesType, node.name.text);
                 correspondingPropType = correspondingPropSymbol && getTypeOfSymbol(correspondingPropSymbol);
-                // If there's no corresponding property with this name, error
-                if (!correspondingPropType && isUnhyphenatedJsxName(node.name.text)) {
-                    error(node.name, ts.Diagnostics.Property_0_does_not_exist_on_type_1, node.name.text, typeToString(elementAttributesType));
-                    return unknownType;
+                if (isUnhyphenatedJsxName(node.name.text)) {
+                    // Maybe there's a string indexer?
+                    var indexerType = getIndexTypeOfType(elementAttributesType, 0 /* String */);
+                    if (indexerType) {
+                        correspondingPropType = indexerType;
+                    }
+                    else {
+                        // If there's no corresponding property with this name, error
+                        if (!correspondingPropType) {
+                            error(node.name, ts.Diagnostics.Property_0_does_not_exist_on_type_1, node.name.text, typeToString(elementAttributesType));
+                            return unknownType;
+                        }
+                    }
                 }
             }
             var exprType;
@@ -19206,7 +19235,7 @@ var ts;
                         return intrinsicElementsType.symbol;
                     }
                     // Wasn't found
-                    error(node, ts.Diagnostics.Property_0_does_not_exist_on_type_1, node.tagName.text, 'JSX.' + JsxNames.IntrinsicElements);
+                    error(node, ts.Diagnostics.Property_0_does_not_exist_on_type_1, node.tagName.text, "JSX." + JsxNames.IntrinsicElements);
                     return unknownSymbol;
                 }
                 else {
@@ -19216,21 +19245,23 @@ var ts;
                 }
             }
             function lookupClassTag(node) {
-                var valueSymbol;
+                var valueSymbol = resolveJsxTagName(node);
                 // Look up the value in the current scope
-                if (node.tagName.kind === 67 /* Identifier */) {
-                    var tag = node.tagName;
-                    var sym = getResolvedSymbol(tag);
-                    valueSymbol = sym.exportSymbol || sym;
-                }
-                else {
-                    valueSymbol = checkQualifiedName(node.tagName).symbol;
-                }
                 if (valueSymbol && valueSymbol !== unknownSymbol) {
                     links.jsxFlags |= 4 /* ClassElement */;
                     getSymbolLinks(valueSymbol).referenced = true;
                 }
                 return valueSymbol || unknownSymbol;
+            }
+            function resolveJsxTagName(node) {
+                if (node.tagName.kind === 67 /* Identifier */) {
+                    var tag = node.tagName;
+                    var sym = getResolvedSymbol(tag);
+                    return sym.exportSymbol || sym;
+                }
+                else {
+                    return checkQualifiedName(node.tagName).symbol;
+                }
             }
         }
         /**
@@ -19241,7 +19272,7 @@ var ts;
         function getJsxElementInstanceType(node) {
             // There is no such thing as an instance type for a non-class element. This
             // line shouldn't be hit.
-            ts.Debug.assert(!!(getNodeLinks(node).jsxFlags & 4 /* ClassElement */), 'Should not call getJsxElementInstanceType on non-class Element');
+            ts.Debug.assert(!!(getNodeLinks(node).jsxFlags & 4 /* ClassElement */), "Should not call getJsxElementInstanceType on non-class Element");
             var classSymbol = getJsxElementTagSymbol(node);
             if (classSymbol === unknownSymbol) {
                 // Couldn't find the class instance type. Error has already been issued
@@ -19396,7 +19427,7 @@ var ts;
             // be marked as 'used' so we don't incorrectly elide its import. And if there
             // is no 'React' symbol in scope, we should issue an error.
             if (compilerOptions.jsx === 2 /* React */) {
-                var reactSym = resolveName(node.tagName, 'React', 107455 /* Value */, ts.Diagnostics.Cannot_find_name_0, 'React');
+                var reactSym = resolveName(node.tagName, "React", 107455 /* Value */, ts.Diagnostics.Cannot_find_name_0, "React");
                 if (reactSym) {
                     getSymbolLinks(reactSym).referenced = true;
                 }
@@ -21960,17 +21991,20 @@ var ts;
             function isSuperCallExpression(n) {
                 return n.kind === 166 /* CallExpression */ && n.expression.kind === 93 /* SuperKeyword */;
             }
+            function containsSuperCallAsComputedPropertyName(n) {
+                return n.name && containsSuperCall(n.name);
+            }
             function containsSuperCall(n) {
                 if (isSuperCallExpression(n)) {
                     return true;
                 }
-                switch (n.kind) {
-                    case 171 /* FunctionExpression */:
-                    case 211 /* FunctionDeclaration */:
-                    case 172 /* ArrowFunction */:
-                    case 163 /* ObjectLiteralExpression */: return false;
-                    default: return ts.forEachChild(n, containsSuperCall);
+                else if (ts.isFunctionLike(n)) {
+                    return false;
                 }
+                else if (ts.isClassLike(n)) {
+                    return ts.forEach(n.members, containsSuperCallAsComputedPropertyName);
+                }
+                return ts.forEachChild(n, containsSuperCall);
             }
             function markThisReferencesAsErrors(n) {
                 if (n.kind === 95 /* ThisKeyword */) {
@@ -25001,7 +25035,9 @@ var ts;
                 meaning |= 8388608 /* Alias */;
                 return resolveEntityName(entityName, meaning);
             }
-            else if ((entityName.parent.kind === 233 /* JsxOpeningElement */) || (entityName.parent.kind === 232 /* JsxSelfClosingElement */)) {
+            else if ((entityName.parent.kind === 233 /* JsxOpeningElement */) ||
+                (entityName.parent.kind === 232 /* JsxSelfClosingElement */) ||
+                (entityName.parent.kind === 235 /* JsxClosingElement */)) {
                 return getJsxElementTagSymbol(entityName.parent);
             }
             else if (ts.isExpression(entityName)) {
@@ -25374,14 +25410,16 @@ var ts;
         function isFunctionType(type) {
             return type.flags & 80896 /* ObjectType */ && getSignaturesOfType(type, 0 /* Call */).length > 0;
         }
-        function getTypeReferenceSerializationKind(node) {
+        function getTypeReferenceSerializationKind(typeName) {
             // Resolve the symbol as a value to ensure the type can be reached at runtime during emit.
-            var symbol = resolveEntityName(node.typeName, 107455 /* Value */, true);
-            var constructorType = symbol ? getTypeOfSymbol(symbol) : undefined;
+            var valueSymbol = resolveEntityName(typeName, 107455 /* Value */, true);
+            var constructorType = valueSymbol ? getTypeOfSymbol(valueSymbol) : undefined;
             if (constructorType && isConstructorType(constructorType)) {
                 return ts.TypeReferenceSerializationKind.TypeWithConstructSignatureAndValue;
             }
-            var type = getTypeFromTypeNode(node);
+            // Resolve the symbol as a type so that we can provide a more useful hint for the type serializer.
+            var typeSymbol = resolveEntityName(typeName, 793056 /* Type */, true);
+            var type = getDeclaredTypeOfSymbol(typeSymbol);
             if (type === unknownType) {
                 return ts.TypeReferenceSerializationKind.Unknown;
             }
@@ -26730,7 +26768,7 @@ var ts;
         function getNodeSystem() {
             var _fs = require("fs");
             var _path = require("path");
-            var _os = require('os');
+            var _os = require("os");
             var platform = _os.platform();
             // win32\win64 are case insensitive platforms, MacOS (darwin) by default is also case insensitive
             var useCaseSensitiveFileNames = platform !== "win32" && platform !== "win64" && platform !== "darwin";
@@ -26765,7 +26803,7 @@ var ts;
             function writeFile(fileName, data, writeByteOrderMark) {
                 // If a BOM is required, emit one
                 if (writeByteOrderMark) {
-                    data = '\uFEFF' + data;
+                    data = "\uFEFF" + data;
                 }
                 _fs.writeFileSync(fileName, data, "utf8");
             }
@@ -26806,7 +26844,7 @@ var ts;
                 newLine: _os.EOL,
                 useCaseSensitiveFileNames: useCaseSensitiveFileNames,
                 write: function (s) {
-                    var buffer = new Buffer(s, 'utf8');
+                    var buffer = new Buffer(s, "utf8");
                     var offset = 0;
                     var toWrite = buffer.length;
                     var written = 0;
@@ -26830,7 +26868,6 @@ var ts;
                         }
                         callback(fileName);
                     }
-                    ;
                 },
                 resolvePath: function (path) {
                     return _path.resolve(path);
@@ -27206,7 +27243,7 @@ var ts;
       * @param fileName The path to the config file
       */
     function readConfigFile(fileName) {
-        var text = '';
+        var text = "";
         try {
             text = ts.sys.readFile(fileName);
         }
@@ -27291,7 +27328,7 @@ var ts;
                     fileNames = ts.map(json["files"], function (s) { return ts.combinePaths(basePath, s); });
                 }
                 else {
-                    errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, 'files', 'Array'));
+                    errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, "files", "Array"));
                 }
             }
             else {
@@ -27970,14 +28007,18 @@ var ts;
             enclosingDeclaration = prevEnclosingDeclaration;
         }
         function writeTypeAliasDeclaration(node) {
+            var prevEnclosingDeclaration = enclosingDeclaration;
+            enclosingDeclaration = node;
             emitJsDocComments(node);
             emitModuleElementDeclarationFlags(node);
             write("type ");
             writeTextOfNode(currentSourceFile, node.name);
+            emitTypeParameters(node.typeParameters);
             write(" = ");
             emitTypeWithNewGetSymbolAccessibilityDiagnostic(node.type, getTypeAliasDeclarationVisibilityError);
             write(";");
             writeLine();
+            enclosingDeclaration = prevEnclosingDeclaration;
             function getTypeAliasDeclarationVisibilityError(symbolAccesibilityResult) {
                 return {
                     diagnosticMessage: ts.Diagnostics.Exported_type_alias_0_has_or_is_using_private_name_1,
@@ -29056,7 +29097,7 @@ var ts;
                     function base64VLQFormatEncode(inValue) {
                         function base64FormatEncode(inValue) {
                             if (inValue < 64) {
-                                return 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'.charAt(inValue);
+                                return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".charAt(inValue);
                             }
                             throw TypeError(inValue + ": not a 64 based value");
                         }
@@ -29491,7 +29532,7 @@ var ts;
                 // Any template literal or string literal with an extended escape
                 // (e.g. "\u{0067}") will need to be downleveled as a escaped string literal.
                 if (languageVersion < 2 /* ES6 */ && (ts.isTemplateLiteralKind(node.kind) || node.hasExtendedUnicodeEscape)) {
-                    return getQuotedEscapedLiteralText('"', node.text, '"');
+                    return getQuotedEscapedLiteralText("\"", node.text, "\"");
                 }
                 // If we don't need to downlevel and we can reach the original source text using
                 // the node's parent reference, then simply get the text as it was originally written.
@@ -29502,15 +29543,15 @@ var ts;
                 // or an escaped quoted form of the original text if it's string-like.
                 switch (node.kind) {
                     case 9 /* StringLiteral */:
-                        return getQuotedEscapedLiteralText('"', node.text, '"');
+                        return getQuotedEscapedLiteralText("\"", node.text, "\"");
                     case 11 /* NoSubstitutionTemplateLiteral */:
-                        return getQuotedEscapedLiteralText('`', node.text, '`');
+                        return getQuotedEscapedLiteralText("`", node.text, "`");
                     case 12 /* TemplateHead */:
-                        return getQuotedEscapedLiteralText('`', node.text, '${');
+                        return getQuotedEscapedLiteralText("`", node.text, "${");
                     case 13 /* TemplateMiddle */:
-                        return getQuotedEscapedLiteralText('}', node.text, '${');
+                        return getQuotedEscapedLiteralText("}", node.text, "${");
                     case 14 /* TemplateTail */:
-                        return getQuotedEscapedLiteralText('}', node.text, '`');
+                        return getQuotedEscapedLiteralText("}", node.text, "`");
                     case 8 /* NumericLiteral */:
                         return node.text;
                 }
@@ -29535,7 +29576,7 @@ var ts;
                 // <CR><LF> and <CR> LineTerminatorSequences are normalized to <LF> for both TV and TRV.
                 text = text.replace(/\r\n?/g, "\n");
                 text = ts.escapeString(text);
-                write('"' + text + '"');
+                write("\"" + text + "\"");
             }
             function emitDownlevelTaggedTemplateArray(node, literalEmitter) {
                 write("[");
@@ -29700,9 +29741,9 @@ var ts;
                 /// 'Div' for upper-cased or dotted names
                 function emitTagName(name) {
                     if (name.kind === 67 /* Identifier */ && ts.isIntrinsicJsxName(name.text)) {
-                        write('"');
+                        write("\"");
                         emit(name);
-                        write('"');
+                        write("\"");
                     }
                     else {
                         emit(name);
@@ -29713,9 +29754,9 @@ var ts;
                 /// about keywords, just non-identifier characters
                 function emitAttributeName(name) {
                     if (/[A-Za-z_]+[\w*]/.test(name.text)) {
-                        write('"');
+                        write("\"");
                         emit(name);
-                        write('"');
+                        write("\"");
                     }
                     else {
                         emit(name);
@@ -29807,9 +29848,9 @@ var ts;
                             if (children[i].kind === 234 /* JsxText */) {
                                 var text = getTextToEmit(children[i]);
                                 if (text !== undefined) {
-                                    write(', "');
+                                    write(", \"");
                                     write(text);
-                                    write('"');
+                                    write("\"");
                                 }
                             }
                             else {
@@ -30024,7 +30065,7 @@ var ts;
                         if (declaration.kind === 221 /* ImportClause */) {
                             // Identifier references default import
                             write(getGeneratedNameForNode(declaration.parent));
-                            write(languageVersion === 0 /* ES3 */ ? '["default"]' : ".default");
+                            write(languageVersion === 0 /* ES3 */ ? "[\"default\"]" : ".default");
                             return;
                         }
                         else if (declaration.kind === 224 /* ImportSpecifier */) {
@@ -32518,11 +32559,12 @@ var ts;
                     emitDetachedComments(ctor.body.statements);
                 }
                 emitCaptureThisForNodeIfNecessary(node);
+                var superCall;
                 if (ctor) {
                     emitDefaultValueAssignments(ctor);
                     emitRestParameter(ctor);
                     if (baseTypeElement) {
-                        var superCall = findInitialSuperCall(ctor);
+                        superCall = findInitialSuperCall(ctor);
                         if (superCall) {
                             writeLine();
                             emit(superCall);
@@ -33124,8 +33166,14 @@ var ts;
             }
             /** Serializes a TypeReferenceNode to an appropriate JS constructor value. Used by the __metadata decorator. */
             function emitSerializedTypeReferenceNode(node) {
-                var typeName = node.typeName;
-                var result = resolver.getTypeReferenceSerializationKind(node);
+                var location = node.parent;
+                while (ts.isDeclaration(location) || ts.isTypeNode(location)) {
+                    location = location.parent;
+                }
+                // Clone the type name and parent it to a location outside of the current declaration.
+                var typeName = ts.cloneEntityName(node.typeName);
+                typeName.parent = location;
+                var result = resolver.getTypeReferenceSerializationKind(typeName);
                 switch (result) {
                     case ts.TypeReferenceSerializationKind.Unknown:
                         var temp = createAndRecordTempVariable(0 /* Auto */);
@@ -33240,6 +33288,7 @@ var ts;
                         argumentsWritten++;
                     }
                     if (shouldEmitParamTypesMetadata(node)) {
+                        debugger;
                         if (writeComma || argumentsWritten) {
                             write(", ");
                         }
@@ -34492,7 +34541,7 @@ var ts;
                     if (ts.isLineBreak(c)) {
                         if (firstNonWhitespace !== -1 && (lastNonWhitespace - firstNonWhitespace + 1 > 0)) {
                             var part = text.substr(firstNonWhitespace, lastNonWhitespace - firstNonWhitespace + 1);
-                            result = (result ? result + '" + \' \' + "' : '') + part;
+                            result = (result ? result + "\" + ' ' + \"" : "") + part;
                         }
                         firstNonWhitespace = -1;
                     }
@@ -34505,7 +34554,7 @@ var ts;
                 }
                 if (firstNonWhitespace !== -1) {
                     var part = text.substr(firstNonWhitespace);
-                    result = (result ? result + '" + \' \' + "' : '') + part;
+                    result = (result ? result + "\" + ' ' + \"" : "") + part;
                 }
                 return result;
             }
@@ -34527,9 +34576,9 @@ var ts;
             function emitJsxText(node) {
                 switch (compilerOptions.jsx) {
                     case 2 /* React */:
-                        write('"');
+                        write("\"");
                         write(trimReactWhitespace(node));
-                        write('"');
+                        write("\"");
                         break;
                     case 1 /* Preserve */:
                     default:
@@ -34542,9 +34591,9 @@ var ts;
                     switch (compilerOptions.jsx) {
                         case 1 /* Preserve */:
                         default:
-                            write('{');
+                            write("{");
                             emit(node.expression);
-                            write('}');
+                            write("}");
                             break;
                         case 2 /* React */:
                             emit(node.expression);
@@ -35937,7 +35986,7 @@ var ts;
             // If we didn't have any syntactic errors, then also try getting the global and
             // semantic errors.
             if (diagnostics.length === 0) {
-                diagnostics = program.getGlobalDiagnostics();
+                diagnostics = program.getOptionsDiagnostics().concat(program.getGlobalDiagnostics());
                 if (diagnostics.length === 0) {
                     diagnostics = program.getSemanticDiagnostics();
                 }
@@ -41133,6 +41182,7 @@ var ts;
                     case 240 /* DefaultClause */:
                     case 239 /* CaseClause */:
                     case 170 /* ParenthesizedExpression */:
+                    case 164 /* PropertyAccessExpression */:
                     case 166 /* CallExpression */:
                     case 167 /* NewExpression */:
                     case 191 /* VariableStatement */:
@@ -43614,19 +43664,29 @@ var ts;
                         case 26 /* LessThanSlashToken */:
                         case 38 /* SlashToken */:
                         case 67 /* Identifier */:
+                        case 236 /* JsxAttribute */:
+                        case 237 /* JsxSpreadAttribute */:
                             if (parent_11 && (parent_11.kind === 232 /* JsxSelfClosingElement */ || parent_11.kind === 233 /* JsxOpeningElement */)) {
                                 return parent_11;
                             }
                             break;
+                        // The context token is the closing } or " of an attribute, which means
+                        // its parent is a JsxExpression, whose parent is a JsxAttribute,
+                        // whose parent is a JsxOpeningLikeElement
+                        case 9 /* StringLiteral */:
+                            if (parent_11 && ((parent_11.kind === 236 /* JsxAttribute */) || (parent_11.kind === 237 /* JsxSpreadAttribute */))) {
+                                return parent_11.parent;
+                            }
+                            break;
                         case 16 /* CloseBraceToken */:
-                            // The context token is the closing } of an attribute, which means
-                            // its parent is a JsxExpression, whose parent is a JsxAttribute,
-                            // whose parent is a JsxOpeningLikeElement
                             if (parent_11 &&
                                 parent_11.kind === 238 /* JsxExpression */ &&
                                 parent_11.parent &&
-                                parent_11.parent.kind === 236 /* JsxAttribute */) {
+                                (parent_11.parent.kind === 236 /* JsxAttribute */)) {
                                 return parent_11.parent.parent;
+                            }
+                            if (parent_11 && parent_11.kind === 237 /* JsxSpreadAttribute */) {
+                                return parent_11.parent;
                             }
                             break;
                     }
@@ -44697,7 +44757,7 @@ var ts;
                             case 68 /* BreakKeyword */:
                             case 73 /* ContinueKeyword */:
                                 if (hasKind(node.parent, 201 /* BreakStatement */) || hasKind(node.parent, 200 /* ContinueStatement */)) {
-                                    return getBreakOrContinueStatementOccurences(node.parent);
+                                    return getBreakOrContinueStatementOccurrences(node.parent);
                                 }
                                 break;
                             case 84 /* ForKeyword */:
@@ -44981,7 +45041,7 @@ var ts;
                     });
                     return ts.map(keywords, getHighlightSpanForNode);
                 }
-                function getBreakOrContinueStatementOccurences(breakOrContinueStatement) {
+                function getBreakOrContinueStatementOccurrences(breakOrContinueStatement) {
                     var owner = getBreakOrContinueOwner(breakOrContinueStatement);
                     if (owner) {
                         switch (owner.kind) {
