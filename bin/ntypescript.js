@@ -15651,8 +15651,10 @@ var ts;
             }
             return emptyArray;
         }
-        // Return the signatures of the given kind in the given type. Creates synthetic union signatures when necessary and
-        // maps primitive types and type parameters are to their apparent types.
+        /**
+         * Return the signatures of the given kind in the given type. Creates synthetic union signatures when necessary and
+         * maps primitive types and type parameters are to their apparent types.
+         */
         function getSignaturesOfType(type, kind) {
             return getSignaturesOfStructuredType(getApparentType(type), kind);
         }
@@ -17144,26 +17146,20 @@ var ts;
                 var targetSignatures = getSignaturesOfType(target, kind);
                 var result = -1 /* True */;
                 var saveErrorInfo = errorInfo;
-                // Because the "abstractness" of a class is the same across all construct signatures
-                // (internally we are checking the corresponding declaration), it is enough to perform 
-                // the check and report an error once over all pairs of source and target construct signatures.
-                var sourceSig = sourceSignatures[0];
-                // Note that in an extends-clause, targetSignatures is stripped, so the check never proceeds.
-                var targetSig = targetSignatures[0];
-                if (sourceSig && targetSig) {
-                    var sourceErasedSignature = getErasedSignature(sourceSig);
-                    var targetErasedSignature = getErasedSignature(targetSig);
-                    var sourceReturnType = sourceErasedSignature && getReturnTypeOfSignature(sourceErasedSignature);
-                    var targetReturnType = targetErasedSignature && getReturnTypeOfSignature(targetErasedSignature);
-                    var sourceReturnDecl = sourceReturnType && sourceReturnType.symbol && ts.getDeclarationOfKind(sourceReturnType.symbol, 212 /* ClassDeclaration */);
-                    var targetReturnDecl = targetReturnType && targetReturnType.symbol && ts.getDeclarationOfKind(targetReturnType.symbol, 212 /* ClassDeclaration */);
-                    var sourceIsAbstract = sourceReturnDecl && sourceReturnDecl.flags & 256 /* Abstract */;
-                    var targetIsAbstract = targetReturnDecl && targetReturnDecl.flags & 256 /* Abstract */;
-                    if (sourceIsAbstract && !targetIsAbstract) {
-                        if (reportErrors) {
-                            reportError(ts.Diagnostics.Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type);
-                        }
-                        return 0 /* False */;
+                if (kind === 1 /* Construct */) {
+                    // Only want to compare the construct signatures for abstractness guarantees.
+                    // Because the "abstractness" of a class is the same across all construct signatures
+                    // (internally we are checking the corresponding declaration), it is enough to perform 
+                    // the check and report an error once over all pairs of source and target construct signatures.
+                    //
+                    // sourceSig and targetSig are (possibly) undefined.
+                    //
+                    // Note that in an extends-clause, targetSignatures is stripped, so the check never proceeds.
+                    var sourceSig = sourceSignatures[0];
+                    var targetSig = targetSignatures[0];
+                    result &= abstractSignatureRelatedTo(source, sourceSig, target, targetSig);
+                    if (result !== -1 /* True */) {
+                        return result;
                     }
                 }
                 outer: for (var _i = 0; _i < targetSignatures.length; _i++) {
@@ -17188,6 +17184,33 @@ var ts;
                     }
                 }
                 return result;
+                function abstractSignatureRelatedTo(source, sourceSig, target, targetSig) {
+                    if (sourceSig && targetSig) {
+                        var sourceDecl = source.symbol && ts.getDeclarationOfKind(source.symbol, 212 /* ClassDeclaration */);
+                        var targetDecl = target.symbol && ts.getDeclarationOfKind(target.symbol, 212 /* ClassDeclaration */);
+                        if (!sourceDecl) {
+                            // If the source object isn't itself a class declaration, it can be freely assigned, regardless
+                            // of whether the constructed object is abstract or not.
+                            return -1 /* True */;
+                        }
+                        var sourceErasedSignature = getErasedSignature(sourceSig);
+                        var targetErasedSignature = getErasedSignature(targetSig);
+                        var sourceReturnType = sourceErasedSignature && getReturnTypeOfSignature(sourceErasedSignature);
+                        var targetReturnType = targetErasedSignature && getReturnTypeOfSignature(targetErasedSignature);
+                        var sourceReturnDecl = sourceReturnType && sourceReturnType.symbol && ts.getDeclarationOfKind(sourceReturnType.symbol, 212 /* ClassDeclaration */);
+                        var targetReturnDecl = targetReturnType && targetReturnType.symbol && ts.getDeclarationOfKind(targetReturnType.symbol, 212 /* ClassDeclaration */);
+                        var sourceIsAbstract = sourceReturnDecl && sourceReturnDecl.flags & 256 /* Abstract */;
+                        var targetIsAbstract = targetReturnDecl && targetReturnDecl.flags & 256 /* Abstract */;
+                        if (sourceIsAbstract && !(targetIsAbstract && targetDecl)) {
+                            // if target isn't a class-declaration type, then it can be new'd, so we forbid the assignment.
+                            if (reportErrors) {
+                                reportError(ts.Diagnostics.Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type);
+                            }
+                            return 0 /* False */;
+                        }
+                    }
+                    return -1 /* True */;
+                }
             }
             function signatureRelatedTo(source, target, reportErrors) {
                 if (source === target) {
