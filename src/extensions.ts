@@ -25,10 +25,12 @@ module ts {
     }
 }
 
+interface Global {
+}
 /**
  * Make ts a global variable (this means we have a consistent typescript definition file)
  */
-declare var global: any;
+declare var global: Global;
 if (typeof global !== "undefined") {
     (global as any).ts = ts;
 }
