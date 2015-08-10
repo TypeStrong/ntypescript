@@ -6597,10 +6597,12 @@ declare module ts {
      */
     function reportDiagnostic(diagnostic: Diagnostic): void;
 }
+interface Global {
+}
 /**
  * Make ts a global variable (this means we have a consistent typescript definition file)
  */
-declare var global: any;
+declare var global: Global;
 /**
  * Sample: Add additional options
  */
