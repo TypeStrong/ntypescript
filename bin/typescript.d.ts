@@ -463,9 +463,9 @@ declare namespace ts {
      * Several node kinds share function-like features such as a signature,
      * a name, and a body. These nodes should extend FunctionLikeDeclaration.
      * Examples:
-     *  FunctionDeclaration
-     *  MethodDeclaration
-     *  AccessorDeclaration
+     * - FunctionDeclaration
+     * - MethodDeclaration
+     * - AccessorDeclaration
      */
     interface FunctionLikeDeclaration extends SignatureDeclaration {
         _functionLikeDeclarationBrand: any;
@@ -1778,6 +1778,13 @@ declare namespace ts {
      * Returns the last element of an array if non-empty, undefined otherwise.
      */
     function lastOrUndefined<T>(array: T[]): T;
+    /**
+     * Performs a binary search, finding the index at which 'value' occurs in 'array'.
+     * If no such index is found, returns the 2's-complement of first index at which
+     * number[index] exceeds number.
+     * @param array A sorted array whose first element must be no larger than number
+     * @param number The value to be searched for in the array.
+     */
     function binarySearch(array: number[], value: number): number;
     function reduceLeft<T>(array: T[], f: (a: T, x: T) => T): T;
     function reduceLeft<T, U>(array: T[], f: (a: U, x: T) => U, initial: U): U;
@@ -4959,6 +4966,9 @@ declare namespace ts {
     function getPositionOfLineAndCharacter(sourceFile: SourceFile, line: number, character: number): number;
     function computePositionOfLineAndCharacter(lineStarts: number[], line: number, character: number): number;
     function getLineStarts(sourceFile: SourceFile): number[];
+    /**
+     * We assume the first line starts at position 0 and 'position' is non-negative.
+     */
     function computeLineAndCharacterOfPosition(lineStarts: number[], position: number): {
         line: number;
         character: number;
@@ -5387,6 +5397,14 @@ declare namespace ts {
     function findTokenOnLeftOfPosition(file: SourceFile, position: number): Node;
     function findNextToken(previousToken: Node, parent: Node): Node;
     function findPrecedingToken(position: number, sourceFile: SourceFile, startNode?: Node): Node;
+    function isInString(sourceFile: SourceFile, position: number): boolean;
+    function isInComment(sourceFile: SourceFile, position: number): boolean;
+    /**
+     * Returns true if the cursor at position in sourceFile is within a comment that additionally
+     * satisfies predicate, and false otherwise.
+     */
+    function isInCommentHelper(sourceFile: SourceFile, position: number, predicate?: (c: CommentRange) => boolean): boolean;
+    function hasDocComment(sourceFile: SourceFile, position: number): boolean;
     function getNodeModifiers(node: Node): string;
     function getTypeArgumentOrTypeParameterList(node: Node): NodeArray<Node>;
     function isToken(n: Node): boolean;
@@ -5407,6 +5425,10 @@ declare namespace ts {
     function operatorPart(kind: SyntaxKind): SymbolDisplayPart;
     function textOrKeywordPart(text: string): SymbolDisplayPart;
     function textPart(text: string): SymbolDisplayPart;
+    /**
+     * The default is CRLF.
+     */
+    function getNewLineOrDefaultFromHost(host: LanguageServiceHost | LanguageServiceShimHost): string;
     function lineBreakPart(): SymbolDisplayPart;
     function mapToDisplayParts(writeDisplayParts: (writer: DisplayPartsSymbolWriter) => void): SymbolDisplayPart[];
     function typeToDisplayParts(typechecker: TypeChecker, type: Type, enclosingDeclaration?: Node, flags?: TypeFormatFlags): SymbolDisplayPart[];
@@ -5932,6 +5954,7 @@ declare namespace ts {
         getFormattingEditsForRange(fileName: string, start: number, end: number, options: FormatCodeOptions): TextChange[];
         getFormattingEditsForDocument(fileName: string, options: FormatCodeOptions): TextChange[];
         getFormattingEditsAfterKeystroke(fileName: string, position: number, key: string, options: FormatCodeOptions): TextChange[];
+        getDocCommentTemplateAtPosition(fileName: string, position: number): TextInsertion;
         getEmitOutput(fileName: string): EmitOutput;
         getProgram(): Program;
         getSourceFile(fileName: string): SourceFile;
@@ -5967,6 +5990,11 @@ declare namespace ts {
     class TextChange {
         span: TextSpan;
         newText: string;
+    }
+    interface TextInsertion {
+        newText: string;
+        /** The position in newText the caret should point to after the insertion. */
+        caretOffset: number;
     }
     interface RenameLocation {
         textSpan: TextSpan;
@@ -6528,6 +6556,10 @@ declare namespace ts {
         getFormattingEditsForRange(fileName: string, start: number, end: number, options: string): string;
         getFormattingEditsForDocument(fileName: string, options: string): string;
         getFormattingEditsAfterKeystroke(fileName: string, position: number, key: string, options: string): string;
+        /**
+         * Returns JSON-encoded value of the type TextInsertion.
+         */
+        getDocCommentTemplateAtPosition(fileName: string, position: number): string;
         getEmitOutput(fileName: string): string;
     }
     interface ClassifierShim extends Shim {

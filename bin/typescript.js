@@ -984,6 +984,13 @@ var ts;
         return array[array.length - 1];
     }
     ts.lastOrUndefined = lastOrUndefined;
+    /**
+     * Performs a binary search, finding the index at which 'value' occurs in 'array'.
+     * If no such index is found, returns the 2's-complement of first index at which
+     * number[index] exceeds number.
+     * @param array A sorted array whose first element must be no larger than number
+     * @param number The value to be searched for in the array.
+     */
     function binarySearch(array, value) {
         var low = 0;
         var high = array.length - 1;
@@ -2438,14 +2445,21 @@ var ts;
     }
     ts.getLineStarts = getLineStarts;
     /* @internal */
+    /**
+     * We assume the first line starts at position 0 and 'position' is non-negative.
+     */
     function computeLineAndCharacterOfPosition(lineStarts, position) {
         var lineNumber = ts.binarySearch(lineStarts, position);
         if (lineNumber < 0) {
             // If the actual position was not found,
-            // the binary search returns the negative value of the next line start
+            // the binary search returns the 2's-complement of the next line start
             // e.g. if the line starts at [5, 10, 23, 80] and the position requested was 20
-            // then the search will return -2
+            // then the search will return -2.
+            //
+            // We want the index of the previous line start, so we subtract 1.
+            // Review 2's-complement if this is confusing.
             lineNumber = ~lineNumber - 1;
+            ts.Debug.assert(lineNumber !== -1, "position cannot precede the beginning of the file");
         }
         return {
             line: lineNumber,
@@ -2651,13 +2665,17 @@ var ts;
         pos = pos + shebang.length;
         return pos;
     }
-    // Extract comments from the given source text starting at the given position. If trailing is
-    // false, whitespace is skipped until the first line break and comments between that location
-    // and the next token are returned.If trailing is true, comments occurring between the given
-    // position and the next line break are returned.The return value is an array containing a
-    // TextRange for each comment. Single-line comment ranges include the beginning '//' characters
-    // but not the ending line break. Multi - line comment ranges include the beginning '/* and
-    // ending '*/' characters.The return value is undefined if no comments were found.
+    /**
+     * Extract comments from text prefixing the token closest following `pos`.
+     * The return value is an array containing a TextRange for each comment.
+     * Single-line comment ranges include the beginning '//' characters but not the ending line break.
+     * Multi - line comment ranges include the beginning '/* and ending '<asterisk>/' characters.
+     * The return value is undefined if no comments were found.
+     * @param trailing
+     * If false, whitespace is skipped until the first line break and comments between that location
+     * and the next token are returned.
+     * If true, comments occurring between the given position and the next line break are returned.
+     */
     function getCommentRanges(text, pos, trailing) {
         var result;
         var collecting = trailing || pos === 0;
@@ -28714,10 +28732,8 @@ var ts;
                         //      emit    : declare function foo({y: [a, b, c]}: { y: [any, any, any] }) void;
                         writeTextOfNode(currentSourceFile, bindingElement.propertyName);
                         write(": ");
-                        // If bindingElement has propertyName property, then its name must be another bindingPattern of SyntaxKind.ObjectBindingPattern
-                        emitBindingPattern(bindingElement.name);
                     }
-                    else if (bindingElement.name) {
+                    if (bindingElement.name) {
                         if (ts.isBindingPattern(bindingElement.name)) {
                             // If it is a nested binding pattern, we will recursively descend into each element and emit each one separately.
                             // In the case of rest element, we will omit rest element.
@@ -31515,31 +31531,35 @@ var ts;
                 }
             }
             function emitExportMemberAssignments(name) {
+                if (compilerOptions.module === 4 /* System */) {
+                    return;
+                }
                 if (!exportEquals && exportSpecifiers && ts.hasProperty(exportSpecifiers, name.text)) {
                     for (var _a = 0, _b = exportSpecifiers[name.text]; _a < _b.length; _a++) {
                         var specifier = _b[_a];
                         writeLine();
-                        if (compilerOptions.module === 4 /* System */) {
-                            emitStart(specifier.name);
-                            write(exportFunctionForFile + "(\"");
-                            emitNodeWithoutSourceMap(specifier.name);
-                            write("\", ");
-                            emitExpressionIdentifier(name);
-                            write(")");
-                            emitEnd(specifier.name);
-                        }
-                        else {
-                            emitStart(specifier.name);
-                            emitContainingModuleName(specifier);
-                            write(".");
-                            emitNodeWithoutSourceMap(specifier.name);
-                            emitEnd(specifier.name);
-                            write(" = ");
-                            emitExpressionIdentifier(name);
-                        }
+                        emitStart(specifier.name);
+                        emitContainingModuleName(specifier);
+                        write(".");
+                        emitNodeWithoutSourceMap(specifier.name);
+                        emitEnd(specifier.name);
+                        write(" = ");
+                        emitExpressionIdentifier(name);
                         write(";");
                     }
                 }
+            }
+            function emitExportSpecifierInSystemModule(specifier) {
+                ts.Debug.assert(compilerOptions.module === 4 /* System */);
+                writeLine();
+                emitStart(specifier.name);
+                write(exportFunctionForFile + "(\"");
+                emitNodeWithoutSourceMap(specifier.name);
+                write("\", ");
+                emitExpressionIdentifier(specifier.propertyName || specifier.name);
+                write(")");
+                emitEnd(specifier.name);
+                write(";");
             }
             function emitDestructuring(root, isAssignmentExpressionStatement, value) {
                 var emitCount = 0;
@@ -34195,7 +34215,7 @@ var ts;
             function isCurrentFileSystemExternalModule() {
                 return compilerOptions.module === 4 /* System */ && ts.isExternalModule(currentSourceFile);
             }
-            function emitSystemModuleBody(node, startIndex) {
+            function emitSystemModuleBody(node, dependencyGroups, startIndex) {
                 // shape of the body in system modules:
                 // function (exports) {
                 //     <list of local aliases for imports>
@@ -34240,7 +34260,7 @@ var ts;
                 write("return {");
                 increaseIndent();
                 writeLine();
-                emitSetters(exportStarFunction);
+                emitSetters(exportStarFunction, dependencyGroups);
                 writeLine();
                 emitExecute(node, startIndex);
                 decreaseIndent();
@@ -34248,104 +34268,78 @@ var ts;
                 write("}"); // return
                 emitTempDeclarations(true);
             }
-            function emitSetters(exportStarFunction) {
+            function emitSetters(exportStarFunction, dependencyGroups) {
                 write("setters:[");
-                for (var i = 0; i < externalImports.length; ++i) {
+                for (var i = 0; i < dependencyGroups.length; ++i) {
                     if (i !== 0) {
                         write(",");
                     }
                     writeLine();
                     increaseIndent();
-                    var importNode = externalImports[i];
-                    var importVariableName = getLocalNameForExternalImport(importNode) || "";
-                    var parameterName = "_" + importVariableName;
+                    var group = dependencyGroups[i];
+                    // derive a unique name for parameter from the first named entry in the group
+                    var parameterName = makeUniqueName(ts.forEach(group, getLocalNameForExternalImport) || "");
                     write("function (" + parameterName + ") {");
-                    switch (importNode.kind) {
-                        case 220 /* ImportDeclaration */:
-                            if (!importNode.importClause) {
-                                // 'import "..."' case
-                                // module is imported only for side-effects, setter body will be empty
-                                break;
-                            }
-                        // fall-through
-                        case 219 /* ImportEqualsDeclaration */:
-                            ts.Debug.assert(importVariableName !== "");
-                            increaseIndent();
-                            writeLine();
-                            // save import into the local
-                            write(importVariableName + " = " + parameterName + ";");
-                            writeLine();
-                            var defaultName = importNode.kind === 220 /* ImportDeclaration */
-                                ? importNode.importClause.name
-                                : importNode.name;
-                            if (defaultName) {
-                                // emit re-export for imported default name
-                                // import n1 from 'foo1'
-                                // import n2 = require('foo2')
-                                // export {n1}
-                                // export {n2}
-                                emitExportMemberAssignments(defaultName);
+                    increaseIndent();
+                    for (var _a = 0; _a < group.length; _a++) {
+                        var entry = group[_a];
+                        var importVariableName = getLocalNameForExternalImport(entry) || "";
+                        switch (entry.kind) {
+                            case 220 /* ImportDeclaration */:
+                                if (!entry.importClause) {
+                                    // 'import "..."' case
+                                    // module is imported only for side-effects, no emit required
+                                    break;
+                                }
+                            // fall-through
+                            case 219 /* ImportEqualsDeclaration */:
+                                ts.Debug.assert(importVariableName !== "");
                                 writeLine();
-                            }
-                            if (importNode.kind === 220 /* ImportDeclaration */ &&
-                                importNode.importClause.namedBindings) {
-                                var namedBindings = importNode.importClause.namedBindings;
-                                if (namedBindings.kind === 222 /* NamespaceImport */) {
-                                    // emit re-export for namespace
-                                    // import * as n from 'foo'
-                                    // export {n}
-                                    emitExportMemberAssignments(namedBindings.name);
+                                // save import into the local
+                                write(importVariableName + " = " + parameterName + ";");
+                                writeLine();
+                                break;
+                            case 226 /* ExportDeclaration */:
+                                ts.Debug.assert(importVariableName !== "");
+                                if (entry.exportClause) {
+                                    // export {a, b as c} from 'foo'
+                                    // emit as:
+                                    // exports_({
+                                    //    "a": _["a"],
+                                    //    "c": _["b"]
+                                    // });
                                     writeLine();
+                                    write(exportFunctionForFile + "({");
+                                    writeLine();
+                                    increaseIndent();
+                                    for (var i_2 = 0, len = entry.exportClause.elements.length; i_2 < len; ++i_2) {
+                                        if (i_2 !== 0) {
+                                            write(",");
+                                            writeLine();
+                                        }
+                                        var e = entry.exportClause.elements[i_2];
+                                        write("\"");
+                                        emitNodeWithoutSourceMap(e.name);
+                                        write("\": " + parameterName + "[\"");
+                                        emitNodeWithoutSourceMap(e.propertyName || e.name);
+                                        write("\"]");
+                                    }
+                                    decreaseIndent();
+                                    writeLine();
+                                    write("});");
                                 }
                                 else {
-                                    // emit re-exports for named imports
-                                    // import {a, b} from 'foo'
-                                    // export {a, b as c}
-                                    for (var _a = 0, _b = namedBindings.elements; _a < _b.length; _a++) {
-                                        var element = _b[_a];
-                                        emitExportMemberAssignments(element.name || element.propertyName);
-                                        writeLine();
-                                    }
-                                }
-                            }
-                            decreaseIndent();
-                            break;
-                        case 226 /* ExportDeclaration */:
-                            ts.Debug.assert(importVariableName !== "");
-                            increaseIndent();
-                            if (importNode.exportClause) {
-                                // export {a, b as c} from 'foo'
-                                // emit as:
-                                // var reexports = {}
-                                // reexports['a'] = _foo["a"];
-                                // reexports['c'] = _foo["b"];
-                                // exports_(reexports);
-                                var reexportsVariableName = makeUniqueName("reexports");
-                                writeLine();
-                                write("var " + reexportsVariableName + " = {};");
-                                writeLine();
-                                for (var _c = 0, _d = importNode.exportClause.elements; _c < _d.length; _c++) {
-                                    var e = _d[_c];
-                                    write(reexportsVariableName + "[\"");
-                                    emitNodeWithoutSourceMap(e.name);
-                                    write("\"] = " + parameterName + "[\"");
-                                    emitNodeWithoutSourceMap(e.propertyName || e.name);
-                                    write("\"];");
                                     writeLine();
+                                    // export * from 'foo'
+                                    // emit as:
+                                    // exportStar(_foo);
+                                    write(exportStarFunction + "(" + parameterName + ");");
                                 }
-                                write(exportFunctionForFile + "(" + reexportsVariableName + ");");
-                            }
-                            else {
                                 writeLine();
-                                // export * from 'foo'
-                                // emit as:
-                                // exportStar(_foo);
-                                write(exportStarFunction + "(" + parameterName + ");");
-                            }
-                            writeLine();
-                            decreaseIndent();
-                            break;
+                                break;
+                        }
                     }
+                    decreaseIndent();
                     write("}");
                     decreaseIndent();
                 }
@@ -34357,20 +34351,33 @@ var ts;
                 writeLine();
                 for (var i = startIndex; i < node.statements.length; ++i) {
                     var statement = node.statements[i];
-                    // - external module related imports/exports are not emitted for system modules
-                    // - function declarations are not emitted because they were already hoisted
                     switch (statement.kind) {
-                        case 226 /* ExportDeclaration */:
-                        case 220 /* ImportDeclaration */:
+                        // - function declarations are not emitted because they were already hoisted
+                        // - import declarations are not emitted since they are already handled in setters
+                        // - export declarations with module specifiers are not emitted since they were already written in setters
+                        // - export declarations without module specifiers are emitted preserving the order
                         case 211 /* FunctionDeclaration */:
+                        case 220 /* ImportDeclaration */:
+                            continue;
+                        case 226 /* ExportDeclaration */:
+                            if (!statement.moduleSpecifier) {
+                                for (var _a = 0, _b = statement.exportClause.elements; _a < _b.length; _a++) {
+                                    var element = _b[_a];
+                                    // write call to exporter function for every export specifier in exports list
+                                    emitExportSpecifierInSystemModule(element);
+                                }
+                            }
                             continue;
                         case 219 /* ImportEqualsDeclaration */:
                             if (!ts.isInternalModuleImportEqualsDeclaration(statement)) {
+                                // - import equals declarations that import external modules are not emitted
                                 continue;
                             }
+                        // fall-though for import declarations that import internal modules
+                        default:
+                            writeLine();
+                            emit(statement);
                     }
-                    writeLine();
-                    emit(statement);
                 }
                 decreaseIndent();
                 writeLine();
@@ -34395,8 +34402,20 @@ var ts;
                     write("\"" + node.moduleName + "\", ");
                 }
                 write("[");
+                var groupIndices = {};
+                var dependencyGroups = [];
                 for (var i = 0; i < externalImports.length; ++i) {
                     var text = getExternalModuleNameText(externalImports[i]);
+                    if (ts.hasProperty(groupIndices, text)) {
+                        // deduplicate/group entries in dependency list by the dependency name
+                        var groupIndex = groupIndices[text];
+                        dependencyGroups[groupIndex].push(externalImports[i]);
+                        continue;
+                    }
+                    else {
+                        groupIndices[text] = dependencyGroups.length;
+                        dependencyGroups.push([externalImports[i]]);
+                    }
                     if (i !== 0) {
                         write(", ");
                     }
@@ -34407,7 +34426,7 @@ var ts;
                 increaseIndent();
                 emitEmitHelpers(node);
                 emitCaptureThisForNodeIfNecessary(node);
-                emitSystemModuleBody(node, startIndex);
+                emitSystemModuleBody(node, dependencyGroups, startIndex);
                 decreaseIndent();
                 writeLine();
                 write("});");
@@ -38390,6 +38409,54 @@ var ts;
         }
     }
     ts.findPrecedingToken = findPrecedingToken;
+    function isInString(sourceFile, position) {
+        var token = getTokenAtPosition(sourceFile, position);
+        return token && token.kind === 9 /* StringLiteral */ && position > token.getStart();
+    }
+    ts.isInString = isInString;
+    function isInComment(sourceFile, position) {
+        return isInCommentHelper(sourceFile, position, undefined);
+    }
+    ts.isInComment = isInComment;
+    /**
+     * Returns true if the cursor at position in sourceFile is within a comment that additionally
+     * satisfies predicate, and false otherwise.
+     */
+    function isInCommentHelper(sourceFile, position, predicate) {
+        var token = getTokenAtPosition(sourceFile, position);
+        if (token && position <= token.getStart()) {
+            var commentRanges = ts.getLeadingCommentRanges(sourceFile.text, token.pos);
+            // The end marker of a single-line comment does not include the newline character.
+            // In the following case, we are inside a comment (^ denotes the cursor position):
+            //
+            //    // asdf   ^\n
+            //
+            // But for multi-line comments, we don't want to be inside the comment in the following case:
+            //
+            //    /* asdf */^
+            //
+            // Internally, we represent the end of the comment at the newline and closing '/', respectively.
+            return predicate ?
+                ts.forEach(commentRanges, function (c) { return c.pos < position &&
+                    (c.kind == 2 /* SingleLineCommentTrivia */ ? position <= c.end : position < c.end) &&
+                    predicate(c); }) :
+                ts.forEach(commentRanges, function (c) { return c.pos < position &&
+                    (c.kind == 2 /* SingleLineCommentTrivia */ ? position <= c.end : position < c.end); });
+        }
+        return false;
+    }
+    ts.isInCommentHelper = isInCommentHelper;
+    function hasDocComment(sourceFile, position) {
+        var token = getTokenAtPosition(sourceFile, position);
+        // First, we have to see if this position actually landed in a comment.
+        var commentRanges = ts.getLeadingCommentRanges(sourceFile.text, token.pos);
+        return ts.forEach(commentRanges, jsDocPrefix);
+        function jsDocPrefix(c) {
+            var text = sourceFile.text;
+            return text.length >= c.pos + 3 && text[c.pos] === '/' && text[c.pos + 1] === '*' && text[c.pos + 2] === '*';
+        }
+    }
+    ts.hasDocComment = hasDocComment;
     function nodeHasTokens(n) {
         // If we have a token or node that has a non-zero width, it must have tokens.
         // Note, that getWidth() does not take trivia into account.
@@ -38616,6 +38683,14 @@ var ts;
         return displayPart(text, ts.SymbolDisplayPartKind.text);
     }
     ts.textPart = textPart;
+    var carriageReturnLineFeed = "\r\n";
+    /**
+     * The default is CRLF.
+     */
+    function getNewLineOrDefaultFromHost(host) {
+        return host.getNewLine ? host.getNewLine() : carriageReturnLineFeed;
+    }
+    ts.getNewLineOrDefaultFromHost = getNewLineOrDefaultFromHost;
     function lineBreakPart() {
         return displayPart("\n", ts.SymbolDisplayPartKind.lineBreak);
     }
@@ -42942,7 +43017,7 @@ var ts;
                 getCancellationToken: function () { return cancellationToken; },
                 getCanonicalFileName: getCanonicalFileName,
                 useCaseSensitiveFileNames: function () { return useCaseSensitivefileNames; },
-                getNewLine: function () { return host.getNewLine ? host.getNewLine() : "\r\n"; },
+                getNewLine: function () { return ts.getNewLineOrDefaultFromHost(host); },
                 getDefaultLibFileName: function (options) { return host.getDefaultLibFileName(options); },
                 writeFile: function (fileName, data, writeByteOrderMark) { },
                 getCurrentDirectory: function () { return host.getCurrentDirectory(); }
@@ -45504,8 +45579,8 @@ var ts;
                             // This wasn't the start of a token.  Check to see if it might be a 
                             // match in a comment or string if that's what the caller is asking
                             // for.
-                            if ((findInStrings && isInString(position)) ||
-                                (findInComments && isInComment(position))) {
+                            if ((findInStrings && ts.isInString(sourceFile, position)) ||
+                                (findInComments && isInNonReferenceComment(sourceFile, position))) {
                                 // In the case where we're looking inside comments/strings, we don't have
                                 // an actual definition.  So just use 'undefined' here.  Features like
                                 // 'Rename' won't care (as they ignore the definitions), and features like
@@ -45554,27 +45629,12 @@ var ts;
                     }
                     return result[index];
                 }
-                function isInString(position) {
-                    var token = ts.getTokenAtPosition(sourceFile, position);
-                    return token && token.kind === 9 /* StringLiteral */ && position > token.getStart();
-                }
-                function isInComment(position) {
-                    var token = ts.getTokenAtPosition(sourceFile, position);
-                    if (token && position < token.getStart()) {
-                        // First, we have to see if this position actually landed in a comment.
-                        var commentRanges = ts.getLeadingCommentRanges(sourceFile.text, token.pos);
-                        // Then we want to make sure that it wasn't in a "///<" directive comment
-                        // We don't want to unintentionally update a file name.
-                        return ts.forEach(commentRanges, function (c) {
-                            if (c.pos < position && position < c.end) {
-                                var commentText = sourceFile.text.substring(c.pos, c.end);
-                                if (!tripleSlashDirectivePrefixRegex.test(commentText)) {
-                                    return true;
-                                }
-                            }
-                        });
+                function isInNonReferenceComment(sourceFile, position) {
+                    return ts.isInCommentHelper(sourceFile, position, isNonReferenceComment);
+                    function isNonReferenceComment(c) {
+                        var commentText = sourceFile.text.substring(c.pos, c.end);
+                        return !tripleSlashDirectivePrefixRegex.test(commentText);
                     }
-                    return false;
                 }
             }
             function getReferencesForSuperKeyword(superKeyword) {
@@ -46626,6 +46686,67 @@ var ts;
             }
             return [];
         }
+        /**
+         * Checks if position points to a valid position to add JSDoc comments, and if so,
+         * returns the appropriate template. Otherwise returns an empty string.
+         * Valid positions are
+         * - outside of comments, statements, and expressions, and
+         * - preceding a function declaration.
+         *
+         * Hosts should ideally check that:
+         * - The line is all whitespace up to 'position' before performing the insertion.
+         * - If the keystroke sequence "/\*\*" induced the call, we also check that the next
+         * non-whitespace character is '*', which (approximately) indicates whether we added
+         * the second '*' to complete an existing (JSDoc) comment.
+         * @param fileName The file in which to perform the check.
+         * @param position The (character-indexed) position in the file where the check should
+         * be performed.
+         */
+        function getDocCommentTemplateAtPosition(fileName, position) {
+            var start = new Date().getTime();
+            var sourceFile = syntaxTreeCache.getCurrentSourceFile(fileName);
+            // Check if in a context where we don't want to perform any insertion
+            if (ts.isInString(sourceFile, position) || ts.isInComment(sourceFile, position) || ts.hasDocComment(sourceFile, position)) {
+                return undefined;
+            }
+            var tokenAtPos = ts.getTokenAtPosition(sourceFile, position);
+            var tokenStart = tokenAtPos.getStart();
+            if (!tokenAtPos || tokenStart < position) {
+                return undefined;
+            }
+            // TODO: add support for:
+            // - methods
+            // - constructors
+            // - class decls
+            var containingFunction = ts.getAncestor(tokenAtPos, 211 /* FunctionDeclaration */);
+            if (!containingFunction || containingFunction.getStart() < position) {
+                return undefined;
+            }
+            var parameters = containingFunction.parameters;
+            var posLineAndChar = sourceFile.getLineAndCharacterOfPosition(position);
+            var lineStart = sourceFile.getLineStarts()[posLineAndChar.line];
+            var indentationStr = sourceFile.text.substr(lineStart, posLineAndChar.character);
+            // TODO: call a helper method instead once PR #4133 gets merged in.
+            var newLine = host.getNewLine ? host.getNewLine() : "\r\n";
+            var docParams = parameters.reduce(function (prev, cur, index) {
+                return prev +
+                    indentationStr + " * @param " + (cur.name.kind === 67 /* Identifier */ ? cur.name.text : "param" + index) + newLine;
+            }, "");
+            // A doc comment consists of the following
+            // * The opening comment line
+            // * the first line (without a param) for the object's untagged info (this is also where the caret ends up)
+            // * the '@param'-tagged lines
+            // * TODO: other tags.
+            // * the closing comment line
+            // * if the caret was directly in front of the object, then we add an extra line and indentation.
+            var preamble = "/**" + newLine +
+                indentationStr + " * ";
+            var result = preamble + newLine +
+                docParams +
+                indentationStr + " */" +
+                (tokenStart === position ? newLine + indentationStr : "");
+            return { newText: result, caretOffset: preamble.length };
+        }
         function getTodoComments(fileName, descriptors) {
             // Note: while getting todo comments seems like a syntactic operation, we actually 
             // treat it as a semantic operation here.  This is because we expect our host to call
@@ -46836,6 +46957,7 @@ var ts;
             getFormattingEditsForRange: getFormattingEditsForRange,
             getFormattingEditsForDocument: getFormattingEditsForDocument,
             getFormattingEditsAfterKeystroke: getFormattingEditsAfterKeystroke,
+            getDocCommentTemplateAtPosition: getDocCommentTemplateAtPosition,
             getEmitOutput: getEmitOutput,
             getSourceFile: getSourceFile,
             getProgram: getProgram
@@ -48062,7 +48184,7 @@ var ts;
             });
         };
         LanguageServiceShimObject.prototype.realizeDiagnostics = function (diagnostics) {
-            var newLine = this.getNewLine();
+            var newLine = ts.getNewLineOrDefaultFromHost(this.host);
             return ts.realizeDiagnostics(diagnostics, newLine);
         };
         LanguageServiceShimObject.prototype.getSyntacticClassifications = function (fileName, start, length) {
@@ -48094,9 +48216,6 @@ var ts;
                 // on the managed side versus a full JSON array.
                 return convertClassifications(_this.languageService.getEncodedSemanticClassifications(fileName, ts.createTextSpan(start, length)));
             });
-        };
-        LanguageServiceShimObject.prototype.getNewLine = function () {
-            return this.host.getNewLine ? this.host.getNewLine() : "\r\n";
         };
         LanguageServiceShimObject.prototype.getSyntacticDiagnostics = function (fileName) {
             var _this = this;
@@ -48281,6 +48400,10 @@ var ts;
                 var edits = _this.languageService.getFormattingEditsAfterKeystroke(fileName, position, key, localOptions);
                 return edits;
             });
+        };
+        LanguageServiceShimObject.prototype.getDocCommentTemplateAtPosition = function (fileName, position) {
+            var _this = this;
+            return this.forwardJSONCall("getDocCommentTemplateAtPosition('" + fileName + "', " + position + ")", function () { return _this.languageService.getDocCommentTemplateAtPosition(fileName, position); });
         };
         /// NAVIGATE TO
         /** Return a list of symbols that are interesting to navigate to */
