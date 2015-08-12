@@ -5608,6 +5608,7 @@ declare namespace ts.formatting {
         NoSpaceAfterOpenAngularBracket: Rule;
         NoSpaceBeforeCloseAngularBracket: Rule;
         NoSpaceAfterCloseAngularBracket: Rule;
+        NoSpaceAfterTypeAssertion: Rule;
         NoSpaceBetweenEmptyInterfaceBraceBrackets: Rule;
         HighPriorityCommonRules: Rule[];
         LowPriorityCommonRules: Rule[];
@@ -5676,8 +5677,9 @@ declare namespace ts.formatting {
         static IsNotFormatOnEnter(context: FormattingContext): boolean;
         static IsModuleDeclContext(context: FormattingContext): boolean;
         static IsObjectTypeContext(context: FormattingContext): boolean;
-        static IsTypeArgumentOrParameter(token: TextRangeWithKind, parent: Node): boolean;
-        static IsTypeArgumentOrParameterContext(context: FormattingContext): boolean;
+        static IsTypeArgumentOrParameterOrAssertion(token: TextRangeWithKind, parent: Node): boolean;
+        static IsTypeArgumentOrParameterOrAssertionContext(context: FormattingContext): boolean;
+        static IsTypeAssertionContext(context: FormattingContext): boolean;
         static IsVoidOpContext(context: FormattingContext): boolean;
         static IsYieldOrYieldStarWithOperand(context: FormattingContext): boolean;
     }

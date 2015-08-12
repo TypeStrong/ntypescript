@@ -7587,6 +7587,9 @@ var ts;
         function scanJsxIdentifier() {
             return token = scanner.scanJsxIdentifier();
         }
+        function scanJsxText() {
+            return token = scanner.scanJsxToken();
+        }
         function speculationHelper(callback, isLookAhead) {
             // Keep track of the state we'll need to rollback to if lookahead fails (or if the
             // caller asked us to always reset our state).
@@ -7644,9 +7647,12 @@ var ts;
             }
             return token > 103 /* LastReservedWord */;
         }
-        function parseExpected(kind, diagnosticMessage) {
+        function parseExpected(kind, diagnosticMessage, shouldAdvance) {
+            if (shouldAdvance === void 0) { shouldAdvance = true; }
             if (token === kind) {
-                nextToken();
+                if (shouldAdvance) {
+                    nextToken();
+                }
                 return true;
             }
             // Report specific message if provided with one.  Otherwise, report generic fallback message.
@@ -9602,7 +9608,7 @@ var ts;
                         return parseTypeAssertion();
                     }
                     if (lookAhead(nextTokenIsIdentifierOrKeyword)) {
-                        return parseJsxElementOrSelfClosingElement();
+                        return parseJsxElementOrSelfClosingElement(true);
                     }
                 // Fall through
                 default:
@@ -9723,13 +9729,13 @@ var ts;
             node.name = parseRightSideOfDot(true);
             return finishNode(node);
         }
-        function parseJsxElementOrSelfClosingElement() {
-            var opening = parseJsxOpeningOrSelfClosingElement();
+        function parseJsxElementOrSelfClosingElement(inExpressionContext) {
+            var opening = parseJsxOpeningOrSelfClosingElement(inExpressionContext);
             if (opening.kind === 233 /* JsxOpeningElement */) {
                 var node = createNode(231 /* JsxElement */, opening.pos);
                 node.openingElement = opening;
                 node.children = parseJsxChildren(node.openingElement.tagName);
-                node.closingElement = parseJsxClosingElement();
+                node.closingElement = parseJsxClosingElement(inExpressionContext);
                 return finishNode(node);
             }
             else {
@@ -9748,9 +9754,9 @@ var ts;
                 case 234 /* JsxText */:
                     return parseJsxText();
                 case 15 /* OpenBraceToken */:
-                    return parseJsxExpression();
+                    return parseJsxExpression(false);
                 case 25 /* LessThanToken */:
-                    return parseJsxElementOrSelfClosingElement();
+                    return parseJsxElementOrSelfClosingElement(false);
             }
             ts.Debug.fail("Unknown JSX child kind " + token);
         }
@@ -9774,18 +9780,28 @@ var ts;
             parsingContext = saveParsingContext;
             return result;
         }
-        function parseJsxOpeningOrSelfClosingElement() {
+        function parseJsxOpeningOrSelfClosingElement(inExpressionContext) {
             var fullStart = scanner.getStartPos();
             parseExpected(25 /* LessThanToken */);
             var tagName = parseJsxElementName();
             var attributes = parseList(13 /* JsxAttributes */, parseJsxAttribute);
             var node;
-            if (parseOptional(27 /* GreaterThanToken */)) {
+            if (token === 27 /* GreaterThanToken */) {
+                // Closing tag, so scan the immediately-following text with the JSX scanning instead
+                // of regular scanning to avoid treating illegal characters (e.g. '#') as immediate
+                // scanning errors
                 node = createNode(233 /* JsxOpeningElement */, fullStart);
+                scanJsxText();
             }
             else {
                 parseExpected(38 /* SlashToken */);
-                parseExpected(27 /* GreaterThanToken */);
+                if (inExpressionContext) {
+                    parseExpected(27 /* GreaterThanToken */);
+                }
+                else {
+                    parseExpected(27 /* GreaterThanToken */, undefined, false);
+                    scanJsxText();
+                }
                 node = createNode(232 /* JsxSelfClosingElement */, fullStart);
             }
             node.tagName = tagName;
@@ -9804,13 +9820,19 @@ var ts;
             }
             return elementName;
         }
-        function parseJsxExpression() {
+        function parseJsxExpression(inExpressionContext) {
             var node = createNode(238 /* JsxExpression */);
             parseExpected(15 /* OpenBraceToken */);
             if (token !== 16 /* CloseBraceToken */) {
                 node.expression = parseExpression();
             }
-            parseExpected(16 /* CloseBraceToken */);
+            if (inExpressionContext) {
+                parseExpected(16 /* CloseBraceToken */);
+            }
+            else {
+                parseExpected(16 /* CloseBraceToken */, undefined, false);
+                scanJsxText();
+            }
             return finishNode(node);
         }
         function parseJsxAttribute() {
@@ -9826,7 +9848,7 @@ var ts;
                         node.initializer = parseLiteralNode();
                         break;
                     default:
-                        node.initializer = parseJsxExpression();
+                        node.initializer = parseJsxExpression(true);
                         break;
                 }
             }
@@ -9840,11 +9862,17 @@ var ts;
             parseExpected(16 /* CloseBraceToken */);
             return finishNode(node);
         }
-        function parseJsxClosingElement() {
+        function parseJsxClosingElement(inExpressionContext) {
             var node = createNode(235 /* JsxClosingElement */);
             parseExpected(26 /* LessThanSlashToken */);
             node.tagName = parseJsxElementName();
-            parseExpected(27 /* GreaterThanToken */);
+            if (inExpressionContext) {
+                parseExpected(27 /* GreaterThanToken */);
+            }
+            else {
+                parseExpected(27 /* GreaterThanToken */, undefined, false);
+                scanJsxText();
+            }
             return finishNode(node);
         }
         function parseTypeAssertion() {
@@ -39308,12 +39336,13 @@ var ts;
                 // Optional parameters and let args
                 this.NoSpaceAfterEllipsis = new formatting.Rule(formatting.RuleDescriptor.create1(22 /* DotDotDotToken */, 67 /* Identifier */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 this.NoSpaceAfterOptionalParameters = new formatting.Rule(formatting.RuleDescriptor.create3(52 /* QuestionToken */, formatting.Shared.TokenRange.FromTokens([18 /* CloseParenToken */, 24 /* CommaToken */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsNotBinaryOpContext), 8 /* Delete */));
-                // generics
-                this.NoSpaceBeforeOpenAngularBracket = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.TypeNames, 25 /* LessThanToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeArgumentOrParameterContext), 8 /* Delete */));
-                this.NoSpaceBetweenCloseParenAndAngularBracket = new formatting.Rule(formatting.RuleDescriptor.create1(18 /* CloseParenToken */, 25 /* LessThanToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeArgumentOrParameterContext), 8 /* Delete */));
-                this.NoSpaceAfterOpenAngularBracket = new formatting.Rule(formatting.RuleDescriptor.create3(25 /* LessThanToken */, formatting.Shared.TokenRange.TypeNames), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeArgumentOrParameterContext), 8 /* Delete */));
-                this.NoSpaceBeforeCloseAngularBracket = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 27 /* GreaterThanToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeArgumentOrParameterContext), 8 /* Delete */));
-                this.NoSpaceAfterCloseAngularBracket = new formatting.Rule(formatting.RuleDescriptor.create3(27 /* GreaterThanToken */, formatting.Shared.TokenRange.FromTokens([17 /* OpenParenToken */, 19 /* OpenBracketToken */, 27 /* GreaterThanToken */, 24 /* CommaToken */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeArgumentOrParameterContext), 8 /* Delete */));
+                // generics and type assertions
+                this.NoSpaceBeforeOpenAngularBracket = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.TypeNames, 25 /* LessThanToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeArgumentOrParameterOrAssertionContext), 8 /* Delete */));
+                this.NoSpaceBetweenCloseParenAndAngularBracket = new formatting.Rule(formatting.RuleDescriptor.create1(18 /* CloseParenToken */, 25 /* LessThanToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeArgumentOrParameterOrAssertionContext), 8 /* Delete */));
+                this.NoSpaceAfterOpenAngularBracket = new formatting.Rule(formatting.RuleDescriptor.create3(25 /* LessThanToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeArgumentOrParameterOrAssertionContext), 8 /* Delete */));
+                this.NoSpaceBeforeCloseAngularBracket = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 27 /* GreaterThanToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeArgumentOrParameterOrAssertionContext), 8 /* Delete */));
+                this.NoSpaceAfterCloseAngularBracket = new formatting.Rule(formatting.RuleDescriptor.create3(27 /* GreaterThanToken */, formatting.Shared.TokenRange.FromTokens([17 /* OpenParenToken */, 19 /* OpenBracketToken */, 27 /* GreaterThanToken */, 24 /* CommaToken */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeArgumentOrParameterOrAssertionContext), 8 /* Delete */));
+                this.NoSpaceAfterTypeAssertion = new formatting.Rule(formatting.RuleDescriptor.create3(27 /* GreaterThanToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsTypeAssertionContext), 8 /* Delete */));
                 // Remove spaces in empty interface literals. e.g.: x: {}
                 this.NoSpaceBetweenEmptyInterfaceBraceBrackets = new formatting.Rule(formatting.RuleDescriptor.create1(15 /* OpenBraceToken */, 16 /* CloseBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsObjectTypeContext), 8 /* Delete */));
                 // decorators
@@ -39363,6 +39392,7 @@ var ts;
                         this.NoSpaceAfterOpenAngularBracket,
                         this.NoSpaceBeforeCloseAngularBracket,
                         this.NoSpaceAfterCloseAngularBracket,
+                        this.NoSpaceAfterTypeAssertion,
                         this.SpaceBeforeAt,
                         this.NoSpaceAfterAt,
                         this.SpaceAfterDecorator,
@@ -39633,12 +39663,13 @@ var ts;
             Rules.IsObjectTypeContext = function (context) {
                 return context.contextNode.kind === 153 /* TypeLiteral */; // && context.contextNode.parent.kind !== SyntaxKind.InterfaceDeclaration;
             };
-            Rules.IsTypeArgumentOrParameter = function (token, parent) {
+            Rules.IsTypeArgumentOrParameterOrAssertion = function (token, parent) {
                 if (token.kind !== 25 /* LessThanToken */ && token.kind !== 27 /* GreaterThanToken */) {
                     return false;
                 }
                 switch (parent.kind) {
                     case 149 /* TypeReference */:
+                    case 169 /* TypeAssertionExpression */:
                     case 212 /* ClassDeclaration */:
                     case 213 /* InterfaceDeclaration */:
                     case 211 /* FunctionDeclaration */:
@@ -39655,9 +39686,12 @@ var ts;
                         return false;
                 }
             };
-            Rules.IsTypeArgumentOrParameterContext = function (context) {
-                return Rules.IsTypeArgumentOrParameter(context.currentTokenSpan, context.currentTokenParent) ||
-                    Rules.IsTypeArgumentOrParameter(context.nextTokenSpan, context.nextTokenParent);
+            Rules.IsTypeArgumentOrParameterOrAssertionContext = function (context) {
+                return Rules.IsTypeArgumentOrParameterOrAssertion(context.currentTokenSpan, context.currentTokenParent) ||
+                    Rules.IsTypeArgumentOrParameterOrAssertion(context.nextTokenSpan, context.nextTokenParent);
+            };
+            Rules.IsTypeAssertionContext = function (context) {
+                return context.contextNode.kind === 169 /* TypeAssertionExpression */;
             };
             Rules.IsVoidOpContext = function (context) {
                 return context.currentTokenSpan.kind === 101 /* VoidKeyword */ && context.currentTokenParent.kind === 175 /* VoidExpression */;
@@ -48353,7 +48387,10 @@ var ts;
         LanguageServiceShimObject.prototype.getDocumentHighlights = function (fileName, position, filesToSearch) {
             var _this = this;
             return this.forwardJSONCall("getDocumentHighlights('" + fileName + "', " + position + ")", function () {
-                return _this.languageService.getDocumentHighlights(fileName, position, JSON.parse(filesToSearch));
+                var results = _this.languageService.getDocumentHighlights(fileName, position, JSON.parse(filesToSearch));
+                // workaround for VS document higlighting issue - keep only items from the initial file
+                var normalizedName = ts.normalizeSlashes(fileName).toLowerCase();
+                return ts.filter(results, function (r) { return ts.normalizeSlashes(r.fileName).toLowerCase() === normalizedName; });
             });
         };
         /// COMPLETION LISTS
