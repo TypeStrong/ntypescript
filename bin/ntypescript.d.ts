@@ -5563,8 +5563,6 @@ declare namespace ts.formatting {
         NoSpaceBeforeDot: Rule;
         NoSpaceAfterDot: Rule;
         NoSpaceBeforeOpenBracket: Rule;
-        NoSpaceAfterOpenBracket: Rule;
-        NoSpaceBeforeCloseBracket: Rule;
         NoSpaceAfterCloseBracket: Rule;
         SpaceAfterOpenBrace: Rule;
         SpaceBeforeCloseBrace: Rule;
@@ -5636,6 +5634,11 @@ declare namespace ts.formatting {
         NoSpaceBetweenParens: Rule;
         NoSpaceAfterOpenParen: Rule;
         NoSpaceBeforeCloseParen: Rule;
+        SpaceAfterOpenBracket: Rule;
+        SpaceBeforeCloseBracket: Rule;
+        NoSpaceBetweenBrackets: Rule;
+        NoSpaceAfterOpenBracket: Rule;
+        NoSpaceBeforeCloseBracket: Rule;
         SpaceAfterAnonymousFunctionKeyword: Rule;
         NoSpaceAfterAnonymousFunctionKeyword: Rule;
         SpaceBeforeAt: Rule;
@@ -6046,6 +6049,7 @@ declare namespace ts {
         InsertSpaceAfterKeywordsInControlFlowStatements: boolean;
         InsertSpaceAfterFunctionKeywordForAnonymousFunctions: boolean;
         InsertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis: boolean;
+        InsertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets: boolean;
         PlaceOpenBraceOnNewLineForFunctions: boolean;
         PlaceOpenBraceOnNewLineForControlBlocks: boolean;
         [s: string]: boolean | number | string;
@@ -6631,12 +6635,14 @@ declare module ts {
      */
     function reportDiagnostic(diagnostic: Diagnostic): void;
 }
-interface Global {
-}
 /**
  * Make ts a global variable (this means we have a consistent typescript definition file)
  */
-declare var global: Global;
+declare module NodeJS {
+    interface Global {
+    }
+}
+declare var global: NodeJS.Global;
 /**
  * Sample: Add additional options
  */

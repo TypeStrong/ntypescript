@@ -39291,12 +39291,11 @@ var ts;
                 this.SpaceBetweenCloseBraceAndElse = new formatting.Rule(formatting.RuleDescriptor.create1(16 /* CloseBraceToken */, 78 /* ElseKeyword */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 this.SpaceBetweenCloseBraceAndWhile = new formatting.Rule(formatting.RuleDescriptor.create1(16 /* CloseBraceToken */, 102 /* WhileKeyword */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 this.NoSpaceAfterCloseBrace = new formatting.Rule(formatting.RuleDescriptor.create3(16 /* CloseBraceToken */, formatting.Shared.TokenRange.FromTokens([18 /* CloseParenToken */, 20 /* CloseBracketToken */, 24 /* CommaToken */, 23 /* SemicolonToken */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                // No space for indexer and dot
+                // No space for dot
                 this.NoSpaceBeforeDot = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 21 /* DotToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 this.NoSpaceAfterDot = new formatting.Rule(formatting.RuleDescriptor.create3(21 /* DotToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                // No space before and after indexer
                 this.NoSpaceBeforeOpenBracket = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 19 /* OpenBracketToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                this.NoSpaceAfterOpenBracket = new formatting.Rule(formatting.RuleDescriptor.create3(19 /* OpenBracketToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                this.NoSpaceBeforeCloseBracket = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 20 /* CloseBracketToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 this.NoSpaceAfterCloseBracket = new formatting.Rule(formatting.RuleDescriptor.create3(20 /* CloseBracketToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsNotBeforeBlockInFunctionDeclarationContext), 8 /* Delete */));
                 // Place a space before open brace in a function declaration
                 this.FunctionOpenBraceLeftTokenRange = formatting.Shared.TokenRange.AnyIncludingMultilineComments;
@@ -39435,8 +39434,8 @@ var ts;
                         this.NoSpaceBeforeSemicolon,
                         this.SpaceBeforeOpenBraceInControl, this.SpaceBeforeOpenBraceInFunction, this.SpaceBeforeOpenBraceInTypeScriptDeclWithBlock,
                         this.NoSpaceBeforeComma,
-                        this.NoSpaceBeforeOpenBracket, this.NoSpaceAfterOpenBracket,
-                        this.NoSpaceBeforeCloseBracket, this.NoSpaceAfterCloseBracket,
+                        this.NoSpaceBeforeOpenBracket,
+                        this.NoSpaceAfterCloseBracket,
                         this.SpaceAfterSemicolon,
                         this.NoSpaceBeforeOpenParenInFuncDecl,
                         this.SpaceBetweenStatements, this.SpaceAfterTryFinally
@@ -39471,6 +39470,12 @@ var ts;
                 this.NoSpaceBetweenParens = new formatting.Rule(formatting.RuleDescriptor.create1(17 /* OpenParenToken */, 18 /* CloseParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 this.NoSpaceAfterOpenParen = new formatting.Rule(formatting.RuleDescriptor.create3(17 /* OpenParenToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 this.NoSpaceBeforeCloseParen = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 18 /* CloseParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                // Insert space after opening and before closing nonempty brackets
+                this.SpaceAfterOpenBracket = new formatting.Rule(formatting.RuleDescriptor.create3(19 /* OpenBracketToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.SpaceBeforeCloseBracket = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 20 /* CloseBracketToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.NoSpaceBetweenBrackets = new formatting.Rule(formatting.RuleDescriptor.create1(19 /* OpenBracketToken */, 20 /* CloseBracketToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                this.NoSpaceAfterOpenBracket = new formatting.Rule(formatting.RuleDescriptor.create3(19 /* OpenBracketToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                this.NoSpaceBeforeCloseBracket = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 20 /* CloseBracketToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 // Insert space after function keyword for anonymous functions
                 this.SpaceAfterAnonymousFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(85 /* FunctionKeyword */, 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext), 2 /* Space */));
                 this.NoSpaceAfterAnonymousFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(85 /* FunctionKeyword */, 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext), 8 /* Delete */));
@@ -39703,6 +39708,7 @@ var ts;
                     case 149 /* TypeReference */:
                     case 169 /* TypeAssertionExpression */:
                     case 212 /* ClassDeclaration */:
+                    case 184 /* ClassExpression */:
                     case 213 /* InterfaceDeclaration */:
                     case 211 /* FunctionDeclaration */:
                     case 171 /* FunctionExpression */:
@@ -39713,6 +39719,7 @@ var ts;
                     case 146 /* ConstructSignature */:
                     case 166 /* CallExpression */:
                     case 167 /* NewExpression */:
+                    case 186 /* ExpressionWithTypeArguments */:
                         return true;
                     default:
                         return false;
@@ -40077,6 +40084,16 @@ var ts;
                     rules.push(this.globalRules.NoSpaceAfterOpenParen);
                     rules.push(this.globalRules.NoSpaceBeforeCloseParen);
                     rules.push(this.globalRules.NoSpaceBetweenParens);
+                }
+                if (options.InsertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets) {
+                    rules.push(this.globalRules.SpaceAfterOpenBracket);
+                    rules.push(this.globalRules.SpaceBeforeCloseBracket);
+                    rules.push(this.globalRules.NoSpaceBetweenBrackets);
+                }
+                else {
+                    rules.push(this.globalRules.NoSpaceAfterOpenBracket);
+                    rules.push(this.globalRules.NoSpaceBeforeCloseBracket);
+                    rules.push(this.globalRules.NoSpaceBetweenBrackets);
                 }
                 if (options.InsertSpaceAfterSemicolonInForStatements) {
                     rules.push(this.globalRules.SpaceAfterSemicolonInFor);
