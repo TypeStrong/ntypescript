@@ -4967,21 +4967,14 @@ var ts;
     }
     ts.isPrologueDirective = isPrologueDirective;
     function getLeadingCommentRangesOfNode(node, sourceFileOfNode) {
-        // If parameter/type parameter, the prev token trailing comments are part of this node too
-        if (node.kind === 136 /* Parameter */ || node.kind === 135 /* TypeParameter */) {
-            // e.g.   (/** blah */ a, /** blah */ b);
-            // e.g.:     (
-            //            /** blah */ a,
-            //            /** blah */ b);
-            return ts.concatenate(ts.getTrailingCommentRanges(sourceFileOfNode.text, node.pos), ts.getLeadingCommentRanges(sourceFileOfNode.text, node.pos));
-        }
-        else {
-            return ts.getLeadingCommentRanges(sourceFileOfNode.text, node.pos);
-        }
+        return ts.getLeadingCommentRanges(sourceFileOfNode.text, node.pos);
     }
     ts.getLeadingCommentRangesOfNode = getLeadingCommentRangesOfNode;
     function getJsDocComments(node, sourceFileOfNode) {
-        return ts.filter(getLeadingCommentRangesOfNode(node, sourceFileOfNode), isJsDocComment);
+        var commentRanges = (node.kind === 136 /* Parameter */ || node.kind === 135 /* TypeParameter */) ?
+            ts.concatenate(ts.getTrailingCommentRanges(sourceFileOfNode.text, node.pos), ts.getLeadingCommentRanges(sourceFileOfNode.text, node.pos)) :
+            getLeadingCommentRangesOfNode(node, sourceFileOfNode);
+        return ts.filter(commentRanges, isJsDocComment);
         function isJsDocComment(comment) {
             // True if the comment starts with '/**' but not if it is '/**/'
             return sourceFileOfNode.text.charCodeAt(comment.pos + 1) === 42 /* asterisk */ &&
@@ -29546,7 +29539,14 @@ var ts;
                             write(", ");
                         }
                     }
-                    emitNode(nodes[start + i]);
+                    var node = nodes[start + i];
+                    // This emitting is to make sure we emit following comment properly
+                    //   ...(x, /*comment1*/ y)...
+                    //         ^ => node.pos
+                    // "comment1" is not considered leading comment for "y" but rather
+                    // considered as trailing comment of the previous node.
+                    emitTrailingCommentsOfPosition(node.pos);
+                    emitNode(node);
                     leadingComma = true;
                 }
                 if (trailingComma) {
@@ -30561,6 +30561,14 @@ var ts;
             function emitPropertyAssignment(node) {
                 emit(node.name);
                 write(": ");
+                // This is to ensure that we emit comment in the following case:
+                //      For example:
+                //          obj = {
+                //              id: /*comment1*/ ()=>void
+                //          }
+                // "comment1" is not considered to be leading comment for node.initializer
+                // but rather a trailing comment on the previous node.
+                emitTrailingCommentsOfPosition(node.initializer.pos);
                 emit(node.initializer);
             }
             // Return true if identifier resolves to an exported member of a namespace
@@ -32052,8 +32060,22 @@ var ts;
                 if (ts.nodeIsMissing(node.body)) {
                     return emitOnlyPinnedOrTripleSlashComments(node);
                 }
-                if (node.kind !== 141 /* MethodDeclaration */ && node.kind !== 140 /* MethodSignature */) {
-                    // Methods will emit the comments as part of emitting method declaration
+                // TODO (yuisu) : we should not have special cases to condition emitting comments
+                // but have one place to fix check for these conditions.
+                if (node.kind !== 141 /* MethodDeclaration */ && node.kind !== 140 /* MethodSignature */ &&
+                    node.parent && node.parent.kind !== 243 /* PropertyAssignment */ &&
+                    node.parent.kind !== 166 /* CallExpression */) {
+                    // 1. Methods will emit the comments as part of emitting method declaration
+                    // 2. If the function is a property of object literal, emitting leading-comments
+                    // is done by emitNodeWithoutSourceMap which then call this function.
+                    // In particular, we would like to avoid emit comments twice in following case:
+                    //      For example:
+                    //          var obj = {
+                    //              id:
+                    //                  /*comment*/ () => void
+                    //          }
+                    // 3. If the function is an argument in call expression, emitting of comments will be
+                    // taken care of in emit list of arguments inside of emitCallexpression
                     emitLeadingComments(node);
                 }
                 // For targeting below es6, emit functions-like declaration including arrow function using function keyword.
@@ -35052,6 +35074,16 @@ var ts;
                 var trailingComments = filterComments(getTrailingCommentsToEmit(node), compilerOptions.removeComments);
                 // trailing comments are emitted at space/*trailing comment1 */space/*trailing comment*/
                 ts.emitComments(currentSourceFile, writer, trailingComments, false, newLine, writeComment);
+            }
+            /**
+             * Emit trailing comments at the position. The term trailing comment is used here to describe following comment:
+             *      x, /comment1/ y
+             *        ^ => pos; the function will emit "comment1" in the emitJS
+             */
+            function emitTrailingCommentsOfPosition(pos) {
+                var trailingComments = filterComments(ts.getTrailingCommentRanges(currentSourceFile.text, pos), compilerOptions.removeComments);
+                // trailing comments are emitted at space/*trailing comment1 */space/*trailing comment*/
+                ts.emitComments(currentSourceFile, writer, trailingComments, true, newLine, writeComment);
             }
             function emitLeadingCommentsOfPosition(pos) {
                 var leadingComments;
