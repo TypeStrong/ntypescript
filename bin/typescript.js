@@ -15358,52 +15358,66 @@ var ts;
             addInheritedMembers(members, arrayType.properties);
             setObjectTypeMembers(type, members, arrayType.callSignatures, arrayType.constructSignatures, arrayType.stringIndexType, arrayType.numberIndexType);
         }
-        function findMatchingSignature(signature, signatureList) {
+        function findMatchingSignature(signatureList, signature, partialMatch, ignoreReturnTypes) {
             for (var _i = 0; _i < signatureList.length; _i++) {
                 var s = signatureList[_i];
-                // Only signatures with no type parameters may differ in return types
-                if (compareSignatures(signature, s, !!signature.typeParameters, compareTypes)) {
+                if (compareSignatures(s, signature, partialMatch, ignoreReturnTypes, compareTypes)) {
                     return s;
                 }
             }
         }
-        function findMatchingSignatures(signature, signatureLists) {
+        function findMatchingSignatures(signatureLists, signature, listIndex) {
+            if (signature.typeParameters) {
+                // We require an exact match for generic signatures, so we only return signatures from the first
+                // signature list and only if they have exact matches in the other signature lists.
+                if (listIndex > 0) {
+                    return undefined;
+                }
+                for (var i = 1; i < signatureLists.length; i++) {
+                    if (!findMatchingSignature(signatureLists[i], signature, false, false)) {
+                        return undefined;
+                    }
+                }
+                return [signature];
+            }
             var result = undefined;
-            for (var i = 1; i < signatureLists.length; i++) {
-                var match = findMatchingSignature(signature, signatureLists[i]);
+            for (var i = 0; i < signatureLists.length; i++) {
+                // Allow matching non-generic signatures to have excess parameters and different return types
+                var match = i === listIndex ? signature : findMatchingSignature(signatureLists[i], signature, true, true);
                 if (!match) {
                     return undefined;
                 }
-                if (!result) {
-                    result = [signature];
-                }
-                if (match !== signature) {
-                    result.push(match);
+                if (!ts.contains(result, match)) {
+                    (result || (result = [])).push(match);
                 }
             }
             return result;
         }
-        // The signatures of a union type are those signatures that are present and identical in each of the
-        // constituent types, except that non-generic signatures may differ in return types. When signatures
-        // differ in return types, the resulting return type is the union of the constituent return types.
+        // The signatures of a union type are those signatures that are present in each of the constituent types.
+        // Generic signatures must match exactly, but non-generic signatures are allowed to have extra optional
+        // parameters and may differ in return types. When signatures differ in return types, the resulting return
+        // type is the union of the constituent return types.
         function getUnionSignatures(types, kind) {
             var signatureLists = ts.map(types, function (t) { return getSignaturesOfType(t, kind); });
             var result = undefined;
-            for (var _i = 0, _a = signatureLists[0]; _i < _a.length; _i++) {
-                var source = _a[_i];
-                var unionSignatures = findMatchingSignatures(source, signatureLists);
-                if (unionSignatures) {
-                    var signature = undefined;
-                    if (unionSignatures.length === 1 || source.typeParameters) {
-                        signature = source;
+            for (var i = 0; i < signatureLists.length; i++) {
+                for (var _i = 0, _a = signatureLists[i]; _i < _a.length; _i++) {
+                    var signature = _a[_i];
+                    // Only process signatures with parameter lists that aren't already in the result list
+                    if (!result || !findMatchingSignature(result, signature, false, true)) {
+                        var unionSignatures = findMatchingSignatures(signatureLists, signature, i);
+                        if (unionSignatures) {
+                            var s = signature;
+                            // Union the result types when more than one signature matches
+                            if (unionSignatures.length > 1) {
+                                s = cloneSignature(signature);
+                                // Clear resolved return type we possibly got from cloneSignature
+                                s.resolvedReturnType = undefined;
+                                s.unionSignatures = unionSignatures;
+                            }
+                            (result || (result = [])).push(s);
+                        }
                     }
-                    else {
-                        signature = cloneSignature(source);
-                        // Clear resolved return type we possibly got from cloneSignature
-                        signature.resolvedReturnType = undefined;
-                        signature.unionSignatures = unionSignatures;
-                    }
-                    (result || (result = [])).push(signature);
                 }
             }
             return result || emptyArray;
@@ -17340,7 +17354,7 @@ var ts;
                 }
                 var result = -1 /* True */;
                 for (var i = 0, len = sourceSignatures.length; i < len; ++i) {
-                    var related = compareSignatures(sourceSignatures[i], targetSignatures[i], true, isRelatedTo);
+                    var related = compareSignatures(sourceSignatures[i], targetSignatures[i], false, false, isRelatedTo);
                     if (!related) {
                         return 0 /* False */;
                     }
@@ -17464,14 +17478,18 @@ var ts;
             }
             return compareTypes(getTypeOfSymbol(sourceProp), getTypeOfSymbol(targetProp));
         }
-        function compareSignatures(source, target, compareReturnTypes, compareTypes) {
+        function compareSignatures(source, target, partialMatch, ignoreReturnTypes, compareTypes) {
             if (source === target) {
                 return -1 /* True */;
             }
             if (source.parameters.length !== target.parameters.length ||
                 source.minArgumentCount !== target.minArgumentCount ||
                 source.hasRestParameter !== target.hasRestParameter) {
-                return 0 /* False */;
+                if (!partialMatch ||
+                    source.parameters.length < target.parameters.length && !source.hasRestParameter ||
+                    source.minArgumentCount > target.minArgumentCount) {
+                    return 0 /* False */;
+                }
             }
             var result = -1 /* True */;
             if (source.typeParameters && target.typeParameters) {
@@ -17493,16 +17511,18 @@ var ts;
             // M and N (the signatures) are instantiated using type Any as the type argument for all type parameters declared by M and N
             source = getErasedSignature(source);
             target = getErasedSignature(target);
-            for (var i = 0, len = source.parameters.length; i < len; i++) {
-                var s = source.hasRestParameter && i === len - 1 ? getRestTypeOfSignature(source) : getTypeOfSymbol(source.parameters[i]);
-                var t = target.hasRestParameter && i === len - 1 ? getRestTypeOfSignature(target) : getTypeOfSymbol(target.parameters[i]);
+            var sourceLen = source.parameters.length;
+            var targetLen = target.parameters.length;
+            for (var i = 0; i < targetLen; i++) {
+                var s = source.hasRestParameter && i === sourceLen - 1 ? getRestTypeOfSignature(source) : getTypeOfSymbol(source.parameters[i]);
+                var t = target.hasRestParameter && i === targetLen - 1 ? getRestTypeOfSignature(target) : getTypeOfSymbol(target.parameters[i]);
                 var related = compareTypes(s, t);
                 if (!related) {
                     return 0 /* False */;
                 }
                 result &= related;
             }
-            if (compareReturnTypes) {
+            if (!ignoreReturnTypes) {
                 result &= compareTypes(getReturnTypeOfSignature(source), getReturnTypeOfSignature(target));
             }
             return result;
@@ -18889,19 +18909,13 @@ var ts;
             var types = type.types;
             for (var _i = 0; _i < types.length; _i++) {
                 var current = types[_i];
-                // The signature set of all constituent type with call signatures should match
-                // So number of signatures allowed is either 0 or 1
-                if (signatureList &&
-                    getSignaturesOfStructuredType(current, 0 /* Call */).length > 1) {
-                    return undefined;
-                }
                 var signature = getNonGenericSignature(current);
                 if (signature) {
                     if (!signatureList) {
                         // This signature will contribute to contextual union signature
                         signatureList = [signature];
                     }
-                    else if (!compareSignatures(signatureList[0], signature, false, compareTypes)) {
+                    else if (!compareSignatures(signatureList[0], signature, false, true, compareTypes)) {
                         // Signatures aren't identical, do not use
                         return undefined;
                     }
@@ -24521,7 +24535,7 @@ var ts;
                     }
                 }
                 else {
-                    if (languageVersion >= 2 /* ES6 */) {
+                    if (languageVersion >= 2 /* ES6 */ && !ts.isInAmbientContext(node)) {
                         // Import equals declaration is deprecated in es6 or above
                         grammarErrorOnNode(node, ts.Diagnostics.Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_or_higher_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_or_import_d_from_mod_instead);
                     }
@@ -26966,7 +26980,9 @@ var ts;
         if (typeof WScript !== "undefined" && typeof ActiveXObject === "function") {
             return getWScriptSystem();
         }
-        else if (typeof module !== "undefined" && module.exports) {
+        else if (typeof process !== "undefined" && process.nextTick && !process.browser) {
+            // process and process.nextTick checks if current environment is node-like
+            // process.browser check excludes webpack and browserify
             return getNodeSystem();
         }
         else {
