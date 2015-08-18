@@ -8,6 +8,7 @@ declare namespace ts {
         contains(fileName: string): boolean;
         remove(fileName: string): void;
         forEachValue(f: (v: T) => void): void;
+        clear(): void;
     }
     interface TextRange {
         pos: number;
@@ -939,6 +940,7 @@ declare namespace ts {
         moduleName: string;
         referencedFiles: FileReference[];
         languageVariant: LanguageVariant;
+        renamedDependencies?: Map<string>;
         /**
          * lib.d.ts should have a reference comment like
          *
@@ -959,13 +961,15 @@ declare namespace ts {
         bindDiagnostics: Diagnostic[];
         lineMap: number[];
         classifiableNames?: Map<string>;
+        resolvedModules: Map<string>;
+        imports: LiteralExpression[];
     }
     interface ScriptReferenceHost {
         getCompilerOptions(): CompilerOptions;
         getSourceFile(fileName: string): SourceFile;
         getCurrentDirectory(): string;
     }
-    interface ParseConfigHost {
+    interface ParseConfigHost extends ModuleResolutionHost {
         readDirectory(rootDir: string, extension: string, exclude: string[]): string[];
     }
     interface WriteFileCallback {
@@ -979,6 +983,10 @@ declare namespace ts {
         throwIfCancellationRequested(): void;
     }
     interface Program extends ScriptReferenceHost {
+        /**
+         * Get a list of root file names that were passed to a 'createProgram'
+         */
+        getRootFileNames(): string[];
         /**
          * Get a list of files in the program
          */
@@ -1010,6 +1018,7 @@ declare namespace ts {
         getIdentifierCount(): number;
         getSymbolCount(): number;
         getTypeCount(): number;
+        structureIsReused?: boolean;
     }
     interface SourceMapSpan {
         /** Line number in the .js file. */
@@ -1710,7 +1719,16 @@ declare namespace ts {
         tab = 9,
         verticalTab = 11,
     }
-    interface CompilerHost {
+    interface ModuleResolutionHost {
+        fileExists(fileName: string): boolean;
+        readFile(fileName: string): string;
+    }
+    interface ResolvedModule {
+        resolvedFileName: string;
+        failedLookupLocations: string[];
+    }
+    type ModuleNameResolver = (moduleName: string, containingFile: string, options: CompilerOptions, host: ModuleResolutionHost) => ResolvedModule;
+    interface CompilerHost extends ModuleResolutionHost {
         getSourceFile(fileName: string, languageVersion: ScriptTarget, onError?: (message: string) => void): SourceFile;
         getCancellationToken?(): CancellationToken;
         getDefaultLibFileName(options: CompilerOptions): string;
@@ -1719,6 +1737,7 @@ declare namespace ts {
         getCanonicalFileName(fileName: string): string;
         useCaseSensitiveFileNames(): boolean;
         getNewLine(): string;
+        resolveModuleNames?(moduleNames: string[], containingFile: string): string[];
     }
     interface TextSpan {
         start: number;
@@ -5022,6 +5041,10 @@ declare namespace ts {
     function getSingleLineStringWriter(): StringSymbolWriter;
     function releaseStringWriter(writer: StringSymbolWriter): void;
     function getFullWidth(node: Node): number;
+    function arrayIsEqualTo<T>(arr1: T[], arr2: T[], comparer?: (a: T, b: T) => boolean): boolean;
+    function hasResolvedModuleName(sourceFile: SourceFile, moduleNameText: string): boolean;
+    function getResolvedModuleFileName(sourceFile: SourceFile, moduleNameText: string): string;
+    function setResolvedModuleName(sourceFile: SourceFile, moduleNameText: string, resolvedFileName: string): void;
     function containsParseError(node: Node): boolean;
     function getSourceFileOfNode(node: Node): SourceFile;
     function getStartPositionOfLine(line: number, sourceFile: SourceFile): number;
@@ -5312,13 +5335,14 @@ declare namespace ts {
     let emitTime: number;
     let ioReadTime: number;
     let ioWriteTime: number;
-    /** The version of the TypeScript compiler release */
     const version: string;
     function findConfigFile(searchPath: string): string;
+    function resolveTripleslashReference(moduleName: string, containingFile: string): string;
+    function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModule;
     function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
     function getPreEmitDiagnostics(program: Program, sourceFile?: SourceFile, cancellationToken?: CancellationToken): Diagnostic[];
     function flattenDiagnosticMessageText(messageText: string | DiagnosticMessageChain, newLine: string): string;
-    function createProgram(rootNames: string[], options: CompilerOptions, host?: CompilerHost): Program;
+    function createProgram(rootNames: string[], options: CompilerOptions, host?: CompilerHost, oldProgram?: Program): Program;
 }
 declare namespace ts {
     interface SourceFile {
@@ -5899,6 +5923,7 @@ declare namespace ts {
     interface PreProcessedFileInfo {
         referencedFiles: FileReference[];
         importedFiles: FileReference[];
+        ambientExternalModules: string[];
         isLibFile: boolean;
     }
     interface HostCancellationToken {
@@ -5919,6 +5944,7 @@ declare namespace ts {
         trace?(s: string): void;
         error?(s: string): void;
         useCaseSensitiveFileNames?(): boolean;
+        resolveModuleNames?(moduleNames: string[], containingFile: string): string[];
     }
     interface LanguageService {
         cleanupSemanticCache(): void;
@@ -6384,17 +6410,19 @@ declare namespace ts {
         fileName?: string;
         reportDiagnostics?: boolean;
         moduleName?: string;
+        renamedDependencies?: Map<string>;
     }
     interface TranspileOutput {
         outputText: string;
         diagnostics?: Diagnostic[];
         sourceMapText?: string;
     }
-    function transpileModule(input: string, transpileOptions?: TranspileOptions): TranspileOutput;
+    function transpileModule(input: string, transpileOptions: TranspileOptions): TranspileOutput;
     function transpile(input: string, compilerOptions?: CompilerOptions, fileName?: string, diagnostics?: Diagnostic[], moduleName?: string): string;
     function createLanguageServiceSourceFile(fileName: string, scriptSnapshot: IScriptSnapshot, scriptTarget: ScriptTarget, version: string, setNodeParents: boolean): SourceFile;
     let disableIncrementalParsing: boolean;
     function updateLanguageServiceSourceFile(sourceFile: SourceFile, scriptSnapshot: IScriptSnapshot, version: string, textChangeRange: TextChangeRange, aggressiveChecks?: boolean): SourceFile;
+    function createGetCanonicalFileName(useCaseSensitivefileNames: boolean): (fileName: string) => string;
     function createDocumentRegistry(useCaseSensitiveFileNames?: boolean): DocumentRegistry;
     function preProcessFile(sourceText: string, readImportFiles?: boolean): PreProcessedFileInfo;
     function getContainerNode(node: Node): Declaration;
@@ -6451,9 +6479,10 @@ declare namespace ts {
         getNewLine?(): string;
         getProjectVersion?(): string;
         useCaseSensitiveFileNames?(): boolean;
+        getModuleResolutionsForFile?(fileName: string): string;
     }
     /** Public interface of the the of a config service shim instance.*/
-    interface CoreServicesShimHost extends Logger {
+    interface CoreServicesShimHost extends Logger, ModuleResolutionHost {
         /**
          * Returns a JSON-encoded value of the type: string[]
          *
@@ -6582,6 +6611,7 @@ declare namespace ts {
         private files;
         private loggingEnabled;
         private tracingEnabled;
+        resolveModuleNames: (moduleName: string[], containingFile: string) => string[];
         constructor(shimHost: LanguageServiceShimHost);
         log(s: string): void;
         trace(s: string): void;
@@ -6601,6 +6631,8 @@ declare namespace ts {
         private shimHost;
         constructor(shimHost: CoreServicesShimHost);
         readDirectory(rootDir: string, extension: string, exclude: string[]): string[];
+        fileExists(fileName: string): boolean;
+        readFile(fileName: string): string;
     }
     function realizeDiagnostics(diagnostics: Diagnostic[], newLine: string): {
         message: string;
