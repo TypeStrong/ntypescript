@@ -5214,6 +5214,20 @@ var ts;
         return false;
     }
     ts.isFunctionLike = isFunctionLike;
+    function introducesArgumentsExoticObject(node) {
+        switch (node.kind) {
+            case 141 /* MethodDeclaration */:
+            case 140 /* MethodSignature */:
+            case 142 /* Constructor */:
+            case 143 /* GetAccessor */:
+            case 144 /* SetAccessor */:
+            case 211 /* FunctionDeclaration */:
+            case 171 /* FunctionExpression */:
+                return true;
+        }
+        return false;
+    }
+    ts.introducesArgumentsExoticObject = introducesArgumentsExoticObject;
     function isFunctionBlock(node) {
         return node && node.kind === 190 /* Block */ && isFunctionLike(node.parent);
     }
@@ -25037,6 +25051,9 @@ var ts;
                                 copySymbol(location.symbol, meaning);
                             }
                             break;
+                    }
+                    if (ts.introducesArgumentsExoticObject(location)) {
+                        copySymbol(argumentsSymbol, meaning);
                     }
                     memberFlags = location.flags;
                     location = location.parent;

@@ -5085,6 +5085,7 @@ declare namespace ts {
     function isAccessor(node: Node): boolean;
     function isClassLike(node: Node): boolean;
     function isFunctionLike(node: Node): boolean;
+    function introducesArgumentsExoticObject(node: Node): boolean;
     function isFunctionBlock(node: Node): boolean;
     function isObjectLiteralMethod(node: Node): boolean;
     function getContainingFunction(node: Node): FunctionLikeDeclaration;
