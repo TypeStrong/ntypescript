@@ -1,10 +1,24 @@
 /// <reference path="./bin/typescriptServices.d.ts"/>
 var t = require('./bin/typescript.js');
 var fileExtension = ['.ts', '.tsx'];
-exports.isTypeScript = function (file) { return /\.(ts|tsx)$/.test(file); };
+exports.isTypeScript = function (file) {
+    var r = new RegExp("\\.(" + fileExtension.join("|") + ")$");
+    return r.test(file);
+};
 var fs = require('fs');
 function loadFile(module, filename) {
-    var js = t.transpile(fs.readFileSync(filename, 'utf8'));
+    var configFile = t.findConfigFile(filename);
+    var compilerOpts = {
+        module: 1,
+        target: 1
+    };
+    if (configFile) {
+        var configFileContents = t.readConfigFile(configFile);
+        var opts = configFileContents.config;
+        opts.files = [];
+        compilerOpts = t.parseConfigFile(opts, null, process.cwd()).options;
+    }
+    var js = t.transpile(fs.readFileSync(filename, 'utf8'), compilerOpts);
     module._compile(js, filename);
 }
 exports.loadFile = loadFile;
