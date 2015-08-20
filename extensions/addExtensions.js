@@ -1,14 +1,16 @@
 /**
- * This script is responsible for making required modifications to our version of TypeScript
+ * This script is responsible for making required modifications to our version of TypeScript post build
  */
 var fs = require('fs');
 var EOL = require('os').EOL;
 function readFile(filePath) {
     return fs.readFileSync(__dirname + '/' + filePath, 'utf8');
 }
+exports.readFile = readFile;
 function writeFile(filePath, content) {
     fs.writeFileSync(__dirname + '/' + filePath, content);
 }
+exports.writeFile = writeFile;
 var dtsOriginal = readFile('../bin/typescript.d.ts');
 var jsOriginal = readFile('../bin/typescript.js');
 var finalDtsLocation = '../bin/ntypescript.d.ts';

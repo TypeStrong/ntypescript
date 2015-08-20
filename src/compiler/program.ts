@@ -35,7 +35,7 @@ namespace ts {
         return normalizePath(referencedFileName);
     }
     
-    export function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModule {
+    export var resolveModuleName = (moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModule => {
         // TODO: use different resolution strategy based on compiler options
         return legacyNameResolver(moduleName, containingFile, compilerOptions, host);
     }

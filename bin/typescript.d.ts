@@ -5339,7 +5339,7 @@ declare namespace ts {
     const version: string;
     function findConfigFile(searchPath: string): string;
     function resolveTripleslashReference(moduleName: string, containingFile: string): string;
-    function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModule;
+    var resolveModuleName: (moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost) => ResolvedModule;
     function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
     function getPreEmitDiagnostics(program: Program, sourceFile?: SourceFile, cancellationToken?: CancellationToken): Diagnostic[];
     function flattenDiagnosticMessageText(messageText: string | DiagnosticMessageChain, newLine: string): string;
@@ -6700,4 +6700,10 @@ declare module ts {
     interface CompilerOptions {
         init?: string;
     }
+}
+/**
+ * Support node_modules lookup
+ * Code from https://github.com/Microsoft/TypeScript/pull/3147/files
+ */
+declare module ts {
 }

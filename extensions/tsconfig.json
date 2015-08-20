@@ -19,6 +19,7 @@
         "./**/*.tsx"
     ],
     "files": [
-        "./addExtensions.ts"
+        "./addExtensions.ts",
+        "./preBuild.ts"
     ]
 }

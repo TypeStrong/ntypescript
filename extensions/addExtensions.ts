@@ -1,15 +1,15 @@
 /**
- * This script is responsible for making required modifications to our version of TypeScript
+ * This script is responsible for making required modifications to our version of TypeScript post build
  */
 
 // Utilities
 declare var require, __dirname;
 var fs = require('fs');
 var EOL: string = require('os').EOL;
-function readFile(filePath: string): string {
+export function readFile(filePath: string): string {
     return fs.readFileSync(__dirname + '/' + filePath, 'utf8');
 }
-function writeFile(filePath: string, content: string) {
+export function writeFile(filePath: string, content: string) {
     fs.writeFileSync(__dirname + '/' + filePath, content);
 }
 

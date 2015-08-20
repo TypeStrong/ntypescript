@@ -25,6 +25,10 @@ cp ./built/local/* ./bin/
 cp ./src/compiler/* ../src/compiler
 cp -r ./src/services/* ../src/services
 rm ../src/services/tsconfig.json ../src/compiler/tsconfig.json
+
+# Do pre build modifications
+node ../extensions/preBuild.js
+
 # Now build using the LKG
 ./bin/tsc -p ../src
 ./bin/tsc -p ../extensions

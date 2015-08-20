@@ -35293,11 +35293,10 @@ var ts;
         return ts.normalizePath(referencedFileName);
     }
     ts.resolveTripleslashReference = resolveTripleslashReference;
-    function resolveModuleName(moduleName, containingFile, compilerOptions, host) {
+    ts.resolveModuleName = function (moduleName, containingFile, compilerOptions, host) {
         // TODO: use different resolution strategy based on compiler options
         return legacyNameResolver(moduleName, containingFile, compilerOptions, host);
-    }
-    ts.resolveModuleName = resolveModuleName;
+    };
     function legacyNameResolver(moduleName, containingFile, compilerOptions, host) {
         // module names that contain '!' are used to reference resources and are not resolved to actual files on disk
         if (moduleName.indexOf('!') != -1) {
@@ -35448,7 +35447,7 @@ var ts;
         var start = new Date().getTime();
         host = host || createCompilerHost(options);
         var resolveModuleNamesWorker = host.resolveModuleNames ||
-            (function (moduleNames, containingFile) { return ts.map(moduleNames, function (moduleName) { return resolveModuleName(moduleName, containingFile, options, host).resolvedFileName; }); });
+            (function (moduleNames, containingFile) { return ts.map(moduleNames, function (moduleName) { return ts.resolveModuleName(moduleName, containingFile, options, host).resolvedFileName; }); });
         var filesByName = ts.createFileMap(function (fileName) { return host.getCanonicalFileName(fileName); });
         if (oldProgram) {
             // check properties that can affect structure of the program or module resolution strategy
@@ -49097,6 +49096,79 @@ var ts;
                 ts.reportDiagnostic(ts.createCompilerDiagnostic(ts.NDiagnostics.initFailed));
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
+        }
+    };
+})(ts || (ts = {}));
+/**
+ * Support node_modules lookup
+ * Code from https://github.com/Microsoft/TypeScript/pull/3147/files
+ */
+var ts;
+(function (ts) {
+    var resolvedExternalModuleCache = {};
+    ts.resolveModuleName = function (moduleName, containingFile, compilerOptions, host) {
+        var normalizePath = ts.normalizePath;
+        var combinePaths = ts.combinePaths;
+        var removeFileExtension = ts.removeFileExtension;
+        var getDirectoryPath = ts.getDirectoryPath;
+        var forEach = ts.forEach;
+        var fileExists = host.fileExists;
+        var readFile = host.readFile;
+        var cacheLookupName = moduleName + containingFile;
+        if (resolvedExternalModuleCache[cacheLookupName]) {
+            return {
+                resolvedFileName: resolvedExternalModuleCache[cacheLookupName],
+                failedLookupLocations: [] // TODO: later
+            };
+        }
+        if (resolvedExternalModuleCache[cacheLookupName] === '') {
+            return { resolvedFileName: undefined, failedLookupLocations: [] };
+        }
+        function getNameIfExists(fileName) {
+            if (fileExists(fileName)) {
+                return fileName;
+            }
+        }
+        while (true) {
+            // Look at files by all extensions
+            var supportedExtensions_1 = ts.supportedExtensions;
+            var found = ts.forEach(supportedExtensions_1, function (extension) { return getNameIfExists(ts.normalizePath(ts.combinePaths(containingFile, moduleName)) + extension); });
+            // If not found ... continue lookup but this time with `.d.ts` first
+            supportedExtensions_1 = ['.d.ts', '.ts', '.tsx'];
+            // Also look at all files by node_modules
+            if (!found) {
+                found = ts.forEach(ts.supportedExtensions, function (extension) { return getNameIfExists(ts.normalizePath(ts.combinePaths(ts.combinePaths(containingFile, "node_modules"), moduleName)) + extension); });
+            }
+            // Also look at package.json's main in node_modules
+            if (!found) {
+                // If we found a package.json then look at its main field
+                var pkgJson = getNameIfExists(normalizePath(combinePaths(combinePaths(combinePaths(containingFile, "node_modules"), moduleName), "package.json")));
+                if (pkgJson) {
+                    var pkgFile = JSON.parse(readFile(pkgJson));
+                    if (pkgFile.main) {
+                        var indexFileName = removeFileExtension(combinePaths(getDirectoryPath(pkgJson), pkgFile.main));
+                        found = forEach(supportedExtensions_1, function (extension) { return getNameIfExists(indexFileName + extension); });
+                    }
+                }
+            }
+            // look at node_modules index
+            if (!found) {
+                found = forEach(supportedExtensions_1, function (extension) { return getNameIfExists(normalizePath(combinePaths(combinePaths(combinePaths(containingFile, "node_modules"), moduleName), "index")) + extension); });
+            }
+            // Finally cache and return or continue up the directory tree
+            if (found) {
+                resolvedExternalModuleCache[cacheLookupName] = found;
+                return {
+                    resolvedFileName: found,
+                    failedLookupLocations: [] // TODO: use these at some point
+                };
+            }
+            var parentPath = getDirectoryPath(containingFile);
+            if (parentPath === containingFile) {
+                resolvedExternalModuleCache[cacheLookupName] = '';
+                return { resolvedFileName: undefined, failedLookupLocations: [] };
+            }
+            containingFile = parentPath;
         }
     };
 })(ts || (ts = {}));
