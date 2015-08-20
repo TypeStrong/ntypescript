@@ -6701,9 +6701,3 @@ declare module ts {
         init?: string;
     }
 }
-/**
- * Support node_modules lookup
- * Code from https://github.com/Microsoft/TypeScript/pull/3147/files
- */
-declare module ts {
-}
