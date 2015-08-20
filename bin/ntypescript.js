@@ -4835,7 +4835,7 @@ var ts;
     // Make an identifier from an external module name by extracting the string after the last "/" and replacing
     // all non-alphanumeric characters with underscores
     function makeIdentifierFromModuleName(moduleName) {
-        return ts.getBaseFileName(moduleName).replace(/\W/g, "_");
+        return ts.getBaseFileName(moduleName).replace(/^(\d)/, "_$1").replace(/\W/g, "_");
     }
     ts.makeIdentifierFromModuleName = makeIdentifierFromModuleName;
     function isBlockOrCatchScoped(declaration) {
@@ -33445,7 +33445,6 @@ var ts;
                         argumentsWritten++;
                     }
                     if (shouldEmitParamTypesMetadata(node)) {
-                        debugger;
                         if (writeComma || argumentsWritten) {
                             write(", ");
                         }
@@ -35448,19 +35447,8 @@ var ts;
         var skipDefaultLib = options.noLib;
         var start = new Date().getTime();
         host = host || createCompilerHost(options);
-        // initialize resolveModuleNameWorker only if noResolve is false
-        var resolveModuleNamesWorker;
-        if (!options.noResolve) {
-            resolveModuleNamesWorker = host.resolveModuleNames;
-            if (!resolveModuleNamesWorker) {
-                resolveModuleNamesWorker = function (moduleNames, containingFile) {
-                    return ts.map(moduleNames, function (moduleName) {
-                        var moduleResolution = resolveModuleName(moduleName, containingFile, options, host);
-                        return moduleResolution.resolvedFileName;
-                    });
-                };
-            }
-        }
+        var resolveModuleNamesWorker = host.resolveModuleNames ||
+            (function (moduleNames, containingFile) { return ts.map(moduleNames, function (moduleName) { return resolveModuleName(moduleName, containingFile, options, host).resolvedFileName; }); });
         var filesByName = ts.createFileMap(function (fileName) { return host.getCanonicalFileName(fileName); });
         if (oldProgram) {
             // check properties that can affect structure of the program or module resolution strategy
@@ -35833,11 +35821,12 @@ var ts;
                     skipDefaultLib = skipDefaultLib || file.hasNoDefaultLib;
                     // Set the source file for normalized absolute path
                     filesByName.set(canonicalAbsolutePath, file);
+                    var basePath = ts.getDirectoryPath(fileName);
                     if (!options.noResolve) {
-                        var basePath = ts.getDirectoryPath(fileName);
                         processReferencedFiles(file, basePath);
-                        processImportedModules(file, basePath);
                     }
+                    // always process imported modules to record module name resolutions
+                    processImportedModules(file, basePath);
                     if (isDefaultLib) {
                         file.isDefaultLib = true;
                         files.unshift(file);
@@ -35874,13 +35863,12 @@ var ts;
             collectExternalModuleReferences(file);
             if (file.imports.length) {
                 file.resolvedModules = {};
-                var oldSourceFile = oldProgram && oldProgram.getSourceFile(file.fileName);
                 var moduleNames = ts.map(file.imports, function (name) { return name.text; });
                 var resolutions = resolveModuleNamesWorker(moduleNames, file.fileName);
                 for (var i = 0; i < file.imports.length; ++i) {
                     var resolution = resolutions[i];
                     ts.setResolvedModuleName(file, moduleNames[i], resolution);
-                    if (resolution) {
+                    if (resolution && !options.noResolve) {
                         findModuleSourceFile(resolution, file.imports[i]);
                     }
                 }
@@ -42737,9 +42725,8 @@ var ts;
             getCanonicalFileName: function (fileName) { return fileName; },
             getCurrentDirectory: function () { return ""; },
             getNewLine: function () { return newLine; },
-            // these two methods should never be called in transpile scenarios since 'noResolve' is set to 'true'
-            fileExists: function (fileName) { throw new Error("Should never be called."); },
-            readFile: function (fileName) { throw new Error("Should never be called."); }
+            fileExists: function (fileName) { return fileName === inputFileName; },
+            readFile: function (fileName) { return ""; }
         };
         var program = ts.createProgram([inputFileName], options, compilerHost);
         var diagnostics;
