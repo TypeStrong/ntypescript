@@ -6657,7 +6657,7 @@ declare namespace ts {
 declare module TypeScript.Services {
     var TypeScriptServicesFactory: typeof ts.TypeScriptServicesFactory;
 }
-declare let toolsVersion: string;
+declare const toolsVersion: string;
 /**
  * Sample: add a new utility function
  */

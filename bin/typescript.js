@@ -2597,7 +2597,7 @@ var ts;
                     }
                     break;
                 case 35 /* hash */:
-                    if (isShebangTrivia(text, pos)) {
+                    if (pos === 0 && isShebangTrivia(text, pos)) {
                         pos = scanShebangTrivia(text, pos);
                         continue;
                     }
@@ -28964,7 +28964,7 @@ var ts;
         else {
             // targetSourceFile is specified (e.g calling emitter from language service or calling getSemanticDiagnostic from language service)
             if (ts.shouldEmitToOwnFile(targetSourceFile, compilerOptions)) {
-                var jsFilePath = ts.getOwnEmitOutputFilePath(targetSourceFile, host, ts.forEach(host.getSourceFiles(), shouldEmitJsx) ? ".jsx" : ".js");
+                var jsFilePath = ts.getOwnEmitOutputFilePath(targetSourceFile, host, shouldEmitJsx(targetSourceFile) ? ".jsx" : ".js");
                 emitFile(jsFilePath, targetSourceFile);
             }
             else if (!ts.isDeclarationFile(targetSourceFile) && compilerOptions.out) {
@@ -49018,7 +49018,7 @@ var TypeScript;
     })(Services = TypeScript.Services || (TypeScript.Services = {}));
 })(TypeScript || (TypeScript = {}));
 /* @internal */
-var toolsVersion = "1.5";
+var toolsVersion = "1.6";
 /**
  * Sample: add a new utility function
  */
