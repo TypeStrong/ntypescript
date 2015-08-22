@@ -1529,6 +1529,7 @@ declare namespace ts {
         noLib?: boolean;
         noResolve?: boolean;
         out?: string;
+        outFile?: string;
         outDir?: string;
         preserveConstEnums?: boolean;
         project?: string;
@@ -4395,42 +4396,7 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Option_mapRoot_cannot_be_specified_without_specifying_sourceMap_option: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Option_sourceRoot_cannot_be_specified_without_specifying_sourceMap_option: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Option_noEmit_cannot_be_specified_with_option_out_or_outDir: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Option_noEmit_cannot_be_specified_with_option_declaration: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
         Option_project_cannot_be_mixed_with_source_files_on_a_command_line: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Option_declaration_cannot_be_specified_with_option_isolatedModules: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Option_noEmitOnError_cannot_be_specified_with_option_isolatedModules: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Option_out_cannot_be_specified_with_option_isolatedModules: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4440,22 +4406,17 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Option_sourceMap_cannot_be_specified_with_option_inlineSourceMap: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Option_sourceRoot_cannot_be_specified_with_option_inlineSourceMap: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Option_mapRoot_cannot_be_specified_with_option_inlineSourceMap: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
         Option_inlineSources_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Option_0_cannot_be_specified_without_specifying_option_1: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Option_0_cannot_be_specified_with_option_1: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4706,11 +4667,6 @@ declare namespace ts {
             key: string;
         };
         Argument_for_jsx_must_be_preserve_or_react: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Option_experimentalDecorators_must_also_be_specified_when_option_emitDecoratorMetadata_is_specified: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5430,6 +5386,10 @@ declare namespace ts {
      */
     function isInCommentHelper(sourceFile: SourceFile, position: number, predicate?: (c: CommentRange) => boolean): boolean;
     function hasDocComment(sourceFile: SourceFile, position: number): boolean;
+    /**
+     * Get the corresponding JSDocTag node if the position is in a jsDoc comment
+     */
+    function getJsDocTagAtPosition(sourceFile: SourceFile, position: number): JSDocTag;
     function getNodeModifiers(node: Node): string;
     function getTypeArgumentOrTypeParameterList(node: Node): NodeArray<Node>;
     function isToken(n: Node): boolean;

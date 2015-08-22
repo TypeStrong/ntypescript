@@ -8217,6 +8217,7 @@ interface Element extends Node, GlobalEventHandlers, ElementTraversal, NodeSelec
     webkitMatchesSelector(selectors: string): boolean;
     webkitRequestFullScreen(): void;
     webkitRequestFullscreen(): void;
+    getElementsByClassName(classNames: string): NodeListOf<Element>;
     addEventListener(type: "MSGestureChange", listener: (ev: MSGestureEvent) => any, useCapture?: boolean): void;
     addEventListener(type: "MSGestureDoubleTap", listener: (ev: MSGestureEvent) => any, useCapture?: boolean): void;
     addEventListener(type: "MSGestureEnd", listener: (ev: MSGestureEvent) => any, useCapture?: boolean): void;
@@ -9204,7 +9205,6 @@ interface HTMLElement extends Element {
     contains(child: HTMLElement): boolean;
     dragDrop(): boolean;
     focus(): void;
-    getElementsByClassName(classNames: string): NodeListOf<Element>;
     insertAdjacentElement(position: string, insertedElement: Element): Element;
     insertAdjacentHTML(where: string, html: string): void;
     insertAdjacentText(where: string, text: string): void;
