@@ -1506,6 +1506,10 @@ declare namespace ts {
         Error = 1,
         Message = 2,
     }
+    enum ModuleResolutionKind {
+        Classic = 1,
+        NodeJs = 2,
+    }
     interface CompilerOptions {
         allowNonTsExtensions?: boolean;
         charset?: string;
@@ -1545,6 +1549,7 @@ declare namespace ts {
         experimentalDecorators?: boolean;
         experimentalAsyncFunctions?: boolean;
         emitDecoratorMetadata?: boolean;
+        moduleResolution?: ModuleResolutionKind;
         stripInternal?: boolean;
         skipDefaultLibCheck?: boolean;
         [option: string]: string | number | boolean;
@@ -4691,6 +4696,11 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Variable_0_implicitly_has_an_1_type: {
             code: number;
             category: DiagnosticCategory;
@@ -5296,6 +5306,9 @@ declare namespace ts {
     function findConfigFile(searchPath: string): string;
     function resolveTripleslashReference(moduleName: string, containingFile: string): string;
     var resolveModuleName: (moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost) => ResolvedModule;
+    function nodeModuleNameResolver(moduleName: string, containingFile: string, host: ModuleResolutionHost): ResolvedModule;
+    function baseUrlModuleNameResolver(moduleName: string, containingFile: string, baseUrl: string, host: ModuleResolutionHost): ResolvedModule;
+    function classicNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModule;
     function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
     function getPreEmitDiagnostics(program: Program, sourceFile?: SourceFile, cancellationToken?: CancellationToken): Diagnostic[];
     function flattenDiagnosticMessageText(messageText: string | DiagnosticMessageChain, newLine: string): string;

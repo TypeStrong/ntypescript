@@ -1519,7 +1519,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         return;
                     }
                 }
-                writeTextOfNode(currentSourceFile, node);
+
+                if (nodeIsSynthesized(node)) {
+                    write(node.text);
+                }
+                else {
+                    writeTextOfNode(currentSourceFile, node);
+                }
             }
 
             function isNameOfNestedRedeclaration(node: Identifier) {
@@ -1545,6 +1551,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 }
                 else if (isNameOfNestedRedeclaration(node)) {
                     write(getGeneratedNameForNode(node));
+                }
+                else if (nodeIsSynthesized(node)) {
+                    write(node.text);
                 }
                 else {
                     writeTextOfNode(currentSourceFile, node);

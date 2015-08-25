@@ -629,6 +629,11 @@ var ts;
         DiagnosticCategory[DiagnosticCategory["Message"] = 2] = "Message";
     })(ts.DiagnosticCategory || (ts.DiagnosticCategory = {}));
     var DiagnosticCategory = ts.DiagnosticCategory;
+    (function (ModuleResolutionKind) {
+        ModuleResolutionKind[ModuleResolutionKind["Classic"] = 1] = "Classic";
+        ModuleResolutionKind[ModuleResolutionKind["NodeJs"] = 2] = "NodeJs";
+    })(ts.ModuleResolutionKind || (ts.ModuleResolutionKind = {}));
+    var ModuleResolutionKind = ts.ModuleResolutionKind;
     (function (ModuleKind) {
         ModuleKind[ModuleKind["None"] = 0] = "None";
         ModuleKind[ModuleKind["CommonJS"] = 1] = "CommonJS";
@@ -2128,6 +2133,7 @@ var ts;
         Enables_experimental_support_for_emitting_type_metadata_for_decorators: { code: 6066, category: ts.DiagnosticCategory.Message, key: "Enables experimental support for emitting type metadata for decorators." },
         Option_experimentalAsyncFunctions_cannot_be_specified_when_targeting_ES5_or_lower: { code: 6067, category: ts.DiagnosticCategory.Message, key: "Option 'experimentalAsyncFunctions' cannot be specified when targeting ES5 or lower." },
         Enables_experimental_support_for_ES7_async_functions: { code: 6068, category: ts.DiagnosticCategory.Message, key: "Enables experimental support for ES7 async functions." },
+        Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6: { code: 6069, category: ts.DiagnosticCategory.Message, key: "Specifies module resolution strategy: 'node' (Node) or 'classic' (TypeScript pre 1.6) ." },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member '{0}' implicitly has an '{1}' type." },
@@ -22859,9 +22865,16 @@ var ts;
             // serialize the type metadata.
             if (node && node.kind === 149 /* TypeReference */) {
                 var root = getFirstIdentifier(node.typeName);
-                var rootSymbol = resolveName(root, root.text, 107455 /* Value */, /*nameNotFoundMessage*/ undefined, /*nameArg*/ undefined);
-                if (rootSymbol && rootSymbol.flags & 8388608 /* Alias */ && !isInTypeQuery(node) && !isConstEnumOrConstEnumOnlyModule(resolveAlias(rootSymbol))) {
-                    markAliasSymbolAsReferenced(rootSymbol);
+                var meaning = root.parent.kind === 149 /* TypeReference */ ? 793056 /* Type */ : 1536 /* Namespace */;
+                // Resolve type so we know which symbol is referenced
+                var rootSymbol = resolveName(root, root.text, meaning | 8388608 /* Alias */, /*nameNotFoundMessage*/ undefined, /*nameArg*/ undefined);
+                // Resolved symbol is alias
+                if (rootSymbol && rootSymbol.flags & 8388608 /* Alias */) {
+                    var aliasTarget = resolveAlias(rootSymbol);
+                    // If alias has value symbol - mark alias as referenced
+                    if (aliasTarget.flags & 107455 /* Value */ && !isConstEnumOrConstEnumOnlyModule(resolveAlias(rootSymbol))) {
+                        markAliasSymbolAsReferenced(rootSymbol);
+                    }
                 }
             }
         }
@@ -25530,6 +25543,10 @@ var ts;
             }
             // Resolve the symbol as a type so that we can provide a more useful hint for the type serializer.
             var typeSymbol = resolveEntityName(typeName, 793056 /* Type */, /*ignoreErrors*/ true);
+            // We might not be able to resolve type symbol so use unknown type in that case (eg error case)
+            if (!typeSymbol) {
+                return ts.TypeReferenceSerializationKind.ObjectType;
+            }
             var type = getDeclaredTypeOfSymbol(typeSymbol);
             if (type === unknownType) {
                 return ts.TypeReferenceSerializationKind.Unknown;
@@ -27252,6 +27269,15 @@ var ts;
             type: "boolean",
             experimental: true,
             description: ts.Diagnostics.Enables_experimental_support_for_emitting_type_metadata_for_decorators
+        },
+        {
+            name: "moduleResolution",
+            type: {
+                "node": 2 /* NodeJs */,
+                "classic": 1 /* Classic */
+            },
+            experimental: true,
+            description: ts.Diagnostics.Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6
         }
     ];
     function parseCommandLine(commandLine) {
@@ -30212,7 +30238,12 @@ var ts;
                         return;
                     }
                 }
-                writeTextOfNode(currentSourceFile, node);
+                if (ts.nodeIsSynthesized(node)) {
+                    write(node.text);
+                }
+                else {
+                    writeTextOfNode(currentSourceFile, node);
+                }
             }
             function isNameOfNestedRedeclaration(node) {
                 if (languageVersion < 2 /* ES6 */) {
@@ -30236,6 +30267,9 @@ var ts;
                 }
                 else if (isNameOfNestedRedeclaration(node)) {
                     write(getGeneratedNameForNode(node));
+                }
+                else if (ts.nodeIsSynthesized(node)) {
+                    write(node.text);
                 }
                 else {
                     writeTextOfNode(currentSourceFile, node);
@@ -35561,10 +35595,127 @@ var ts;
     }
     ts.resolveTripleslashReference = resolveTripleslashReference;
     ts.resolveModuleName = function (moduleName, containingFile, compilerOptions, host) {
-        // TODO: use different resolution strategy based on compiler options
-        return legacyNameResolver(moduleName, containingFile, compilerOptions, host);
+        var moduleResolution = compilerOptions.moduleResolution !== undefined
+            ? compilerOptions.moduleResolution
+            : compilerOptions.module === 1 /* CommonJS */ ? 2 /* NodeJs */ : 1 /* Classic */;
+        switch (moduleResolution) {
+            case 2 /* NodeJs */: return nodeModuleNameResolver(moduleName, containingFile, host);
+            case 1 /* Classic */: return classicNameResolver(moduleName, containingFile, compilerOptions, host);
+        }
     };
-    function legacyNameResolver(moduleName, containingFile, compilerOptions, host) {
+    function nodeModuleNameResolver(moduleName, containingFile, host) {
+        var containingDirectory = ts.getDirectoryPath(containingFile);
+        if (ts.getRootLength(moduleName) !== 0 || nameStartsWithDotSlashOrDotDotSlash(moduleName)) {
+            var failedLookupLocations = [];
+            var candidate = ts.normalizePath(ts.combinePaths(containingDirectory, moduleName));
+            var resolvedFileName = loadNodeModuleFromFile(candidate, /* loadOnlyDts */ false, failedLookupLocations, host);
+            if (resolvedFileName) {
+                return { resolvedFileName: resolvedFileName, failedLookupLocations: failedLookupLocations };
+            }
+            resolvedFileName = loadNodeModuleFromDirectory(candidate, /* loadOnlyDts */ false, failedLookupLocations, host);
+            return { resolvedFileName: resolvedFileName, failedLookupLocations: failedLookupLocations };
+        }
+        else {
+            return loadModuleFromNodeModules(moduleName, containingDirectory, host);
+        }
+    }
+    ts.nodeModuleNameResolver = nodeModuleNameResolver;
+    function loadNodeModuleFromFile(candidate, loadOnlyDts, failedLookupLocation, host) {
+        if (loadOnlyDts) {
+            return tryLoad(".d.ts");
+        }
+        else {
+            return ts.forEach(ts.supportedExtensions, tryLoad);
+        }
+        function tryLoad(ext) {
+            var fileName = ts.fileExtensionIs(candidate, ext) ? candidate : candidate + ext;
+            if (host.fileExists(fileName)) {
+                return fileName;
+            }
+            else {
+                failedLookupLocation.push(fileName);
+                return undefined;
+            }
+        }
+    }
+    function loadNodeModuleFromDirectory(candidate, loadOnlyDts, failedLookupLocation, host) {
+        var packageJsonPath = ts.combinePaths(candidate, "package.json");
+        if (host.fileExists(packageJsonPath)) {
+            var jsonContent;
+            try {
+                var jsonText = host.readFile(packageJsonPath);
+                jsonContent = jsonText ? JSON.parse(jsonText) : { typings: undefined };
+            }
+            catch (e) {
+                // gracefully handle if readFile fails or returns not JSON 
+                jsonContent = { typings: undefined };
+            }
+            if (jsonContent.typings) {
+                var result = loadNodeModuleFromFile(ts.normalizePath(ts.combinePaths(candidate, jsonContent.typings)), loadOnlyDts, failedLookupLocation, host);
+                if (result) {
+                    return result;
+                }
+            }
+        }
+        else {
+            // record package json as one of failed lookup locations - in the future if this file will appear it will invalidate resolution results
+            failedLookupLocation.push(packageJsonPath);
+        }
+        return loadNodeModuleFromFile(ts.combinePaths(candidate, "index"), loadOnlyDts, failedLookupLocation, host);
+    }
+    function loadModuleFromNodeModules(moduleName, directory, host) {
+        var failedLookupLocations = [];
+        directory = ts.normalizeSlashes(directory);
+        while (true) {
+            var baseName = ts.getBaseFileName(directory);
+            if (baseName !== "node_modules") {
+                var nodeModulesFolder = ts.combinePaths(directory, "node_modules");
+                var candidate = ts.normalizePath(ts.combinePaths(nodeModulesFolder, moduleName));
+                var result = loadNodeModuleFromFile(candidate, /* loadOnlyDts */ true, failedLookupLocations, host);
+                if (result) {
+                    return { resolvedFileName: result, failedLookupLocations: failedLookupLocations };
+                }
+                result = loadNodeModuleFromDirectory(candidate, /* loadOnlyDts */ true, failedLookupLocations, host);
+                if (result) {
+                    return { resolvedFileName: result, failedLookupLocations: failedLookupLocations };
+                }
+            }
+            var parentPath = ts.getDirectoryPath(directory);
+            if (parentPath === directory) {
+                break;
+            }
+            directory = parentPath;
+        }
+        return { resolvedFileName: undefined, failedLookupLocations: failedLookupLocations };
+    }
+    function baseUrlModuleNameResolver(moduleName, containingFile, baseUrl, host) {
+        ts.Debug.assert(baseUrl !== undefined);
+        var normalizedModuleName = ts.normalizeSlashes(moduleName);
+        var basePart = useBaseUrl(moduleName) ? baseUrl : ts.getDirectoryPath(containingFile);
+        var candidate = ts.normalizePath(ts.combinePaths(basePart, moduleName));
+        var failedLookupLocations = [];
+        return ts.forEach(ts.supportedExtensions, function (ext) { return tryLoadFile(candidate + ext); }) || { resolvedFileName: undefined, failedLookupLocations: failedLookupLocations };
+        function tryLoadFile(location) {
+            if (host.fileExists(location)) {
+                return { resolvedFileName: location, failedLookupLocations: failedLookupLocations };
+            }
+            else {
+                failedLookupLocations.push(location);
+                return undefined;
+            }
+        }
+    }
+    ts.baseUrlModuleNameResolver = baseUrlModuleNameResolver;
+    function nameStartsWithDotSlashOrDotDotSlash(name) {
+        var i = name.lastIndexOf("./", 1);
+        return i === 0 || (i === 1 && name.charCodeAt(0) === 46 /* dot */);
+    }
+    function useBaseUrl(moduleName) {
+        // path is not rooted
+        // module name does not start with './' or '../'
+        return ts.getRootLength(moduleName) === 0 && !nameStartsWithDotSlashOrDotDotSlash(moduleName);
+    }
+    function classicNameResolver(moduleName, containingFile, compilerOptions, host) {
         // module names that contain '!' are used to reference resources and are not resolved to actual files on disk
         if (moduleName.indexOf('!') != -1) {
             return { resolvedFileName: undefined, failedLookupLocations: [] };
@@ -35600,6 +35751,7 @@ var ts;
         }
         return { resolvedFileName: referencedSourceFile, failedLookupLocations: failedLookupLocations };
     }
+    ts.classicNameResolver = classicNameResolver;
     function createCompilerHost(options, setParentNodes) {
         var currentDirectory;
         var existingDirectories = {};
