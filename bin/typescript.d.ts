@@ -1462,6 +1462,7 @@ declare namespace ts {
     }
     interface TypeMapper {
         (t: TypeParameter): Type;
+        instantiations?: Type[];
         context?: InferenceContext;
     }
     interface TypeInferences {
@@ -1517,6 +1518,7 @@ declare namespace ts {
         diagnostics?: boolean;
         emitBOM?: boolean;
         help?: boolean;
+        init?: boolean;
         inlineSourceMap?: boolean;
         inlineSources?: boolean;
         jsx?: JsxEmit;
@@ -1819,7 +1821,7 @@ declare namespace ts {
     function getProperty<T>(map: Map<T>, key: string): T;
     function isEmpty<T>(map: Map<T>): boolean;
     function clone<T>(object: T): T;
-    function extend<T>(first: Map<T>, second: Map<T>): Map<T>;
+    function extend<T1, T2>(first: Map<T1>, second: Map<T2>): Map<T1 & T2>;
     function forEachValue<T, U>(map: Map<T>, callback: (value: T) => U): U;
     function forEachKey<T, U>(map: Map<T>, callback: (key: string) => U): U;
     function lookUp<T>(map: Map<T>, key: string): T;
@@ -3996,7 +3998,7 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        A_member_initializer_in_a_const_enum_declaration_cannot_reference_members_declared_after_it_including_members_defined_in_other_const_enums: {
+        A_member_initializer_in_a_enum_declaration_cannot_reference_members_declared_after_it_including_members_defined_in_other_enums: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4426,6 +4428,11 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        A_tsconfig_json_file_is_already_defined_at_Colon_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Concatenate_and_emit_output_to_single_file: {
             code: number;
             category: DiagnosticCategory;
@@ -4697,6 +4704,16 @@ declare namespace ts {
             key: string;
         };
         Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Initializes_a_TypeScript_project_and_creates_a_tsconfig_json_file: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Successfully_created_a_tsconfig_json_file: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5048,8 +5065,8 @@ declare namespace ts {
     function forEachReturnStatement<T>(body: Block, visitor: (stmt: ReturnStatement) => T): T;
     function forEachYieldExpression(body: Block, visitor: (expr: YieldExpression) => void): void;
     function isVariableLike(node: Node): node is VariableLikeDeclaration;
-    function isAccessor(node: Node): boolean;
-    function isClassLike(node: Node): boolean;
+    function isAccessor(node: Node): node is AccessorDeclaration;
+    function isClassLike(node: Node): node is ClassLikeDeclaration;
     function isFunctionLike(node: Node): boolean;
     function introducesArgumentsExoticObject(node: Node): boolean;
     function isFunctionBlock(node: Node): boolean;
@@ -5263,6 +5280,11 @@ declare namespace ts {
 }
 declare namespace ts {
     let optionDeclarations: CommandLineOption[];
+    interface OptionNameMap {
+        optionNameMap: Map<CommandLineOption>;
+        shortOptionNames: Map<string>;
+    }
+    function getOptionNameMap(): OptionNameMap;
     function parseCommandLine(commandLine: string[]): ParsedCommandLine;
     /**
       * Read tsconfig.json file
@@ -5309,6 +5331,7 @@ declare namespace ts {
     function nodeModuleNameResolver(moduleName: string, containingFile: string, host: ModuleResolutionHost): ResolvedModule;
     function baseUrlModuleNameResolver(moduleName: string, containingFile: string, baseUrl: string, host: ModuleResolutionHost): ResolvedModule;
     function classicNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModule;
+    const defaultInitCompilerOptions: CompilerOptions;
     function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
     function getPreEmitDiagnostics(program: Program, sourceFile?: SourceFile, cancellationToken?: CancellationToken): Diagnostic[];
     function flattenDiagnosticMessageText(messageText: string | DiagnosticMessageChain, newLine: string): string;
@@ -6649,28 +6672,3 @@ declare module NodeJS {
     }
 }
 declare var global: NodeJS.Global;
-/**
- * Sample: Add additional options
- */
-declare module ts {
-    var NDiagnostics: {
-        initOption: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        initAlreadyExists: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        initFailed: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-    };
-    interface CompilerOptions {
-        init?: string;
-    }
-}

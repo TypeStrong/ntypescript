@@ -1993,7 +1993,7 @@ var ts;
         JSX_element_class_does_not_support_attributes_because_it_does_not_have_a_0_property: { code: 2607, category: ts.DiagnosticCategory.Error, key: "JSX element class does not support attributes because it does not have a '{0}' property" },
         The_global_type_JSX_0_may_not_have_more_than_one_property: { code: 2608, category: ts.DiagnosticCategory.Error, key: "The global type 'JSX.{0}' may not have more than one property" },
         Cannot_emit_namespaced_JSX_elements_in_React: { code: 2650, category: ts.DiagnosticCategory.Error, key: "Cannot emit namespaced JSX elements in React" },
-        A_member_initializer_in_a_const_enum_declaration_cannot_reference_members_declared_after_it_including_members_defined_in_other_const_enums: { code: 2651, category: ts.DiagnosticCategory.Error, key: "A member initializer in a 'const' enum declaration cannot reference members declared after it, including members defined in other 'const' enums." },
+        A_member_initializer_in_a_enum_declaration_cannot_reference_members_declared_after_it_including_members_defined_in_other_enums: { code: 2651, category: ts.DiagnosticCategory.Error, key: "A member initializer in a enum declaration cannot reference members declared after it, including members defined in other enums." },
         Merged_declaration_0_cannot_include_a_default_export_declaration_Consider_adding_a_separate_export_default_0_declaration_instead: { code: 2652, category: ts.DiagnosticCategory.Error, key: "Merged declaration '{0}' cannot include a default export declaration. Consider adding a separate 'export default {0}' declaration instead." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
@@ -2079,6 +2079,7 @@ var ts;
         Option_inlineSources_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided: { code: 5051, category: ts.DiagnosticCategory.Error, key: "Option 'inlineSources' can only be used when either option '--inlineSourceMap' or option '--sourceMap' is provided." },
         Option_0_cannot_be_specified_without_specifying_option_1: { code: 5052, category: ts.DiagnosticCategory.Error, key: "Option '{0}' cannot be specified without specifying option '{1}'." },
         Option_0_cannot_be_specified_with_option_1: { code: 5053, category: ts.DiagnosticCategory.Error, key: "Option '{0}' cannot be specified with option '{1}'." },
+        A_tsconfig_json_file_is_already_defined_at_Colon_0: { code: 5053, category: ts.DiagnosticCategory.Error, key: "A 'tsconfig.json' file is already defined at: '{0}'." },
         Concatenate_and_emit_output_to_single_file: { code: 6001, category: ts.DiagnosticCategory.Message, key: "Concatenate and emit output to single file." },
         Generates_corresponding_d_ts_file: { code: 6002, category: ts.DiagnosticCategory.Message, key: "Generates corresponding '.d.ts' file." },
         Specifies_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations: { code: 6003, category: ts.DiagnosticCategory.Message, key: "Specifies the location where debugger should locate map files instead of generated locations." },
@@ -2134,6 +2135,8 @@ var ts;
         Option_experimentalAsyncFunctions_cannot_be_specified_when_targeting_ES5_or_lower: { code: 6067, category: ts.DiagnosticCategory.Message, key: "Option 'experimentalAsyncFunctions' cannot be specified when targeting ES5 or lower." },
         Enables_experimental_support_for_ES7_async_functions: { code: 6068, category: ts.DiagnosticCategory.Message, key: "Enables experimental support for ES7 async functions." },
         Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6: { code: 6069, category: ts.DiagnosticCategory.Message, key: "Specifies module resolution strategy: 'node' (Node) or 'classic' (TypeScript pre 1.6) ." },
+        Initializes_a_TypeScript_project_and_creates_a_tsconfig_json_file: { code: 6070, category: ts.DiagnosticCategory.Message, key: "Initializes a TypeScript project and creates a tsconfig.json file." },
+        Successfully_created_a_tsconfig_json_file: { code: 6071, category: ts.DiagnosticCategory.Message, key: "Successfully created a tsconfig.json file." },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member '{0}' implicitly has an '{1}' type." },
@@ -14262,7 +14265,7 @@ var ts;
             }
             function buildTypeParameterDisplayFromSymbol(symbol, writer, enclosingDeclaraiton, flags) {
                 var targetSymbol = getTargetSymbol(symbol);
-                if (targetSymbol.flags & 32 /* Class */ || targetSymbol.flags & 64 /* Interface */) {
+                if (targetSymbol.flags & 32 /* Class */ || targetSymbol.flags & 64 /* Interface */ || targetSymbol.flags & 524288 /* TypeAlias */) {
                     buildDisplayForTypeParametersAndDelimiters(getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(symbol), writer, enclosingDeclaraiton, flags);
                 }
             }
@@ -16658,6 +16661,15 @@ var ts;
             return result;
         }
         function instantiateAnonymousType(type, mapper) {
+            if (mapper.instantiations) {
+                var cachedType = mapper.instantiations[type.id];
+                if (cachedType) {
+                    return cachedType;
+                }
+            }
+            else {
+                mapper.instantiations = [];
+            }
             // Mark the anonymous type as instantiated such that our infinite instantiation detection logic can recognize it
             var result = createObjectType(65536 /* Anonymous */ | 131072 /* Instantiated */, type.symbol);
             result.properties = instantiateList(getPropertiesOfObjectType(type), mapper, instantiateSymbol);
@@ -16670,6 +16682,7 @@ var ts;
                 result.stringIndexType = instantiateType(stringIndexType, mapper);
             if (numberIndexType)
                 result.numberIndexType = instantiateType(numberIndexType, mapper);
+            mapper.instantiations[type.id] = result;
             return result;
         }
         function instantiateType(type, mapper) {
@@ -24329,7 +24342,7 @@ var ts;
                             // illegal case: forward reference
                             if (!isDefinedBefore(propertyDecl, member)) {
                                 reportError = false;
-                                error(e, ts.Diagnostics.A_member_initializer_in_a_const_enum_declaration_cannot_reference_members_declared_after_it_including_members_defined_in_other_const_enums);
+                                error(e, ts.Diagnostics.A_member_initializer_in_a_enum_declaration_cannot_reference_members_declared_after_it_including_members_defined_in_other_enums);
                                 return undefined;
                             }
                             return getNodeLinks(propertyDecl).enumMemberValue;
@@ -27075,6 +27088,11 @@ var ts;
             description: ts.Diagnostics.Print_this_message,
         },
         {
+            name: "init",
+            type: "boolean",
+            description: ts.Diagnostics.Initializes_a_TypeScript_project_and_creates_a_tsconfig_json_file,
+        },
+        {
             name: "inlineSourceMap",
             type: "boolean",
         },
@@ -27280,18 +27298,29 @@ var ts;
             description: ts.Diagnostics.Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6
         }
     ];
-    function parseCommandLine(commandLine) {
-        var options = {};
-        var fileNames = [];
-        var errors = [];
-        var shortOptionNames = {};
+    var optionNameMapCache;
+    /* @internal */
+    function getOptionNameMap() {
+        if (optionNameMapCache) {
+            return optionNameMapCache;
+        }
         var optionNameMap = {};
+        var shortOptionNames = {};
         ts.forEach(ts.optionDeclarations, function (option) {
             optionNameMap[option.name.toLowerCase()] = option;
             if (option.shortName) {
                 shortOptionNames[option.shortName] = option.name;
             }
         });
+        optionNameMapCache = { optionNameMap: optionNameMap, shortOptionNames: shortOptionNames };
+        return optionNameMapCache;
+    }
+    ts.getOptionNameMap = getOptionNameMap;
+    function parseCommandLine(commandLine) {
+        var options = {};
+        var fileNames = [];
+        var errors = [];
+        var _a = getOptionNameMap(), optionNameMap = _a.optionNameMap, shortOptionNames = _a.shortOptionNames;
         parseStrings(commandLine);
         return {
             options: options,
@@ -29024,11 +29053,7 @@ var ts;
         }
         function emitJavaScript(jsFilePath, root) {
             var writer = ts.createTextWriter(newLine);
-            var write = writer.write;
-            var writeTextOfNode = writer.writeTextOfNode;
-            var writeLine = writer.writeLine;
-            var increaseIndent = writer.increaseIndent;
-            var decreaseIndent = writer.decreaseIndent;
+            var write = writer.write, writeTextOfNode = writer.writeTextOfNode, writeLine = writer.writeLine, increaseIndent = writer.increaseIndent, decreaseIndent = writer.decreaseIndent;
             var currentSourceFile;
             // name of an exporter function if file is a System external module
             // System.register([...], function (<exporter>) {...})
@@ -31612,7 +31637,7 @@ var ts;
                     if (compilerOptions.module === 1 /* CommonJS */ || compilerOptions.module === 2 /* AMD */ || compilerOptions.module === 3 /* UMD */) {
                         if (!currentSourceFile.symbol.exports["___esModule"]) {
                             if (languageVersion === 1 /* ES5 */) {
-                                // default value of configurable, enumerable, writable are `false`. 
+                                // default value of configurable, enumerable, writable are `false`.
                                 write("Object.defineProperty(exports, \"__esModule\", { value: true });");
                                 writeLine();
                             }
@@ -33283,7 +33308,7 @@ var ts;
                 // * The serialized type of an AccessorDeclaration is the serialized type of the return type annotation of its getter or parameter type annotation of its setter.
                 // * The serialized type of any other FunctionLikeDeclaration is "Function".
                 // * The serialized type of any other node is "void 0".
-                // 
+                //
                 // For rules on serializing type annotations, see `serializeTypeNode`.
                 switch (node.kind) {
                     case 212 /* ClassDeclaration */:
@@ -33417,7 +33442,7 @@ var ts;
                 //
                 // * If the declaration is a class, the parameters of the first constructor with a body are used.
                 // * If the declaration is function-like and has a body, the parameters of the function are used.
-                // 
+                //
                 // For the rules on serializing the type of each parameter declaration, see `serializeTypeOfDeclaration`.
                 if (node) {
                     var valueDeclaration;
@@ -35563,6 +35588,7 @@ var ts;
 })(ts || (ts = {}));
 /// <reference path="sys.ts" />
 /// <reference path="emitter.ts" />
+/// <reference path="core.ts" />
 var ts;
 (function (ts) {
     /* @internal */ ts.programTime = 0;
@@ -35752,6 +35778,15 @@ var ts;
         return { resolvedFileName: referencedSourceFile, failedLookupLocations: failedLookupLocations };
     }
     ts.classicNameResolver = classicNameResolver;
+    /* @internal */
+    ts.defaultInitCompilerOptions = {
+        module: 1 /* CommonJS */,
+        target: 0 /* ES3 */,
+        noImplicitAny: false,
+        outDir: "built",
+        rootDir: ".",
+        sourceMap: false,
+    };
     function createCompilerHost(options, setParentNodes) {
         var currentDirectory;
         var existingDirectories = {};
@@ -36594,6 +36629,10 @@ var ts;
             reportDiagnostics(commandLine.errors);
             return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
         }
+        if (commandLine.options.init) {
+            writeConfigFile(commandLine.options, commandLine.fileNames);
+            return ts.sys.exit(ts.ExitStatus.Success);
+        }
         if (commandLine.options.version) {
             reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Version_0, ts.version));
             return ts.sys.exit(ts.ExitStatus.Success);
@@ -36870,6 +36909,64 @@ var ts;
             return Array(paddingLength + 1).join(" ");
         }
     }
+    function writeConfigFile(options, fileNames) {
+        var currentDirectory = ts.sys.getCurrentDirectory();
+        var file = ts.combinePaths(currentDirectory, 'tsconfig.json');
+        if (ts.sys.fileExists(file)) {
+            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.A_tsconfig_json_file_is_already_defined_at_Colon_0, file));
+        }
+        else {
+            var compilerOptions = ts.extend(options, ts.defaultInitCompilerOptions);
+            var configurations = {
+                compilerOptions: serializeCompilerOptions(compilerOptions),
+                exclude: ["node_modules"]
+            };
+            if (fileNames && fileNames.length) {
+                // only set the files property if we have at least one file
+                configurations.files = fileNames;
+            }
+            ts.sys.writeFile(file, JSON.stringify(configurations, undefined, 4));
+            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Successfully_created_a_tsconfig_json_file));
+        }
+        return;
+        function serializeCompilerOptions(options) {
+            var result = {};
+            var optionsNameMap = ts.getOptionNameMap().optionNameMap;
+            for (var name_28 in options) {
+                if (ts.hasProperty(options, name_28)) {
+                    var value = options[name_28];
+                    switch (name_28) {
+                        case "init":
+                        case "watch":
+                        case "version":
+                        case "help":
+                        case "project":
+                            break;
+                        default:
+                            var optionDefinition = optionsNameMap[name_28.toLowerCase()];
+                            if (optionDefinition) {
+                                if (typeof optionDefinition.type === "string") {
+                                    // string, number or boolean
+                                    result[name_28] = value;
+                                }
+                                else {
+                                    // Enum
+                                    var typeMap = optionDefinition.type;
+                                    for (var key in typeMap) {
+                                        if (ts.hasProperty(typeMap, key)) {
+                                            if (typeMap[key] === value)
+                                                result[name_28] = key;
+                                        }
+                                    }
+                                }
+                            }
+                            break;
+                    }
+                }
+            }
+            return result;
+        }
+    }
 })(ts || (ts = {}));
 
 /* @internal */
@@ -37046,12 +37143,12 @@ var ts;
             ts.forEach(program.getSourceFiles(), function (sourceFile) {
                 cancellationToken.throwIfCancellationRequested();
                 var nameToDeclarations = sourceFile.getNamedDeclarations();
-                for (var name_28 in nameToDeclarations) {
-                    var declarations = ts.getProperty(nameToDeclarations, name_28);
+                for (var name_29 in nameToDeclarations) {
+                    var declarations = ts.getProperty(nameToDeclarations, name_29);
                     if (declarations) {
                         // First do a quick check to see if the name of the declaration matches the 
                         // last portion of the (possibly) dotted name they're searching for.
-                        var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_28);
+                        var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_29);
                         if (!matches) {
                             continue;
                         }
@@ -37064,14 +37161,14 @@ var ts;
                                 if (!containers) {
                                     return undefined;
                                 }
-                                matches = patternMatcher.getMatches(containers, name_28);
+                                matches = patternMatcher.getMatches(containers, name_29);
                                 if (!matches) {
                                     continue;
                                 }
                             }
                             var fileName = sourceFile.fileName;
                             var matchKind = bestMatchKind(matches);
-                            rawItems.push({ name: name_28, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
+                            rawItems.push({ name: name_29, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
                         }
                     }
                 }
@@ -37454,9 +37551,9 @@ var ts;
                     case 209 /* VariableDeclaration */:
                     case 161 /* BindingElement */:
                         var variableDeclarationNode;
-                        var name_29;
+                        var name_30;
                         if (node.kind === 161 /* BindingElement */) {
-                            name_29 = node.name;
+                            name_30 = node.name;
                             variableDeclarationNode = node;
                             // binding elements are added only for variable declarations
                             // bubble up to the containing variable declaration
@@ -37468,16 +37565,16 @@ var ts;
                         else {
                             ts.Debug.assert(!ts.isBindingPattern(node.name));
                             variableDeclarationNode = node;
-                            name_29 = node.name;
+                            name_30 = node.name;
                         }
                         if (ts.isConst(variableDeclarationNode)) {
-                            return createItem(node, getTextOfNode(name_29), ts.ScriptElementKind.constElement);
+                            return createItem(node, getTextOfNode(name_30), ts.ScriptElementKind.constElement);
                         }
                         else if (ts.isLet(variableDeclarationNode)) {
-                            return createItem(node, getTextOfNode(name_29), ts.ScriptElementKind.letElement);
+                            return createItem(node, getTextOfNode(name_30), ts.ScriptElementKind.letElement);
                         }
                         else {
-                            return createItem(node, getTextOfNode(name_29), ts.ScriptElementKind.variableElement);
+                            return createItem(node, getTextOfNode(name_30), ts.ScriptElementKind.variableElement);
                         }
                     case 142 /* Constructor */:
                         return createItem(node, "constructor", ts.ScriptElementKind.constructorImplementationElement);
@@ -40197,9 +40294,9 @@ var ts;
             }
             Rules.prototype.getRuleName = function (rule) {
                 var o = this;
-                for (var name_30 in o) {
-                    if (o[name_30] === rule) {
-                        return name_30;
+                for (var name_31 in o) {
+                    if (o[name_31] === rule) {
+                        return name_31;
                     }
                 }
                 throw new Error("Unknown rule");
@@ -44731,9 +44828,10 @@ var ts;
                             containingNodeKind === 215 /* EnumDeclaration */ ||
                             isFunction(containingNodeKind) ||
                             containingNodeKind === 212 /* ClassDeclaration */ ||
-                            containingNodeKind === 211 /* FunctionDeclaration */ ||
+                            containingNodeKind === 184 /* ClassExpression */ ||
                             containingNodeKind === 213 /* InterfaceDeclaration */ ||
-                            containingNodeKind === 160 /* ArrayBindingPattern */; // var [x, y|
+                            containingNodeKind === 160 /* ArrayBindingPattern */ ||
+                            containingNodeKind === 214 /* TypeAliasDeclaration */; // type Map, K, |
                     case 21 /* DotToken */:
                         return containingNodeKind === 160 /* ArrayBindingPattern */; // var [.|
                     case 53 /* ColonToken */:
@@ -44754,8 +44852,9 @@ var ts;
                                 contextToken.parent.parent.kind === 153 /* TypeLiteral */); // let x : { a; |
                     case 25 /* LessThanToken */:
                         return containingNodeKind === 212 /* ClassDeclaration */ ||
-                            containingNodeKind === 211 /* FunctionDeclaration */ ||
+                            containingNodeKind === 184 /* ClassExpression */ ||
                             containingNodeKind === 213 /* InterfaceDeclaration */ ||
+                            containingNodeKind === 214 /* TypeAliasDeclaration */ ||
                             isFunction(containingNodeKind);
                     case 111 /* StaticKeyword */:
                         return containingNodeKind === 139 /* PropertyDeclaration */;
@@ -44824,8 +44923,8 @@ var ts;
                     if (element.getStart() <= position && position <= element.getEnd()) {
                         continue;
                     }
-                    var name_31 = element.propertyName || element.name;
-                    exisingImportsOrExports[name_31.text] = true;
+                    var name_32 = element.propertyName || element.name;
+                    exisingImportsOrExports[name_32.text] = true;
                 }
                 if (ts.isEmpty(exisingImportsOrExports)) {
                     return exportsOfModule;
@@ -44924,10 +45023,10 @@ var ts;
                 for (var _i = 0, _a = program.getSourceFiles(); _i < _a.length; _i++) {
                     var sourceFile = _a[_i];
                     var nameTable = getNameTable(sourceFile);
-                    for (var name_32 in nameTable) {
-                        if (!allNames[name_32]) {
-                            allNames[name_32] = name_32;
-                            var displayName = getCompletionEntryDisplayName(name_32, target, /*performCharacterChecks:*/ true);
+                    for (var name_33 in nameTable) {
+                        if (!allNames[name_33]) {
+                            allNames[name_33] = name_33;
+                            var displayName = getCompletionEntryDisplayName(name_33, target, /*performCharacterChecks:*/ true);
                             if (displayName) {
                                 var entry = {
                                     name: displayName,
@@ -45263,6 +45362,7 @@ var ts;
                 displayParts.push(ts.keywordPart(130 /* TypeKeyword */));
                 displayParts.push(ts.spacePart());
                 addFullSymbolName(symbol);
+                writeTypeParametersOfSymbol(symbol, sourceFile);
                 displayParts.push(ts.spacePart());
                 displayParts.push(ts.operatorPart(55 /* EqualsToken */));
                 displayParts.push(ts.spacePart());
@@ -45303,16 +45403,29 @@ var ts;
                 }
                 else {
                     // Method/function type parameter
-                    var signatureDeclaration = ts.getDeclarationOfKind(symbol, 135 /* TypeParameter */).parent;
-                    var signature = typeChecker.getSignatureFromDeclaration(signatureDeclaration);
-                    if (signatureDeclaration.kind === 146 /* ConstructSignature */) {
-                        displayParts.push(ts.keywordPart(90 /* NewKeyword */));
+                    var container = ts.getContainingFunction(location);
+                    if (container) {
+                        var signatureDeclaration = ts.getDeclarationOfKind(symbol, 135 /* TypeParameter */).parent;
+                        var signature = typeChecker.getSignatureFromDeclaration(signatureDeclaration);
+                        if (signatureDeclaration.kind === 146 /* ConstructSignature */) {
+                            displayParts.push(ts.keywordPart(90 /* NewKeyword */));
+                            displayParts.push(ts.spacePart());
+                        }
+                        else if (signatureDeclaration.kind !== 145 /* CallSignature */ && signatureDeclaration.name) {
+                            addFullSymbolName(signatureDeclaration.symbol);
+                        }
+                        ts.addRange(displayParts, ts.signatureToDisplayParts(typeChecker, signature, sourceFile, 32 /* WriteTypeArgumentsOfSignature */));
+                    }
+                    else {
+                        // Type  aliash type parameter
+                        // For example
+                        //      type list<T> = T[];  // Both T will go through same code path
+                        var declaration = ts.getDeclarationOfKind(symbol, 135 /* TypeParameter */).parent;
+                        displayParts.push(ts.keywordPart(130 /* TypeKeyword */));
                         displayParts.push(ts.spacePart());
+                        addFullSymbolName(declaration.symbol);
+                        writeTypeParametersOfSymbol(declaration.symbol, sourceFile);
                     }
-                    else if (signatureDeclaration.kind !== 145 /* CallSignature */ && signatureDeclaration.name) {
-                        addFullSymbolName(signatureDeclaration.symbol);
-                    }
-                    ts.addRange(displayParts, ts.signatureToDisplayParts(typeChecker, signature, sourceFile, 32 /* WriteTypeArgumentsOfSignature */));
                 }
             }
             if (symbolFlags & 8 /* EnumMember */) {
@@ -45525,9 +45638,15 @@ var ts;
                 // and in either case the symbol has a construct signature definition, i.e. class
                 if (isNewExpressionTarget(location) || location.kind === 119 /* ConstructorKeyword */) {
                     if (symbol.flags & 32 /* Class */) {
-                        var classDeclaration = symbol.getDeclarations()[0];
-                        ts.Debug.assert(classDeclaration && classDeclaration.kind === 212 /* ClassDeclaration */);
-                        return tryAddSignature(classDeclaration.members, /*selectConstructors*/ true, symbolKind, symbolName, containerName, result);
+                        // Find the first class-like declaration and try to get the construct signature.
+                        for (var _i = 0, _a = symbol.getDeclarations(); _i < _a.length; _i++) {
+                            var declaration = _a[_i];
+                            if (ts.isClassLike(declaration)) {
+                                return tryAddSignature(declaration.members, 
+                                /*selectConstructors*/ true, symbolKind, symbolName, containerName, result);
+                            }
+                        }
+                        ts.Debug.fail("Expected declaration to have at least one class-like declaration");
                     }
                 }
                 return false;
@@ -46807,19 +46926,19 @@ var ts;
                 if (isNameOfPropertyAssignment(node)) {
                     var objectLiteral = node.parent.parent;
                     var contextualType = typeChecker.getContextualType(objectLiteral);
-                    var name_33 = node.text;
+                    var name_34 = node.text;
                     if (contextualType) {
                         if (contextualType.flags & 16384 /* Union */) {
                             // This is a union type, first see if the property we are looking for is a union property (i.e. exists in all types)
                             // if not, search the constituent types for the property
-                            var unionProperty = contextualType.getProperty(name_33);
+                            var unionProperty = contextualType.getProperty(name_34);
                             if (unionProperty) {
                                 return [unionProperty];
                             }
                             else {
                                 var result_4 = [];
                                 ts.forEach(contextualType.types, function (t) {
-                                    var symbol = t.getProperty(name_33);
+                                    var symbol = t.getProperty(name_34);
                                     if (symbol) {
                                         result_4.push(symbol);
                                     }
@@ -46828,7 +46947,7 @@ var ts;
                             }
                         }
                         else {
-                            var symbol_1 = contextualType.getProperty(name_33);
+                            var symbol_1 = contextualType.getProperty(name_34);
                             if (symbol_1) {
                                 return [symbol_1];
                             }
@@ -49599,53 +49718,3 @@ if (typeof global !== "undefined") {
 if (typeof window !== "undefined") {
     window.ts = ts;
 }
-/**
- * Sample: Add additional options
- */
-var ts;
-(function (ts) {
-    ts.NDiagnostics = {
-        initOption: { code: 20000, category: ts.DiagnosticCategory.Message, key: "Creates a new tsconfig.json" },
-        initAlreadyExists: { code: 20001, category: ts.DiagnosticCategory.Error, key: "A local tsconfig.json already exits" },
-        initFailed: { code: 20002, category: ts.DiagnosticCategory.Error, key: "Failed to write a tsconfig.json" },
-    };
-    ts.optionDeclarations.push({
-        name: 'init',
-        type: 'boolean',
-        shortName: 'i',
-        description: ts.NDiagnostics.initOption
-    });
-    var parseCommandLineOld = ts.parseCommandLine;
-    ts.parseCommandLine = function (commandLine) {
-        var oldResult = parseCommandLineOld.apply(null, arguments);
-        if (oldResult.options.init) {
-            if (ts.sys.fileExists('./tsconfig.json')) {
-                oldResult.errors.push(ts.createCompilerDiagnostic(ts.NDiagnostics.initAlreadyExists));
-            }
-        }
-        return oldResult;
-    };
-    var executeCommandLineOld = ts.executeCommandLine;
-    ts.executeCommandLine = function (args) {
-        var commandLine = ts.parseCommandLine(args);
-        // If errors let the old code deal with it
-        if (commandLine.errors.length > 0) {
-            return executeCommandLineOld.apply(null, arguments);
-        }
-        // If not an option we've customized let the old code deal with it
-        if (!commandLine.options.init) {
-            return executeCommandLineOld.apply(null, arguments);
-        }
-        // Otherwise lets do our stuff
-        if (commandLine.options.init) {
-            try {
-                ts.sys.writeFile('./tsconfig.json', '{}');
-                return ts.sys.exit(ts.ExitStatus.Success);
-            }
-            catch (e) {
-                ts.reportDiagnostic(ts.createCompilerDiagnostic(ts.NDiagnostics.initFailed));
-                return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
-            }
-        }
-    };
-})(ts || (ts = {}));
