@@ -1543,6 +1543,7 @@ declare namespace ts {
         rootDir?: string;
         sourceMap?: boolean;
         sourceRoot?: string;
+        suppressExcessPropertyErrors?: boolean;
         suppressImplicitAnyIndexErrors?: boolean;
         target?: ScriptTarget;
         version?: boolean;
@@ -4718,6 +4719,11 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        Suppress_excess_property_checks_for_object_literals: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Variable_0_implicitly_has_an_1_type: {
             code: number;
             category: DiagnosticCategory;
@@ -5669,6 +5675,18 @@ declare namespace ts.formatting {
         SpaceAfterStarInGeneratorDeclaration: Rule;
         NoSpaceBetweenYieldKeywordAndStar: Rule;
         SpaceBetweenYieldOrYieldStarAndOperand: Rule;
+        SpaceBetweenAsyncAndFunctionKeyword: Rule;
+        NoSpaceBetweenAsyncAndFunctionKeyword: Rule;
+        SpaceAfterAwaitKeyword: Rule;
+        NoSpaceAfterAwaitKeyword: Rule;
+        SpaceAfterTypeKeyword: Rule;
+        NoSpaceAfterTypeKeyword: Rule;
+        SpaceBetweenTagAndTemplateString: Rule;
+        NoSpaceBetweenTagAndTemplateString: Rule;
+        SpaceBeforeBar: Rule;
+        NoSpaceBeforeBar: Rule;
+        SpaceAfterBar: Rule;
+        NoSpaceAfterBar: Rule;
         constructor();
         static IsForContext(context: FormattingContext): boolean;
         static IsNotForContext(context: FormattingContext): boolean;

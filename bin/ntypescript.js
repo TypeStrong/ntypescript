@@ -2137,6 +2137,7 @@ var ts;
         Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6: { code: 6069, category: ts.DiagnosticCategory.Message, key: "Specifies module resolution strategy: 'node' (Node) or 'classic' (TypeScript pre 1.6) ." },
         Initializes_a_TypeScript_project_and_creates_a_tsconfig_json_file: { code: 6070, category: ts.DiagnosticCategory.Message, key: "Initializes a TypeScript project and creates a tsconfig.json file." },
         Successfully_created_a_tsconfig_json_file: { code: 6071, category: ts.DiagnosticCategory.Message, key: "Successfully created a tsconfig.json file." },
+        Suppress_excess_property_checks_for_object_literals: { code: 6072, category: ts.DiagnosticCategory.Message, key: "Suppress excess property checks for object literals." },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member '{0}' implicitly has an '{1}' type." },
@@ -4553,6 +4554,10 @@ var ts;
             else {
                 var bindingName = node.name ? node.name.text : "__class";
                 bindAnonymousDeclaration(node, 32 /* Class */, bindingName);
+                // Add name of class expression into the map for semantic classifier
+                if (node.name) {
+                    classifiableNames[node.name.text] = node.name.text;
+                }
             }
             var symbol = node.symbol;
             // TypeScript 1.0 spec (April 2014): 8.4
@@ -15393,7 +15398,7 @@ var ts;
             return members;
         }
         function resolveTupleTypeMembers(type) {
-            var arrayType = resolveStructuredTypeMembers(createArrayType(getUnionType(type.elementTypes)));
+            var arrayType = resolveStructuredTypeMembers(createArrayType(getUnionType(type.elementTypes, /*noDeduplication*/ true)));
             var members = createTupleTypeMemberSymbols(type.elementTypes);
             addInheritedMembers(members, arrayType.properties);
             setObjectTypeMembers(type, members, arrayType.callSignatures, arrayType.constructSignatures, arrayType.stringIndexType, arrayType.numberIndexType);
@@ -19129,7 +19134,7 @@ var ts;
             var propertiesTable = {};
             var propertiesArray = [];
             var contextualType = getContextualType(node);
-            var typeFlags;
+            var typeFlags = 0;
             for (var _i = 0, _a = node.properties; _i < _a.length; _i++) {
                 var memberDecl = _a[_i];
                 var member = memberDecl.symbol;
@@ -19175,7 +19180,8 @@ var ts;
             var stringIndexType = getIndexType(0 /* String */);
             var numberIndexType = getIndexType(1 /* Number */);
             var result = createAnonymousType(node.symbol, propertiesTable, emptyArray, emptyArray, stringIndexType, numberIndexType);
-            result.flags |= 524288 /* ObjectLiteral */ | 1048576 /* FreshObjectLiteral */ | 4194304 /* ContainsObjectLiteral */ | (typeFlags & 14680064 /* PropagatingFlags */);
+            var freshObjectLiteralFlag = compilerOptions.suppressExcessPropertyErrors ? 0 : 1048576 /* FreshObjectLiteral */;
+            result.flags |= 524288 /* ObjectLiteral */ | 4194304 /* ContainsObjectLiteral */ | freshObjectLiteralFlag | (typeFlags & 14680064 /* PropagatingFlags */);
             return result;
             function getIndexType(kind) {
                 if (contextualType && contextualTypeHasIndexSignature(contextualType, kind)) {
@@ -23939,6 +23945,7 @@ var ts;
                 if (baseTypes.length && produceDiagnostics) {
                     var baseType = baseTypes[0];
                     var staticBaseType = getBaseConstructorTypeOfClass(type);
+                    checkSourceElement(baseTypeNode.expression);
                     if (baseTypeNode.typeArguments) {
                         ts.forEach(baseTypeNode.typeArguments, checkSourceElement);
                         for (var _i = 0, _a = getConstructorsForTypeArguments(staticBaseType, baseTypeNode.typeArguments); _i < _a.length; _i++) {
@@ -24918,6 +24925,8 @@ var ts;
                 case 209 /* VariableDeclaration */:
                 case 210 /* VariableDeclarationList */:
                 case 212 /* ClassDeclaration */:
+                case 241 /* HeritageClause */:
+                case 186 /* ExpressionWithTypeArguments */:
                 case 215 /* EnumDeclaration */:
                 case 245 /* EnumMember */:
                 case 225 /* ExportAssignment */:
@@ -27242,6 +27251,12 @@ var ts;
             paramType: ts.Diagnostics.LOCATION,
         },
         {
+            name: "suppressExcessPropertyErrors",
+            type: "boolean",
+            description: ts.Diagnostics.Suppress_excess_property_checks_for_object_literals,
+            experimental: true
+        },
+        {
             name: "suppressImplicitAnyIndexErrors",
             type: "boolean",
             description: ts.Diagnostics.Suppress_noImplicitAny_errors_for_indexing_objects_lacking_index_signatures,
@@ -28311,6 +28326,9 @@ var ts;
             function emitTypeOfTypeReference(node) {
                 if (ts.isSupportedExpressionWithTypeArguments(node)) {
                     emitTypeWithNewGetSymbolAccessibilityDiagnostic(node, getHeritageClauseVisibilityError);
+                }
+                else if (!isImplementsList && node.expression.kind === 91 /* NullKeyword */) {
+                    write("null");
                 }
                 function getHeritageClauseVisibilityError(symbolAccesibilityResult) {
                     var diagnosticMessage;
@@ -35597,7 +35615,7 @@ var ts;
     /* @internal */ ts.ioWriteTime = 0;
     /** The version of the TypeScript compiler release */
     var emptyArray = [];
-    ts.version = "1.6.0";
+    ts.version = "1.7.0";
     function findConfigFile(searchPath) {
         var fileName = "tsconfig.json";
         while (true) {
@@ -40196,6 +40214,22 @@ var ts;
                 this.SpaceAfterStarInGeneratorDeclaration = new formatting.Rule(formatting.RuleDescriptor.create3(37 /* AsteriskToken */, formatting.Shared.TokenRange.FromTokens([67 /* Identifier */, 17 /* OpenParenToken */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclarationOrFunctionExpressionContext), 2 /* Space */));
                 this.NoSpaceBetweenYieldKeywordAndStar = new formatting.Rule(formatting.RuleDescriptor.create1(112 /* YieldKeyword */, 37 /* AsteriskToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsYieldOrYieldStarWithOperand), 8 /* Delete */));
                 this.SpaceBetweenYieldOrYieldStarAndOperand = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([112 /* YieldKeyword */, 37 /* AsteriskToken */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsYieldOrYieldStarWithOperand), 2 /* Space */));
+                // Async-await
+                this.SpaceBetweenAsyncAndFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(116 /* AsyncKeyword */, 85 /* FunctionKeyword */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.NoSpaceBetweenAsyncAndFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(116 /* AsyncKeyword */, 85 /* FunctionKeyword */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                this.SpaceAfterAwaitKeyword = new formatting.Rule(formatting.RuleDescriptor.create3(117 /* AwaitKeyword */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.NoSpaceAfterAwaitKeyword = new formatting.Rule(formatting.RuleDescriptor.create3(117 /* AwaitKeyword */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                // Type alias declaration
+                this.SpaceAfterTypeKeyword = new formatting.Rule(formatting.RuleDescriptor.create3(130 /* TypeKeyword */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.NoSpaceAfterTypeKeyword = new formatting.Rule(formatting.RuleDescriptor.create3(130 /* TypeKeyword */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                // template string
+                this.SpaceBetweenTagAndTemplateString = new formatting.Rule(formatting.RuleDescriptor.create3(67 /* Identifier */, formatting.Shared.TokenRange.FromTokens([11 /* NoSubstitutionTemplateLiteral */, 12 /* TemplateHead */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.NoSpaceBetweenTagAndTemplateString = new formatting.Rule(formatting.RuleDescriptor.create3(67 /* Identifier */, formatting.Shared.TokenRange.FromTokens([11 /* NoSubstitutionTemplateLiteral */, 12 /* TemplateHead */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                // union type
+                this.SpaceBeforeBar = new formatting.Rule(formatting.RuleDescriptor.create3(46 /* BarToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.NoSpaceBeforeBar = new formatting.Rule(formatting.RuleDescriptor.create3(46 /* BarToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                this.SpaceAfterBar = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 46 /* BarToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.NoSpaceAfterBar = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 46 /* BarToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 // These rules are higher in priority than user-configurable rules.
                 this.HighPriorityCommonRules =
                     [
@@ -40222,6 +40256,11 @@ var ts;
                         this.NoSpaceBeforeOpenParenInFuncCall,
                         this.SpaceBeforeBinaryKeywordOperator, this.SpaceAfterBinaryKeywordOperator,
                         this.SpaceAfterVoidOperator,
+                        this.SpaceBetweenAsyncAndFunctionKeyword, this.NoSpaceBetweenAsyncAndFunctionKeyword,
+                        this.SpaceAfterAwaitKeyword, this.NoSpaceAfterAwaitKeyword,
+                        this.SpaceAfterTypeKeyword, this.NoSpaceAfterTypeKeyword,
+                        this.SpaceBetweenTagAndTemplateString, this.NoSpaceBetweenTagAndTemplateString,
+                        this.SpaceBeforeBar, this.NoSpaceBeforeBar, this.SpaceAfterBar, this.NoSpaceAfterBar,
                         // TypeScript-specific rules
                         this.NoSpaceAfterConstructor, this.NoSpaceAfterModuleImport,
                         this.SpaceAfterCertainTypeScriptKeywords, this.SpaceBeforeCertainTypeScriptKeywords,
@@ -42165,6 +42204,7 @@ var ts;
                     case 212 /* ClassDeclaration */:
                     case 213 /* InterfaceDeclaration */:
                     case 215 /* EnumDeclaration */:
+                    case 214 /* TypeAliasDeclaration */:
                     case 162 /* ArrayLiteralExpression */:
                     case 190 /* Block */:
                     case 217 /* ModuleBlock */:
@@ -42186,6 +42226,16 @@ var ts;
                     case 160 /* ArrayBindingPattern */:
                     case 159 /* ObjectBindingPattern */:
                     case 231 /* JsxElement */:
+                    case 140 /* MethodSignature */:
+                    case 145 /* CallSignature */:
+                    case 146 /* ConstructSignature */:
+                    case 136 /* Parameter */:
+                    case 150 /* FunctionType */:
+                    case 151 /* ConstructorType */:
+                    case 156 /* UnionType */:
+                    case 158 /* ParenthesizedType */:
+                    case 168 /* TaggedTemplateExpression */:
+                    case 176 /* AwaitExpression */:
                         return true;
                 }
                 return false;
@@ -42204,8 +42254,6 @@ var ts;
                     case 211 /* FunctionDeclaration */:
                     case 171 /* FunctionExpression */:
                     case 141 /* MethodDeclaration */:
-                    case 140 /* MethodSignature */:
-                    case 145 /* CallSignature */:
                     case 172 /* ArrowFunction */:
                     case 142 /* Constructor */:
                     case 143 /* GetAccessor */:
