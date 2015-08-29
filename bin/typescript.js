@@ -11200,12 +11200,15 @@ var ts;
         }
         function parseModuleOrNamespaceDeclaration(fullStart, decorators, modifiers, flags) {
             var node = createNode(216 /* ModuleDeclaration */, fullStart);
+            // If we are parsing a dotted namespace name, we want to
+            // propagate the 'Namespace' flag across the names if set.
+            var namespaceFlag = flags & 131072 /* Namespace */;
             node.decorators = decorators;
             setModifiers(node, modifiers);
             node.flags |= flags;
             node.name = parseIdentifier();
             node.body = parseOptional(21 /* DotToken */)
-                ? parseModuleOrNamespaceDeclaration(getNodePos(), /*decorators*/ undefined, /*modifiers*/ undefined, 1 /* Export */)
+                ? parseModuleOrNamespaceDeclaration(getNodePos(), /*decorators*/ undefined, /*modifiers*/ undefined, 1 /* Export */ | namespaceFlag)
                 : parseModuleBlock();
             return finishNode(node);
         }
@@ -27331,7 +27334,7 @@ var ts;
         return optionNameMapCache;
     }
     ts.getOptionNameMap = getOptionNameMap;
-    function parseCommandLine(commandLine) {
+    function parseCommandLine(commandLine, readFile) {
         var options = {};
         var fileNames = [];
         var errors = [];
@@ -27393,7 +27396,7 @@ var ts;
             }
         }
         function parseResponseFile(fileName) {
-            var text = ts.sys.readFile(fileName);
+            var text = readFile ? readFile(fileName) : ts.sys.readFile(fileName);
             if (!text) {
                 errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.File_0_not_found, fileName));
                 return;
@@ -29973,9 +29976,13 @@ var ts;
                     }
                 }
                 function emitJsxElement(openingNode, children) {
+                    var syntheticReactRef = ts.createSynthesizedNode(67 /* Identifier */);
+                    syntheticReactRef.text = 'React';
+                    syntheticReactRef.parent = openingNode;
                     // Call React.createElement(tag, ...
                     emitLeadingComments(openingNode);
-                    write("React.createElement(");
+                    emitExpressionIdentifier(syntheticReactRef);
+                    write(".createElement(");
                     emitTagName(openingNode.tagName);
                     write(", ");
                     // Attribute list
@@ -29988,7 +29995,8 @@ var ts;
                         // a call to React.__spread
                         var attrs = openingNode.attributes;
                         if (ts.forEach(attrs, function (attr) { return attr.kind === 237 /* JsxSpreadAttribute */; })) {
-                            write("React.__spread(");
+                            emitExpressionIdentifier(syntheticReactRef);
+                            write(".__spread(");
                             var haveOpenedObjectLiteral = false;
                             for (var i_1 = 0; i_1 < attrs.length; i_1++) {
                                 if (attrs[i_1].kind === 237 /* JsxSpreadAttribute */) {
@@ -46847,6 +46855,7 @@ var ts;
                                     result.push(getReferenceEntryFromNode(node));
                                 }
                                 break;
+                            case 184 /* ClassExpression */:
                             case 212 /* ClassDeclaration */:
                                 // Make sure the container belongs to the same class
                                 // and has the appropriate static modifier from the original container.

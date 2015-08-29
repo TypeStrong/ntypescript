@@ -5291,7 +5291,7 @@ declare namespace ts {
         shortOptionNames: Map<string>;
     }
     function getOptionNameMap(): OptionNameMap;
-    function parseCommandLine(commandLine: string[]): ParsedCommandLine;
+    function parseCommandLine(commandLine: string[], readFile?: (path: string) => string): ParsedCommandLine;
     /**
       * Read tsconfig.json file
       * @param fileName The path to the config file
