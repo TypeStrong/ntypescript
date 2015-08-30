@@ -15401,7 +15401,7 @@ var ts;
             return members;
         }
         function resolveTupleTypeMembers(type) {
-            var arrayType = resolveStructuredTypeMembers(createArrayType(getUnionType(type.elementTypes, /*noDeduplication*/ true)));
+            var arrayType = resolveStructuredTypeMembers(createArrayType(getUnionType(type.elementTypes, /*noSubtypeReduction*/ true)));
             var members = createTupleTypeMemberSymbols(type.elementTypes);
             addInheritedMembers(members, arrayType.properties);
             setObjectTypeMembers(type, members, arrayType.callSignatures, arrayType.constructSignatures, arrayType.stringIndexType, arrayType.numberIndexType);
@@ -15721,29 +15721,6 @@ var ts;
                 return getPropertyOfUnionOrIntersectionType(type, name);
             }
             return undefined;
-        }
-        // Check if a property with the given name is known anywhere in the given type. In an object
-        // type, a property is considered known if the object type is empty, if it has any index
-        // signatures, or if the property is actually declared in the type. In a union or intersection
-        // type, a property is considered known if it is known in any constituent type.
-        function isKnownProperty(type, name) {
-            if (type.flags & 80896 /* ObjectType */ && type !== globalObjectType) {
-                var resolved = resolveStructuredTypeMembers(type);
-                return !!(resolved.properties.length === 0 ||
-                    resolved.stringIndexType ||
-                    resolved.numberIndexType ||
-                    getPropertyOfType(type, name));
-            }
-            if (type.flags & 49152 /* UnionOrIntersection */) {
-                for (var _i = 0, _a = type.types; _i < _a.length; _i++) {
-                    var t = _a[_i];
-                    if (isKnownProperty(t, name)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-            return true;
         }
         function getSignaturesOfStructuredType(type, kind) {
             if (type.flags & 130048 /* StructuredType */) {
@@ -16316,71 +16293,19 @@ var ts;
                 addTypeToSet(typeSet, type, typeSetKind);
             }
         }
-        function isObjectLiteralTypeDuplicateOf(source, target) {
-            var sourceProperties = getPropertiesOfObjectType(source);
-            var targetProperties = getPropertiesOfObjectType(target);
-            if (sourceProperties.length !== targetProperties.length) {
-                return false;
-            }
-            for (var _i = 0; _i < sourceProperties.length; _i++) {
-                var sourceProp = sourceProperties[_i];
-                var targetProp = getPropertyOfObjectType(target, sourceProp.name);
-                if (!targetProp ||
-                    getDeclarationFlagsFromSymbol(targetProp) & (32 /* Private */ | 64 /* Protected */) ||
-                    !isTypeDuplicateOf(getTypeOfSymbol(sourceProp), getTypeOfSymbol(targetProp))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        function isTupleTypeDuplicateOf(source, target) {
-            var sourceTypes = source.elementTypes;
-            var targetTypes = target.elementTypes;
-            if (sourceTypes.length !== targetTypes.length) {
-                return false;
-            }
-            for (var i = 0; i < sourceTypes.length; i++) {
-                if (!isTypeDuplicateOf(sourceTypes[i], targetTypes[i])) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        // Returns true if the source type is a duplicate of the target type. A source type is a duplicate of
-        // a target type if the the two are identical, with the exception that the source type may have null or
-        // undefined in places where the target type doesn't. This is by design an asymmetric relationship.
-        function isTypeDuplicateOf(source, target) {
-            if (source === target) {
-                return true;
-            }
-            if (source.flags & 32 /* Undefined */ || source.flags & 64 /* Null */ && !(target.flags & 32 /* Undefined */)) {
-                return true;
-            }
-            if (source.flags & 524288 /* ObjectLiteral */ && target.flags & 80896 /* ObjectType */) {
-                return isObjectLiteralTypeDuplicateOf(source, target);
-            }
-            if (isArrayType(source) && isArrayType(target)) {
-                return isTypeDuplicateOf(source.typeArguments[0], target.typeArguments[0]);
-            }
-            if (isTupleType(source) && isTupleType(target)) {
-                return isTupleTypeDuplicateOf(source, target);
-            }
-            return isTypeIdenticalTo(source, target);
-        }
-        function isTypeDuplicateOfSomeType(candidate, types) {
-            for (var _i = 0; _i < types.length; _i++) {
-                var type = types[_i];
-                if (candidate !== type && isTypeDuplicateOf(candidate, type)) {
+        function isSubtypeOfAny(candidate, types) {
+            for (var i = 0, len = types.length; i < len; i++) {
+                if (candidate !== types[i] && isTypeSubtypeOf(candidate, types[i])) {
                     return true;
                 }
             }
             return false;
         }
-        function removeDuplicateTypes(types) {
+        function removeSubtypes(types) {
             var i = types.length;
             while (i > 0) {
                 i--;
-                if (isTypeDuplicateOfSomeType(types[i], types)) {
+                if (isSubtypeOfAny(types[i], types)) {
                     types.splice(i, 1);
                 }
             }
@@ -16403,12 +16328,14 @@ var ts;
                 }
             }
         }
-        // We always deduplicate the constituent type set based on object identity, but we'll also deduplicate
-        // based on the structure of the types unless the noDeduplication flag is true, which is the case when
-        // creating a union type from a type node and when instantiating a union type. In both of those cases,
-        // structural deduplication has to be deferred to properly support recursive union types. For example,
-        // a type of the form "type Item = string | (() => Item)" cannot be deduplicated during its declaration.
-        function getUnionType(types, noDeduplication) {
+        // We reduce the constituent type set to only include types that aren't subtypes of other types, unless
+        // the noSubtypeReduction flag is specified, in which case we perform a simple deduplication based on
+        // object identity. Subtype reduction is possible only when union types are known not to circularly
+        // reference themselves (as is the case with union types created by expression constructs such as array
+        // literals and the || and ?: operators). Named types can circularly reference themselves and therefore
+        // cannot be deduplicated during their declaration. For example, "type Item = string | (() => Item" is
+        // a named type that circularly references itself.
+        function getUnionType(types, noSubtypeReduction) {
             if (types.length === 0) {
                 return emptyObjectType;
             }
@@ -16417,12 +16344,12 @@ var ts;
             if (containsTypeAny(typeSet)) {
                 return anyType;
             }
-            if (noDeduplication) {
+            if (noSubtypeReduction) {
                 removeAllButLast(typeSet, undefinedType);
                 removeAllButLast(typeSet, nullType);
             }
             else {
-                removeDuplicateTypes(typeSet);
+                removeSubtypes(typeSet);
             }
             if (typeSet.length === 1) {
                 return typeSet[0];
@@ -16438,7 +16365,7 @@ var ts;
         function getTypeFromUnionTypeNode(node) {
             var links = getNodeLinks(node);
             if (!links.resolvedType) {
-                links.resolvedType = getUnionType(ts.map(node.types, getTypeFromTypeNode), /*noDeduplication*/ true);
+                links.resolvedType = getUnionType(ts.map(node.types, getTypeFromTypeNode), /*noSubtypeReduction*/ true);
             }
             return links.resolvedType;
         }
@@ -16709,7 +16636,7 @@ var ts;
                     return createTupleType(instantiateList(type.elementTypes, mapper, instantiateType));
                 }
                 if (type.flags & 16384 /* Union */) {
-                    return getUnionType(instantiateList(type.types, mapper, instantiateType), /*noDeduplication*/ true);
+                    return getUnionType(instantiateList(type.types, mapper, instantiateType), /*noSubtypeReduction*/ true);
                 }
                 if (type.flags & 32768 /* Intersection */) {
                     return getIntersectionType(instantiateList(type.types, mapper, instantiateType));
@@ -16969,6 +16896,30 @@ var ts;
                     }
                 }
                 return 0 /* False */;
+            }
+            // Check if a property with the given name is known anywhere in the given type. In an object type, a property
+            // is considered known if the object type is empty and the check is for assignability, if the object type has
+            // index signatures, or if the property is actually declared in the object type. In a union or intersection
+            // type, a property is considered known if it is known in any constituent type.
+            function isKnownProperty(type, name) {
+                if (type.flags & 80896 /* ObjectType */) {
+                    var resolved = resolveStructuredTypeMembers(type);
+                    if (relation === assignableRelation && (type === globalObjectType || resolved.properties.length === 0) ||
+                        resolved.stringIndexType || resolved.numberIndexType || getPropertyOfType(type, name)) {
+                        return true;
+                    }
+                    return false;
+                }
+                if (type.flags & 49152 /* UnionOrIntersection */) {
+                    for (var _i = 0, _a = type.types; _i < _a.length; _i++) {
+                        var t = _a[_i];
+                        if (isKnownProperty(t, name)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+                return true;
             }
             function hasExcessProperties(source, target, reportErrors) {
                 for (var _i = 0, _a = getPropertiesOfObjectType(source); _i < _a.length; _i++) {
@@ -17698,7 +17649,7 @@ var ts;
                     return getWidenedTypeOfObjectLiteral(type);
                 }
                 if (type.flags & 16384 /* Union */) {
-                    return getUnionType(ts.map(type.types, getWidenedType));
+                    return getUnionType(ts.map(type.types, getWidenedType), /*noSubtypeReduction*/ true);
                 }
                 if (isArrayType(type)) {
                     return createArrayType(getWidenedType(type.typeArguments[0]));
