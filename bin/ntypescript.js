@@ -27267,7 +27267,6 @@ var ts;
                 "node": 2 /* NodeJs */,
                 "classic": 1 /* Classic */
             },
-            experimental: true,
             description: ts.Diagnostics.Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6
         }
     ];
