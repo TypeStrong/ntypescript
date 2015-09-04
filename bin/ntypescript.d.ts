@@ -5687,6 +5687,8 @@ declare namespace ts.formatting {
         NoSpaceBeforeBar: Rule;
         SpaceAfterBar: Rule;
         NoSpaceAfterBar: Rule;
+        SpaceBeforeAmpersand: Rule;
+        SpaceAfterAmpersand: Rule;
         constructor();
         static IsForContext(context: FormattingContext): boolean;
         static IsNotForContext(context: FormattingContext): boolean;

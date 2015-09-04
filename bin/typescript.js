@@ -39181,7 +39181,7 @@ var ts;
     function findPrecedingToken(position, sourceFile, startNode) {
         return find(startNode || sourceFile);
         function findRightmostToken(n) {
-            if (isToken(n)) {
+            if (isToken(n) || n.kind === 234 /* JsxText */) {
                 return n;
             }
             var children = n.getChildren();
@@ -39189,23 +39189,32 @@ var ts;
             return candidate && findRightmostToken(candidate);
         }
         function find(n) {
-            if (isToken(n)) {
+            if (isToken(n) || n.kind === 234 /* JsxText */) {
                 return n;
             }
             var children = n.getChildren();
             for (var i = 0, len = children.length; i < len; i++) {
                 var child = children[i];
-                if (nodeHasTokens(child)) {
-                    if (position <= child.end) {
-                        if (child.getStart(sourceFile) >= position) {
-                            // actual start of the node is past the position - previous token should be at the end of previous child
-                            var candidate = findRightmostChildNodeWithTokens(children, /*exclusiveStartPosition*/ i);
-                            return candidate && findRightmostToken(candidate);
-                        }
-                        else {
-                            // candidate should be in this node
-                            return find(child);
-                        }
+                // condition 'position < child.end' checks if child node end after the position
+                // in the example below this condition will be false for 'aaaa' and 'bbbb' and true for 'ccc'
+                // aaaa___bbbb___$__ccc
+                // after we found child node with end after the position we check if start of the node is after the position.
+                // if yes - then position is in the trivia and we need to look into the previous child to find the token in question.
+                // if no - position is in the node itself so we should recurse in it.
+                // NOTE: JsxText is a weird kind of node that can contain only whitespaces (since they are not counted as trivia).
+                // if this is the case - then we should assume that token in question is located in previous child.
+                if (position < child.end && (nodeHasTokens(child) || child.kind === 234 /* JsxText */)) {
+                    var start = child.getStart(sourceFile);
+                    var lookInPreviousChild = (start >= position) ||
+                        (child.kind === 234 /* JsxText */ && start === child.end); // whitespace only JsxText 
+                    if (lookInPreviousChild) {
+                        // actual start of the node is past the position - previous token should be at the end of previous child
+                        var candidate = findRightmostChildNodeWithTokens(children, /*exclusiveStartPosition*/ i);
+                        return candidate && findRightmostToken(candidate);
+                    }
+                    else {
+                        // candidate should be in this node
+                        return find(child);
                     }
                 }
             }
@@ -40093,7 +40102,7 @@ var ts;
                 this.FunctionOpenBraceLeftTokenRange = formatting.Shared.TokenRange.AnyIncludingMultilineComments;
                 this.SpaceBeforeOpenBraceInFunction = new formatting.Rule(formatting.RuleDescriptor.create2(this.FunctionOpenBraceLeftTokenRange, 15 /* OpenBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext, Rules.IsBeforeBlockContext, Rules.IsNotFormatOnEnter, Rules.IsSameLineTokenOrBeforeMultilineBlockContext), 2 /* Space */), 1 /* CanDeleteNewLines */);
                 // Place a space before open brace in a TypeScript declaration that has braces as children (class, module, enum, etc)
-                this.TypeScriptOpenBraceLeftTokenRange = formatting.Shared.TokenRange.FromTokens([67 /* Identifier */, 3 /* MultiLineCommentTrivia */]);
+                this.TypeScriptOpenBraceLeftTokenRange = formatting.Shared.TokenRange.FromTokens([67 /* Identifier */, 3 /* MultiLineCommentTrivia */, 71 /* ClassKeyword */]);
                 this.SpaceBeforeOpenBraceInTypeScriptDeclWithBlock = new formatting.Rule(formatting.RuleDescriptor.create2(this.TypeScriptOpenBraceLeftTokenRange, 15 /* OpenBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsTypeScriptDeclWithBlockContext, Rules.IsNotFormatOnEnter, Rules.IsSameLineTokenOrBeforeMultilineBlockContext), 2 /* Space */), 1 /* CanDeleteNewLines */);
                 // Place a space before open brace in a control flow construct
                 this.ControlOpenBraceLeftTokenRange = formatting.Shared.TokenRange.FromTokens([18 /* CloseParenToken */, 3 /* MultiLineCommentTrivia */, 77 /* DoKeyword */, 98 /* TryKeyword */, 83 /* FinallyKeyword */, 78 /* ElseKeyword */]);
@@ -40187,11 +40196,13 @@ var ts;
                 // template string
                 this.SpaceBetweenTagAndTemplateString = new formatting.Rule(formatting.RuleDescriptor.create3(67 /* Identifier */, formatting.Shared.TokenRange.FromTokens([11 /* NoSubstitutionTemplateLiteral */, 12 /* TemplateHead */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 this.NoSpaceBetweenTagAndTemplateString = new formatting.Rule(formatting.RuleDescriptor.create3(67 /* Identifier */, formatting.Shared.TokenRange.FromTokens([11 /* NoSubstitutionTemplateLiteral */, 12 /* TemplateHead */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                // union type
+                // type operation
                 this.SpaceBeforeBar = new formatting.Rule(formatting.RuleDescriptor.create3(46 /* BarToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 this.NoSpaceBeforeBar = new formatting.Rule(formatting.RuleDescriptor.create3(46 /* BarToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 this.SpaceAfterBar = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 46 /* BarToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 this.NoSpaceAfterBar = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 46 /* BarToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                this.SpaceBeforeAmpersand = new formatting.Rule(formatting.RuleDescriptor.create3(45 /* AmpersandToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.SpaceAfterAmpersand = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 45 /* AmpersandToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 // These rules are higher in priority than user-configurable rules.
                 this.HighPriorityCommonRules =
                     [
@@ -40223,6 +40234,7 @@ var ts;
                         this.SpaceAfterTypeKeyword, this.NoSpaceAfterTypeKeyword,
                         this.SpaceBetweenTagAndTemplateString, this.NoSpaceBetweenTagAndTemplateString,
                         this.SpaceBeforeBar, this.NoSpaceBeforeBar, this.SpaceAfterBar, this.NoSpaceAfterBar,
+                        this.SpaceBeforeAmpersand, this.SpaceAfterAmpersand,
                         // TypeScript-specific rules
                         this.NoSpaceAfterConstructor, this.NoSpaceAfterModuleImport,
                         this.SpaceAfterCertainTypeScriptKeywords, this.SpaceBeforeCertainTypeScriptKeywords,
@@ -40427,6 +40439,7 @@ var ts;
             Rules.NodeIsTypeScriptDeclWithBlockContext = function (node) {
                 switch (node.kind) {
                     case 212 /* ClassDeclaration */:
+                    case 184 /* ClassExpression */:
                     case 213 /* InterfaceDeclaration */:
                     case 215 /* EnumDeclaration */:
                     case 153 /* TypeLiteral */:
@@ -42164,6 +42177,7 @@ var ts;
             function nodeContentIsAlwaysIndented(kind) {
                 switch (kind) {
                     case 212 /* ClassDeclaration */:
+                    case 184 /* ClassExpression */:
                     case 213 /* InterfaceDeclaration */:
                     case 215 /* EnumDeclaration */:
                     case 214 /* TypeAliasDeclaration */:
@@ -42194,7 +42208,6 @@ var ts;
                     case 136 /* Parameter */:
                     case 150 /* FunctionType */:
                     case 151 /* ConstructorType */:
-                    case 156 /* UnionType */:
                     case 158 /* ParenthesizedType */:
                     case 168 /* TaggedTemplateExpression */:
                     case 176 /* AwaitExpression */:
@@ -43318,7 +43331,7 @@ var ts;
         var sourceMapText;
         // Create a compilerHost object to allow the compiler to read and write files
         var compilerHost = {
-            getSourceFile: function (fileName, target) { return fileName === inputFileName ? sourceFile : undefined; },
+            getSourceFile: function (fileName, target) { return fileName === ts.normalizeSlashes(inputFileName) ? sourceFile : undefined; },
             writeFile: function (name, text, writeByteOrderMark) {
                 if (ts.fileExtensionIs(name, ".map")) {
                     ts.Debug.assert(sourceMapText === undefined, "Unexpected multiple source map outputs for the file '" + name + "'");
