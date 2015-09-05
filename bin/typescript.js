@@ -16235,7 +16235,7 @@ var ts;
           */
         function createTypedPropertyDescriptorType(propertyType) {
             var globalTypedPropertyDescriptorType = getGlobalTypedPropertyDescriptorType();
-            return globalTypedPropertyDescriptorType !== emptyObjectType
+            return globalTypedPropertyDescriptorType !== emptyGenericType
                 ? createTypeReference(globalTypedPropertyDescriptorType, [propertyType])
                 : emptyObjectType;
         }
@@ -20871,7 +20871,7 @@ var ts;
         function createPromiseType(promisedType) {
             // creates a `Promise<T>` type where `T` is the promisedType argument
             var globalPromiseType = getGlobalPromiseType();
-            if (globalPromiseType !== emptyObjectType) {
+            if (globalPromiseType !== emptyGenericType) {
                 // if the promised type is itself a promise, get the underlying type; otherwise, fallback to the promised type
                 promisedType = getAwaitedType(promisedType);
                 return createTypeReference(globalPromiseType, [promisedType]);
@@ -25707,7 +25707,7 @@ var ts;
         }
         function createInstantiatedPromiseLikeType() {
             var promiseLikeType = getGlobalPromiseLikeType();
-            if (promiseLikeType !== emptyObjectType) {
+            if (promiseLikeType !== emptyGenericType) {
                 return createTypeReference(promiseLikeType, [anyType]);
             }
             return emptyObjectType;
@@ -33314,50 +33314,49 @@ var ts;
                 write("void 0");
             }
             function emitSerializedTypeNode(node) {
-                if (!node) {
-                    return;
-                }
-                switch (node.kind) {
-                    case 101 /* VoidKeyword */:
-                        write("void 0");
-                        return;
-                    case 158 /* ParenthesizedType */:
-                        emitSerializedTypeNode(node.type);
-                        return;
-                    case 150 /* FunctionType */:
-                    case 151 /* ConstructorType */:
-                        write("Function");
-                        return;
-                    case 154 /* ArrayType */:
-                    case 155 /* TupleType */:
-                        write("Array");
-                        return;
-                    case 148 /* TypePredicate */:
-                    case 118 /* BooleanKeyword */:
-                        write("Boolean");
-                        return;
-                    case 128 /* StringKeyword */:
-                    case 9 /* StringLiteral */:
-                        write("String");
-                        return;
-                    case 126 /* NumberKeyword */:
-                        write("Number");
-                        return;
-                    case 129 /* SymbolKeyword */:
-                        write("Symbol");
-                        return;
-                    case 149 /* TypeReference */:
-                        emitSerializedTypeReferenceNode(node);
-                        return;
-                    case 152 /* TypeQuery */:
-                    case 153 /* TypeLiteral */:
-                    case 156 /* UnionType */:
-                    case 157 /* IntersectionType */:
-                    case 115 /* AnyKeyword */:
-                        break;
-                    default:
-                        ts.Debug.fail("Cannot serialize unexpected type node.");
-                        break;
+                if (node) {
+                    switch (node.kind) {
+                        case 101 /* VoidKeyword */:
+                            write("void 0");
+                            return;
+                        case 158 /* ParenthesizedType */:
+                            emitSerializedTypeNode(node.type);
+                            return;
+                        case 150 /* FunctionType */:
+                        case 151 /* ConstructorType */:
+                            write("Function");
+                            return;
+                        case 154 /* ArrayType */:
+                        case 155 /* TupleType */:
+                            write("Array");
+                            return;
+                        case 148 /* TypePredicate */:
+                        case 118 /* BooleanKeyword */:
+                            write("Boolean");
+                            return;
+                        case 128 /* StringKeyword */:
+                        case 9 /* StringLiteral */:
+                            write("String");
+                            return;
+                        case 126 /* NumberKeyword */:
+                            write("Number");
+                            return;
+                        case 129 /* SymbolKeyword */:
+                            write("Symbol");
+                            return;
+                        case 149 /* TypeReference */:
+                            emitSerializedTypeReferenceNode(node);
+                            return;
+                        case 152 /* TypeQuery */:
+                        case 153 /* TypeLiteral */:
+                        case 156 /* UnionType */:
+                        case 157 /* IntersectionType */:
+                        case 115 /* AnyKeyword */:
+                            break;
+                        default:
+                            ts.Debug.fail("Cannot serialize unexpected type node.");
+                            break;
+                    }
                 }
                 write("Object");
             }
@@ -35577,7 +35576,7 @@ var ts;
     /* @internal */ ts.ioWriteTime = 0;
     /** The version of the TypeScript compiler release */
     var emptyArray = [];
-    ts.version = "1.7.0";
+    ts.version = "1.6.0";
     function findConfigFile(searchPath) {
         var fileName = "tsconfig.json";
         while (true) {
@@ -39631,6 +39630,7 @@ var ts;
             ScanAction[ScanAction["RescanGreaterThanToken"] = 1] = "RescanGreaterThanToken";
             ScanAction[ScanAction["RescanSlashToken"] = 2] = "RescanSlashToken";
             ScanAction[ScanAction["RescanTemplateToken"] = 3] = "RescanTemplateToken";
+            ScanAction[ScanAction["RescanJsxIdentifier"] = 4] = "RescanJsxIdentifier";
         })(ScanAction || (ScanAction = {}));
         function getFormattingScanner(sourceFile, startPos, endPos) {
             scanner.setText(sourceFile.text);
@@ -39704,6 +39704,18 @@ var ts;
                 }
                 return false;
             }
+            function shouldRescanJsxIdentifier(node) {
+                if (node.parent) {
+                    switch (node.parent.kind) {
+                        case 236 /* JsxAttribute */:
+                        case 233 /* JsxOpeningElement */:
+                        case 235 /* JsxClosingElement */:
+                        case 232 /* JsxSelfClosingElement */:
+                            return node.kind === 67 /* Identifier */;
+                    }
+                }
+                return false;
+            }
             function shouldRescanSlashToken(container) {
                 return container.kind === 10 /* RegularExpressionLiteral */;
             }
@@ -39731,7 +39743,9 @@ var ts;
                         ? 2 /* RescanSlashToken */
                         : shouldRescanTemplateToken(n)
                             ? 3 /* RescanTemplateToken */
-                            : 0 /* Scan */;
+                            : shouldRescanJsxIdentifier(n)
+                                ? 4 /* RescanJsxIdentifier */
+                                : 0 /* Scan */;
                 if (lastTokenInfo && expectedScanAction === lastScanAction) {
                     // readTokenInfo was called before with the same expected scan action.
                     // No need to re-scan text, return existing 'lastTokenInfo'
@@ -39761,6 +39775,10 @@ var ts;
                 else if (expectedScanAction === 3 /* RescanTemplateToken */ && currentToken === 16 /* CloseBraceToken */) {
                     currentToken = scanner.reScanTemplateToken();
                     lastScanAction = 3 /* RescanTemplateToken */;
+                }
+                else if (expectedScanAction === 4 /* RescanJsxIdentifier */ && currentToken === 67 /* Identifier */) {
+                    currentToken = scanner.scanJsxIdentifier();
+                    lastScanAction = 4 /* RescanJsxIdentifier */;
                 }
                 else {
                     lastScanAction = 0 /* Scan */;
@@ -41286,7 +41304,7 @@ var ts;
             }
             function getDynamicIndentation(node, nodeStartLine, indentation, delta) {
                 return {
-                    getIndentationForComment: function (kind) {
+                    getIndentationForComment: function (kind, tokenIndentation) {
                         switch (kind) {
                             // preceding comment to the token that closes the indentation scope inherits the indentation from the scope
                             // ..  {
@@ -41294,9 +41312,10 @@ var ts;
                             // }
                             case 16 /* CloseBraceToken */:
                             case 20 /* CloseBracketToken */:
+                            case 18 /* CloseParenToken */:
                                 return indentation + delta;
                         }
-                        return indentation;
+                        return tokenIndentation !== -1 /* Unknown */ ? tokenIndentation : indentation;
                     },
                     getIndentationForToken: function (line, kind) {
                         if (nodeStartLine !== line && node.decorators) {
@@ -41498,8 +41517,12 @@ var ts;
                         processTrivia(currentTokenInfo.trailingTrivia, parent, childContextNode, dynamicIndentation);
                     }
                     if (indentToken) {
-                        var indentNextTokenOrTrivia = true;
+                        var tokenIndentation = (isTokenInRange && !rangeContainsError(currentTokenInfo.token)) ?
+                            dynamicIndentation.getIndentationForToken(tokenStart.line, currentTokenInfo.token.kind) :
+                            -1 /* Unknown */;
                         if (currentTokenInfo.leadingTrivia) {
+                            var commentIndentation = dynamicIndentation.getIndentationForComment(currentTokenInfo.token.kind, tokenIndentation);
+                            var indentNextTokenOrTrivia = true;
                             for (var _i = 0, _a = currentTokenInfo.leadingTrivia; _i < _a.length; _i++) {
                                 var triviaItem = _a[_i];
                                 if (!ts.rangeContainsRange(originalRange, triviaItem)) {
@@ -41507,14 +41530,12 @@ var ts;
                                 }
                                 switch (triviaItem.kind) {
                                     case 3 /* MultiLineCommentTrivia */:
-                                        var commentIndentation = dynamicIndentation.getIndentationForComment(currentTokenInfo.token.kind);
                                         indentMultilineComment(triviaItem, commentIndentation, /*firstLineIsIndented*/ !indentNextTokenOrTrivia);
                                         indentNextTokenOrTrivia = false;
                                         break;
                                     case 2 /* SingleLineCommentTrivia */:
                                         if (indentNextTokenOrTrivia) {
-                                            var commentIndentation_1 = dynamicIndentation.getIndentationForComment(currentTokenInfo.token.kind);
-                                            insertIndentation(triviaItem.pos, commentIndentation_1, /*lineAdded*/ false);
+                                            insertIndentation(triviaItem.pos, commentIndentation, /*lineAdded*/ false);
                                             indentNextTokenOrTrivia = false;
                                         }
                                         break;
@@ -41525,8 +41546,7 @@ var ts;
                             }
                         }
                         // indent token only if is it is in target range and does not overlap with any error ranges
-                        if (isTokenInRange && !rangeContainsError(currentTokenInfo.token)) {
-                            var tokenIndentation = dynamicIndentation.getIndentationForToken(tokenStart.line, currentTokenInfo.token.kind);
+                        if (tokenIndentation !== -1 /* Unknown */) {
                             insertIndentation(currentTokenInfo.token.pos, tokenIndentation, lineAdded);
                             lastIndentedLine = tokenStart.line;
                             indentationOnLastIndentedLine = tokenIndentation;
@@ -42202,6 +42222,7 @@ var ts;
                     case 160 /* ArrayBindingPattern */:
                     case 159 /* ObjectBindingPattern */:
                     case 231 /* JsxElement */:
+                    case 232 /* JsxSelfClosingElement */:
                     case 140 /* MethodSignature */:
                     case 145 /* CallSignature */:
                     case 146 /* ConstructSignature */:
