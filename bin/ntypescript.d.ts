@@ -4009,6 +4009,11 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        Non_abstract_class_expression_does_not_implement_inherited_abstract_member_0_from_class_1: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;

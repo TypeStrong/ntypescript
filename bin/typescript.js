@@ -1995,6 +1995,7 @@ var ts;
         Cannot_emit_namespaced_JSX_elements_in_React: { code: 2650, category: ts.DiagnosticCategory.Error, key: "Cannot emit namespaced JSX elements in React" },
         A_member_initializer_in_a_enum_declaration_cannot_reference_members_declared_after_it_including_members_defined_in_other_enums: { code: 2651, category: ts.DiagnosticCategory.Error, key: "A member initializer in a enum declaration cannot reference members declared after it, including members defined in other enums." },
         Merged_declaration_0_cannot_include_a_default_export_declaration_Consider_adding_a_separate_export_default_0_declaration_instead: { code: 2652, category: ts.DiagnosticCategory.Error, key: "Merged declaration '{0}' cannot include a default export declaration. Consider adding a separate 'export default {0}' declaration instead." },
+        Non_abstract_class_expression_does_not_implement_inherited_abstract_member_0_from_class_1: { code: 2653, category: ts.DiagnosticCategory.Error, key: "Non-abstract class expression does not implement inherited abstract member '{0}' from class '{1}'." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -17252,8 +17253,8 @@ var ts;
                 return result;
                 function abstractSignatureRelatedTo(source, sourceSig, target, targetSig) {
                     if (sourceSig && targetSig) {
-                        var sourceDecl = source.symbol && ts.getDeclarationOfKind(source.symbol, 212 /* ClassDeclaration */);
-                        var targetDecl = target.symbol && ts.getDeclarationOfKind(target.symbol, 212 /* ClassDeclaration */);
+                        var sourceDecl = source.symbol && getClassLikeDeclarationOfSymbol(source.symbol);
+                        var targetDecl = target.symbol && getClassLikeDeclarationOfSymbol(target.symbol);
                         if (!sourceDecl) {
                             // If the source object isn't itself a class declaration, it can be freely assigned, regardless
                             // of whether the constructed object is abstract or not.
@@ -17263,8 +17264,8 @@ var ts;
                         var targetErasedSignature = getErasedSignature(targetSig);
                         var sourceReturnType = sourceErasedSignature && getReturnTypeOfSignature(sourceErasedSignature);
                         var targetReturnType = targetErasedSignature && getReturnTypeOfSignature(targetErasedSignature);
-                        var sourceReturnDecl = sourceReturnType && sourceReturnType.symbol && ts.getDeclarationOfKind(sourceReturnType.symbol, 212 /* ClassDeclaration */);
-                        var targetReturnDecl = targetReturnType && targetReturnType.symbol && ts.getDeclarationOfKind(targetReturnType.symbol, 212 /* ClassDeclaration */);
+                        var sourceReturnDecl = sourceReturnType && sourceReturnType.symbol && getClassLikeDeclarationOfSymbol(sourceReturnType.symbol);
+                        var targetReturnDecl = targetReturnType && targetReturnType.symbol && getClassLikeDeclarationOfSymbol(targetReturnType.symbol);
                         var sourceIsAbstract = sourceReturnDecl && sourceReturnDecl.flags & 256 /* Abstract */;
                         var targetIsAbstract = targetReturnDecl && targetReturnDecl.flags & 256 /* Abstract */;
                         if (sourceIsAbstract && !(targetIsAbstract && targetDecl)) {
@@ -20648,7 +20649,7 @@ var ts;
             // Note, only class declarations can be declared abstract.
             // In the case of a merged class-module or class-interface declaration,
             // only the class declaration node will have the Abstract flag set.
-            var valueDecl = expressionType.symbol && ts.getDeclarationOfKind(expressionType.symbol, 212 /* ClassDeclaration */);
+            var valueDecl = expressionType.symbol && getClassLikeDeclarationOfSymbol(expressionType.symbol);
             if (valueDecl && valueDecl.flags & 256 /* Abstract */) {
                 error(node, ts.Diagnostics.Cannot_create_an_instance_of_the_abstract_class_0, ts.declarationNameToString(valueDecl.name));
                 return resolveErrorCall(node);
@@ -23959,6 +23960,9 @@ var ts;
             // so we'll need to get back original 'target' symbol to work with correct set of flags
             return s.flags & 16777216 /* Instantiated */ ? getSymbolLinks(s).target : s;
         }
+        function getClassLikeDeclarationOfSymbol(symbol) {
+            return ts.forEach(symbol.declarations, function (d) { return ts.isClassLike(d) ? d : undefined; });
+        }
         function checkKindsOfPropertyMemberOverrides(type, baseType) {
             // TypeScript 1.0 spec (April 2014): 8.2.3
             // A derived class inherits all members from its base class it doesn't override.
@@ -23990,12 +23994,17 @@ var ts;
                     // type declaration, derived and base resolve to the same symbol even in the case of generic classes.
                     if (derived === base) {
                         // derived class inherits base without override/redeclaration
-                        var derivedClassDecl = ts.getDeclarationOfKind(type.symbol, 212 /* ClassDeclaration */);
+                        var derivedClassDecl = getClassLikeDeclarationOfSymbol(type.symbol);
                         // It is an error to inherit an abstract member without implementing it or being declared abstract.
                         // If there is no declaration for the derived class (as in the case of class expressions),
                         // then the class cannot be declared abstract.
                         if (baseDeclarationFlags & 256 /* Abstract */ && (!derivedClassDecl || !(derivedClassDecl.flags & 256 /* Abstract */))) {
-                            error(derivedClassDecl, ts.Diagnostics.Non_abstract_class_0_does_not_implement_inherited_abstract_member_1_from_class_2, typeToString(type), symbolToString(baseProperty), typeToString(baseType));
+                            if (derivedClassDecl.kind === 184 /* ClassExpression */) {
+                                error(derivedClassDecl, ts.Diagnostics.Non_abstract_class_expression_does_not_implement_inherited_abstract_member_0_from_class_1, symbolToString(baseProperty), typeToString(baseType));
+                            }
+                            else {
+                                error(derivedClassDecl, ts.Diagnostics.Non_abstract_class_0_does_not_implement_inherited_abstract_member_1_from_class_2, typeToString(type), symbolToString(baseProperty), typeToString(baseType));
+                            }
                         }
                     }
                     else {
