@@ -2187,6 +2187,11 @@ var ts;
 /// <reference path="diagnosticInformationMap.generated.ts"/>
 var ts;
 (function (ts) {
+    /* @internal */
+    function tokenIsIdentifierOrKeyword(token) {
+        return token >= 67 /* Identifier */;
+    }
+    ts.tokenIsIdentifierOrKeyword = tokenIsIdentifierOrKeyword;
     var textToToken = {
         "abstract": 113 /* AbstractKeyword */,
         "any": 115 /* AnyKeyword */,
@@ -3622,7 +3627,7 @@ var ts;
         // Scans a JSX identifier; these differ from normal identifiers in that
         // they allow dashes
         function scanJsxIdentifier() {
-            if (token === 67 /* Identifier */) {
+            if (tokenIsIdentifierOrKeyword(token)) {
                 var firstCharPosition = pos;
                 while (pos < end) {
                     var ch = text.charCodeAt(pos);
@@ -5024,6 +5029,7 @@ var ts;
     }
     ts.getJsDocComments = getJsDocComments;
     ts.fullTripleSlashReferencePathRegEx = /^(\/\/\/\s*<reference\s+path\s*=\s*)('|")(.+?)\2.*?\/>/;
+    ts.fullTripleSlashAMDReferencePathRegEx = /^(\/\/\/\s*<amd-dependency\s+path\s*=\s*)('|")(.+?)\2.*?\/>/;
     function isTypeNode(node) {
         if (149 /* FirstTypeNode */ <= node.kind && node.kind <= 158 /* LastTypeNode */) {
             return true;
@@ -6058,10 +6064,20 @@ var ts;
             add: add,
             getGlobalDiagnostics: getGlobalDiagnostics,
             getDiagnostics: getDiagnostics,
-            getModificationCount: getModificationCount
+            getModificationCount: getModificationCount,
+            reattachFileDiagnostics: reattachFileDiagnostics
         };
         function getModificationCount() {
             return modificationCount;
+        }
+        function reattachFileDiagnostics(newFile) {
+            if (!ts.hasProperty(fileDiagnostics, newFile.fileName)) {
+                return;
+            }
+            for (var _i = 0, _a = fileDiagnostics[newFile.fileName]; _i < _a.length; _i++) {
+                var diagnostic = _a[_i];
+                diagnostic.file = newFile;
+            }
         }
         function add(diagnostic) {
             var diagnostics;
@@ -7814,10 +7830,10 @@ var ts;
             return createIdentifier(isIdentifier(), diagnosticMessage);
         }
         function parseIdentifierName() {
-            return createIdentifier(isIdentifierOrKeyword());
+            return createIdentifier(ts.tokenIsIdentifierOrKeyword(token));
         }
         function isLiteralPropertyName() {
-            return isIdentifierOrKeyword() ||
+            return ts.tokenIsIdentifierOrKeyword(token) ||
                 token === 9 /* StringLiteral */ ||
                 token === 8 /* NumericLiteral */;
         }
@@ -7837,7 +7853,7 @@ var ts;
             return parsePropertyNameWorker(/*allowComputedPropertyNames:*/ false);
         }
         function isSimplePropertyName() {
-            return token === 9 /* StringLiteral */ || token === 8 /* NumericLiteral */ || isIdentifierOrKeyword();
+            return token === 9 /* StringLiteral */ || token === 8 /* NumericLiteral */ || ts.tokenIsIdentifierOrKeyword(token);
         }
         function parseComputedPropertyName() {
             // PropertyName [Yield]:
@@ -7953,9 +7969,9 @@ var ts;
                 case 20 /* HeritageClauses */:
                     return isHeritageClause();
                 case 21 /* ImportOrExportSpecifiers */:
-                    return isIdentifierOrKeyword();
+                    return ts.tokenIsIdentifierOrKeyword(token);
                 case 13 /* JsxAttributes */:
-                    return isIdentifierOrKeyword() || token === 15 /* OpenBraceToken */;
+                    return ts.tokenIsIdentifierOrKeyword(token) || token === 15 /* OpenBraceToken */;
                 case 14 /* JsxChildren */:
                     return true;
                 case 22 /* JSDocFunctionParameters */:
@@ -7988,7 +8004,7 @@ var ts;
         }
         function nextTokenIsIdentifierOrKeyword() {
             nextToken();
-            return isIdentifierOrKeyword();
+            return ts.tokenIsIdentifierOrKeyword(token);
         }
         function isHeritageClauseExtendsOrImplementsKeyword() {
             if (token === 104 /* ImplementsKeyword */ ||
@@ -8482,7 +8498,7 @@ var ts;
             // the code would be implicitly: "name.identifierOrKeyword; identifierNameOrKeyword".
             // In the first case though, ASI will not take effect because there is not a
             // line terminator after the identifier or keyword.
-            if (scanner.hasPrecedingLineBreak() && isIdentifierOrKeyword()) {
+            if (scanner.hasPrecedingLineBreak() && ts.tokenIsIdentifierOrKeyword(token)) {
                 var matchesPattern = lookAhead(nextTokenIsIdentifierOrKeywordOnSameLine);
                 if (matchesPattern) {
                     // Report that we need an identifier.  However, report it right after the dot,
@@ -8866,7 +8882,7 @@ var ts;
                             return result;
                         }
                     }
-                    if (isIdentifierOrKeyword()) {
+                    if (ts.tokenIsIdentifierOrKeyword(token)) {
                         return parsePropertyOrMethodSignature();
                     }
             }
@@ -10459,12 +10475,9 @@ var ts;
                 return finishNode(expressionStatement);
             }
         }
-        function isIdentifierOrKeyword() {
-            return token >= 67 /* Identifier */;
-        }
         function nextTokenIsIdentifierOrKeywordOnSameLine() {
             nextToken();
-            return isIdentifierOrKeyword() && !scanner.hasPrecedingLineBreak();
+            return ts.tokenIsIdentifierOrKeyword(token) && !scanner.hasPrecedingLineBreak();
         }
         function nextTokenIsFunctionKeywordOnSameLine() {
             nextToken();
@@ -10472,7 +10485,7 @@ var ts;
         }
         function nextTokenIsIdentifierOrKeywordOrNumberOnSameLine() {
             nextToken();
-            return (isIdentifierOrKeyword() || token === 8 /* NumericLiteral */) && !scanner.hasPrecedingLineBreak();
+            return (ts.tokenIsIdentifierOrKeyword(token) || token === 8 /* NumericLiteral */) && !scanner.hasPrecedingLineBreak();
         }
         function isDeclaration() {
             while (true) {
@@ -10522,7 +10535,7 @@ var ts;
                     case 87 /* ImportKeyword */:
                         nextToken();
                         return token === 9 /* StringLiteral */ || token === 37 /* AsteriskToken */ ||
-                            token === 15 /* OpenBraceToken */ || isIdentifierOrKeyword();
+                            token === 15 /* OpenBraceToken */ || ts.tokenIsIdentifierOrKeyword(token);
                     case 80 /* ExportKeyword */:
                         nextToken();
                         if (token === 55 /* EqualsToken */ || token === 37 /* AsteriskToken */ ||
@@ -11062,7 +11075,7 @@ var ts;
             }
             // It is very important that we check this *after* checking indexers because
             // the [ token can start an index signature or a computed property name
-            if (isIdentifierOrKeyword() ||
+            if (ts.tokenIsIdentifierOrKeyword(token) ||
                 token === 9 /* StringLiteral */ ||
                 token === 8 /* NumericLiteral */ ||
                 token === 37 /* AsteriskToken */ ||
@@ -11543,7 +11556,7 @@ var ts;
                     case 95 /* ThisKeyword */:
                         return true;
                 }
-                return isIdentifierOrKeyword();
+                return ts.tokenIsIdentifierOrKeyword(token);
             }
             JSDocParser.isJSDocType = isJSDocType;
             function parseJSDocTypeExpressionForTests(content, start, length) {
@@ -16805,7 +16818,9 @@ var ts;
                     // and intersection types are further deconstructed on the target side, we don't want to
                     // make the check again (as it might fail for a partial target type). Therefore we obtain
                     // the regular source type and proceed with that.
-                    source = getRegularTypeOfObjectLiteral(source);
+                    if (target.flags & 49152 /* UnionOrIntersection */) {
+                        source = getRegularTypeOfObjectLiteral(source);
+                    }
                 }
                 var saveErrorInfo = errorInfo;
                 // Note that the "each" checks must precede the "some" checks to produce the correct results
@@ -17614,6 +17629,7 @@ var ts;
                     regularType.constructSignatures = type.constructSignatures;
                     regularType.stringIndexType = type.stringIndexType;
                     regularType.numberIndexType = type.numberIndexType;
+                    type.regularType = regularType;
                 }
                 return regularType;
             }
@@ -29085,6 +29101,8 @@ var ts;
             var scopeEmitEnd = function () { };
             /** Sourcemap data that will get encoded */
             var sourceMapData;
+            /** If removeComments is true, no leading-comments needed to be emitted **/
+            var emitLeadingCommentsOfPosition = compilerOptions.removeComments ? function (pos) { } : emitLeadingCommentsOfPositionWorker;
             if (compilerOptions.sourceMap || compilerOptions.inlineSourceMap) {
                 initializeEmitterWithSourceMaps();
             }
@@ -30044,8 +30062,10 @@ var ts;
             function jsxEmitPreserve(node) {
                 function emitJsxAttribute(node) {
                     emit(node.name);
-                    write("=");
-                    emit(node.initializer);
+                    if (node.initializer) {
+                        write("=");
+                        emit(node.initializer);
+                    }
                 }
                 function emitJsxSpreadAttribute(node) {
                     write("{...");
@@ -30993,7 +31013,8 @@ var ts;
                             operand.kind !== 178 /* PostfixUnaryExpression */ &&
                             operand.kind !== 167 /* NewExpression */ &&
                             !(operand.kind === 166 /* CallExpression */ && node.parent.kind === 167 /* NewExpression */) &&
-                            !(operand.kind === 171 /* FunctionExpression */ && node.parent.kind === 166 /* CallExpression */)) {
+                            !(operand.kind === 171 /* FunctionExpression */ && node.parent.kind === 166 /* CallExpression */) &&
+                            !(operand.kind === 8 /* NumericLiteral */ && node.parent.kind === 164 /* PropertyAccessExpression */)) {
                             emit(operand);
                             return;
                         }
@@ -32169,7 +32190,7 @@ var ts;
             }
             function emitFunctionDeclaration(node) {
                 if (ts.nodeIsMissing(node.body)) {
-                    return emitOnlyPinnedOrTripleSlashComments(node);
+                    return emitCommentsOnNotEmittedNode(node);
                 }
                 // TODO (yuisu) : we should not have special cases to condition emitting comments
                 // but have one place to fix check for these conditions.
@@ -32595,7 +32616,7 @@ var ts;
                     }
                     else if (member.kind === 141 /* MethodDeclaration */ || node.kind === 140 /* MethodSignature */) {
                         if (!member.body) {
-                            return emitOnlyPinnedOrTripleSlashComments(member);
+                            return emitCommentsOnNotEmittedNode(member);
                         }
                         writeLine();
                         emitLeadingComments(member);
@@ -32661,7 +32682,7 @@ var ts;
                 for (var _a = 0, _b = node.members; _a < _b.length; _a++) {
                     var member = _b[_a];
                     if ((member.kind === 141 /* MethodDeclaration */ || node.kind === 140 /* MethodSignature */) && !member.body) {
-                        emitOnlyPinnedOrTripleSlashComments(member);
+                        emitCommentsOnNotEmittedNode(member);
                     }
                     else if (member.kind === 141 /* MethodDeclaration */ ||
                         member.kind === 143 /* GetAccessor */ ||
@@ -32712,7 +32733,7 @@ var ts;
                 // Emit the constructor overload pinned comments
                 ts.forEach(node.members, function (member) {
                     if (member.kind === 142 /* Constructor */ && !member.body) {
-                        emitOnlyPinnedOrTripleSlashComments(member);
+                        emitCommentsOnNotEmittedNode(member);
                     }
                     // Check if there is any non-static property assignment
                     if (member.kind === 139 /* PropertyDeclaration */ && member.initializer && (member.flags & 128 /* Static */) === 0) {
@@ -33516,7 +33537,7 @@ var ts;
                 return argumentsWritten;
             }
             function emitInterfaceDeclaration(node) {
-                emitOnlyPinnedOrTripleSlashComments(node);
+                emitCommentsOnNotEmittedNode(node);
             }
             function shouldEmitEnumDeclaration(node) {
                 var isConstEnum = ts.isConst(node);
@@ -33628,7 +33649,7 @@ var ts;
                 // Emit only if this module is non-ambient.
                 var shouldEmit = shouldEmitModuleDeclaration(node);
                 if (!shouldEmit) {
-                    return emitOnlyPinnedOrTripleSlashComments(node);
+                    return emitCommentsOnNotEmittedNode(node);
                 }
                 var hoistedInDeclarationScope = shouldHoistDeclarationInSystemJsModule(node);
                 var emitVarForModule = !hoistedInDeclarationScope && !isModuleMergedWithES6Class(node);
@@ -34920,7 +34941,7 @@ var ts;
             function emitNodeConsideringCommentsOption(node, emitNodeConsideringSourcemap) {
                 if (node) {
                     if (node.flags & 2 /* Ambient */) {
-                        return emitOnlyPinnedOrTripleSlashComments(node);
+                        return emitCommentsOnNotEmittedNode(node);
                     }
                     if (isSpecializedCommentHandling(node)) {
                         // This is the node that will handle its own comments and sourcemap
@@ -35168,21 +35189,27 @@ var ts;
                 }
                 return leadingComments;
             }
+            function isPinnedComments(comment) {
+                return currentSourceFile.text.charCodeAt(comment.pos + 1) === 42 /* asterisk */ &&
+                    currentSourceFile.text.charCodeAt(comment.pos + 2) === 33 /* exclamation */;
+            }
             /**
-             * Removes all but the pinned or triple slash comments.
-             * @param ranges The array to be filtered
-             * @param onlyPinnedOrTripleSlashComments whether the filtering should be performed.
-             */
-            function filterComments(ranges, onlyPinnedOrTripleSlashComments) {
-                // If we're removing comments, then we want to strip out all but the pinned or
-                // triple slash comments.
-                if (ranges && onlyPinnedOrTripleSlashComments) {
-                    ranges = ts.filter(ranges, isPinnedOrTripleSlashComment);
-                    if (ranges.length === 0) {
-                        return undefined;
-                    }
+             * Determine if the given comment is a triple-slash
+             *
+             * @return true if the comment is a triple-slash comment else false
+             **/
+            function isTripleSlashComment(comment) {
+                // Verify this is /// comment, but do the regexp match only when we first can find /// in the comment text
+                // so that we don't end up computing comment string and doing match for all // comments
+                if (currentSourceFile.text.charCodeAt(comment.pos + 1) === 47 /* slash */ &&
+                    comment.pos + 2 < comment.end &&
+                    currentSourceFile.text.charCodeAt(comment.pos + 2) === 47 /* slash */) {
+                    var textSubStr = currentSourceFile.text.substring(comment.pos, comment.end);
+                    return textSubStr.match(ts.fullTripleSlashReferencePathRegEx) ||
+                        textSubStr.match(ts.fullTripleSlashAMDReferencePathRegEx) ?
+                        true : false;
                 }
-                return ranges;
+                return false;
             }
             function getLeadingCommentsToEmit(node) {
                 // Emit the leading comments only if the parent's pos doesn't match because parent should take care of emitting these comments
@@ -35207,23 +35234,46 @@ var ts;
                     }
                 }
             }
-            function emitOnlyPinnedOrTripleSlashComments(node) {
-                emitLeadingCommentsWorker(node, /*onlyPinnedOrTripleSlashComments:*/ true);
+            /**
+             * Emit comments associated with node that will not be emitted into JS file
+             */
+            function emitCommentsOnNotEmittedNode(node) {
+                emitLeadingCommentsWorker(node, /*isEmittedNode:*/ false);
             }
             function emitLeadingComments(node) {
-                return emitLeadingCommentsWorker(node, /*onlyPinnedOrTripleSlashComments:*/ compilerOptions.removeComments);
+                return emitLeadingCommentsWorker(node, /*isEmittedNode:*/ true);
             }
-            function emitLeadingCommentsWorker(node, onlyPinnedOrTripleSlashComments) {
-                // If the caller only wants pinned or triple slash comments, then always filter
-                // down to that set.  Otherwise, filter based on the current compiler options.
-                var leadingComments = filterComments(getLeadingCommentsToEmit(node), onlyPinnedOrTripleSlashComments);
+            function emitLeadingCommentsWorker(node, isEmittedNode) {
+                if (compilerOptions.removeComments) {
+                    return;
+                }
+                var leadingComments;
+                if (isEmittedNode) {
+                    leadingComments = getLeadingCommentsToEmit(node);
+                }
+                else {
+                    // If the node will not be emitted in JS, remove all the comments(normal, pinned and ///) associated with the node,
+                    // unless it is a triple slash comment at the top of the file.
+                    // For Example:
+                    //      /// <reference-path ...>
+                    //      declare var x;
+                    //      /// <reference-path ...>
+                    //      interface F {}
+                    //  The first /// will NOT be removed while the second one will be removed eventhough both node will not be emitted
+                    if (node.pos === 0) {
+                        leadingComments = ts.filter(getLeadingCommentsToEmit(node), isTripleSlashComment);
+                    }
+                }
                 ts.emitNewLineBeforeLeadingComments(currentSourceFile, writer, node, leadingComments);
                 // Leading comments are emitted at /*leading comment1 */space/*leading comment*/space
-                ts.emitComments(currentSourceFile, writer, leadingComments, /*trailingSeparator*/ true, newLine, writeComment);
+                ts.emitComments(currentSourceFile, writer, leadingComments, /*trailingSeparator:*/ true, newLine, writeComment);
             }
             function emitTrailingComments(node) {
+                if (compilerOptions.removeComments) {
+                    return;
+                }
                 // Emit the trailing comments only if the parent's end doesn't match
-                var trailingComments = filterComments(getTrailingCommentsToEmit(node), /*onlyPinnedOrTripleSlashComments:*/ compilerOptions.removeComments);
+                var trailingComments = getTrailingCommentsToEmit(node);
                 // trailing comments are emitted at space/*trailing comment1 */space/*trailing comment*/
                 ts.emitComments(currentSourceFile, writer, trailingComments, /*trailingSeparator*/ false, newLine, writeComment);
             }
@@ -35233,11 +35283,17 @@ var ts;
              *        ^ => pos; the function will emit "comment1" in the emitJS
              */
             function emitTrailingCommentsOfPosition(pos) {
-                var trailingComments = filterComments(ts.getTrailingCommentRanges(currentSourceFile.text, pos), /*onlyPinnedOrTripleSlashComments:*/ compilerOptions.removeComments);
+                if (compilerOptions.removeComments) {
+                    return;
+                }
+                var trailingComments = ts.getTrailingCommentRanges(currentSourceFile.text, pos);
                 // trailing comments are emitted at space/*trailing comment1 */space/*trailing comment*/
                 ts.emitComments(currentSourceFile, writer, trailingComments, /*trailingSeparator*/ true, newLine, writeComment);
             }
-            function emitLeadingCommentsOfPosition(pos) {
+            function emitLeadingCommentsOfPositionWorker(pos) {
+                if (compilerOptions.removeComments) {
+                    return;
+                }
                 var leadingComments;
                 if (hasDetachedComments(pos)) {
                     // get comments without detached comments
@@ -35247,13 +35303,26 @@ var ts;
                     // get the leading comments from the node
                     leadingComments = ts.getLeadingCommentRanges(currentSourceFile.text, pos);
                 }
-                leadingComments = filterComments(leadingComments, compilerOptions.removeComments);
                 ts.emitNewLineBeforeLeadingComments(currentSourceFile, writer, { pos: pos, end: pos }, leadingComments);
                 // Leading comments are emitted at /*leading comment1 */space/*leading comment*/space
                 ts.emitComments(currentSourceFile, writer, leadingComments, /*trailingSeparator*/ true, newLine, writeComment);
             }
             function emitDetachedComments(node) {
-                var leadingComments = ts.getLeadingCommentRanges(currentSourceFile.text, node.pos);
+                var leadingComments;
+                if (compilerOptions.removeComments) {
+                    // removeComments is true, only reserve pinned comment at the top of file
+                    // For example:
+                    //      /*! Pinned Comment */
+                    //
+                    //      var x = 10;
+                    if (node.pos === 0) {
+                        leadingComments = ts.filter(ts.getLeadingCommentRanges(currentSourceFile.text, node.pos), isPinnedComments);
+                    }
+                }
+                else {
+                    // removeComments is false, just get detached as normal and bypass the process to filter comment
+                    leadingComments = ts.getLeadingCommentRanges(currentSourceFile.text, node.pos);
+                }
                 if (leadingComments) {
                     var detachedComments = [];
                     var lastComment;
@@ -35296,17 +35365,6 @@ var ts;
                 var shebang = ts.getShebang(currentSourceFile.text);
                 if (shebang) {
                     write(shebang);
-                }
-            }
-            function isPinnedOrTripleSlashComment(comment) {
-                if (currentSourceFile.text.charCodeAt(comment.pos + 1) === 42 /* asterisk */) {
-                    return currentSourceFile.text.charCodeAt(comment.pos + 2) === 33 /* exclamation */;
-                }
-                else if (currentSourceFile.text.charCodeAt(comment.pos + 1) === 47 /* slash */ &&
-                    comment.pos + 2 < comment.end &&
-                    currentSourceFile.text.charCodeAt(comment.pos + 2) === 47 /* slash */ &&
-                    currentSourceFile.text.substring(comment.pos, comment.end).match(ts.fullTripleSlashReferencePathRegEx)) {
-                    return true;
                 }
             }
         }
@@ -35880,7 +35938,8 @@ var ts;
     function createProgram(rootNames, options, host, oldProgram) {
         var program;
         var files = [];
-        var diagnostics = ts.createDiagnosticCollection();
+        var fileProcessingDiagnostics = ts.createDiagnosticCollection();
+        var programDiagnostics = ts.createDiagnosticCollection();
         var commonSourceDirectory;
         var diagnosticsProducingTypeChecker;
         var noDiagnosticsTypeChecker;
@@ -35937,6 +35996,7 @@ var ts;
             getIdentifierCount: function () { return getDiagnosticsProducingTypeChecker().getIdentifierCount(); },
             getSymbolCount: function () { return getDiagnosticsProducingTypeChecker().getSymbolCount(); },
             getTypeCount: function () { return getDiagnosticsProducingTypeChecker().getTypeCount(); },
+            getFileProcessingDiagnostics: function () { return fileProcessingDiagnostics; }
         };
         return program;
         function getClassifiableNames() {
@@ -35963,6 +36023,7 @@ var ts;
             }
             // check if program source files has changed in the way that can affect structure of the program
             var newSourceFiles = [];
+            var modifiedSourceFiles = [];
             for (var _i = 0, _a = oldProgram.getSourceFiles(); _i < _a.length; _i++) {
                 var oldSourceFile = _a[_i];
                 var newSourceFile = host.getSourceFile(oldSourceFile.fileName, options.target);
@@ -35999,6 +36060,7 @@ var ts;
                     }
                     // pass the cache of module resolutions from the old source file
                     newSourceFile.resolvedModules = oldSourceFile.resolvedModules;
+                    modifiedSourceFiles.push(newSourceFile);
                 }
                 else {
                     // file has no changes - use it as is
@@ -36013,6 +36075,11 @@ var ts;
                 filesByName.set(file.fileName, file);
             }
             files = newSourceFiles;
+            fileProcessingDiagnostics = oldProgram.getFileProcessingDiagnostics();
+            for (var _c = 0; _c < modifiedSourceFiles.length; _c++) {
+                var modifiedFile = modifiedSourceFiles[_c];
+                fileProcessingDiagnostics.reattachFileDiagnostics(modifiedFile);
+            }
             oldProgram.structureIsReused = true;
             return true;
         }
@@ -36114,8 +36181,9 @@ var ts;
                 ts.Debug.assert(!!sourceFile.bindDiagnostics);
                 var bindDiagnostics = sourceFile.bindDiagnostics;
                 var checkDiagnostics = typeChecker.getDiagnostics(sourceFile, cancellationToken);
-                var programDiagnostics = diagnostics.getDiagnostics(sourceFile.fileName);
-                return bindDiagnostics.concat(checkDiagnostics).concat(programDiagnostics);
+                var fileProcessingDiagnosticsInFile = fileProcessingDiagnostics.getDiagnostics(sourceFile.fileName);
+                var programDiagnosticsInFile = programDiagnostics.getDiagnostics(sourceFile.fileName);
+                return bindDiagnostics.concat(checkDiagnostics).concat(fileProcessingDiagnosticsInFile).concat(programDiagnosticsInFile);
             });
         }
         function getDeclarationDiagnosticsForFile(sourceFile, cancellationToken) {
@@ -36130,7 +36198,8 @@ var ts;
         }
         function getOptionsDiagnostics() {
             var allDiagnostics = [];
-            ts.addRange(allDiagnostics, diagnostics.getGlobalDiagnostics());
+            ts.addRange(allDiagnostics, fileProcessingDiagnostics.getGlobalDiagnostics());
+            ts.addRange(allDiagnostics, programDiagnostics.getGlobalDiagnostics());
             return ts.sortAndDeduplicateDiagnostics(allDiagnostics);
         }
         function getGlobalDiagnostics() {
@@ -36228,10 +36297,10 @@ var ts;
             }
             if (diagnostic) {
                 if (refFile !== undefined && refEnd !== undefined && refPos !== undefined) {
-                    diagnostics.add(ts.createFileDiagnostic.apply(void 0, [refFile, refPos, refEnd - refPos, diagnostic].concat(diagnosticArgument)));
+                    fileProcessingDiagnostics.add(ts.createFileDiagnostic.apply(void 0, [refFile, refPos, refEnd - refPos, diagnostic].concat(diagnosticArgument)));
                 }
                 else {
-                    diagnostics.add(ts.createCompilerDiagnostic.apply(void 0, [diagnostic].concat(diagnosticArgument)));
+                    fileProcessingDiagnostics.add(ts.createCompilerDiagnostic.apply(void 0, [diagnostic].concat(diagnosticArgument)));
                 }
             }
         }
@@ -36251,10 +36320,10 @@ var ts;
                 // We haven't looked for this file, do so now and cache result
                 var file = host.getSourceFile(fileName, options.target, function (hostErrorMessage) {
                     if (refFile !== undefined && refPos !== undefined && refEnd !== undefined) {
-                        diagnostics.add(ts.createFileDiagnostic(refFile, refPos, refEnd - refPos, ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, hostErrorMessage));
+                        fileProcessingDiagnostics.add(ts.createFileDiagnostic(refFile, refPos, refEnd - refPos, ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, hostErrorMessage));
                     }
                     else {
-                        diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, hostErrorMessage));
+                        fileProcessingDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, hostErrorMessage));
                     }
                 });
                 filesByName.set(canonicalName, file);
@@ -36284,10 +36353,10 @@ var ts;
                     var sourceFileName = useAbsolutePath ? ts.getNormalizedAbsolutePath(file.fileName, host.getCurrentDirectory()) : file.fileName;
                     if (canonicalName !== sourceFileName) {
                         if (refFile !== undefined && refPos !== undefined && refEnd !== undefined) {
-                            diagnostics.add(ts.createFileDiagnostic(refFile, refPos, refEnd - refPos, ts.Diagnostics.File_name_0_differs_from_already_included_file_name_1_only_in_casing, fileName, sourceFileName));
+                            fileProcessingDiagnostics.add(ts.createFileDiagnostic(refFile, refPos, refEnd - refPos, ts.Diagnostics.File_name_0_differs_from_already_included_file_name_1_only_in_casing, fileName, sourceFileName));
                         }
                         else {
-                            diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.File_name_0_differs_from_already_included_file_name_1_only_in_casing, fileName, sourceFileName));
+                            fileProcessingDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.File_name_0_differs_from_already_included_file_name_1_only_in_casing, fileName, sourceFileName));
                         }
                     }
                 }
@@ -36320,7 +36389,7 @@ var ts;
             }
             return;
             function findModuleSourceFile(fileName, nameLiteral) {
-                return findSourceFile(fileName, /* isDefaultLib */ false, file, nameLiteral.pos, nameLiteral.end);
+                return findSourceFile(fileName, /* isDefaultLib */ false, file, ts.skipTrivia(file.text, nameLiteral.pos), nameLiteral.end);
             }
         }
         function computeCommonSourceDirectory(sourceFiles) {
@@ -36341,7 +36410,7 @@ var ts;
                 for (var i = 0, n = Math.min(commonPathComponents.length, sourcePathComponents.length); i < n; i++) {
                     if (commonPathComponents[i] !== sourcePathComponents[i]) {
                         if (i === 0) {
-                            diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_find_the_common_subdirectory_path_for_the_input_files));
+                            programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_find_the_common_subdirectory_path_for_the_input_files));
                             return;
                         }
                         // New common path found that is 0 -> i-1
@@ -36366,7 +36435,7 @@ var ts;
                     if (!ts.isDeclarationFile(sourceFile)) {
                         var absoluteSourceFilePath = host.getCanonicalFileName(ts.getNormalizedAbsolutePath(sourceFile.fileName, currentDirectory));
                         if (absoluteSourceFilePath.indexOf(absoluteRootDirectoryPath) !== 0) {
-                            diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.File_0_is_not_under_rootDir_1_rootDir_is_expected_to_contain_all_source_files, sourceFile.fileName, options.rootDir));
+                            programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.File_0_is_not_under_rootDir_1_rootDir_is_expected_to_contain_all_source_files, sourceFile.fileName, options.rootDir));
                             allFilesBelongToPath = false;
                         }
                     }
@@ -36377,44 +36446,44 @@ var ts;
         function verifyCompilerOptions() {
             if (options.isolatedModules) {
                 if (options.declaration) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "declaration", "isolatedModules"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "declaration", "isolatedModules"));
                 }
                 if (options.noEmitOnError) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmitOnError", "isolatedModules"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmitOnError", "isolatedModules"));
                 }
                 if (options.out) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "out", "isolatedModules"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "out", "isolatedModules"));
                 }
                 if (options.outFile) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "outFile", "isolatedModules"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "outFile", "isolatedModules"));
                 }
             }
             if (options.inlineSourceMap) {
                 if (options.sourceMap) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "sourceMap", "inlineSourceMap"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "sourceMap", "inlineSourceMap"));
                 }
                 if (options.mapRoot) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "mapRoot", "inlineSourceMap"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "mapRoot", "inlineSourceMap"));
                 }
                 if (options.sourceRoot) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "sourceRoot", "inlineSourceMap"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "sourceRoot", "inlineSourceMap"));
                 }
             }
             if (options.inlineSources) {
                 if (!options.sourceMap && !options.inlineSourceMap) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_inlineSources_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_inlineSources_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided));
                 }
             }
             if (options.out && options.outFile) {
-                diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "out", "outFile"));
+                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "out", "outFile"));
             }
             if (!options.sourceMap && (options.mapRoot || options.sourceRoot)) {
                 // Error to specify --mapRoot or --sourceRoot without mapSourceFiles
                 if (options.mapRoot) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "mapRoot", "sourceMap"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "mapRoot", "sourceMap"));
                 }
                 if (options.sourceRoot) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "sourceRoot", "sourceMap"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "sourceRoot", "sourceMap"));
                 }
                 return;
             }
@@ -36423,22 +36492,22 @@ var ts;
             var firstExternalModuleSourceFile = ts.forEach(files, function (f) { return ts.isExternalModule(f) ? f : undefined; });
             if (options.isolatedModules) {
                 if (!options.module && languageVersion < 2 /* ES6 */) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES6_or_higher));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES6_or_higher));
                 }
                 var firstNonExternalModuleSourceFile = ts.forEach(files, function (f) { return !ts.isExternalModule(f) && !ts.isDeclarationFile(f) ? f : undefined; });
                 if (firstNonExternalModuleSourceFile) {
                     var span = ts.getErrorSpanForNode(firstNonExternalModuleSourceFile, firstNonExternalModuleSourceFile);
-                    diagnostics.add(ts.createFileDiagnostic(firstNonExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_namespaces_when_the_isolatedModules_flag_is_provided));
+                    programDiagnostics.add(ts.createFileDiagnostic(firstNonExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_namespaces_when_the_isolatedModules_flag_is_provided));
                 }
             }
             else if (firstExternalModuleSourceFile && languageVersion < 2 /* ES6 */ && !options.module) {
                 // We cannot use createDiagnosticFromNode because nodes do not have parents yet
                 var span = ts.getErrorSpanForNode(firstExternalModuleSourceFile, firstExternalModuleSourceFile.externalModuleIndicator);
-                diagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_unless_the_module_flag_is_provided));
+                programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_unless_the_module_flag_is_provided));
             }
             // Cannot specify module gen target when in es6 or above
             if (options.module && languageVersion >= 2 /* ES6 */) {
-                diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_compile_modules_into_commonjs_amd_system_or_umd_when_targeting_ES6_or_higher));
+                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_compile_modules_into_commonjs_amd_system_or_umd_when_targeting_ES6_or_higher));
             }
             // there has to be common source directory if user specified --outdir || --sourceRoot
             // if user specified --mapRoot, there needs to be common source directory if there would be multiple files being emitted
@@ -36463,25 +36532,25 @@ var ts;
             }
             if (options.noEmit) {
                 if (options.out) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "out"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "out"));
                 }
                 if (options.outFile) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "outFile"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "outFile"));
                 }
                 if (options.outDir) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "outDir"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "outDir"));
                 }
                 if (options.declaration) {
-                    diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "declaration"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "declaration"));
                 }
             }
             if (options.emitDecoratorMetadata &&
                 !options.experimentalDecorators) {
-                diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "emitDecoratorMetadata", "experimentalDecorators"));
+                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "emitDecoratorMetadata", "experimentalDecorators"));
             }
             if (options.experimentalAsyncFunctions &&
                 options.target !== 2 /* ES6 */) {
-                diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_experimentalAsyncFunctions_cannot_be_specified_when_targeting_ES5_or_lower));
+                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_experimentalAsyncFunctions_cannot_be_specified_when_targeting_ES5_or_lower));
             }
         }
     }
@@ -40162,7 +40231,7 @@ var ts;
                 this.SpaceAfterSubtractWhenFollowedByUnaryMinus = new formatting.Rule(formatting.RuleDescriptor.create1(36 /* MinusToken */, 36 /* MinusToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsBinaryOpContext), 2 /* Space */));
                 this.SpaceAfterSubtractWhenFollowedByPredecrement = new formatting.Rule(formatting.RuleDescriptor.create1(36 /* MinusToken */, 41 /* MinusMinusToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsBinaryOpContext), 2 /* Space */));
                 this.NoSpaceBeforeComma = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 24 /* CommaToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                this.SpaceAfterCertainKeywords = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([100 /* VarKeyword */, 96 /* ThrowKeyword */, 90 /* NewKeyword */, 76 /* DeleteKeyword */, 92 /* ReturnKeyword */, 99 /* TypeOfKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.SpaceAfterCertainKeywords = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([100 /* VarKeyword */, 96 /* ThrowKeyword */, 90 /* NewKeyword */, 76 /* DeleteKeyword */, 92 /* ReturnKeyword */, 99 /* TypeOfKeyword */, 117 /* AwaitKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 this.SpaceAfterLetConstInVariableDeclaration = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([106 /* LetKeyword */, 72 /* ConstKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsStartOfVariableDeclarationList), 2 /* Space */));
                 this.NoSpaceBeforeOpenParenInFuncCall = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsFunctionCallOrNewContext, Rules.IsPreviousTokenNotComma), 8 /* Delete */));
                 this.SpaceAfterFunctionInFuncDecl = new formatting.Rule(formatting.RuleDescriptor.create3(85 /* FunctionKeyword */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext), 2 /* Space */));
@@ -40186,7 +40255,7 @@ var ts;
                 // Use of module as a function call. e.g.: import m2 = module("m2");
                 this.NoSpaceAfterModuleImport = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.FromTokens([123 /* ModuleKeyword */, 125 /* RequireKeyword */]), 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 // Add a space around certain TypeScript keywords
-                this.SpaceAfterCertainTypeScriptKeywords = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([113 /* AbstractKeyword */, 71 /* ClassKeyword */, 120 /* DeclareKeyword */, 75 /* DefaultKeyword */, 79 /* EnumKeyword */, 80 /* ExportKeyword */, 81 /* ExtendsKeyword */, 121 /* GetKeyword */, 104 /* ImplementsKeyword */, 87 /* ImportKeyword */, 105 /* InterfaceKeyword */, 123 /* ModuleKeyword */, 124 /* NamespaceKeyword */, 108 /* PrivateKeyword */, 110 /* PublicKeyword */, 109 /* ProtectedKeyword */, 127 /* SetKeyword */, 111 /* StaticKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.SpaceAfterCertainTypeScriptKeywords = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([113 /* AbstractKeyword */, 71 /* ClassKeyword */, 120 /* DeclareKeyword */, 75 /* DefaultKeyword */, 79 /* EnumKeyword */, 80 /* ExportKeyword */, 81 /* ExtendsKeyword */, 121 /* GetKeyword */, 104 /* ImplementsKeyword */, 87 /* ImportKeyword */, 105 /* InterfaceKeyword */, 123 /* ModuleKeyword */, 124 /* NamespaceKeyword */, 108 /* PrivateKeyword */, 110 /* PublicKeyword */, 109 /* ProtectedKeyword */, 127 /* SetKeyword */, 111 /* StaticKeyword */, 130 /* TypeKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 this.SpaceBeforeCertainTypeScriptKeywords = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([81 /* ExtendsKeyword */, 104 /* ImplementsKeyword */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 // Treat string literals in module names as identifiers, and add a space between the literal and the opening Brace braces, e.g.: module "m2" {
                 this.SpaceAfterModuleName = new formatting.Rule(formatting.RuleDescriptor.create1(9 /* StringLiteral */, 15 /* OpenBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsModuleDeclContext), 2 /* Space */));
@@ -40214,22 +40283,8 @@ var ts;
                 this.SpaceBetweenYieldOrYieldStarAndOperand = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([112 /* YieldKeyword */, 37 /* AsteriskToken */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsYieldOrYieldStarWithOperand), 2 /* Space */));
                 // Async-await
                 this.SpaceBetweenAsyncAndFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(116 /* AsyncKeyword */, 85 /* FunctionKeyword */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
-                this.NoSpaceBetweenAsyncAndFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(116 /* AsyncKeyword */, 85 /* FunctionKeyword */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                this.SpaceAfterAwaitKeyword = new formatting.Rule(formatting.RuleDescriptor.create3(117 /* AwaitKeyword */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
-                this.NoSpaceAfterAwaitKeyword = new formatting.Rule(formatting.RuleDescriptor.create3(117 /* AwaitKeyword */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                // Type alias declaration
-                this.SpaceAfterTypeKeyword = new formatting.Rule(formatting.RuleDescriptor.create3(130 /* TypeKeyword */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
-                this.NoSpaceAfterTypeKeyword = new formatting.Rule(formatting.RuleDescriptor.create3(130 /* TypeKeyword */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 // template string
                 this.SpaceBetweenTagAndTemplateString = new formatting.Rule(formatting.RuleDescriptor.create3(67 /* Identifier */, formatting.Shared.TokenRange.FromTokens([11 /* NoSubstitutionTemplateLiteral */, 12 /* TemplateHead */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
-                this.NoSpaceBetweenTagAndTemplateString = new formatting.Rule(formatting.RuleDescriptor.create3(67 /* Identifier */, formatting.Shared.TokenRange.FromTokens([11 /* NoSubstitutionTemplateLiteral */, 12 /* TemplateHead */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                // type operation
-                this.SpaceBeforeBar = new formatting.Rule(formatting.RuleDescriptor.create3(46 /* BarToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
-                this.NoSpaceBeforeBar = new formatting.Rule(formatting.RuleDescriptor.create3(46 /* BarToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                this.SpaceAfterBar = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 46 /* BarToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
-                this.NoSpaceAfterBar = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 46 /* BarToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                this.SpaceBeforeAmpersand = new formatting.Rule(formatting.RuleDescriptor.create3(45 /* AmpersandToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
-                this.SpaceAfterAmpersand = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 45 /* AmpersandToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 // These rules are higher in priority than user-configurable rules.
                 this.HighPriorityCommonRules =
                     [
@@ -40256,12 +40311,8 @@ var ts;
                         this.NoSpaceBeforeOpenParenInFuncCall,
                         this.SpaceBeforeBinaryKeywordOperator, this.SpaceAfterBinaryKeywordOperator,
                         this.SpaceAfterVoidOperator,
-                        this.SpaceBetweenAsyncAndFunctionKeyword, this.NoSpaceBetweenAsyncAndFunctionKeyword,
-                        this.SpaceAfterAwaitKeyword, this.NoSpaceAfterAwaitKeyword,
-                        this.SpaceAfterTypeKeyword, this.NoSpaceAfterTypeKeyword,
-                        this.SpaceBetweenTagAndTemplateString, this.NoSpaceBetweenTagAndTemplateString,
-                        this.SpaceBeforeBar, this.NoSpaceBeforeBar, this.SpaceAfterBar, this.NoSpaceAfterBar,
-                        this.SpaceBeforeAmpersand, this.SpaceAfterAmpersand,
+                        this.SpaceBetweenAsyncAndFunctionKeyword,
+                        this.SpaceBetweenTagAndTemplateString,
                         // TypeScript-specific rules
                         this.NoSpaceAfterConstructor, this.NoSpaceAfterModuleImport,
                         this.SpaceAfterCertainTypeScriptKeywords, this.SpaceBeforeCertainTypeScriptKeywords,
@@ -40356,6 +40407,8 @@ var ts;
                     case 180 /* ConditionalExpression */:
                     case 187 /* AsExpression */:
                     case 148 /* TypePredicate */:
+                    case 156 /* UnionType */:
+                    case 157 /* IntersectionType */:
                         return true;
                     // equals in binding elements: function foo([[x, y] = [1, 2]])
                     case 161 /* BindingElement */:

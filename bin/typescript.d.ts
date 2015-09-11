@@ -1018,6 +1018,7 @@ declare namespace ts {
         getIdentifierCount(): number;
         getSymbolCount(): number;
         getTypeCount(): number;
+        getFileProcessingDiagnostics(): DiagnosticCollection;
         structureIsReused?: boolean;
     }
     interface SourceMapSpan {
@@ -1761,6 +1762,7 @@ declare namespace ts {
         getGlobalDiagnostics(): Diagnostic[];
         getDiagnostics(fileName?: string): Diagnostic[];
         getModificationCount(): number;
+        reattachFileDiagnostics(newFile: SourceFile): void;
     }
 }
 declare namespace ts {
@@ -4945,6 +4947,7 @@ declare namespace ts {
     interface ErrorCallback {
         (message: DiagnosticMessage, length: number): void;
     }
+    function tokenIsIdentifierOrKeyword(token: SyntaxKind): boolean;
     interface Scanner {
         getStartPos(): number;
         getToken(): SyntaxKind;
@@ -5072,6 +5075,7 @@ declare namespace ts {
     function getLeadingCommentRangesOfNode(node: Node, sourceFileOfNode: SourceFile): CommentRange[];
     function getJsDocComments(node: Node, sourceFileOfNode: SourceFile): CommentRange[];
     let fullTripleSlashReferencePathRegEx: RegExp;
+    let fullTripleSlashAMDReferencePathRegEx: RegExp;
     function isTypeNode(node: Node): boolean;
     function forEachReturnStatement<T>(body: Block, visitor: (stmt: ReturnStatement) => T): T;
     function forEachYieldExpression(body: Block, visitor: (expr: YieldExpression) => void): void;
@@ -5681,19 +5685,7 @@ declare namespace ts.formatting {
         NoSpaceBetweenYieldKeywordAndStar: Rule;
         SpaceBetweenYieldOrYieldStarAndOperand: Rule;
         SpaceBetweenAsyncAndFunctionKeyword: Rule;
-        NoSpaceBetweenAsyncAndFunctionKeyword: Rule;
-        SpaceAfterAwaitKeyword: Rule;
-        NoSpaceAfterAwaitKeyword: Rule;
-        SpaceAfterTypeKeyword: Rule;
-        NoSpaceAfterTypeKeyword: Rule;
         SpaceBetweenTagAndTemplateString: Rule;
-        NoSpaceBetweenTagAndTemplateString: Rule;
-        SpaceBeforeBar: Rule;
-        NoSpaceBeforeBar: Rule;
-        SpaceAfterBar: Rule;
-        NoSpaceAfterBar: Rule;
-        SpaceBeforeAmpersand: Rule;
-        SpaceAfterAmpersand: Rule;
         constructor();
         static IsForContext(context: FormattingContext): boolean;
         static IsNotForContext(context: FormattingContext): boolean;
