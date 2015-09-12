@@ -961,7 +961,7 @@ declare namespace ts {
         bindDiagnostics: Diagnostic[];
         lineMap: number[];
         classifiableNames?: Map<string>;
-        resolvedModules: Map<string>;
+        resolvedModules: Map<ResolvedModule>;
         imports: LiteralExpression[];
     }
     interface ScriptReferenceHost {
@@ -1294,6 +1294,7 @@ declare namespace ts {
         resolvedExports?: SymbolTable;
         exportsChecked?: boolean;
         isNestedRedeclaration?: boolean;
+        bindingElement?: BindingElement;
     }
     interface TransientSymbol extends Symbol, SymbolLinks {
     }
@@ -1371,10 +1372,12 @@ declare namespace ts {
         RequiresWidening = 6291456,
         PropagatingFlags = 14680064,
     }
+    type DestructuringPattern = BindingPattern | ObjectLiteralExpression | ArrayLiteralExpression;
     interface Type {
         flags: TypeFlags;
         id: number;
         symbol?: Symbol;
+        pattern?: DestructuringPattern;
     }
     interface IntrinsicType extends Type {
         intrinsicName: string;
@@ -1407,7 +1410,6 @@ declare namespace ts {
     }
     interface TupleType extends ObjectType {
         elementTypes: Type[];
-        baseArrayType: TypeReference;
     }
     interface UnionOrIntersectionType extends Type {
         types: Type[];
@@ -1735,9 +1737,12 @@ declare namespace ts {
     }
     interface ResolvedModule {
         resolvedFileName: string;
+        isExternalLibraryImport?: boolean;
+    }
+    interface ResolvedModuleWithFailedLookupLocations {
+        resolvedModule: ResolvedModule;
         failedLookupLocations: string[];
     }
-    type ModuleNameResolver = (moduleName: string, containingFile: string, options: CompilerOptions, host: ModuleResolutionHost) => ResolvedModule;
     interface CompilerHost extends ModuleResolutionHost {
         getSourceFile(fileName: string, languageVersion: ScriptTarget, onError?: (message: string) => void): SourceFile;
         getCancellationToken?(): CancellationToken;
@@ -1747,7 +1752,7 @@ declare namespace ts {
         getCanonicalFileName(fileName: string): string;
         useCaseSensitiveFileNames(): boolean;
         getNewLine(): string;
-        resolveModuleNames?(moduleNames: string[], containingFile: string): string[];
+        resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
     }
     interface TextSpan {
         start: number;
@@ -3951,6 +3956,11 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        Initializer_provides_no_value_for_this_binding_element_and_the_binding_element_has_no_default_value: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         JSX_element_attributes_type_0_must_be_an_object_type: {
             code: number;
             category: DiagnosticCategory;
@@ -4012,6 +4022,16 @@ declare namespace ts {
             key: string;
         };
         Non_abstract_class_expression_does_not_implement_inherited_abstract_member_0_from_class_1: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Exported_external_package_typings_file_cannot_contain_tripleslash_references_Please_contact_the_package_author_to_update_the_package_definition: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Exported_external_package_typings_can_only_be_in_d_ts_files_Please_contact_the_package_author_to_update_the_package_definition: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5039,9 +5059,9 @@ declare namespace ts {
     function releaseStringWriter(writer: StringSymbolWriter): void;
     function getFullWidth(node: Node): number;
     function arrayIsEqualTo<T>(arr1: T[], arr2: T[], comparer?: (a: T, b: T) => boolean): boolean;
-    function hasResolvedModuleName(sourceFile: SourceFile, moduleNameText: string): boolean;
-    function getResolvedModuleFileName(sourceFile: SourceFile, moduleNameText: string): string;
-    function setResolvedModuleName(sourceFile: SourceFile, moduleNameText: string, resolvedFileName: string): void;
+    function hasResolvedModule(sourceFile: SourceFile, moduleNameText: string): boolean;
+    function getResolvedModule(sourceFile: SourceFile, moduleNameText: string): ResolvedModule;
+    function setResolvedModule(sourceFile: SourceFile, moduleNameText: string, resolvedModule: ResolvedModule): void;
     function containsParseError(node: Node): boolean;
     function getSourceFileOfNode(node: Node): SourceFile;
     function getStartPositionOfLine(line: number, sourceFile: SourceFile): number;
@@ -5342,10 +5362,9 @@ declare namespace ts {
     const version: string;
     function findConfigFile(searchPath: string): string;
     function resolveTripleslashReference(moduleName: string, containingFile: string): string;
-    var resolveModuleName: (moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost) => ResolvedModule;
-    function nodeModuleNameResolver(moduleName: string, containingFile: string, host: ModuleResolutionHost): ResolvedModule;
-    function baseUrlModuleNameResolver(moduleName: string, containingFile: string, baseUrl: string, host: ModuleResolutionHost): ResolvedModule;
-    function classicNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModule;
+    function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
+    function nodeModuleNameResolver(moduleName: string, containingFile: string, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
+    function classicNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
     const defaultInitCompilerOptions: CompilerOptions;
     function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
     function getPreEmitDiagnostics(program: Program, sourceFile?: SourceFile, cancellationToken?: CancellationToken): Diagnostic[];
@@ -5958,7 +5977,7 @@ declare namespace ts {
         trace?(s: string): void;
         error?(s: string): void;
         useCaseSensitiveFileNames?(): boolean;
-        resolveModuleNames?(moduleNames: string[], containingFile: string): string[];
+        resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
     }
     interface LanguageService {
         cleanupSemanticCache(): void;
@@ -6625,7 +6644,7 @@ declare namespace ts {
         private files;
         private loggingEnabled;
         private tracingEnabled;
-        resolveModuleNames: (moduleName: string[], containingFile: string) => string[];
+        resolveModuleNames: (moduleName: string[], containingFile: string) => ResolvedModule[];
         constructor(shimHost: LanguageServiceShimHost);
         log(s: string): void;
         trace(s: string): void;
