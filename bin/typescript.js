@@ -1999,6 +1999,7 @@ var ts;
         Non_abstract_class_expression_does_not_implement_inherited_abstract_member_0_from_class_1: { code: 2653, category: ts.DiagnosticCategory.Error, key: "Non-abstract class expression does not implement inherited abstract member '{0}' from class '{1}'." },
         Exported_external_package_typings_file_cannot_contain_tripleslash_references_Please_contact_the_package_author_to_update_the_package_definition: { code: 2654, category: ts.DiagnosticCategory.Error, key: "Exported external package typings file cannot contain tripleslash references. Please contact the package author to update the package definition." },
         Exported_external_package_typings_can_only_be_in_d_ts_files_Please_contact_the_package_author_to_update_the_package_definition: { code: 2655, category: ts.DiagnosticCategory.Error, key: "Exported external package typings can only be in '.d.ts' files. Please contact the package author to update the package definition." },
+        Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_the_package_definition: { code: 2656, category: ts.DiagnosticCategory.Error, key: "Exported external package typings file '{0}' is not a module. Please contact the package author to update the package definition." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -13449,7 +13450,7 @@ var ts;
             // Module names are escaped in our symbol table.  However, string literal values aren't.
             // Escape the name in the "require(...)" clause to ensure we find the right symbol.
             var moduleName = ts.escapeIdentifier(moduleReferenceLiteral.text);
-            if (!moduleName) {
+            if (moduleName === undefined) {
                 return;
             }
             var isRelative = isExternalModuleNameRelative(moduleName);
@@ -36444,7 +36445,7 @@ var ts;
                         if (importedFile && resolution.isExternalLibraryImport) {
                             if (!ts.isExternalModule(importedFile)) {
                                 var start_2 = ts.getTokenPosOfNode(file.imports[i], file);
-                                fileProcessingDiagnostics.add(ts.createFileDiagnostic(file, start_2, file.imports[i].end - start_2, ts.Diagnostics.File_0_is_not_a_module, importedFile.fileName));
+                                fileProcessingDiagnostics.add(ts.createFileDiagnostic(file, start_2, file.imports[i].end - start_2, ts.Diagnostics.Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_the_package_definition, importedFile.fileName));
                             }
                             else if (!ts.fileExtensionIs(importedFile.fileName, ".d.ts")) {
                                 var start_3 = ts.getTokenPosOfNode(file.imports[i], file);

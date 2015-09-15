@@ -4036,6 +4036,11 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_the_package_definition: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;
