@@ -1595,16 +1595,23 @@ declare namespace ts {
         fileNames: string[];
         errors: Diagnostic[];
     }
-    interface CommandLineOption {
+    interface CommandLineOptionBase {
         name: string;
         type: string | Map<number>;
         isFilePath?: boolean;
         shortName?: string;
         description?: DiagnosticMessage;
         paramType?: DiagnosticMessage;
-        error?: DiagnosticMessage;
         experimental?: boolean;
     }
+    interface CommandLineOptionOfPrimitiveType extends CommandLineOptionBase {
+        type: string;
+    }
+    interface CommandLineOptionOfCustomType extends CommandLineOptionBase {
+        type: Map<number>;
+        error: DiagnosticMessage;
+    }
+    type CommandLineOption = CommandLineOptionOfCustomType | CommandLineOptionOfPrimitiveType;
     enum CharacterCodes {
         nullCharacter = 0,
         maxAsciiCharacter = 127,
@@ -4706,6 +4713,11 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        Argument_for_moduleResolution_option_must_be_node_or_classic: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Specify_JSX_code_generation_Colon_preserve_or_react: {
             code: number;
             category: DiagnosticCategory;
@@ -4736,7 +4748,7 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6: {
+        Specifies_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6: {
             code: number;
             category: DiagnosticCategory;
             key: string;

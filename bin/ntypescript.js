@@ -2133,13 +2133,14 @@ var ts;
         Specifies_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix: { code: 6060, category: ts.DiagnosticCategory.Message, key: "Specifies the end of line sequence to be used when emitting files: 'CRLF' (dos) or 'LF' (unix)." },
         NEWLINE: { code: 6061, category: ts.DiagnosticCategory.Message, key: "NEWLINE" },
         Argument_for_newLine_option_must_be_CRLF_or_LF: { code: 6062, category: ts.DiagnosticCategory.Error, key: "Argument for '--newLine' option must be 'CRLF' or 'LF'." },
+        Argument_for_moduleResolution_option_must_be_node_or_classic: { code: 6063, category: ts.DiagnosticCategory.Error, key: "Argument for '--moduleResolution' option must be 'node' or 'classic'." },
         Specify_JSX_code_generation_Colon_preserve_or_react: { code: 6080, category: ts.DiagnosticCategory.Message, key: "Specify JSX code generation: 'preserve' or 'react'" },
         Argument_for_jsx_must_be_preserve_or_react: { code: 6081, category: ts.DiagnosticCategory.Message, key: "Argument for '--jsx' must be 'preserve' or 'react'." },
         Enables_experimental_support_for_ES7_decorators: { code: 6065, category: ts.DiagnosticCategory.Message, key: "Enables experimental support for ES7 decorators." },
         Enables_experimental_support_for_emitting_type_metadata_for_decorators: { code: 6066, category: ts.DiagnosticCategory.Message, key: "Enables experimental support for emitting type metadata for decorators." },
         Option_experimentalAsyncFunctions_cannot_be_specified_when_targeting_ES5_or_lower: { code: 6067, category: ts.DiagnosticCategory.Message, key: "Option 'experimentalAsyncFunctions' cannot be specified when targeting ES5 or lower." },
         Enables_experimental_support_for_ES7_async_functions: { code: 6068, category: ts.DiagnosticCategory.Message, key: "Enables experimental support for ES7 async functions." },
-        Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6: { code: 6069, category: ts.DiagnosticCategory.Message, key: "Specifies module resolution strategy: 'node' (Node) or 'classic' (TypeScript pre 1.6) ." },
+        Specifies_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6: { code: 6069, category: ts.DiagnosticCategory.Message, key: "Specifies module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6)." },
         Initializes_a_TypeScript_project_and_creates_a_tsconfig_json_file: { code: 6070, category: ts.DiagnosticCategory.Message, key: "Initializes a TypeScript project and creates a tsconfig.json file." },
         Successfully_created_a_tsconfig_json_file: { code: 6071, category: ts.DiagnosticCategory.Message, key: "Successfully created a tsconfig.json file." },
         Suppress_excess_property_checks_for_object_literals: { code: 6072, category: ts.DiagnosticCategory.Message, key: "Suppress excess property checks for object literals." },
@@ -25434,7 +25435,10 @@ var ts;
                 var symbols = [];
                 var name_12 = symbol.name;
                 ts.forEach(getSymbolLinks(symbol).containingType.types, function (t) {
-                    symbols.push(getPropertyOfType(t, name_12));
+                    var symbol = getPropertyOfType(t, name_12);
+                    if (symbol) {
+                        symbols.push(symbol);
+                    }
                 });
                 return symbols;
             }
@@ -27362,7 +27366,8 @@ var ts;
                 "node": 2 /* NodeJs */,
                 "classic": 1 /* Classic */
             },
-            description: ts.Diagnostics.Specifies_module_resolution_strategy_Colon_node_Node_or_classic_TypeScript_pre_1_6
+            description: ts.Diagnostics.Specifies_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6,
+            error: ts.Diagnostics.Argument_for_moduleResolution_option_must_be_node_or_classic,
         }
     ];
     var optionNameMapCache;
@@ -31847,21 +31852,30 @@ var ts;
                         write(")");
                     }
                 }
-                function ensureIdentifier(expr) {
-                    if (expr.kind !== 67 /* Identifier */) {
-                        var identifier = createTempVariable(0 /* Auto */);
-                        if (!canDefineTempVariablesInPlace) {
-                            recordTempDeclaration(identifier);
-                        }
-                        emitAssignment(identifier, expr);
-                        expr = identifier;
+                /**
+                 * Ensures that there exists a declared identifier whose value holds the given expression.
+                 * This function is useful to ensure that the expression's value can be read from in subsequent expressions.
+                 * Unless 'reuseIdentifierExpressions' is false, 'expr' will be returned if it is just an identifier.
+                 *
+                 * @param expr the expression whose value needs to be bound.
+                 * @param reuseIdentifierExpressions true if identifier expressions can simply be returned;
+                 *                                   false if it is necessary to always emit an identifier.
+                 */
+                function ensureIdentifier(expr, reuseIdentifierExpressions) {
+                    if (expr.kind === 67 /* Identifier */ && reuseIdentifierExpressions) {
+                        return expr;
                     }
-                    return expr;
+                    var identifier = createTempVariable(0 /* Auto */);
+                    if (!canDefineTempVariablesInPlace) {
+                        recordTempDeclaration(identifier);
+                    }
+                    emitAssignment(identifier, expr);
+                    return identifier;
                 }
                 function createDefaultValueCheck(value, defaultValue) {
                     // The value expression will be evaluated twice, so for anything but a simple identifier
                     // we need to generate a temporary variable
-                    value = ensureIdentifier(value);
+                    value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true);
                     // Return the expression 'value === void 0 ? defaultValue : value'
                     var equals = ts.createSynthesizedNode(179 /* BinaryExpression */);
                     equals.left = value;
@@ -31907,7 +31921,7 @@ var ts;
                     if (properties.length !== 1) {
                         // For anything but a single element destructuring we need to generate a temporary
                         // to ensure value is evaluated exactly once.
-                        value = ensureIdentifier(value);
+                        value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true);
                     }
                     for (var _a = 0; _a < properties.length; _a++) {
                         var p = properties[_a];
@@ -31922,7 +31936,7 @@ var ts;
                     if (elements.length !== 1) {
                         // For anything but a single element destructuring we need to generate a temporary
                         // to ensure value is evaluated exactly once.
-                        value = ensureIdentifier(value);
+                        value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true);
                     }
                     for (var i = 0; i < elements.length; i++) {
                         var e = elements[i];
@@ -31964,7 +31978,7 @@ var ts;
                         if (root.parent.kind !== 170 /* ParenthesizedExpression */) {
                             write("(");
                         }
-                        value = ensureIdentifier(value);
+                        value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true);
                         emitDestructuringAssignment(target, value);
                         write(", ");
                         emit(value);
@@ -31985,12 +31999,15 @@ var ts;
                     if (ts.isBindingPattern(target.name)) {
                         var pattern = target.name;
                         var elements = pattern.elements;
-                        if (elements.length !== 1) {
-                            // For anything but a single element destructuring we need to generate a temporary
-                            // to ensure value is evaluated exactly once.
-                            value = ensureIdentifier(value);
+                        var numElements = elements.length;
+                        if (numElements !== 1) {
+                            // For anything other than a single-element destructuring we need to generate a temporary
+                            // to ensure value is evaluated exactly once. Additionally, if we have zero elements
+                            // we need to emit *something* to ensure that in case a 'var' keyword was already emitted,
+                            // so in that case, we'll intentionally create that temporary.
+                            value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ numElements !== 0);
                         }
-                        for (var i = 0; i < elements.length; i++) {
+                        for (var i = 0; i < numElements; i++) {
                             var element = elements[i];
                             if (pattern.kind === 159 /* ObjectBindingPattern */) {
                                 // Rewrite element to a declaration with an initializer that fetches property
@@ -32002,7 +32019,7 @@ var ts;
                                     // Rewrite element to a declaration that accesses array element at index i
                                     emitBindingElement(element, createElementAccessExpression(value, createNumericLiteral(i)));
                                 }
-                                else if (i === elements.length - 1) {
+                                else if (i === numElements - 1) {
                                     emitBindingElement(element, createSliceCall(value, i));
                                 }
                             }
@@ -35716,7 +35733,7 @@ var ts;
     /* @internal */ ts.ioWriteTime = 0;
     /** The version of the TypeScript compiler release */
     var emptyArray = [];
-    ts.version = "1.6.0";
+    ts.version = "1.7.0";
     function findConfigFile(searchPath) {
         var fileName = "tsconfig.json";
         while (true) {
@@ -43738,6 +43755,7 @@ var ts;
             //
             //    export * from "mod"
             //    export {a as b} from "mod"
+            //    export import i = require("mod")
             while (token !== 1 /* EndOfFileToken */) {
                 if (token === 120 /* DeclareKeyword */) {
                     // declare module "mod"
@@ -43855,6 +43873,25 @@ var ts;
                             if (token === 9 /* StringLiteral */) {
                                 // export * from "mod"
                                 recordModuleName();
+                            }
+                        }
+                    }
+                    else if (token === 87 /* ImportKeyword */) {
+                        token = scanner.scan();
+                        if (token === 67 /* Identifier */ || ts.isKeyword(token)) {
+                            token = scanner.scan();
+                            if (token === 55 /* EqualsToken */) {
+                                token = scanner.scan();
+                                if (token === 125 /* RequireKeyword */) {
+                                    token = scanner.scan();
+                                    if (token === 17 /* OpenParenToken */) {
+                                        token = scanner.scan();
+                                        if (token === 9 /* StringLiteral */) {
+                                            //  export import i = require("mod");
+                                            recordModuleName();
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

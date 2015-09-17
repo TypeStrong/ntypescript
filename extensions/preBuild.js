@@ -1,6 +1,3 @@
-/**
- * Make modifications to typescript source pre build
- */
 var fs = require('fs');
 var EOL = require('os').EOL;
 function readFile(filePath) {

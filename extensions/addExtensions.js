@@ -1,6 +1,3 @@
-/**
- * This script is responsible for making required modifications to our version of TypeScript post build
- */
 var fs = require('fs');
 var EOL = require('os').EOL;
 function readFile(filePath) {
