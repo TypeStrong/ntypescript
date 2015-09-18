@@ -35,7 +35,7 @@ Each release is named after the day it was built and the git commit hash in Micr
 ## Usage
 
 ### Globally
-You can use `ntsc` and the `ntsserver` command line tools.
+You can use `ntsc` *exactly* like the `tsc` command line tool.
 
 ### Require
 Use `require('ntypescript')`
