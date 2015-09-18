@@ -30336,8 +30336,15 @@ var ts;
                         else if (declaration.kind === 224 /* ImportSpecifier */) {
                             // Identifier references named import
                             write(getGeneratedNameForNode(declaration.parent.parent.parent));
-                            write(".");
-                            writeTextOfNode(currentSourceFile, declaration.propertyName || declaration.name);
+                            var name = declaration.propertyName || declaration.name;
+                            var identifier = ts.getSourceTextOfNodeFromSourceFile(currentSourceFile, name);
+                            if (languageVersion === 0 /* ES3 */ && identifier === "default") {
+                                write("[\"default\"]");
+                            }
+                            else {
+                                write(".");
+                                write(identifier);
+                            }
                             return;
                         }
                     }
