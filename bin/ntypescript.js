@@ -18617,8 +18617,8 @@ var ts;
         }
         // Return contextual type of parameter or undefined if no contextual type is available
         function getContextuallyTypedParameterType(parameter) {
-            if (isFunctionExpressionOrArrowFunction(parameter.parent)) {
-                var func = parameter.parent;
+            var func = parameter.parent;
+            if (isFunctionExpressionOrArrowFunction(func) || ts.isObjectLiteralMethod(func)) {
                 if (isContextSensitive(func)) {
                     var contextualSignature = getContextualSignature(func);
                     if (contextualSignature) {
