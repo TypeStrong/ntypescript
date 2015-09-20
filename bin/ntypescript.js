@@ -4648,7 +4648,298 @@ var ts;
         }
     }
 })(ts || (ts = {}));
+/// <reference path="core.ts"/>
+var ts;
+(function (ts) {
+    ts.sys = (function () {
+        function getWScriptSystem() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var fileStream = new ActiveXObject("ADODB.Stream");
+            fileStream.Type = 2 /*text*/;
+            var binaryStream = new ActiveXObject("ADODB.Stream");
+            binaryStream.Type = 1 /*binary*/;
+            var args = [];
+            for (var i = 0; i < WScript.Arguments.length; i++) {
+                args[i] = WScript.Arguments.Item(i);
+            }
+            function readFile(fileName, encoding) {
+                if (!fso.FileExists(fileName)) {
+                    return undefined;
+                }
+                fileStream.Open();
+                try {
+                    if (encoding) {
+                        fileStream.Charset = encoding;
+                        fileStream.LoadFromFile(fileName);
+                    }
+                    else {
+                        // Load file and read the first two bytes into a string with no interpretation
+                        fileStream.Charset = "x-ansi";
+                        fileStream.LoadFromFile(fileName);
+                        var bom = fileStream.ReadText(2) || "";
+                        // Position must be at 0 before encoding can be changed
+                        fileStream.Position = 0;
+                        // [0xFF,0xFE] and [0xFE,0xFF] mean utf-16 (little or big endian), otherwise default to utf-8
+                        fileStream.Charset = bom.length >= 2 && (bom.charCodeAt(0) === 0xFF && bom.charCodeAt(1) === 0xFE || bom.charCodeAt(0) === 0xFE && bom.charCodeAt(1) === 0xFF) ? "unicode" : "utf-8";
+                    }
+                    // ReadText method always strips byte order mark from resulting string
+                    return fileStream.ReadText();
+                }
+                catch (e) {
+                    throw e;
+                }
+                finally {
+                    fileStream.Close();
+                }
+            }
+            function writeFile(fileName, data, writeByteOrderMark) {
+                fileStream.Open();
+                binaryStream.Open();
+                try {
+                    // Write characters in UTF-8 encoding
+                    fileStream.Charset = "utf-8";
+                    fileStream.WriteText(data);
+                    // If we don't want the BOM, then skip it by setting the starting location to 3 (size of BOM).
+                    // If not, start from position 0, as the BOM will be added automatically when charset==utf8.
+                    if (writeByteOrderMark) {
+                        fileStream.Position = 0;
+                    }
+                    else {
+                        fileStream.Position = 3;
+                    }
+                    fileStream.CopyTo(binaryStream);
+                    binaryStream.SaveToFile(fileName, 2 /*overwrite*/);
+                }
+                finally {
+                    binaryStream.Close();
+                    fileStream.Close();
+                }
+            }
+            function getCanonicalPath(path) {
+                return path.toLowerCase();
+            }
+            function getNames(collection) {
+                var result = [];
+                for (var e = new Enumerator(collection); !e.atEnd(); e.moveNext()) {
+                    result.push(e.item().Name);
+                }
+                return result.sort();
+            }
+            function readDirectory(path, extension, exclude) {
+                var result = [];
+                exclude = ts.map(exclude, function (s) { return getCanonicalPath(ts.combinePaths(path, s)); });
+                visitDirectory(path);
+                return result;
+                function visitDirectory(path) {
+                    var folder = fso.GetFolder(path || ".");
+                    var files = getNames(folder.files);
+                    for (var _i = 0; _i < files.length; _i++) {
+                        var current = files[_i];
+                        var name_2 = ts.combinePaths(path, current);
+                        if ((!extension || ts.fileExtensionIs(name_2, extension)) && !ts.contains(exclude, getCanonicalPath(name_2))) {
+                            result.push(name_2);
+                        }
+                    }
+                    var subfolders = getNames(folder.subfolders);
+                    for (var _a = 0; _a < subfolders.length; _a++) {
+                        var current = subfolders[_a];
+                        var name_3 = ts.combinePaths(path, current);
+                        if (!ts.contains(exclude, getCanonicalPath(name_3))) {
+                            visitDirectory(name_3);
+                        }
+                    }
+                }
+            }
+            return {
+                args: args,
+                newLine: "\r\n",
+                useCaseSensitiveFileNames: false,
+                write: function (s) {
+                    WScript.StdOut.Write(s);
+                },
+                readFile: readFile,
+                writeFile: writeFile,
+                resolvePath: function (path) {
+                    return fso.GetAbsolutePathName(path);
+                },
+                fileExists: function (path) {
+                    return fso.FileExists(path);
+                },
+                directoryExists: function (path) {
+                    return fso.FolderExists(path);
+                },
+                createDirectory: function (directoryName) {
+                    if (!this.directoryExists(directoryName)) {
+                        fso.CreateFolder(directoryName);
+                    }
+                },
+                getExecutingFilePath: function () {
+                    return WScript.ScriptFullName;
+                },
+                getCurrentDirectory: function () {
+                    return new ActiveXObject("WScript.Shell").CurrentDirectory;
+                },
+                readDirectory: readDirectory,
+                exit: function (exitCode) {
+                    try {
+                        WScript.Quit(exitCode);
+                    }
+                    catch (e) {
+                    }
+                }
+            };
+        }
+        function getNodeSystem() {
+            var _fs = require("fs");
+            var _path = require("path");
+            var _os = require("os");
+            var platform = _os.platform();
+            // win32\win64 are case insensitive platforms, MacOS (darwin) by default is also case insensitive
+            var useCaseSensitiveFileNames = platform !== "win32" && platform !== "win64" && platform !== "darwin";
+            function readFile(fileName, encoding) {
+                if (!_fs.existsSync(fileName)) {
+                    return undefined;
+                }
+                var buffer = _fs.readFileSync(fileName);
+                var len = buffer.length;
+                if (len >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
+                    // Big endian UTF-16 byte order mark detected. Since big endian is not supported by node.js,
+                    // flip all byte pairs and treat as little endian.
+                    len &= ~1;
+                    for (var i = 0; i < len; i += 2) {
+                        var temp = buffer[i];
+                        buffer[i] = buffer[i + 1];
+                        buffer[i + 1] = temp;
+                    }
+                    return buffer.toString("utf16le", 2);
+                }
+                if (len >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
+                    // Little endian UTF-16 byte order mark detected
+                    return buffer.toString("utf16le", 2);
+                }
+                if (len >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+                    // UTF-8 byte order mark detected
+                    return buffer.toString("utf8", 3);
+                }
+                // Default is UTF-8 with no byte order mark
+                return buffer.toString("utf8");
+            }
+            function writeFile(fileName, data, writeByteOrderMark) {
+                // If a BOM is required, emit one
+                if (writeByteOrderMark) {
+                    data = "\uFEFF" + data;
+                }
+                _fs.writeFileSync(fileName, data, "utf8");
+            }
+            function getCanonicalPath(path) {
+                return useCaseSensitiveFileNames ? path.toLowerCase() : path;
+            }
+            function readDirectory(path, extension, exclude) {
+                var result = [];
+                exclude = ts.map(exclude, function (s) { return getCanonicalPath(ts.combinePaths(path, s)); });
+                visitDirectory(path);
+                return result;
+                function visitDirectory(path) {
+                    var files = _fs.readdirSync(path || ".").sort();
+                    var directories = [];
+                    for (var _i = 0; _i < files.length; _i++) {
+                        var current = files[_i];
+                        var name_4 = ts.combinePaths(path, current);
+                        if (!ts.contains(exclude, getCanonicalPath(name_4))) {
+                            var stat = _fs.statSync(name_4);
+                            if (stat.isFile()) {
+                                if (!extension || ts.fileExtensionIs(name_4, extension)) {
+                                    result.push(name_4);
+                                }
+                            }
+                            else if (stat.isDirectory()) {
+                                directories.push(name_4);
+                            }
+                        }
+                    }
+                    for (var _a = 0; _a < directories.length; _a++) {
+                        var current = directories[_a];
+                        visitDirectory(current);
+                    }
+                }
+            }
+            return {
+                args: process.argv.slice(2),
+                newLine: _os.EOL,
+                useCaseSensitiveFileNames: useCaseSensitiveFileNames,
+                write: function (s) {
+                    var buffer = new Buffer(s, "utf8");
+                    var offset = 0;
+                    var toWrite = buffer.length;
+                    var written = 0;
+                    // 1 is a standard descriptor for stdout
+                    while ((written = _fs.writeSync(1, buffer, offset, toWrite)) < toWrite) {
+                        offset += written;
+                        toWrite -= written;
+                    }
+                },
+                readFile: readFile,
+                writeFile: writeFile,
+                watchFile: function (fileName, callback) {
+                    // watchFile polls a file every 250ms, picking up file notifications.
+                    _fs.watchFile(fileName, { persistent: true, interval: 250 }, fileChanged);
+                    return {
+                        close: function () { _fs.unwatchFile(fileName, fileChanged); }
+                    };
+                    function fileChanged(curr, prev) {
+                        if (+curr.mtime <= +prev.mtime) {
+                            return;
+                        }
+                        callback(fileName);
+                    }
+                },
+                resolvePath: function (path) {
+                    return _path.resolve(path);
+                },
+                fileExists: function (path) {
+                    return _fs.existsSync(path);
+                },
+                directoryExists: function (path) {
+                    return _fs.existsSync(path) && _fs.statSync(path).isDirectory();
+                },
+                createDirectory: function (directoryName) {
+                    if (!this.directoryExists(directoryName)) {
+                        _fs.mkdirSync(directoryName);
+                    }
+                },
+                getExecutingFilePath: function () {
+                    return __filename;
+                },
+                getCurrentDirectory: function () {
+                    return process.cwd();
+                },
+                readDirectory: readDirectory,
+                getMemoryUsage: function () {
+                    if (global.gc) {
+                        global.gc();
+                    }
+                    return process.memoryUsage().heapUsed;
+                },
+                exit: function (exitCode) {
+                    process.exit(exitCode);
+                }
+            };
+        }
+        if (typeof WScript !== "undefined" && typeof ActiveXObject === "function") {
+            return getWScriptSystem();
+        }
+        else if (typeof process !== "undefined" && process.nextTick && !process.browser && typeof require !== "undefined") {
+            // process and process.nextTick checks if current environment is node-like
+            // process.browser check excludes webpack and browserify
+            return getNodeSystem();
+        }
+        else {
+            return undefined; // Unsupported host
+        }
+    })();
+})(ts || (ts = {}));
 /// <reference path="binder.ts" />
+/// <reference path="sys.ts" />
 /* @internal */
 var ts;
 (function (ts) {
@@ -4778,16 +5069,16 @@ var ts;
         return node.pos;
     }
     ts.getStartPosOfNode = getStartPosOfNode;
-    // Returns true if this node is missing from the actual source code.  'missing' is different
-    // from 'undefined/defined'.  When a node is undefined (which can happen for optional nodes
-    // in the tree), it is definitel missing.  HOwever, a node may be defined, but still be
+    // Returns true if this node is missing from the actual source code. A 'missing' node is different
+    // from 'undefined/defined'. When a node is undefined (which can happen for optional nodes
+    // in the tree), it is definitely missing. However, a node may be defined, but still be
     // missing.  This happens whenever the parser knows it needs to parse something, but can't
-    // get anything in the source code that it expects at that location.  For example:
+    // get anything in the source code that it expects at that location. For example:
     //
     //          let a: ;
     //
     // Here, the Type in the Type-Annotation is not-optional (as there is a colon in the source
-    // code).  So the parser will attempt to parse out a type, and will create an actual node.
+    // code). So the parser will attempt to parse out a type, and will create an actual node.
     // However, this node will be 'missing' in the sense that no actual source-code/tokens are
     // contained within it.
     function nodeIsMissing(node) {
@@ -5167,11 +5458,11 @@ var ts;
                     return;
                 default:
                     if (isFunctionLike(node)) {
-                        var name_2 = node.name;
-                        if (name_2 && name_2.kind === 134 /* ComputedPropertyName */) {
+                        var name_5 = node.name;
+                        if (name_5 && name_5.kind === 134 /* ComputedPropertyName */) {
                             // Note that we will not include methods/accessors of a class because they would require
                             // first descending into the class. This is by design.
-                            traverse(name_2.expression);
+                            traverse(name_5.expression);
                             return;
                         }
                     }
@@ -5654,8 +5945,8 @@ var ts;
                 return ts.forEach(docComment.tags, function (t) {
                     if (t.kind === 265 /* JSDocParameterTag */) {
                         var parameterTag = t;
-                        var name_3 = parameterTag.preParameterName || parameterTag.postParameterName;
-                        if (name_3.text === parameterName) {
+                        var name_6 = parameterTag.preParameterName || parameterTag.postParameterName;
+                        if (name_6.text === parameterName) {
                             return t;
                         }
                     }
@@ -11089,8 +11380,8 @@ var ts;
             }
             if (decorators || modifiers) {
                 // treat this as a property declaration with a missing name.
-                var name_4 = createMissingNode(67 /* Identifier */, /*reportAtCurrentPosition*/ true, ts.Diagnostics.Declaration_expected);
-                return parsePropertyDeclaration(fullStart, decorators, modifiers, name_4, /*questionToken*/ undefined);
+                var name_7 = createMissingNode(67 /* Identifier */, /*reportAtCurrentPosition*/ true, ts.Diagnostics.Declaration_expected);
+                return parsePropertyDeclaration(fullStart, decorators, modifiers, name_7, /*questionToken*/ undefined);
             }
             // 'isClassMemberStart' should have hinted not to attempt parsing.
             ts.Debug.fail("Should not have attempted to parse class member declaration.");
@@ -12039,13 +12330,13 @@ var ts;
                     while (true) {
                         skipWhitespace();
                         var startPos = pos;
-                        var name_5 = scanIdentifier();
-                        if (!name_5) {
+                        var name_8 = scanIdentifier();
+                        if (!name_8) {
                             parseErrorAtPosition(startPos, 0, ts.Diagnostics.Identifier_expected);
                             return undefined;
                         }
-                        var typeParameter = createNode(135 /* TypeParameter */, name_5.pos);
-                        typeParameter.name = name_5;
+                        var typeParameter = createNode(135 /* TypeParameter */, name_8.pos);
+                        typeParameter.name = name_8;
                         finishNode(typeParameter, pos);
                         typeParameters.push(typeParameter);
                         skipWhitespace();
@@ -13278,15 +13569,15 @@ var ts;
             var moduleSymbol = resolveExternalModuleName(node, node.moduleSpecifier);
             var targetSymbol = resolveESModuleSymbol(moduleSymbol, node.moduleSpecifier);
             if (targetSymbol) {
-                var name_6 = specifier.propertyName || specifier.name;
-                if (name_6.text) {
-                    var symbolFromModule = getExportOfModule(targetSymbol, name_6.text);
-                    var symbolFromVariable = getPropertyOfVariable(targetSymbol, name_6.text);
+                var name_9 = specifier.propertyName || specifier.name;
+                if (name_9.text) {
+                    var symbolFromModule = getExportOfModule(targetSymbol, name_9.text);
+                    var symbolFromVariable = getPropertyOfVariable(targetSymbol, name_9.text);
                     var symbol = symbolFromModule && symbolFromVariable ?
                         combineValueAndTypeSymbols(symbolFromVariable, symbolFromModule) :
                         symbolFromModule || symbolFromVariable;
                     if (!symbol) {
-                        error(name_6, ts.Diagnostics.Module_0_has_no_exported_member_1, getFullyQualifiedName(moduleSymbol), ts.declarationNameToString(name_6));
+                        error(name_9, ts.Diagnostics.Module_0_has_no_exported_member_1, getFullyQualifiedName(moduleSymbol), ts.declarationNameToString(name_9));
                     }
                     return symbol;
                 }
@@ -14671,14 +14962,14 @@ var ts;
             var type;
             if (pattern.kind === 159 /* ObjectBindingPattern */) {
                 // Use explicitly specified property name ({ p: xxx } form), or otherwise the implied name ({ p } form)
-                var name_7 = declaration.propertyName || declaration.name;
+                var name_10 = declaration.propertyName || declaration.name;
                 // Use type of the specified property, or otherwise, for a numeric name, the type of the numeric index signature,
                 // or otherwise the type of the string index signature.
-                type = getTypeOfPropertyOfType(parentType, name_7.text) ||
-                    isNumericLiteralName(name_7.text) && getIndexTypeOfType(parentType, 1 /* Number */) ||
+                type = getTypeOfPropertyOfType(parentType, name_10.text) ||
+                    isNumericLiteralName(name_10.text) && getIndexTypeOfType(parentType, 1 /* Number */) ||
                     getIndexTypeOfType(parentType, 0 /* String */);
                 if (!type) {
-                    error(name_7, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(parentType), ts.declarationNameToString(name_7));
+                    error(name_10, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(parentType), ts.declarationNameToString(name_10));
                     return unknownType;
                 }
             }
@@ -19810,15 +20101,15 @@ var ts;
             // - Otherwise, if IndexExpr is of type Any, the String or Number primitive type, or an enum type, the property access is of type Any.
             // See if we can index as a property.
             if (node.argumentExpression) {
-                var name_8 = getPropertyNameForIndexedAccess(node.argumentExpression, indexType);
-                if (name_8 !== undefined) {
-                    var prop = getPropertyOfType(objectType, name_8);
+                var name_11 = getPropertyNameForIndexedAccess(node.argumentExpression, indexType);
+                if (name_11 !== undefined) {
+                    var prop = getPropertyOfType(objectType, name_11);
                     if (prop) {
                         getNodeLinks(node).resolvedSymbol = prop;
                         return getTypeOfSymbol(prop);
                     }
                     else if (isConstEnum) {
-                        error(node.argumentExpression, ts.Diagnostics.Property_0_does_not_exist_on_const_enum_1, name_8, symbolToString(objectType.symbol));
+                        error(node.argumentExpression, ts.Diagnostics.Property_0_does_not_exist_on_const_enum_1, name_11, symbolToString(objectType.symbol));
                         return unknownType;
                     }
                 }
@@ -21280,8 +21571,8 @@ var ts;
                         var index = n.argumentExpression;
                         var symbol = findSymbol(n.expression);
                         if (symbol && index && index.kind === 9 /* StringLiteral */) {
-                            var name_9 = index.text;
-                            var prop = getPropertyOfType(getTypeOfSymbol(symbol), name_9);
+                            var name_12 = index.text;
+                            var prop = getPropertyOfType(getTypeOfSymbol(symbol), name_12);
                             return prop && (prop.flags & 3 /* Variable */) !== 0 && (getDeclarationFlagsFromSymbol(prop) & 32768 /* Const */) !== 0;
                         }
                         return false;
@@ -21434,17 +21725,17 @@ var ts;
                 var p = properties[_i];
                 if (p.kind === 243 /* PropertyAssignment */ || p.kind === 244 /* ShorthandPropertyAssignment */) {
                     // TODO(andersh): Computed property support
-                    var name_10 = p.name;
+                    var name_13 = p.name;
                     var type = isTypeAny(sourceType)
                         ? sourceType
-                        : getTypeOfPropertyOfType(sourceType, name_10.text) ||
-                            isNumericLiteralName(name_10.text) && getIndexTypeOfType(sourceType, 1 /* Number */) ||
+                        : getTypeOfPropertyOfType(sourceType, name_13.text) ||
+                            isNumericLiteralName(name_13.text) && getIndexTypeOfType(sourceType, 1 /* Number */) ||
                             getIndexTypeOfType(sourceType, 0 /* String */);
                     if (type) {
-                        checkDestructuringAssignment(p.initializer || name_10, type);
+                        checkDestructuringAssignment(p.initializer || name_13, type);
                     }
                     else {
-                        error(name_10, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(sourceType), ts.declarationNameToString(name_10));
+                        error(name_13, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(sourceType), ts.declarationNameToString(name_13));
                     }
                 }
                 else {
@@ -23239,8 +23530,8 @@ var ts;
                         // otherwise if variable has an initializer - show error that initialization will fail
                         // since LHS will be block scoped name instead of function scoped
                         if (!namesShareScope) {
-                            var name_11 = symbolToString(localDeclarationSymbol);
-                            error(node, ts.Diagnostics.Cannot_initialize_outer_scoped_variable_0_in_the_same_scope_as_block_scoped_declaration_1, name_11, name_11);
+                            var name_14 = symbolToString(localDeclarationSymbol);
+                            error(node, ts.Diagnostics.Cannot_initialize_outer_scoped_variable_0_in_the_same_scope_as_block_scoped_declaration_1, name_14, name_14);
                         }
                     }
                 }
@@ -25433,9 +25724,9 @@ var ts;
         function getRootSymbols(symbol) {
             if (symbol.flags & 268435456 /* SyntheticProperty */) {
                 var symbols = [];
-                var name_12 = symbol.name;
+                var name_15 = symbol.name;
                 ts.forEach(getSymbolLinks(symbol).containingType.types, function (t) {
-                    var symbol = getPropertyOfType(t, name_12);
+                    var symbol = getPropertyOfType(t, name_15);
                     if (symbol) {
                         symbols.push(symbol);
                     }
@@ -26301,11 +26592,11 @@ var ts;
             var GetOrSetAccessor = GetAccessor | SetAccesor;
             for (var _i = 0, _a = node.properties; _i < _a.length; _i++) {
                 var prop = _a[_i];
-                var name_13 = prop.name;
+                var name_16 = prop.name;
                 if (prop.kind === 185 /* OmittedExpression */ ||
-                    name_13.kind === 134 /* ComputedPropertyName */) {
+                    name_16.kind === 134 /* ComputedPropertyName */) {
                     // If the name is not a ComputedPropertyName, the grammar checking will skip it
-                    checkGrammarComputedPropertyName(name_13);
+                    checkGrammarComputedPropertyName(name_16);
                     continue;
                 }
                 // ECMA-262 11.1.5 Object Initialiser
@@ -26320,8 +26611,8 @@ var ts;
                 if (prop.kind === 243 /* PropertyAssignment */ || prop.kind === 244 /* ShorthandPropertyAssignment */) {
                     // Grammar checking for computedPropertName and shorthandPropertyAssignment
                     checkGrammarForInvalidQuestionMark(prop, prop.questionToken, ts.Diagnostics.An_object_member_cannot_be_declared_optional);
-                    if (name_13.kind === 8 /* NumericLiteral */) {
-                        checkGrammarNumericLiteral(name_13);
+                    if (name_16.kind === 8 /* NumericLiteral */) {
+                        checkGrammarNumericLiteral(name_16);
                     }
                     currentKind = Property;
                 }
@@ -26337,24 +26628,24 @@ var ts;
                 else {
                     ts.Debug.fail("Unexpected syntax kind:" + prop.kind);
                 }
-                if (!ts.hasProperty(seen, name_13.text)) {
-                    seen[name_13.text] = currentKind;
+                if (!ts.hasProperty(seen, name_16.text)) {
+                    seen[name_16.text] = currentKind;
                 }
                 else {
-                    var existingKind = seen[name_13.text];
+                    var existingKind = seen[name_16.text];
                     if (currentKind === Property && existingKind === Property) {
                         continue;
                     }
                     else if ((currentKind & GetOrSetAccessor) && (existingKind & GetOrSetAccessor)) {
                         if (existingKind !== GetOrSetAccessor && currentKind !== existingKind) {
-                            seen[name_13.text] = currentKind | existingKind;
+                            seen[name_16.text] = currentKind | existingKind;
                         }
                         else {
-                            return grammarErrorOnNode(name_13, ts.Diagnostics.An_object_literal_cannot_have_multiple_get_Slashset_accessors_with_the_same_name);
+                            return grammarErrorOnNode(name_16, ts.Diagnostics.An_object_literal_cannot_have_multiple_get_Slashset_accessors_with_the_same_name);
                         }
                     }
                     else {
-                        return grammarErrorOnNode(name_13, ts.Diagnostics.An_object_literal_cannot_have_property_and_accessor_with_the_same_name);
+                        return grammarErrorOnNode(name_16, ts.Diagnostics.An_object_literal_cannot_have_property_and_accessor_with_the_same_name);
                     }
                 }
             }
@@ -26367,12 +26658,12 @@ var ts;
                     continue;
                 }
                 var jsxAttr = attr;
-                var name_14 = jsxAttr.name;
-                if (!ts.hasProperty(seen, name_14.text)) {
-                    seen[name_14.text] = true;
+                var name_17 = jsxAttr.name;
+                if (!ts.hasProperty(seen, name_17.text)) {
+                    seen[name_17.text] = true;
                 }
                 else {
-                    return grammarErrorOnNode(name_14, ts.Diagnostics.JSX_elements_cannot_have_multiple_attributes_with_the_same_name);
+                    return grammarErrorOnNode(name_17, ts.Diagnostics.JSX_elements_cannot_have_multiple_attributes_with_the_same_name);
                 }
                 var initializer = jsxAttr.initializer;
                 if (initializer && initializer.kind === 238 /* JsxExpression */ && !initializer.expression) {
@@ -26830,296 +27121,6 @@ var ts;
         }
     }
     ts.createTypeChecker = createTypeChecker;
-})(ts || (ts = {}));
-/// <reference path="core.ts"/>
-var ts;
-(function (ts) {
-    ts.sys = (function () {
-        function getWScriptSystem() {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
-            var fileStream = new ActiveXObject("ADODB.Stream");
-            fileStream.Type = 2 /*text*/;
-            var binaryStream = new ActiveXObject("ADODB.Stream");
-            binaryStream.Type = 1 /*binary*/;
-            var args = [];
-            for (var i = 0; i < WScript.Arguments.length; i++) {
-                args[i] = WScript.Arguments.Item(i);
-            }
-            function readFile(fileName, encoding) {
-                if (!fso.FileExists(fileName)) {
-                    return undefined;
-                }
-                fileStream.Open();
-                try {
-                    if (encoding) {
-                        fileStream.Charset = encoding;
-                        fileStream.LoadFromFile(fileName);
-                    }
-                    else {
-                        // Load file and read the first two bytes into a string with no interpretation
-                        fileStream.Charset = "x-ansi";
-                        fileStream.LoadFromFile(fileName);
-                        var bom = fileStream.ReadText(2) || "";
-                        // Position must be at 0 before encoding can be changed
-                        fileStream.Position = 0;
-                        // [0xFF,0xFE] and [0xFE,0xFF] mean utf-16 (little or big endian), otherwise default to utf-8
-                        fileStream.Charset = bom.length >= 2 && (bom.charCodeAt(0) === 0xFF && bom.charCodeAt(1) === 0xFE || bom.charCodeAt(0) === 0xFE && bom.charCodeAt(1) === 0xFF) ? "unicode" : "utf-8";
-                    }
-                    // ReadText method always strips byte order mark from resulting string
-                    return fileStream.ReadText();
-                }
-                catch (e) {
-                    throw e;
-                }
-                finally {
-                    fileStream.Close();
-                }
-            }
-            function writeFile(fileName, data, writeByteOrderMark) {
-                fileStream.Open();
-                binaryStream.Open();
-                try {
-                    // Write characters in UTF-8 encoding
-                    fileStream.Charset = "utf-8";
-                    fileStream.WriteText(data);
-                    // If we don't want the BOM, then skip it by setting the starting location to 3 (size of BOM).
-                    // If not, start from position 0, as the BOM will be added automatically when charset==utf8.
-                    if (writeByteOrderMark) {
-                        fileStream.Position = 0;
-                    }
-                    else {
-                        fileStream.Position = 3;
-                    }
-                    fileStream.CopyTo(binaryStream);
-                    binaryStream.SaveToFile(fileName, 2 /*overwrite*/);
-                }
-                finally {
-                    binaryStream.Close();
-                    fileStream.Close();
-                }
-            }
-            function getCanonicalPath(path) {
-                return path.toLowerCase();
-            }
-            function getNames(collection) {
-                var result = [];
-                for (var e = new Enumerator(collection); !e.atEnd(); e.moveNext()) {
-                    result.push(e.item().Name);
-                }
-                return result.sort();
-            }
-            function readDirectory(path, extension, exclude) {
-                var result = [];
-                exclude = ts.map(exclude, function (s) { return getCanonicalPath(ts.combinePaths(path, s)); });
-                visitDirectory(path);
-                return result;
-                function visitDirectory(path) {
-                    var folder = fso.GetFolder(path || ".");
-                    var files = getNames(folder.files);
-                    for (var _i = 0; _i < files.length; _i++) {
-                        var current = files[_i];
-                        var name_15 = ts.combinePaths(path, current);
-                        if ((!extension || ts.fileExtensionIs(name_15, extension)) && !ts.contains(exclude, getCanonicalPath(name_15))) {
-                            result.push(name_15);
-                        }
-                    }
-                    var subfolders = getNames(folder.subfolders);
-                    for (var _a = 0; _a < subfolders.length; _a++) {
-                        var current = subfolders[_a];
-                        var name_16 = ts.combinePaths(path, current);
-                        if (!ts.contains(exclude, getCanonicalPath(name_16))) {
-                            visitDirectory(name_16);
-                        }
-                    }
-                }
-            }
-            return {
-                args: args,
-                newLine: "\r\n",
-                useCaseSensitiveFileNames: false,
-                write: function (s) {
-                    WScript.StdOut.Write(s);
-                },
-                readFile: readFile,
-                writeFile: writeFile,
-                resolvePath: function (path) {
-                    return fso.GetAbsolutePathName(path);
-                },
-                fileExists: function (path) {
-                    return fso.FileExists(path);
-                },
-                directoryExists: function (path) {
-                    return fso.FolderExists(path);
-                },
-                createDirectory: function (directoryName) {
-                    if (!this.directoryExists(directoryName)) {
-                        fso.CreateFolder(directoryName);
-                    }
-                },
-                getExecutingFilePath: function () {
-                    return WScript.ScriptFullName;
-                },
-                getCurrentDirectory: function () {
-                    return new ActiveXObject("WScript.Shell").CurrentDirectory;
-                },
-                readDirectory: readDirectory,
-                exit: function (exitCode) {
-                    try {
-                        WScript.Quit(exitCode);
-                    }
-                    catch (e) {
-                    }
-                }
-            };
-        }
-        function getNodeSystem() {
-            var _fs = require("fs");
-            var _path = require("path");
-            var _os = require("os");
-            var platform = _os.platform();
-            // win32\win64 are case insensitive platforms, MacOS (darwin) by default is also case insensitive
-            var useCaseSensitiveFileNames = platform !== "win32" && platform !== "win64" && platform !== "darwin";
-            function readFile(fileName, encoding) {
-                if (!_fs.existsSync(fileName)) {
-                    return undefined;
-                }
-                var buffer = _fs.readFileSync(fileName);
-                var len = buffer.length;
-                if (len >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
-                    // Big endian UTF-16 byte order mark detected. Since big endian is not supported by node.js,
-                    // flip all byte pairs and treat as little endian.
-                    len &= ~1;
-                    for (var i = 0; i < len; i += 2) {
-                        var temp = buffer[i];
-                        buffer[i] = buffer[i + 1];
-                        buffer[i + 1] = temp;
-                    }
-                    return buffer.toString("utf16le", 2);
-                }
-                if (len >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
-                    // Little endian UTF-16 byte order mark detected
-                    return buffer.toString("utf16le", 2);
-                }
-                if (len >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
-                    // UTF-8 byte order mark detected
-                    return buffer.toString("utf8", 3);
-                }
-                // Default is UTF-8 with no byte order mark
-                return buffer.toString("utf8");
-            }
-            function writeFile(fileName, data, writeByteOrderMark) {
-                // If a BOM is required, emit one
-                if (writeByteOrderMark) {
-                    data = "\uFEFF" + data;
-                }
-                _fs.writeFileSync(fileName, data, "utf8");
-            }
-            function getCanonicalPath(path) {
-                return useCaseSensitiveFileNames ? path.toLowerCase() : path;
-            }
-            function readDirectory(path, extension, exclude) {
-                var result = [];
-                exclude = ts.map(exclude, function (s) { return getCanonicalPath(ts.combinePaths(path, s)); });
-                visitDirectory(path);
-                return result;
-                function visitDirectory(path) {
-                    var files = _fs.readdirSync(path || ".").sort();
-                    var directories = [];
-                    for (var _i = 0; _i < files.length; _i++) {
-                        var current = files[_i];
-                        var name_17 = ts.combinePaths(path, current);
-                        if (!ts.contains(exclude, getCanonicalPath(name_17))) {
-                            var stat = _fs.statSync(name_17);
-                            if (stat.isFile()) {
-                                if (!extension || ts.fileExtensionIs(name_17, extension)) {
-                                    result.push(name_17);
-                                }
-                            }
-                            else if (stat.isDirectory()) {
-                                directories.push(name_17);
-                            }
-                        }
-                    }
-                    for (var _a = 0; _a < directories.length; _a++) {
-                        var current = directories[_a];
-                        visitDirectory(current);
-                    }
-                }
-            }
-            return {
-                args: process.argv.slice(2),
-                newLine: _os.EOL,
-                useCaseSensitiveFileNames: useCaseSensitiveFileNames,
-                write: function (s) {
-                    var buffer = new Buffer(s, "utf8");
-                    var offset = 0;
-                    var toWrite = buffer.length;
-                    var written = 0;
-                    // 1 is a standard descriptor for stdout
-                    while ((written = _fs.writeSync(1, buffer, offset, toWrite)) < toWrite) {
-                        offset += written;
-                        toWrite -= written;
-                    }
-                },
-                readFile: readFile,
-                writeFile: writeFile,
-                watchFile: function (fileName, callback) {
-                    // watchFile polls a file every 250ms, picking up file notifications.
-                    _fs.watchFile(fileName, { persistent: true, interval: 250 }, fileChanged);
-                    return {
-                        close: function () { _fs.unwatchFile(fileName, fileChanged); }
-                    };
-                    function fileChanged(curr, prev) {
-                        if (+curr.mtime <= +prev.mtime) {
-                            return;
-                        }
-                        callback(fileName);
-                    }
-                },
-                resolvePath: function (path) {
-                    return _path.resolve(path);
-                },
-                fileExists: function (path) {
-                    return _fs.existsSync(path);
-                },
-                directoryExists: function (path) {
-                    return _fs.existsSync(path) && _fs.statSync(path).isDirectory();
-                },
-                createDirectory: function (directoryName) {
-                    if (!this.directoryExists(directoryName)) {
-                        _fs.mkdirSync(directoryName);
-                    }
-                },
-                getExecutingFilePath: function () {
-                    return __filename;
-                },
-                getCurrentDirectory: function () {
-                    return process.cwd();
-                },
-                readDirectory: readDirectory,
-                getMemoryUsage: function () {
-                    if (global.gc) {
-                        global.gc();
-                    }
-                    return process.memoryUsage().heapUsed;
-                },
-                exit: function (exitCode) {
-                    process.exit(exitCode);
-                }
-            };
-        }
-        if (typeof WScript !== "undefined" && typeof ActiveXObject === "function") {
-            return getWScriptSystem();
-        }
-        else if (typeof process !== "undefined" && process.nextTick && !process.browser && typeof require !== "undefined") {
-            // process and process.nextTick checks if current environment is node-like
-            // process.browser check excludes webpack and browserify
-            return getNodeSystem();
-        }
-        else {
-            return undefined; // Unsupported host
-        }
-    })();
 })(ts || (ts = {}));
 /// <reference path="sys.ts"/>
 /// <reference path="types.ts"/>

@@ -5051,6 +5051,30 @@ declare namespace ts {
     function bindSourceFile(file: SourceFile): void;
 }
 declare namespace ts {
+    interface System {
+        args: string[];
+        newLine: string;
+        useCaseSensitiveFileNames: boolean;
+        write(s: string): void;
+        readFile(path: string, encoding?: string): string;
+        writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
+        watchFile?(path: string, callback: (path: string) => void): FileWatcher;
+        resolvePath(path: string): string;
+        fileExists(path: string): boolean;
+        directoryExists(path: string): boolean;
+        createDirectory(path: string): void;
+        getExecutingFilePath(): string;
+        getCurrentDirectory(): string;
+        readDirectory(path: string, extension?: string, exclude?: string[]): string[];
+        getMemoryUsage?(): number;
+        exit(exitCode?: number): void;
+    }
+    interface FileWatcher {
+        close(): void;
+    }
+    var sys: System;
+}
+declare namespace ts {
     interface ReferencePathMatchResult {
         fileReference?: FileReference;
         diagnosticMessage?: DiagnosticMessage;
@@ -5305,30 +5329,6 @@ declare namespace ts {
     let checkTime: number;
     function getSymbolId(symbol: Symbol): number;
     function createTypeChecker(host: TypeCheckerHost, produceDiagnostics: boolean): TypeChecker;
-}
-declare namespace ts {
-    interface System {
-        args: string[];
-        newLine: string;
-        useCaseSensitiveFileNames: boolean;
-        write(s: string): void;
-        readFile(path: string, encoding?: string): string;
-        writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
-        watchFile?(path: string, callback: (path: string) => void): FileWatcher;
-        resolvePath(path: string): string;
-        fileExists(path: string): boolean;
-        directoryExists(path: string): boolean;
-        createDirectory(path: string): void;
-        getExecutingFilePath(): string;
-        getCurrentDirectory(): string;
-        readDirectory(path: string, extension?: string, exclude?: string[]): string[];
-        getMemoryUsage?(): number;
-        exit(exitCode?: number): void;
-    }
-    interface FileWatcher {
-        close(): void;
-    }
-    var sys: System;
 }
 declare namespace ts {
     let optionDeclarations: CommandLineOption[];
