@@ -2838,26 +2838,6 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Experimental_support_for_async_functions_is_a_feature_that_is_subject_to_change_in_a_future_release_Specify_experimentalAsyncFunctions_to_remove_this_warning: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        with_statements_are_not_allowed_in_an_async_function_block: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        await_expression_is_only_allowed_within_an_async_function: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
         The_return_type_of_a_property_decorator_function_must_be_either_void_or_any: {
             code: number;
             category: DiagnosticCategory;
@@ -2904,6 +2884,26 @@ declare namespace ts {
             key: string;
         };
         Method_0_cannot_have_an_implementation_because_it_is_marked_abstract: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Experimental_support_for_async_functions_is_a_feature_that_is_subject_to_change_in_a_future_release_Specify_experimentalAsyncFunctions_to_remove_this_warning: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        with_statements_are_not_allowed_in_an_async_function_block: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        await_expression_is_only_allowed_within_an_async_function: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: {
             code: number;
             category: DiagnosticCategory;
             key: string;
