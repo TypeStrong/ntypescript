@@ -2841,16 +2841,6 @@ var ts;
                 onError(message, length || 0);
             }
         }
-        function isIdentifierStart(ch) {
-            return ch >= 65 /* A */ && ch <= 90 /* Z */ || ch >= 97 /* a */ && ch <= 122 /* z */ ||
-                ch === 36 /* $ */ || ch === 95 /* _ */ ||
-                ch > 127 /* maxAsciiCharacter */ && isUnicodeIdentifierStart(ch, languageVersion);
-        }
-        function isIdentifierPart(ch) {
-            return ch >= 65 /* A */ && ch <= 90 /* Z */ || ch >= 97 /* a */ && ch <= 122 /* z */ ||
-                ch >= 48 /* _0 */ && ch <= 57 /* _9 */ || ch === 36 /* $ */ || ch === 95 /* _ */ ||
-                ch > 127 /* maxAsciiCharacter */ && isUnicodeIdentifierPart(ch, languageVersion);
-        }
         function scanNumber() {
             var start = pos;
             while (isDigit(text.charCodeAt(pos)))
@@ -3133,12 +3123,12 @@ var ts;
             var start = pos;
             while (pos < end) {
                 var ch = text.charCodeAt(pos);
-                if (isIdentifierPart(ch)) {
+                if (isIdentifierPart(ch, languageVersion)) {
                     pos++;
                 }
                 else if (ch === 92 /* backslash */) {
                     ch = peekUnicodeEscape();
-                    if (!(ch >= 0 && isIdentifierPart(ch))) {
+                    if (!(ch >= 0 && isIdentifierPart(ch, languageVersion))) {
                         break;
                     }
                     result += text.substring(start, pos);
@@ -3488,7 +3478,7 @@ var ts;
                         return pos++, token = 54 /* AtToken */;
                     case 92 /* backslash */:
                         var cookedChar = peekUnicodeEscape();
-                        if (cookedChar >= 0 && isIdentifierStart(cookedChar)) {
+                        if (cookedChar >= 0 && isIdentifierStart(cookedChar, languageVersion)) {
                             pos += 6;
                             tokenValue = String.fromCharCode(cookedChar) + scanIdentifierParts();
                             return token = getIdentifierToken();
@@ -3496,9 +3486,9 @@ var ts;
                         error(ts.Diagnostics.Invalid_character);
                         return pos++, token = 0 /* Unknown */;
                     default:
-                        if (isIdentifierStart(ch)) {
+                        if (isIdentifierStart(ch, languageVersion)) {
                             pos++;
-                            while (pos < end && isIdentifierPart(ch = text.charCodeAt(pos)))
+                            while (pos < end && isIdentifierPart(ch = text.charCodeAt(pos), languageVersion))
                                 pos++;
                             tokenValue = text.substring(tokenPos, pos);
                             if (ch === 92 /* backslash */) {
@@ -3581,7 +3571,7 @@ var ts;
                     }
                     p++;
                 }
-                while (p < end && isIdentifierPart(text.charCodeAt(p))) {
+                while (p < end && isIdentifierPart(text.charCodeAt(p), languageVersion)) {
                     p++;
                 }
                 pos = p;
@@ -3636,7 +3626,7 @@ var ts;
                 var firstCharPosition = pos;
                 while (pos < end) {
                     var ch = text.charCodeAt(pos);
-                    if (ch === 45 /* minus */ || ((firstCharPosition === pos) ? isIdentifierStart(ch) : isIdentifierPart(ch))) {
+                    if (ch === 45 /* minus */ || ((firstCharPosition === pos) ? isIdentifierStart(ch, languageVersion) : isIdentifierPart(ch, languageVersion))) {
                         pos++;
                     }
                     else {
@@ -11400,7 +11390,7 @@ var ts;
             node.decorators = decorators;
             setModifiers(node, modifiers);
             parseExpected(71 /* ClassKeyword */);
-            node.name = parseOptionalIdentifier();
+            node.name = parseNameOfClassDeclarationOrExpression();
             node.typeParameters = parseTypeParameters();
             node.heritageClauses = parseHeritageClauses(/*isClassHeritageClause*/ true);
             if (parseExpected(15 /* OpenBraceToken */)) {
@@ -11413,6 +11403,19 @@ var ts;
                 node.members = createMissingList();
             }
             return finishNode(node);
+        }
+        function parseNameOfClassDeclarationOrExpression() {
+            // implements is a future reserved word so
+            // 'class implements' might mean either
+            // - class expression with omitted name, 'implements' starts heritage clause
+            // - class with name 'implements' 
+            // 'isImplementsClause' helps to disambiguate between these two cases 
+            return isIdentifier() && !isImplementsClause()
+                ? parseIdentifier()
+                : undefined;
+        }
+        function isImplementsClause() {
+            return token === 104 /* ImplementsKeyword */ && lookAhead(nextTokenIsIdentifierOrKeyword);
         }
         function parseHeritageClauses(isClassHeritageClause) {
             // ClassTail[Yield,Await] : (Modified) See 14.5
