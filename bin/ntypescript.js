@@ -640,6 +640,7 @@ var ts;
         ModuleKind[ModuleKind["AMD"] = 2] = "AMD";
         ModuleKind[ModuleKind["UMD"] = 3] = "UMD";
         ModuleKind[ModuleKind["System"] = 4] = "System";
+        ModuleKind[ModuleKind["ES6"] = 5] = "ES6";
     })(ts.ModuleKind || (ts.ModuleKind = {}));
     var ModuleKind = ts.ModuleKind;
     (function (JsxEmit) {
@@ -1726,9 +1727,9 @@ var ts;
         An_extended_Unicode_escape_value_must_be_between_0x0_and_0x10FFFF_inclusive: { code: 1198, category: ts.DiagnosticCategory.Error, key: "An extended Unicode escape value must be between 0x0 and 0x10FFFF inclusive." },
         Unterminated_Unicode_escape_sequence: { code: 1199, category: ts.DiagnosticCategory.Error, key: "Unterminated Unicode escape sequence." },
         Line_terminator_not_permitted_before_arrow: { code: 1200, category: ts.DiagnosticCategory.Error, key: "Line terminator not permitted before arrow." },
-        Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_or_higher_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_or_import_d_from_mod_instead: { code: 1202, category: ts.DiagnosticCategory.Error, key: "Import assignment cannot be used when targeting ECMAScript 6 or higher. Consider using 'import * as ns from \"mod\"', 'import {a} from \"mod\"' or 'import d from \"mod\"' instead." },
-        Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_or_higher_Consider_using_export_default_instead: { code: 1203, category: ts.DiagnosticCategory.Error, key: "Export assignment cannot be used when targeting ECMAScript 6 or higher. Consider using 'export default' instead." },
-        Cannot_compile_modules_into_commonjs_amd_system_or_umd_when_targeting_ES6_or_higher: { code: 1204, category: ts.DiagnosticCategory.Error, key: "Cannot compile modules into 'commonjs', 'amd', 'system' or 'umd' when targeting 'ES6' or higher." },
+        Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_import_d_from_mod_or_another_module_format_instead: { code: 1202, category: ts.DiagnosticCategory.Error, key: "Import assignment cannot be used when targeting ECMAScript 6 modules. Consider using 'import * as ns from \"mod\"', 'import {a} from \"mod\"', 'import d from \"mod\"', or another module format instead." },
+        Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_export_default_or_another_module_format_instead: { code: 1203, category: ts.DiagnosticCategory.Error, key: "Export assignment cannot be used when targeting ECMAScript 6 modules. Consider using 'export default' or another module format instead." },
+        Cannot_compile_modules_into_es6_when_targeting_ES5_or_lower: { code: 1204, category: ts.DiagnosticCategory.Error, key: "Cannot compile modules into 'es6' when targeting 'ES5' or lower." },
         Decorators_are_only_available_when_targeting_ECMAScript_5_and_higher: { code: 1205, category: ts.DiagnosticCategory.Error, key: "Decorators are only available when targeting ECMAScript 5 and higher." },
         Decorators_are_not_valid_here: { code: 1206, category: ts.DiagnosticCategory.Error, key: "Decorators are not valid here." },
         Decorators_cannot_be_applied_to_multiple_get_Slashset_accessors_of_the_same_name: { code: 1207, category: ts.DiagnosticCategory.Error, key: "Decorators cannot be applied to multiple get/set accessors of the same name." },
@@ -2096,7 +2097,7 @@ var ts;
         Do_not_emit_comments_to_output: { code: 6009, category: ts.DiagnosticCategory.Message, key: "Do not emit comments to output." },
         Do_not_emit_outputs: { code: 6010, category: ts.DiagnosticCategory.Message, key: "Do not emit outputs." },
         Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES6_experimental: { code: 6015, category: ts.DiagnosticCategory.Message, key: "Specify ECMAScript target version: 'ES3' (default), 'ES5', or 'ES6' (experimental)" },
-        Specify_module_code_generation_Colon_commonjs_amd_system_or_umd: { code: 6016, category: ts.DiagnosticCategory.Message, key: "Specify module code generation: 'commonjs', 'amd', 'system' or 'umd'" },
+        Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es6: { code: 6016, category: ts.DiagnosticCategory.Message, key: "Specify module code generation: 'commonjs', 'amd', 'system', 'umd' or 'es6'" },
         Print_this_message: { code: 6017, category: ts.DiagnosticCategory.Message, key: "Print this message." },
         Print_the_compiler_s_version: { code: 6019, category: ts.DiagnosticCategory.Message, key: "Print the compiler's version." },
         Compile_the_project_in_the_given_directory: { code: 6020, category: ts.DiagnosticCategory.Message, key: "Compile the project in the given directory." },
@@ -2117,7 +2118,7 @@ var ts;
         Generates_corresponding_map_file: { code: 6043, category: ts.DiagnosticCategory.Message, key: "Generates corresponding '.map' file." },
         Compiler_option_0_expects_an_argument: { code: 6044, category: ts.DiagnosticCategory.Error, key: "Compiler option '{0}' expects an argument." },
         Unterminated_quoted_string_in_response_file_0: { code: 6045, category: ts.DiagnosticCategory.Error, key: "Unterminated quoted string in response file '{0}'." },
-        Argument_for_module_option_must_be_commonjs_amd_system_or_umd: { code: 6046, category: ts.DiagnosticCategory.Error, key: "Argument for '--module' option must be 'commonjs', 'amd', 'system' or 'umd'." },
+        Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es6: { code: 6046, category: ts.DiagnosticCategory.Error, key: "Argument for '--module' option must be 'commonjs', 'amd', 'system', 'umd', or 'es6'." },
         Argument_for_target_option_must_be_ES3_ES5_or_ES6: { code: 6047, category: ts.DiagnosticCategory.Error, key: "Argument for '--target' option must be 'ES3', 'ES5', or 'ES6'." },
         Locale_must_be_of_the_form_language_or_language_territory_For_example_0_or_1: { code: 6048, category: ts.DiagnosticCategory.Error, key: "Locale must be of the form <language> or <language>-<territory>. For example '{0}' or '{1}'." },
         Unsupported_locale_0: { code: 6049, category: ts.DiagnosticCategory.Error, key: "Unsupported locale '{0}'." },
@@ -12890,6 +12891,7 @@ var ts;
         var emptySymbols = {};
         var compilerOptions = host.getCompilerOptions();
         var languageVersion = compilerOptions.target || 0 /* ES3 */;
+        var modulekind = compilerOptions.module ? compilerOptions.module : languageVersion === 2 /* ES6 */ ? 5 /* ES6 */ : 0 /* None */;
         var emitResolver = createResolver();
         var undefinedSymbol = createSymbol(4 /* Property */ | 67108864 /* Transient */, "undefined");
         var argumentsSymbol = createSymbol(4 /* Property */ | 67108864 /* Transient */, "arguments");
@@ -14945,10 +14947,16 @@ var ts;
         function isTypeAny(type) {
             return type && (type.flags & 1 /* Any */) !== 0;
         }
+        // Return the type of a binding element parent. We check SymbolLinks first to see if a type has been
+        // assigned by contextual typing.
+        function getTypeForBindingElementParent(node) {
+            var symbol = getSymbolOfNode(node);
+            return symbol && getSymbolLinks(symbol).type || getTypeForVariableLikeDeclaration(node);
+        }
         // Return the inferred type for a binding element
         function getTypeForBindingElement(declaration) {
             var pattern = declaration.parent;
-            var parentType = getTypeForVariableLikeDeclaration(pattern.parent);
+            var parentType = getTypeForBindingElementParent(pattern.parent);
             // If parent has the unknown (error) type, then so does this binding element
             if (parentType === unknownType) {
                 return unknownType;
@@ -21212,10 +21220,24 @@ var ts;
                 assignTypeToParameterAndFixTypeParameters(parameter, contextualParameterType, mapper);
             }
         }
+        // When contextual typing assigns a type to a parameter that contains a binding pattern, we also need to push
+        // the destructured type into the contained binding elements.
+        function assignBindingElementTypes(node) {
+            if (ts.isBindingPattern(node.name)) {
+                for (var _i = 0, _a = node.name.elements; _i < _a.length; _i++) {
+                    var element = _a[_i];
+                    if (element.kind !== 185 /* OmittedExpression */) {
+                        getSymbolLinks(getSymbolOfNode(element)).type = getTypeForBindingElement(element);
+                        assignBindingElementTypes(element);
+                    }
+                }
+            }
+        }
         function assignTypeToParameterAndFixTypeParameters(parameter, contextualType, mapper) {
             var links = getSymbolLinks(parameter);
             if (!links.type) {
                 links.type = instantiateType(contextualType, mapper);
+                assignBindingElementTypes(parameter.valueDeclaration);
             }
             else if (isInferentialContext(mapper)) {
                 // Even if the parameter already has a type, it might be because it was given a type while
@@ -24948,9 +24970,9 @@ var ts;
                     }
                 }
                 else {
-                    if (languageVersion >= 2 /* ES6 */ && !ts.isInAmbientContext(node)) {
+                    if (modulekind === 5 /* ES6 */ && !ts.isInAmbientContext(node)) {
                         // Import equals declaration is deprecated in es6 or above
-                        grammarErrorOnNode(node, ts.Diagnostics.Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_or_higher_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_or_import_d_from_mod_instead);
+                        grammarErrorOnNode(node, ts.Diagnostics.Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_import_d_from_mod_or_another_module_format_instead);
                     }
                 }
             }
@@ -25015,11 +25037,11 @@ var ts;
             }
             checkExternalModuleExports(container);
             if (node.isExportEquals && !ts.isInAmbientContext(node)) {
-                if (languageVersion >= 2 /* ES6 */) {
-                    // export assignment is deprecated in es6 or above
-                    grammarErrorOnNode(node, ts.Diagnostics.Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_or_higher_Consider_using_export_default_instead);
+                if (modulekind === 5 /* ES6 */) {
+                    // export assignment is not supported in es6 modules
+                    grammarErrorOnNode(node, ts.Diagnostics.Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_export_default_or_another_module_format_instead);
                 }
-                else if (compilerOptions.module === 4 /* System */) {
+                else if (modulekind === 4 /* System */) {
                     // system modules does not support export assignment
                     grammarErrorOnNode(node, ts.Diagnostics.Export_assignment_is_not_supported_when_module_flag_is_system);
                 }
@@ -27203,10 +27225,11 @@ var ts;
                 "amd": 2 /* AMD */,
                 "system": 4 /* System */,
                 "umd": 3 /* UMD */,
+                "es6": 5 /* ES6 */,
             },
-            description: ts.Diagnostics.Specify_module_code_generation_Colon_commonjs_amd_system_or_umd,
+            description: ts.Diagnostics.Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es6,
             paramType: ts.Diagnostics.KIND,
-            error: ts.Diagnostics.Argument_for_module_option_must_be_commonjs_amd_system_or_umd
+            error: ts.Diagnostics.Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es6
         },
         {
             name: "newLine",
@@ -29078,6 +29101,7 @@ var ts;
         var awaiterHelper = "\nvar __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promise, generator) {\n    return new Promise(function (resolve, reject) {\n        generator = generator.call(thisArg, _arguments);\n        function cast(value) { return value instanceof Promise && value.constructor === Promise ? value : new Promise(function (resolve) { resolve(value); }); }\n        function onfulfill(value) { try { step(\"next\", value); } catch (e) { reject(e); } }\n        function onreject(value) { try { step(\"throw\", value); } catch (e) { reject(e); } }\n        function step(verb, value) {\n            var result = generator[verb](value);\n            result.done ? resolve(result.value) : cast(result.value).then(onfulfill, onreject);\n        }\n        step(\"next\", void 0);\n    });\n};";
         var compilerOptions = host.getCompilerOptions();
         var languageVersion = compilerOptions.target || 0 /* ES3 */;
+        var modulekind = compilerOptions.module ? compilerOptions.module : languageVersion === 2 /* ES6 */ ? 5 /* ES6 */ : 0 /* None */;
         var sourceMapDataList = compilerOptions.sourceMap || compilerOptions.inlineSourceMap ? [] : undefined;
         var diagnostics = [];
         var newLine = host.getNewLine();
@@ -29182,6 +29206,14 @@ var ts;
             var sourceMapData;
             /** If removeComments is true, no leading-comments needed to be emitted **/
             var emitLeadingCommentsOfPosition = compilerOptions.removeComments ? function (pos) { } : emitLeadingCommentsOfPositionWorker;
+            var moduleEmitDelegates = (_a = {},
+                _a[5 /* ES6 */] = emitES6Module,
+                _a[2 /* AMD */] = emitAMDModule,
+                _a[4 /* System */] = emitSystemModule,
+                _a[3 /* UMD */] = emitUMDModule,
+                _a[1 /* CommonJS */] = emitCommonJSModule,
+                _a
+            );
             if (compilerOptions.sourceMap || compilerOptions.inlineSourceMap) {
                 initializeEmitterWithSourceMaps();
             }
@@ -30318,7 +30350,7 @@ var ts;
                 if (container) {
                     if (container.kind === 246 /* SourceFile */) {
                         // Identifier references module export
-                        if (languageVersion < 2 /* ES6 */ && compilerOptions.module !== 4 /* System */) {
+                        if (modulekind !== 5 /* ES6 */ && modulekind !== 4 /* System */) {
                             write("exports.");
                         }
                     }
@@ -30328,7 +30360,7 @@ var ts;
                         write(".");
                     }
                 }
-                else if (languageVersion < 2 /* ES6 */) {
+                else if (modulekind !== 5 /* ES6 */) {
                     var declaration = resolver.getReferencedImportDeclaration(node);
                     if (declaration) {
                         if (declaration.kind === 221 /* ImportClause */) {
@@ -31712,7 +31744,7 @@ var ts;
                         write(getGeneratedNameForNode(container));
                         write(".");
                     }
-                    else if (languageVersion < 2 /* ES6 */ && compilerOptions.module !== 4 /* System */) {
+                    else if (modulekind !== 5 /* ES6 */ && modulekind !== 4 /* System */) {
                         write("exports.");
                     }
                 }
@@ -31730,7 +31762,7 @@ var ts;
                 if (node.parent.kind === 246 /* SourceFile */) {
                     ts.Debug.assert(!!(node.flags & 1024 /* Default */) || node.kind === 225 /* ExportAssignment */);
                     // only allow export default at a source file level
-                    if (compilerOptions.module === 1 /* CommonJS */ || compilerOptions.module === 2 /* AMD */ || compilerOptions.module === 3 /* UMD */) {
+                    if (modulekind === 1 /* CommonJS */ || modulekind === 2 /* AMD */ || modulekind === 3 /* UMD */) {
                         if (!currentSourceFile.symbol.exports["___esModule"]) {
                             if (languageVersion === 1 /* ES5 */) {
                                 // default value of configurable, enumerable, writable are `false`.
@@ -31750,7 +31782,7 @@ var ts;
                     writeLine();
                     emitStart(node);
                     // emit call to exporter only for top level nodes
-                    if (compilerOptions.module === 4 /* System */ && node.parent === currentSourceFile) {
+                    if (modulekind === 4 /* System */ && node.parent === currentSourceFile) {
                         // emit export default <smth> as
                         // export("default", <smth>)
                         write(exportFunctionForFile + "(\"");
@@ -31785,7 +31817,7 @@ var ts;
                 }
             }
             function emitExportMemberAssignments(name) {
-                if (compilerOptions.module === 4 /* System */) {
+                if (modulekind === 4 /* System */) {
                     return;
                 }
                 if (!exportEquals && exportSpecifiers && ts.hasProperty(exportSpecifiers, name.text)) {
@@ -31804,7 +31836,7 @@ var ts;
                 }
             }
             function emitExportSpecifierInSystemModule(specifier) {
-                ts.Debug.assert(compilerOptions.module === 4 /* System */);
+                ts.Debug.assert(modulekind === 4 /* System */);
                 if (!resolver.getReferencedValueDeclaration(specifier.propertyName || specifier.name) && !resolver.isValueAliasDeclaration(specifier)) {
                     return;
                 }
@@ -32102,7 +32134,7 @@ var ts;
             }
             function isES6ExportedDeclaration(node) {
                 return !!(node.flags & 1 /* Export */) &&
-                    languageVersion >= 2 /* ES6 */ &&
+                    modulekind === 5 /* ES6 */ &&
                     node.parent.kind === 246 /* SourceFile */;
             }
             function emitVariableStatement(node) {
@@ -33694,7 +33726,7 @@ var ts;
                     write(";");
                 }
                 if (languageVersion < 2 /* ES6 */ && node.parent === currentSourceFile) {
-                    if (compilerOptions.module === 4 /* System */ && (node.flags & 1 /* Export */)) {
+                    if (modulekind === 4 /* System */ && (node.flags & 1 /* Export */)) {
                         // write the call to exporter for enum
                         writeLine();
                         write(exportFunctionForFile + "(\"");
@@ -33805,7 +33837,7 @@ var ts;
                 write(" = {}));");
                 emitEnd(node);
                 if (!isES6ExportedDeclaration(node) && node.name.kind === 67 /* Identifier */ && node.parent === currentSourceFile) {
-                    if (compilerOptions.module === 4 /* System */ && (node.flags & 1 /* Export */)) {
+                    if (modulekind === 4 /* System */ && (node.flags & 1 /* Export */)) {
                         writeLine();
                         write(exportFunctionForFile + "(\"");
                         emitDeclarationName(node);
@@ -33863,7 +33895,7 @@ var ts;
                 ts.forEachChild(node, emitExportImportAssignments);
             }
             function emitImportDeclaration(node) {
-                if (languageVersion < 2 /* ES6 */) {
+                if (modulekind !== 5 /* ES6 */) {
                     return emitExternalImportDeclaration(node);
                 }
                 // ES6 import
@@ -33910,7 +33942,7 @@ var ts;
                 if (ts.contains(externalImports, node)) {
                     var isExportedImport = node.kind === 219 /* ImportEqualsDeclaration */ && (node.flags & 1 /* Export */) !== 0;
                     var namespaceDeclaration = getNamespaceDeclarationNode(node);
-                    if (compilerOptions.module !== 2 /* AMD */) {
+                    if (modulekind !== 2 /* AMD */) {
                         emitLeadingComments(node);
                         emitStart(node);
                         if (namespaceDeclaration && !isDefaultImport(node)) {
@@ -34012,14 +34044,14 @@ var ts;
                 }
             }
             function emitExportDeclaration(node) {
-                ts.Debug.assert(compilerOptions.module !== 4 /* System */);
-                if (languageVersion < 2 /* ES6 */) {
+                ts.Debug.assert(modulekind !== 4 /* System */);
+                if (modulekind !== 5 /* ES6 */) {
                     if (node.moduleSpecifier && (!node.exportClause || resolver.isValueAliasDeclaration(node))) {
                         emitStart(node);
                         var generatedName = getGeneratedNameForNode(node);
                         if (node.exportClause) {
                             // export { x, y, ... } from "foo"
-                            if (compilerOptions.module !== 2 /* AMD */) {
+                            if (modulekind !== 2 /* AMD */) {
                                 write("var ");
                                 write(generatedName);
                                 write(" = ");
@@ -34047,7 +34079,7 @@ var ts;
                             // export * from "foo"
                             writeLine();
                             write("__export(");
-                            if (compilerOptions.module !== 2 /* AMD */) {
+                            if (modulekind !== 2 /* AMD */) {
                                 emitRequire(ts.getExternalModuleName(node));
                             }
                             else {
@@ -34079,7 +34111,7 @@ var ts;
                 }
             }
             function emitExportOrImportSpecifierList(specifiers, shouldEmit) {
-                ts.Debug.assert(languageVersion >= 2 /* ES6 */);
+                ts.Debug.assert(modulekind === 5 /* ES6 */);
                 var needsComma = false;
                 for (var _a = 0; _a < specifiers.length; _a++) {
                     var specifier = specifiers[_a];
@@ -34098,7 +34130,7 @@ var ts;
             }
             function emitExportAssignment(node) {
                 if (!node.isExportEquals && resolver.isValueAliasDeclaration(node)) {
-                    if (languageVersion >= 2 /* ES6 */) {
+                    if (modulekind === 5 /* ES6 */) {
                         writeLine();
                         emitStart(node);
                         write("export default ");
@@ -34113,7 +34145,7 @@ var ts;
                     else {
                         writeLine();
                         emitStart(node);
-                        if (compilerOptions.module === 4 /* System */) {
+                        if (modulekind === 4 /* System */) {
                             write(exportFunctionForFile + "(\"default\",");
                             emit(node.expression);
                             write(")");
@@ -34508,7 +34540,7 @@ var ts;
                     ts.getEnclosingBlockScopeContainer(node).kind === 246 /* SourceFile */;
             }
             function isCurrentFileSystemExternalModule() {
-                return compilerOptions.module === 4 /* System */ && ts.isExternalModule(currentSourceFile);
+                return modulekind === 4 /* System */ && ts.isExternalModule(currentSourceFile);
             }
             function emitSystemModuleBody(node, dependencyGroups, startIndex) {
                 // shape of the body in system modules:
@@ -35008,21 +35040,8 @@ var ts;
                 // emit prologue directives prior to __extends
                 var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                 if (ts.isExternalModule(node) || compilerOptions.isolatedModules) {
-                    if (languageVersion >= 2 /* ES6 */) {
-                        emitES6Module(node, startIndex);
-                    }
-                    else if (compilerOptions.module === 2 /* AMD */) {
-                        emitAMDModule(node, startIndex);
-                    }
-                    else if (compilerOptions.module === 4 /* System */) {
-                        emitSystemModule(node, startIndex);
-                    }
-                    else if (compilerOptions.module === 3 /* UMD */) {
-                        emitUMDModule(node, startIndex);
-                    }
-                    else {
-                        emitCommonJSModule(node, startIndex);
-                    }
+                    var emitModule = moduleEmitDelegates[modulekind] || moduleEmitDelegates[1 /* CommonJS */];
+                    emitModule(node, startIndex);
                 }
                 else {
                     externalImports = undefined;
@@ -35468,6 +35487,7 @@ var ts;
                     write(shebang);
                 }
             }
+            var _a;
         }
         function emitFile(jsFilePath, sourceFile) {
             emitJavaScript(jsFilePath, sourceFile);
@@ -36609,9 +36629,9 @@ var ts;
                 var span = ts.getErrorSpanForNode(firstExternalModuleSourceFile, firstExternalModuleSourceFile.externalModuleIndicator);
                 programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_unless_the_module_flag_is_provided));
             }
-            // Cannot specify module gen target when in es6 or above
-            if (options.module && languageVersion >= 2 /* ES6 */) {
-                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_compile_modules_into_commonjs_amd_system_or_umd_when_targeting_ES6_or_higher));
+            // Cannot specify module gen target of es6 when below es6
+            if (options.module === 5 /* ES6 */ && languageVersion < 2 /* ES6 */) {
+                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_compile_modules_into_es6_when_targeting_ES5_or_lower));
             }
             // there has to be common source directory if user specified --outdir || --sourceRoot
             // if user specified --mapRoot, there needs to be common source directory if there would be multiple files being emitted

@@ -1566,6 +1566,7 @@ declare namespace ts {
         AMD = 2,
         UMD = 3,
         System = 4,
+        ES6 = 5,
     }
     const enum JsxEmit {
         None = 0,
@@ -2678,17 +2679,17 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_or_higher_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_or_import_d_from_mod_instead: {
+        Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_import_d_from_mod_or_another_module_format_instead: {
             code: number;
             category: DiagnosticCategory;
             key: string;
         };
-        Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_or_higher_Consider_using_export_default_instead: {
+        Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_export_default_or_another_module_format_instead: {
             code: number;
             category: DiagnosticCategory;
             key: string;
         };
-        Cannot_compile_modules_into_commonjs_amd_system_or_umd_when_targeting_ES6_or_higher: {
+        Cannot_compile_modules_into_es6_when_targeting_ES5_or_lower: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4528,7 +4529,7 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Specify_module_code_generation_Colon_commonjs_amd_system_or_umd: {
+        Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es6: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4633,7 +4634,7 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Argument_for_module_option_must_be_commonjs_amd_system_or_umd: {
+        Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es6: {
             code: number;
             category: DiagnosticCategory;
             key: string;
