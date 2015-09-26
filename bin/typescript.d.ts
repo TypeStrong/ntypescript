@@ -2149,7 +2149,7 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Ambient_enum_elements_can_only_have_integer_literal_initializers: {
+        In_ambient_enum_declarations_member_initializer_must_be_constant_expression: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5144,7 +5144,7 @@ declare namespace ts {
     function isVariableLike(node: Node): node is VariableLikeDeclaration;
     function isAccessor(node: Node): node is AccessorDeclaration;
     function isClassLike(node: Node): node is ClassLikeDeclaration;
-    function isFunctionLike(node: Node): boolean;
+    function isFunctionLike(node: Node): node is FunctionLikeDeclaration;
     function introducesArgumentsExoticObject(node: Node): boolean;
     function isFunctionBlock(node: Node): boolean;
     function isObjectLiteralMethod(node: Node): node is MethodDeclaration;

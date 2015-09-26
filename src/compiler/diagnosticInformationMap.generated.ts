@@ -52,7 +52,7 @@ namespace ts {
         Enum_member_must_have_initializer: { code: 1061, category: DiagnosticCategory.Error, key: "Enum member must have initializer." },
         _0_is_referenced_directly_or_indirectly_in_the_fulfillment_callback_of_its_own_then_method: { code: 1062, category: DiagnosticCategory.Error, key: "{0} is referenced directly or indirectly in the fulfillment callback of its own 'then' method." },
         An_export_assignment_cannot_be_used_in_a_namespace: { code: 1063, category: DiagnosticCategory.Error, key: "An export assignment cannot be used in a namespace." },
-        Ambient_enum_elements_can_only_have_integer_literal_initializers: { code: 1066, category: DiagnosticCategory.Error, key: "Ambient enum elements can only have integer literal initializers." },
+        In_ambient_enum_declarations_member_initializer_must_be_constant_expression: { code: 1066, category: DiagnosticCategory.Error, key: "In ambient enum declarations member initializer must be constant expression." },
         Unexpected_token_A_constructor_method_accessor_or_property_was_expected: { code: 1068, category: DiagnosticCategory.Error, key: "Unexpected token. A constructor, method, accessor, or property was expected." },
         A_0_modifier_cannot_be_used_with_an_import_declaration: { code: 1079, category: DiagnosticCategory.Error, key: "A '{0}' modifier cannot be used with an import declaration." },
         Invalid_reference_directive_syntax: { code: 1084, category: DiagnosticCategory.Error, key: "Invalid 'reference' directive syntax." },

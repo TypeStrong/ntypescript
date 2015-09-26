@@ -1621,7 +1621,7 @@ var ts;
         Enum_member_must_have_initializer: { code: 1061, category: ts.DiagnosticCategory.Error, key: "Enum member must have initializer." },
         _0_is_referenced_directly_or_indirectly_in_the_fulfillment_callback_of_its_own_then_method: { code: 1062, category: ts.DiagnosticCategory.Error, key: "{0} is referenced directly or indirectly in the fulfillment callback of its own 'then' method." },
         An_export_assignment_cannot_be_used_in_a_namespace: { code: 1063, category: ts.DiagnosticCategory.Error, key: "An export assignment cannot be used in a namespace." },
-        Ambient_enum_elements_can_only_have_integer_literal_initializers: { code: 1066, category: ts.DiagnosticCategory.Error, key: "Ambient enum elements can only have integer literal initializers." },
+        In_ambient_enum_declarations_member_initializer_must_be_constant_expression: { code: 1066, category: ts.DiagnosticCategory.Error, key: "In ambient enum declarations member initializer must be constant expression." },
         Unexpected_token_A_constructor_method_accessor_or_property_was_expected: { code: 1068, category: ts.DiagnosticCategory.Error, key: "Unexpected token. A constructor, method, accessor, or property was expected." },
         A_0_modifier_cannot_be_used_with_an_import_declaration: { code: 1079, category: ts.DiagnosticCategory.Error, key: "A '{0}' modifier cannot be used with an import declaration." },
         Invalid_reference_directive_syntax: { code: 1084, category: ts.DiagnosticCategory.Error, key: "Invalid 'reference' directive syntax." },
@@ -24570,24 +24570,38 @@ var ts;
             if (!(nodeLinks.flags & 8192 /* EnumValuesComputed */)) {
                 var enumSymbol = getSymbolOfNode(node);
                 var enumType = getDeclaredTypeOfSymbol(enumSymbol);
-                var autoValue = 0;
+                var autoValue = 0; // set to undefined when enum member is non-constant
                 var ambient = ts.isInAmbientContext(node);
                 var enumIsConst = ts.isConst(node);
-                ts.forEach(node.members, function (member) {
-                    if (member.name.kind !== 134 /* ComputedPropertyName */ && isNumericLiteralName(member.name.text)) {
+                for (var _i = 0, _a = node.members; _i < _a.length; _i++) {
+                    var member = _a[_i];
+                    if (member.name.kind === 134 /* ComputedPropertyName */) {
+                        error(member.name, ts.Diagnostics.Computed_property_names_are_not_allowed_in_enums);
+                    }
+                    else if (isNumericLiteralName(member.name.text)) {
                         error(member.name, ts.Diagnostics.An_enum_member_cannot_have_a_numeric_name);
                     }
+                    var previousEnumMemberIsNonConstant = autoValue === undefined;
                     var initializer = member.initializer;
                     if (initializer) {
                         autoValue = computeConstantValueForEnumMemberInitializer(initializer, enumType, enumIsConst, ambient);
                     }
                     else if (ambient && !enumIsConst) {
+                        // In ambient enum declarations that specify no const modifier, enum member declarations 
+                        // that omit a value are considered computed members (as opposed to having auto-incremented values assigned).
                         autoValue = undefined;
+                    }
+                    else if (previousEnumMemberIsNonConstant) {
+                        // If the member declaration specifies no value, the member is considered a constant enum member. 
+                        // If the member is the first member in the enum declaration, it is assigned the value zero. 
+                        // Otherwise, it is assigned the value of the immediately preceding member plus one,
+                        // and an error occurs if the immediately preceding member is not a constant enum member
+                        error(member.name, ts.Diagnostics.Enum_member_must_have_initializer);
                     }
                     if (autoValue !== undefined) {
                         getNodeLinks(member).enumMemberValue = autoValue++;
                     }
-                });
+                }
                 nodeLinks.flags |= 8192 /* EnumValuesComputed */;
             }
             function computeConstantValueForEnumMemberInitializer(initializer, enumType, enumIsConst, ambient) {
@@ -24600,11 +24614,11 @@ var ts;
                         if (enumIsConst) {
                             error(initializer, ts.Diagnostics.In_const_enum_declarations_member_initializer_must_be_constant_expression);
                         }
-                        else if (!ambient) {
+                        else if (ambient) {
+                            error(initializer, ts.Diagnostics.In_ambient_enum_declarations_member_initializer_must_be_constant_expression);
+                        }
+                        else {
                             // Only here do we need to check that the initializer is assignable to the enum type.
-                            // If it is a constant value (not undefined), it is syntactically constrained to be a number.
-                            // Also, we do not need to check this for ambients because there is already
-                            // a syntax error if it is not a constant.
                             checkTypeAssignableTo(checkExpression(initializer), enumType, initializer, /*headMessage*/ undefined);
                         }
                     }
@@ -24732,7 +24746,7 @@ var ts;
                 return;
             }
             // Grammar checking
-            checkGrammarDecorators(node) || checkGrammarModifiers(node) || checkGrammarEnumDeclaration(node);
+            checkGrammarDecorators(node) || checkGrammarModifiers(node);
             checkTypeNameIsReserved(node.name, ts.Diagnostics.Enum_name_cannot_be_0);
             checkCollisionWithCapturedThisVariable(node, node.name);
             checkCollisionWithRequireExportsInGeneratedCode(node, node.name);
@@ -26977,37 +26991,6 @@ var ts;
                 return /^[0-9]+([eE]\+?[0-9]+)?$/.test(expression.text);
             }
             return false;
-        }
-        function checkGrammarEnumDeclaration(enumDecl) {
-            var enumIsConst = (enumDecl.flags & 32768 /* Const */) !== 0;
-            var hasError = false;
-            // skip checks below for const enums  - they allow arbitrary initializers as long as they can be evaluated to constant expressions.
-            // since all values are known in compile time - it is not necessary to check that constant enum section precedes computed enum members.
-            if (!enumIsConst) {
-                var inConstantEnumMemberSection = true;
-                var inAmbientContext = ts.isInAmbientContext(enumDecl);
-                for (var _i = 0, _a = enumDecl.members; _i < _a.length; _i++) {
-                    var node = _a[_i];
-                    // Do not use hasDynamicName here, because that returns false for well known symbols.
-                    // We want to perform checkComputedPropertyName for all computed properties, including
-                    // well known symbols.
-                    if (node.name.kind === 134 /* ComputedPropertyName */) {
-                        hasError = grammarErrorOnNode(node.name, ts.Diagnostics.Computed_property_names_are_not_allowed_in_enums);
-                    }
-                    else if (inAmbientContext) {
-                        if (node.initializer && !isIntegerLiteral(node.initializer)) {
-                            hasError = grammarErrorOnNode(node.name, ts.Diagnostics.Ambient_enum_elements_can_only_have_integer_literal_initializers) || hasError;
-                        }
-                    }
-                    else if (node.initializer) {
-                        inConstantEnumMemberSection = isIntegerLiteral(node.initializer);
-                    }
-                    else if (!inConstantEnumMemberSection) {
-                        hasError = grammarErrorOnNode(node.name, ts.Diagnostics.Enum_member_must_have_initializer) || hasError;
-                    }
-                }
-            }
-            return hasError;
         }
         function hasParseDiagnostics(sourceFile) {
             return sourceFile.parseDiagnostics.length > 0;
@@ -47985,8 +47968,12 @@ var ts;
          * Checks if position points to a valid position to add JSDoc comments, and if so,
          * returns the appropriate template. Otherwise returns an empty string.
          * Valid positions are
-         * - outside of comments, statements, and expressions, and
-         * - preceding a function declaration.
+         *      - outside of comments, statements, and expressions, and
+         *      - preceding a:
+         *          - function/constructor/method declaration
+         *          - class declarations
+         *          - variable statements
+         *          - namespace declarations
          *
          * Hosts should ideally check that:
          * - The line is all whitespace up to 'position' before performing the insertion.
@@ -48010,23 +47997,48 @@ var ts;
                 return undefined;
             }
             // TODO: add support for:
-            // - methods
-            // - constructors
-            // - class decls
-            var containingFunction = ts.getAncestor(tokenAtPos, 211 /* FunctionDeclaration */);
-            if (!containingFunction || containingFunction.getStart() < position) {
+            // - enums/enum members
+            // - interfaces
+            // - property declarations
+            // - potentially property assignments
+            var commentOwner;
+            findOwner: for (commentOwner = tokenAtPos; commentOwner; commentOwner = commentOwner.parent) {
+                switch (commentOwner.kind) {
+                    case 211 /* FunctionDeclaration */:
+                    case 141 /* MethodDeclaration */:
+                    case 142 /* Constructor */:
+                    case 212 /* ClassDeclaration */:
+                    case 191 /* VariableStatement */:
+                        break findOwner;
+                    case 246 /* SourceFile */:
+                        return undefined;
+                    case 216 /* ModuleDeclaration */:
+                        // If in walking up the tree, we hit a a nested namespace declaration,
+                        // then we must be somewhere within a dotted namespace name; however we don't
+                        // want to give back a JSDoc template for the 'b' or 'c' in 'namespace a.b.c { }'.
+                        if (commentOwner.parent.kind === 216 /* ModuleDeclaration */) {
+                            return undefined;
+                        }
+                        break findOwner;
+                }
+            }
+            if (!commentOwner || commentOwner.getStart() < position) {
                 return undefined;
             }
-            var parameters = containingFunction.parameters;
+            var parameters = getParametersForJsDocOwningNode(commentOwner);
             var posLineAndChar = sourceFile.getLineAndCharacterOfPosition(position);
             var lineStart = sourceFile.getLineStarts()[posLineAndChar.line];
             var indentationStr = sourceFile.text.substr(lineStart, posLineAndChar.character);
             // TODO: call a helper method instead once PR #4133 gets merged in.
             var newLine = host.getNewLine ? host.getNewLine() : "\r\n";
-            var docParams = parameters.reduce(function (prev, cur, index) {
-                return prev +
-                    indentationStr + " * @param " + (cur.name.kind === 67 /* Identifier */ ? cur.name.text : "param" + index) + newLine;
-            }, "");
+            var docParams = "";
+            for (var i = 0, numParams = parameters.length; i < numParams; i++) {
+                var currentName = parameters[i].name;
+                var paramName = currentName.kind === 67 /* Identifier */ ?
+                    currentName.text :
+                    "param" + i;
+                docParams += indentationStr + " * @param " + paramName + newLine;
+            }
             // A doc comment consists of the following
             // * The opening comment line
             // * the first line (without a param) for the object's untagged info (this is also where the caret ends up)
@@ -48041,6 +48053,46 @@ var ts;
                 indentationStr + " */" +
                 (tokenStart === position ? newLine + indentationStr : "");
             return { newText: result, caretOffset: preamble.length };
+        }
+        function getParametersForJsDocOwningNode(commentOwner) {
+            if (ts.isFunctionLike(commentOwner)) {
+                return commentOwner.parameters;
+            }
+            if (commentOwner.kind === 191 /* VariableStatement */) {
+                var varStatement = commentOwner;
+                var varDeclarations = varStatement.declarationList.declarations;
+                if (varDeclarations.length === 1 && varDeclarations[0].initializer) {
+                    return getParametersFromRightHandSideOfAssignment(varDeclarations[0].initializer);
+                }
+            }
+            return emptyArray;
+        }
+        /**
+         * Digs into an an initializer or RHS operand of an assignment operation
+         * to get the parameters of an apt signature corresponding to a
+         * function expression or a class expression.
+         *
+         * @param rightHandSide the expression which may contain an appropriate set of parameters
+         * @returns the parameters of a signature found on the RHS if one exists; otherwise 'emptyArray'.
+         */
+        function getParametersFromRightHandSideOfAssignment(rightHandSide) {
+            while (rightHandSide.kind === 170 /* ParenthesizedExpression */) {
+                rightHandSide = rightHandSide.expression;
+            }
+            switch (rightHandSide.kind) {
+                case 171 /* FunctionExpression */:
+                case 172 /* ArrowFunction */:
+                    return rightHandSide.parameters;
+                case 184 /* ClassExpression */:
+                    for (var _i = 0, _a = rightHandSide.members; _i < _a.length; _i++) {
+                        var member = _a[_i];
+                        if (member.kind === 142 /* Constructor */) {
+                            return member.parameters;
+                        }
+                    }
+                    break;
+            }
+            return emptyArray;
         }
         function getTodoComments(fileName, descriptors) {
             // Note: while getting todo comments seems like a syntactic operation, we actually
