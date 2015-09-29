@@ -33055,8 +33055,10 @@ var ts;
                     write(" = ");
                 }
                 write("class");
-                // check if this is an "export default class" as it may not have a name. Do not emit the name if the class is decorated.
-                if ((node.name || !(node.flags & 1024 /* Default */)) && !thisNodeIsDecorated) {
+                // emit name if
+                // - node has a name
+                // - this is default export and target is not ES6 (for ES6 `export default` does not need to be compiled downlevel)                
+                if ((node.name || (node.flags & 1024 /* Default */ && languageVersion < 2 /* ES6 */)) && !thisNodeIsDecorated) {
                     write(" ");
                     emitDeclarationName(node);
                 }
@@ -34741,18 +34743,7 @@ var ts;
                 writeLine();
                 write("});");
             }
-            function emitAMDDependencies(node, includeNonAmdDependencies) {
-                // An AMD define function has the following shape:
-                //     define(id?, dependencies?, factory);
-                //
-                // This has the shape of
-                //     define(name, ["module1", "module2"], function (module1Alias) {
-                // The location of the alias in the parameter list in the factory function needs to
-                // match the position of the module name in the dependency list.
-                //
-                // To ensure this is true in cases of modules with no aliases, e.g.:
-                // `import "module"` or `<amd-dependency path= "a.css" />`
-                // we need to add modules without alias names to the end of the dependencies list
+            function getAMDDependencyNames(node, includeNonAmdDependencies) {
                 // names of modules with corresponding parameter in the factory function
                 var aliasedModuleNames = [];
                 // names of modules with no corresponding parameters in factory function
@@ -34785,6 +34776,27 @@ var ts;
                         unaliasedModuleNames.push(externalModuleName);
                     }
                 }
+                return { aliasedModuleNames: aliasedModuleNames, unaliasedModuleNames: unaliasedModuleNames, importAliasNames: importAliasNames };
+            }
+            function emitAMDDependencies(node, includeNonAmdDependencies) {
+                // An AMD define function has the following shape:
+                //     define(id?, dependencies?, factory);
+                //
+                // This has the shape of
+                //     define(name, ["module1", "module2"], function (module1Alias) {
+                // The location of the alias in the parameter list in the factory function needs to
+                // match the position of the module name in the dependency list.
+                //
+                // To ensure this is true in cases of modules with no aliases, e.g.:
+                // `import "module"` or `<amd-dependency path= "a.css" />`
+                // we need to add modules without alias names to the end of the dependencies list
+                var dependencyNames = getAMDDependencyNames(node, includeNonAmdDependencies);
+                emitAMDDependencyList(dependencyNames);
+                write(", ");
+                emitAMDFactoryHeader(dependencyNames);
+            }
+            function emitAMDDependencyList(_a) {
+                var aliasedModuleNames = _a.aliasedModuleNames, unaliasedModuleNames = _a.unaliasedModuleNames;
                 write("[\"require\", \"exports\"");
                 if (aliasedModuleNames.length) {
                     write(", ");
@@ -34794,11 +34806,16 @@ var ts;
                     write(", ");
                     write(unaliasedModuleNames.join(", "));
                 }
-                write("], function (require, exports");
+                write("]");
+            }
+            function emitAMDFactoryHeader(_a) {
+                var importAliasNames = _a.importAliasNames;
+                write("function (require, exports");
                 if (importAliasNames.length) {
                     write(", ");
                     write(importAliasNames.join(", "));
                 }
+                write(") {");
             }
             function emitAMDModule(node, startIndex) {
                 emitEmitHelpers(node);
@@ -34809,7 +34826,6 @@ var ts;
                     write("\"" + node.moduleName + "\", ");
                 }
                 emitAMDDependencies(node, /*includeNonAmdDependencies*/ true);
-                write(") {");
                 increaseIndent();
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
@@ -34832,10 +34848,13 @@ var ts;
             function emitUMDModule(node, startIndex) {
                 emitEmitHelpers(node);
                 collectExternalModuleInfo(node);
+                var dependencyNames = getAMDDependencyNames(node, /*includeNonAmdDependencies*/ false);
                 // Module is detected first to support Browserify users that load into a browser with an AMD loader
-                writeLines("(function (deps, factory) {\n    if (typeof module === 'object' && typeof module.exports === 'object') {\n        var v = factory(require, exports); if (v !== undefined) module.exports = v;\n    }\n    else if (typeof define === 'function' && define.amd) {\n        define(deps, factory);\n    }\n})(");
-                emitAMDDependencies(node, false);
-                write(") {");
+                writeLines("(function (factory) {\n    if (typeof module === 'object' && typeof module.exports === 'object') {\n        var v = factory(require, exports); if (v !== undefined) module.exports = v;\n    }\n    else if (typeof define === 'function' && define.amd) {\n        define(");
+                emitAMDDependencyList(dependencyNames);
+                write(", factory);");
+                writeLines("    }\n})(");
+                emitAMDFactoryHeader(dependencyNames);
                 increaseIndent();
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
@@ -39808,7 +39827,12 @@ var ts;
 (function (ts) {
     var formatting;
     (function (formatting) {
-        var scanner = ts.createScanner(2 /* Latest */, /*skipTrivia*/ false);
+        var standardScanner = ts.createScanner(2 /* Latest */, /*skipTrivia*/ false, 0 /* Standard */);
+        var jsxScanner = ts.createScanner(2 /* Latest */, /*skipTrivia*/ false, 1 /* JSX */);
+        /**
+         * Scanner that is currently used for formatting
+         */
+        var scanner;
         var ScanAction;
         (function (ScanAction) {
             ScanAction[ScanAction["Scan"] = 0] = "Scan";
@@ -39818,6 +39842,8 @@ var ts;
             ScanAction[ScanAction["RescanJsxIdentifier"] = 4] = "RescanJsxIdentifier";
         })(ScanAction || (ScanAction = {}));
         function getFormattingScanner(sourceFile, startPos, endPos) {
+            ts.Debug.assert(scanner === undefined);
+            scanner = sourceFile.languageVariant === 1 /* JSX */ ? jsxScanner : standardScanner;
             scanner.setText(sourceFile.text);
             scanner.setTextPos(startPos);
             var wasNewLine = true;
@@ -39832,11 +39858,14 @@ var ts;
                 isOnToken: isOnToken,
                 lastTrailingTriviaWasNewLine: function () { return wasNewLine; },
                 close: function () {
+                    ts.Debug.assert(scanner !== undefined);
                     lastTokenInfo = undefined;
                     scanner.setText(undefined);
+                    scanner = undefined;
                 }
             };
             function advance() {
+                ts.Debug.assert(scanner !== undefined);
                 lastTokenInfo = undefined;
                 var isStarted = scanner.getStartPos() !== startPos;
                 if (isStarted) {
@@ -39912,6 +39941,7 @@ var ts;
                 return t === 38 /* SlashToken */ || t === 59 /* SlashEqualsToken */;
             }
             function readTokenInfo(n) {
+                ts.Debug.assert(scanner !== undefined);
                 if (!isOnToken()) {
                     // scanner is not on the token (either advance was not called yet or scanner is already past the end position)
                     return {
@@ -40005,6 +40035,7 @@ var ts;
                 return fixTokenKind(lastTokenInfo, n);
             }
             function isOnToken() {
+                ts.Debug.assert(scanner !== undefined);
                 var current = (lastTokenInfo && lastTokenInfo.token.kind) || scanner.getToken();
                 var startPos = (lastTokenInfo && lastTokenInfo.token.pos) || scanner.getStartPos();
                 return startPos < endPos && current !== 1 /* EndOfFileToken */ && !ts.isTrivia(current);
