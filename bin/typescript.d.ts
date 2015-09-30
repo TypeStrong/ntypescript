@@ -5159,6 +5159,7 @@ declare namespace ts {
     function childIsDecorated(node: Node): boolean;
     function nodeOrChildIsDecorated(node: Node): boolean;
     function isExpression(node: Node): boolean;
+    function isExternalModuleNameRelative(moduleName: string): boolean;
     function isInstantiatedModule(node: ModuleDeclaration, preserveConstEnums: boolean): boolean;
     function isExternalModuleImportEqualsDeclaration(node: Node): boolean;
     function getExternalModuleImportEqualsDeclarationExpression(node: Node): Expression;
@@ -5483,6 +5484,7 @@ declare namespace ts {
     function isToken(n: Node): boolean;
     function isWord(kind: SyntaxKind): boolean;
     function isComment(kind: SyntaxKind): boolean;
+    function isStringOrRegularExpressionOrTemplateLiteral(kind: SyntaxKind): boolean;
     function isPunctuation(kind: SyntaxKind): boolean;
     function isInsideTemplateLiteral(node: LiteralExpression, position: number): boolean;
     function isAccessibilityModifier(kind: SyntaxKind): boolean;

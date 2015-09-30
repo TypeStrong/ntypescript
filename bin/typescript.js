@@ -3415,7 +3415,9 @@ var ts;
                         if (text.charCodeAt(pos + 1) === 61 /* equals */) {
                             return pos += 2, token = 28 /* LessThanEqualsToken */;
                         }
-                        if (text.charCodeAt(pos + 1) === 47 /* slash */ && languageVariant === 1 /* JSX */) {
+                        if (languageVariant === 1 /* JSX */ &&
+                            text.charCodeAt(pos + 1) === 47 /* slash */ &&
+                            text.charCodeAt(pos + 2) !== 42 /* asterisk */) {
                             return pos += 2, token = 26 /* LessThanSlashToken */;
                         }
                         return pos++, token = 25 /* LessThanToken */;
@@ -5848,6 +5850,12 @@ var ts;
         return false;
     }
     ts.isExpression = isExpression;
+    function isExternalModuleNameRelative(moduleName) {
+        // TypeScript 1.0 spec (April 2014): 11.2.1
+        // An external module name is "relative" if the first term is "." or "..".
+        return moduleName.substr(0, 2) === "./" || moduleName.substr(0, 3) === "../" || moduleName.substr(0, 2) === ".\\" || moduleName.substr(0, 3) === "..\\";
+    }
+    ts.isExternalModuleNameRelative = isExternalModuleNameRelative;
     function isInstantiatedModule(node, preserveConstEnums) {
         var moduleState = ts.getModuleInstanceState(node);
         return moduleState === 1 /* Instantiated */ ||
@@ -13733,11 +13741,6 @@ var ts;
             ts.Debug.assert((symbol.flags & 16777216 /* Instantiated */) === 0, "Should never get an instantiated symbol here.");
             return symbol.flags & meaning ? symbol : resolveAlias(symbol);
         }
-        function isExternalModuleNameRelative(moduleName) {
-            // TypeScript 1.0 spec (April 2014): 11.2.1
-            // An external module name is "relative" if the first term is "." or "..".
-            return moduleName.substr(0, 2) === "./" || moduleName.substr(0, 3) === "../" || moduleName.substr(0, 2) === ".\\" || moduleName.substr(0, 3) === "..\\";
-        }
         function resolveExternalModuleName(location, moduleReferenceExpression) {
             if (moduleReferenceExpression.kind !== 9 /* StringLiteral */) {
                 return;
@@ -13750,7 +13753,7 @@ var ts;
             if (moduleName === undefined) {
                 return;
             }
-            var isRelative = isExternalModuleNameRelative(moduleName);
+            var isRelative = ts.isExternalModuleNameRelative(moduleName);
             if (!isRelative) {
                 var symbol = getSymbol(globals, "\"" + moduleName + "\"", 512 /* ValueModule */);
                 if (symbol) {
@@ -24867,7 +24870,7 @@ var ts;
                     if (!isGlobalSourceFile(node.parent)) {
                         error(node.name, ts.Diagnostics.Ambient_modules_cannot_be_nested_in_other_modules);
                     }
-                    if (isExternalModuleNameRelative(node.name.text)) {
+                    if (ts.isExternalModuleNameRelative(node.name.text)) {
                         error(node.name, ts.Diagnostics.Ambient_module_declaration_cannot_specify_relative_module_name);
                     }
                 }
@@ -24902,7 +24905,7 @@ var ts;
                     ts.Diagnostics.Import_declarations_in_a_namespace_cannot_reference_a_module);
                 return false;
             }
-            if (inAmbientExternalModule && isExternalModuleNameRelative(moduleName.text)) {
+            if (inAmbientExternalModule && ts.isExternalModuleNameRelative(moduleName.text)) {
                 // TypeScript 1.0 spec (April 2013): 12.1.6
                 // An ExternalImportDeclaration in an AmbientExternalModuleDeclaration may reference
                 // other external modules only through top - level external module names.
@@ -30267,6 +30270,7 @@ var ts;
                 var parent = node.parent;
                 switch (parent.kind) {
                     case 162 /* ArrayLiteralExpression */:
+                    case 187 /* AsExpression */:
                     case 179 /* BinaryExpression */:
                     case 166 /* CallExpression */:
                     case 239 /* CaseClause */:
@@ -36239,7 +36243,9 @@ var ts;
             return emitResult;
         }
         function getSourceFile(fileName) {
-            return filesByName.get(fileName);
+            // first try to use file name as is to find file
+            // then try to convert relative file name to absolute and use it to retrieve source file
+            return filesByName.get(fileName) || filesByName.get(ts.getNormalizedAbsolutePath(fileName, host.getCurrentDirectory()));
         }
         function getDiagnosticsHelper(sourceFile, getDiagnostics, cancellationToken) {
             if (sourceFile) {
@@ -36338,6 +36344,10 @@ var ts;
             var imports;
             for (var _i = 0, _a = file.statements; _i < _a.length; _i++) {
                 var node = _a[_i];
+                collect(node, /* allowRelativeModuleNames */ true);
+            }
+            file.imports = imports || emptyArray;
+            function collect(node, allowRelativeModuleNames) {
                 switch (node.kind) {
                     case 220 /* ImportDeclaration */:
                     case 219 /* ImportEqualsDeclaration */:
@@ -36349,7 +36359,9 @@ var ts;
                         if (!moduleNameExpr.text) {
                             break;
                         }
-                        (imports || (imports = [])).push(moduleNameExpr);
+                        if (allowRelativeModuleNames || !ts.isExternalModuleNameRelative(moduleNameExpr.text)) {
+                            (imports || (imports = [])).push(moduleNameExpr);
+                        }
                         break;
                     case 216 /* ModuleDeclaration */:
                         if (node.name.kind === 9 /* StringLiteral */ && (node.flags & 2 /* Ambient */ || ts.isDeclarationFile(file))) {
@@ -36359,22 +36371,15 @@ var ts;
                             // The StringLiteral must specify a top - level external module name.
                             // Relative external module names are not permitted
                             ts.forEachChild(node.body, function (node) {
-                                if (ts.isExternalModuleImportEqualsDeclaration(node) &&
-                                    ts.getExternalModuleImportEqualsDeclarationExpression(node).kind === 9 /* StringLiteral */) {
-                                    var moduleName = ts.getExternalModuleImportEqualsDeclarationExpression(node);
-                                    // TypeScript 1.0 spec (April 2014): 12.1.6
-                                    // An ExternalImportDeclaration in anAmbientExternalModuleDeclaration may reference other external modules 
-                                    // only through top - level external module names. Relative external module names are not permitted.
-                                    if (moduleName) {
-                                        (imports || (imports = [])).push(moduleName);
-                                    }
-                                }
+                                // TypeScript 1.0 spec (April 2014): 12.1.6
+                                // An ExternalImportDeclaration in anAmbientExternalModuleDeclaration may reference other external modules 
+                                // only through top - level external module names. Relative external module names are not permitted.
+                                collect(node, /* allowRelativeModuleNames */ false);
                             });
                         }
                         break;
                 }
             }
-            file.imports = imports || emptyArray;
         }
         function processSourceFile(fileName, isDefaultLib, refFile, refPos, refEnd) {
             var diagnosticArgument;
@@ -36418,52 +36423,52 @@ var ts;
         }
         // Get source file from normalized fileName
         function findSourceFile(fileName, isDefaultLib, refFile, refPos, refEnd) {
-            var canonicalName = host.getCanonicalFileName(ts.normalizeSlashes(fileName));
-            if (filesByName.contains(canonicalName)) {
+            if (filesByName.contains(fileName)) {
                 // We've already looked for this file, use cached result
-                return getSourceFileFromCache(fileName, canonicalName, /*useAbsolutePath*/ false);
+                return getSourceFileFromCache(fileName, /*useAbsolutePath*/ false);
             }
-            else {
-                var normalizedAbsolutePath = ts.getNormalizedAbsolutePath(fileName, host.getCurrentDirectory());
-                var canonicalAbsolutePath = host.getCanonicalFileName(normalizedAbsolutePath);
-                if (filesByName.contains(canonicalAbsolutePath)) {
-                    return getSourceFileFromCache(normalizedAbsolutePath, canonicalAbsolutePath, /*useAbsolutePath*/ true);
-                }
-                // We haven't looked for this file, do so now and cache result
-                var file = host.getSourceFile(fileName, options.target, function (hostErrorMessage) {
-                    if (refFile !== undefined && refPos !== undefined && refEnd !== undefined) {
-                        fileProcessingDiagnostics.add(ts.createFileDiagnostic(refFile, refPos, refEnd - refPos, ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, hostErrorMessage));
-                    }
-                    else {
-                        fileProcessingDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, hostErrorMessage));
-                    }
-                });
-                filesByName.set(canonicalName, file);
-                if (file) {
-                    skipDefaultLib = skipDefaultLib || file.hasNoDefaultLib;
-                    // Set the source file for normalized absolute path
-                    filesByName.set(canonicalAbsolutePath, file);
-                    var basePath = ts.getDirectoryPath(fileName);
-                    if (!options.noResolve) {
-                        processReferencedFiles(file, basePath);
-                    }
-                    // always process imported modules to record module name resolutions
-                    processImportedModules(file, basePath);
-                    if (isDefaultLib) {
-                        file.isDefaultLib = true;
-                        files.unshift(file);
-                    }
-                    else {
-                        files.push(file);
-                    }
-                }
-                return file;
+            var normalizedAbsolutePath = ts.getNormalizedAbsolutePath(fileName, host.getCurrentDirectory());
+            if (filesByName.contains(normalizedAbsolutePath)) {
+                var file_1 = getSourceFileFromCache(normalizedAbsolutePath, /*useAbsolutePath*/ true);
+                // we don't have resolution for this relative file name but the match was found by absolute file name
+                // store resolution for relative name as well 
+                filesByName.set(fileName, file_1);
+                return file_1;
             }
-            function getSourceFileFromCache(fileName, canonicalName, useAbsolutePath) {
-                var file = filesByName.get(canonicalName);
+            // We haven't looked for this file, do so now and cache result
+            var file = host.getSourceFile(fileName, options.target, function (hostErrorMessage) {
+                if (refFile !== undefined && refPos !== undefined && refEnd !== undefined) {
+                    fileProcessingDiagnostics.add(ts.createFileDiagnostic(refFile, refPos, refEnd - refPos, ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, hostErrorMessage));
+                }
+                else {
+                    fileProcessingDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, hostErrorMessage));
+                }
+            });
+            filesByName.set(fileName, file);
+            if (file) {
+                skipDefaultLib = skipDefaultLib || file.hasNoDefaultLib;
+                // Set the source file for normalized absolute path
+                filesByName.set(normalizedAbsolutePath, file);
+                var basePath = ts.getDirectoryPath(fileName);
+                if (!options.noResolve) {
+                    processReferencedFiles(file, basePath);
+                }
+                // always process imported modules to record module name resolutions
+                processImportedModules(file, basePath);
+                if (isDefaultLib) {
+                    file.isDefaultLib = true;
+                    files.unshift(file);
+                }
+                else {
+                    files.push(file);
+                }
+            }
+            return file;
+            function getSourceFileFromCache(fileName, useAbsolutePath) {
+                var file = filesByName.get(fileName);
                 if (file && host.useCaseSensitiveFileNames()) {
                     var sourceFileName = useAbsolutePath ? ts.getNormalizedAbsolutePath(file.fileName, host.getCurrentDirectory()) : file.fileName;
-                    if (canonicalName !== sourceFileName) {
+                    if (ts.normalizeSlashes(fileName) !== ts.normalizeSlashes(sourceFileName)) {
                         if (refFile !== undefined && refPos !== undefined && refEnd !== undefined) {
                             fileProcessingDiagnostics.add(ts.createFileDiagnostic(refFile, refPos, refEnd - refPos, ts.Diagnostics.File_name_0_differs_from_already_included_file_name_1_only_in_casing, fileName, sourceFileName));
                         }
@@ -36765,6 +36770,15 @@ var ts;
             reportDiagnostic(diagnostics[i]);
         }
     }
+    function reportWatchDiagnostic(diagnostic) {
+        var output = new Date().toLocaleTimeString() + " - ";
+        if (diagnostic.file) {
+            var loc = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start);
+            output += diagnostic.file.fileName + "(" + (loc.line + 1) + "," + (loc.character + 1) + "): ";
+        }
+        output += "" + ts.flattenDiagnosticMessageText(diagnostic.messageText, ts.sys.newLine) + ts.sys.newLine;
+        ts.sys.write(output);
+    }
     function padLeft(s, length) {
         while (s.length < length) {
             s = " " + s;
@@ -36862,7 +36876,7 @@ var ts;
                 if (configFileName) {
                     var result = ts.readConfigFile(configFileName, ts.sys.readFile);
                     if (result.error) {
-                        reportDiagnostic(result.error);
+                        reportWatchDiagnostic(result.error);
                         return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                     }
                     var configObject = result.config;
@@ -36887,7 +36901,7 @@ var ts;
                 return ts.sys.exit(compileResult.exitStatus);
             }
             setCachedProgram(compileResult.program);
-            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Compilation_complete_Watching_for_file_changes));
+            reportWatchDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Compilation_complete_Watching_for_file_changes));
         }
         function getSourceFile(fileName, languageVersion, onError) {
             // Return existing SourceFile object if one is available
@@ -36943,7 +36957,7 @@ var ts;
         }
         function recompile() {
             timerHandle = undefined;
-            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.File_change_detected_Starting_incremental_compilation));
+            reportWatchDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.File_change_detected_Starting_incremental_compilation));
             performCompilation();
         }
     }
@@ -39174,7 +39188,8 @@ var ts;
                 }
                 return isCompletedNode(n.thenStatement, sourceFile);
             case 193 /* ExpressionStatement */:
-                return isCompletedNode(n.expression, sourceFile);
+                return isCompletedNode(n.expression, sourceFile) ||
+                    hasChildOfKind(n, 23 /* SemicolonToken */);
             case 162 /* ArrayLiteralExpression */:
             case 160 /* ArrayBindingPattern */:
             case 165 /* ElementAccessExpression */:
@@ -39571,6 +39586,15 @@ var ts;
         return kind === 2 /* SingleLineCommentTrivia */ || kind === 3 /* MultiLineCommentTrivia */;
     }
     ts.isComment = isComment;
+    function isStringOrRegularExpressionOrTemplateLiteral(kind) {
+        if (kind === 9 /* StringLiteral */
+            || kind === 10 /* RegularExpressionLiteral */
+            || ts.isTemplateLiteralKind(kind)) {
+            return true;
+        }
+        return false;
+    }
+    ts.isStringOrRegularExpressionOrTemplateLiteral = isStringOrRegularExpressionOrTemplateLiteral;
     function isPunctuation(kind) {
         return 15 /* FirstPunctuation */ <= kind && kind <= 66 /* LastPunctuation */;
     }
@@ -41891,8 +41915,8 @@ var ts;
                 for (var line = line1; line < line2; ++line) {
                     var lineStartPosition = ts.getStartPositionOfLine(line, sourceFile);
                     var lineEndPosition = ts.getEndLinePosition(line, sourceFile);
-                    // do not trim whitespaces in comments
-                    if (range && ts.isComment(range.kind) && range.pos <= lineEndPosition && range.end > lineEndPosition) {
+                    // do not trim whitespaces in comments or template expression
+                    if (range && (ts.isComment(range.kind) || ts.isStringOrRegularExpressionOrTemplateLiteral(range.kind)) && range.pos <= lineEndPosition && range.end > lineEndPosition) {
                         continue;
                     }
                     var pos = lineEndPosition;
@@ -42077,12 +42101,7 @@ var ts;
                     return 0;
                 }
                 // no indentation in string \regex\template literals
-                var precedingTokenIsLiteral = precedingToken.kind === 9 /* StringLiteral */ ||
-                    precedingToken.kind === 10 /* RegularExpressionLiteral */ ||
-                    precedingToken.kind === 11 /* NoSubstitutionTemplateLiteral */ ||
-                    precedingToken.kind === 12 /* TemplateHead */ ||
-                    precedingToken.kind === 13 /* TemplateMiddle */ ||
-                    precedingToken.kind === 14 /* TemplateTail */;
+                var precedingTokenIsLiteral = ts.isStringOrRegularExpressionOrTemplateLiteral(precedingToken.kind);
                 if (precedingTokenIsLiteral && precedingToken.getStart(sourceFile) <= position && precedingToken.end > position) {
                     return 0;
                 }
@@ -42396,6 +42415,7 @@ var ts;
             SmartIndenter.findFirstNonWhitespaceColumn = findFirstNonWhitespaceColumn;
             function nodeContentIsAlwaysIndented(kind) {
                 switch (kind) {
+                    case 193 /* ExpressionStatement */:
                     case 212 /* ClassDeclaration */:
                     case 184 /* ClassExpression */:
                     case 213 /* InterfaceDeclaration */:
@@ -45038,6 +45058,9 @@ var ts;
                         case 237 /* JsxSpreadAttribute */:
                             if (parent_11 && (parent_11.kind === 232 /* JsxSelfClosingElement */ || parent_11.kind === 233 /* JsxOpeningElement */)) {
                                 return parent_11;
+                            }
+                            else if (parent_11.kind === 236 /* JsxAttribute */) {
+                                return parent_11.parent;
                             }
                             break;
                         // The context token is the closing } or " of an attribute, which means
