@@ -328,6 +328,7 @@ declare namespace ts {
         OctalLiteral = 65536,
         Namespace = 131072,
         ExportContext = 262144,
+        ContainsThis = 524288,
         Modifier = 2035,
         AccessibilityModifier = 112,
         BlockScoped = 49152,
@@ -1127,6 +1128,7 @@ declare namespace ts {
         decreaseIndent(): void;
         clear(): void;
         trackSymbol(symbol: Symbol, enclosingDeclaration?: Node, meaning?: SymbolFlags): void;
+        reportInaccessibleThisError(): void;
     }
     enum TypeFormatFlags {
         None = 0,
@@ -1362,6 +1364,7 @@ declare namespace ts {
         ContainsObjectLiteral = 4194304,
         ContainsAnyFunctionType = 8388608,
         ESSymbol = 16777216,
+        ThisType = 33554432,
         Intrinsic = 16777343,
         Primitive = 16777726,
         StringLike = 258,
@@ -1391,6 +1394,7 @@ declare namespace ts {
         typeParameters: TypeParameter[];
         outerTypeParameters: TypeParameter[];
         localTypeParameters: TypeParameter[];
+        thisType: TypeParameter;
         resolvedBaseConstructorType?: Type;
         resolvedBaseTypes: ObjectType[];
     }
@@ -1896,7 +1900,7 @@ declare namespace ts {
         Aggressive = 2,
         VeryAggressive = 3,
     }
-    module Debug {
+    namespace Debug {
         function shouldAssert(level: AssertionLevel): boolean;
         function assert(expression: boolean, message?: string, verboseDebugInfo?: () => string): void;
         function fail(message?: string): void;
@@ -2690,11 +2694,6 @@ declare namespace ts {
             key: string;
         };
         Cannot_compile_modules_into_es6_when_targeting_ES5_or_lower: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Decorators_are_only_available_when_targeting_ECMAScript_5_and_higher: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -3529,7 +3528,7 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Ambient_modules_cannot_be_nested_in_other_modules: {
+        Ambient_modules_cannot_be_nested_in_other_modules_or_namespaces: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -3965,6 +3964,16 @@ declare namespace ts {
             key: string;
         };
         Initializer_provides_no_value_for_this_binding_element_and_the_binding_element_has_no_default_value: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        A_this_type_is_available_only_in_a_non_static_member_of_a_class_or_interface: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        The_inferred_type_of_0_references_an_inaccessible_this_type_A_type_annotation_is_necessary: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5059,7 +5068,7 @@ declare namespace ts {
         write(s: string): void;
         readFile(path: string, encoding?: string): string;
         writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
-        watchFile?(path: string, callback: (path: string) => void): FileWatcher;
+        watchFile?(path: string, callback: (path: string, removed: boolean) => void): FileWatcher;
         resolvePath(path: string): string;
         fileExists(path: string): boolean;
         directoryExists(path: string): boolean;
