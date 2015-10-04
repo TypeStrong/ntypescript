@@ -14,8 +14,8 @@ git reset --hard origin/master
 < Jakefile.js > Jakefile.new.js sed -E "s/\*stripInternal\*\/ true/\*stripInternal\*\/ false/"
 mv Jakefile.new.js Jakefile.js
 
-# Install jake
-npm install jake
+# Install jake and everything else
+npm install
 
 # Build once to get a new LKG
 ./node_modules/.bin/jake release tsc --trace
