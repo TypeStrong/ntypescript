@@ -1424,6 +1424,10 @@ declare namespace ts {
     }
     interface IntersectionType extends UnionOrIntersectionType {
     }
+    interface AnonymousType extends ObjectType {
+        target?: AnonymousType;
+        mapper?: TypeMapper;
+    }
     interface ResolvedType extends ObjectType, UnionOrIntersectionType {
         members: SymbolTable;
         properties: Symbol[];
@@ -5734,6 +5738,8 @@ declare namespace ts.formatting {
         SpaceBetweenYieldOrYieldStarAndOperand: Rule;
         SpaceBetweenAsyncAndFunctionKeyword: Rule;
         SpaceBetweenTagAndTemplateString: Rule;
+        NoSpaceAfterTemplateHeadAndMiddle: Rule;
+        NoSpaceBeforeTemplateMiddleAndTail: Rule;
         constructor();
         static IsForContext(context: FormattingContext): boolean;
         static IsNotForContext(context: FormattingContext): boolean;

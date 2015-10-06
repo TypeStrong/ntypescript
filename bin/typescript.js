@@ -7981,7 +7981,7 @@ var ts;
             var saveParseDiagnosticsLength = parseDiagnostics.length;
             var saveParseErrorBeforeNextFinishedNode = parseErrorBeforeNextFinishedNode;
             // Note: it is not actually necessary to save/restore the context flags here.  That's
-            // because the saving/restorating of these flags happens naturally through the recursive
+            // because the saving/restoring of these flags happens naturally through the recursive
             // descent nature of our parser.  However, we still store this here just so we can
             // assert that that invariant holds.
             var saveContextFlags = contextFlags;
@@ -8206,7 +8206,14 @@ var ts;
             if (token === 75 /* DefaultKeyword */) {
                 return nextTokenIsClassOrFunction();
             }
+            if (token === 111 /* StaticKeyword */) {
+                nextToken();
+                return canFollowModifier();
+            }
             nextToken();
+            if (scanner.hasPrecedingLineBreak()) {
+                return false;
+            }
             return canFollowModifier();
         }
         function parseAnyContextualModifier() {
@@ -10846,8 +10853,12 @@ var ts;
                     case 123 /* ModuleKeyword */:
                     case 124 /* NamespaceKeyword */:
                         return nextTokenIsIdentifierOrStringLiteralOnSameLine();
+                    case 113 /* AbstractKeyword */:
                     case 116 /* AsyncKeyword */:
                     case 120 /* DeclareKeyword */:
+                    case 108 /* PrivateKeyword */:
+                    case 109 /* ProtectedKeyword */:
+                    case 110 /* PublicKeyword */:
                         nextToken();
                         // ASI takes effect for this modifier.
                         if (scanner.hasPrecedingLineBreak()) {
@@ -10865,11 +10876,7 @@ var ts;
                             return true;
                         }
                         continue;
-                    case 110 /* PublicKeyword */:
-                    case 108 /* PrivateKeyword */:
-                    case 109 /* ProtectedKeyword */:
                     case 111 /* StaticKeyword */:
-                    case 113 /* AbstractKeyword */:
                         nextToken();
                         continue;
                     default:
@@ -15805,8 +15812,8 @@ var ts;
                 members = createInstantiatedSymbolTable(source.declaredProperties, mapper, /*mappingThisOnly*/ typeParameters.length === 1);
                 callSignatures = instantiateList(source.declaredCallSignatures, mapper, instantiateSignature);
                 constructSignatures = instantiateList(source.declaredConstructSignatures, mapper, instantiateSignature);
-                stringIndexType = source.declaredStringIndexType ? instantiateType(source.declaredStringIndexType, mapper) : undefined;
-                numberIndexType = source.declaredNumberIndexType ? instantiateType(source.declaredNumberIndexType, mapper) : undefined;
+                stringIndexType = instantiateType(source.declaredStringIndexType, mapper);
+                numberIndexType = instantiateType(source.declaredNumberIndexType, mapper);
             }
             var baseTypes = getBaseTypes(source);
             if (baseTypes.length) {
@@ -16001,7 +16008,14 @@ var ts;
             var constructSignatures;
             var stringIndexType;
             var numberIndexType;
-            if (symbol.flags & 2048 /* TypeLiteral */) {
+            if (type.target) {
+                members = createInstantiatedSymbolTable(getPropertiesOfObjectType(type.target), type.mapper, /*mappingThisOnly*/ false);
+                callSignatures = instantiateList(getSignaturesOfType(type.target, 0 /* Call */), type.mapper, instantiateSignature);
+                constructSignatures = instantiateList(getSignaturesOfType(type.target, 1 /* Construct */), type.mapper, instantiateSignature);
+                stringIndexType = instantiateType(getIndexTypeOfType(type.target, 0 /* String */), type.mapper);
+                numberIndexType = instantiateType(getIndexTypeOfType(type.target, 1 /* Number */), type.mapper);
+            }
+            else if (symbol.flags & 2048 /* TypeLiteral */) {
                 members = symbol.members;
                 callSignatures = getSignaturesOfSymbol(members["__call"]);
                 constructSignatures = getSignaturesOfSymbol(members["__new"]);
@@ -17076,7 +17090,7 @@ var ts;
                     type: instantiateType(signature.typePredicate.type, mapper)
                 };
             }
-            var result = createSignature(signature.declaration, freshTypeParameters, instantiateList(signature.parameters, mapper, instantiateSymbol), signature.resolvedReturnType ? instantiateType(signature.resolvedReturnType, mapper) : undefined, freshTypePredicate, signature.minArgumentCount, signature.hasRestParameter, signature.hasStringLiterals);
+            var result = createSignature(signature.declaration, freshTypeParameters, instantiateList(signature.parameters, mapper, instantiateSymbol), instantiateType(signature.resolvedReturnType, mapper), freshTypePredicate, signature.minArgumentCount, signature.hasRestParameter, signature.hasStringLiterals);
             result.target = signature;
             result.mapper = mapper;
             return result;
@@ -17114,21 +17128,13 @@ var ts;
             }
             // Mark the anonymous type as instantiated such that our infinite instantiation detection logic can recognize it
             var result = createObjectType(65536 /* Anonymous */ | 131072 /* Instantiated */, type.symbol);
-            result.properties = instantiateList(getPropertiesOfObjectType(type), mapper, instantiateSymbol);
-            result.members = createSymbolTable(result.properties);
-            result.callSignatures = instantiateList(getSignaturesOfType(type, 0 /* Call */), mapper, instantiateSignature);
-            result.constructSignatures = instantiateList(getSignaturesOfType(type, 1 /* Construct */), mapper, instantiateSignature);
-            var stringIndexType = getIndexTypeOfType(type, 0 /* String */);
-            var numberIndexType = getIndexTypeOfType(type, 1 /* Number */);
-            if (stringIndexType)
-                result.stringIndexType = instantiateType(stringIndexType, mapper);
-            if (numberIndexType)
-                result.numberIndexType = instantiateType(numberIndexType, mapper);
+            result.target = type;
+            result.mapper = mapper;
             mapper.instantiations[type.id] = result;
             return result;
         }
         function instantiateType(type, mapper) {
-            if (mapper !== identityMapper) {
+            if (type && mapper !== identityMapper) {
                 if (type.flags & 512 /* TypeParameter */) {
                     return mapper(type);
                 }
@@ -19921,7 +19927,9 @@ var ts;
                 // Look up the value in the current scope
                 if (valueSymbol && valueSymbol !== unknownSymbol) {
                     links.jsxFlags |= 4 /* ClassElement */;
-                    getSymbolLinks(valueSymbol).referenced = true;
+                    if (valueSymbol.flags & 8388608 /* Alias */) {
+                        markAliasSymbolAsReferenced(valueSymbol);
+                    }
                 }
                 return valueSymbol || unknownSymbol;
             }
@@ -35157,7 +35165,7 @@ var ts;
                 writeLine();
                 write("}"); // execute
             }
-            function emitSystemModule(node, startIndex) {
+            function emitSystemModule(node) {
                 collectExternalModuleInfo(node);
                 // System modules has the following shape
                 // System.register(['dep-1', ... 'dep-n'], function(exports) {/* module body function */})
@@ -35198,6 +35206,7 @@ var ts;
                 write("], function(" + exportFunctionForFile + ") {");
                 writeLine();
                 increaseIndent();
+                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true);
                 emitEmitHelpers(node);
                 emitCaptureThisForNodeIfNecessary(node);
                 emitSystemModuleBody(node, dependencyGroups, startIndex);
@@ -35279,7 +35288,7 @@ var ts;
                 }
                 write(") {");
             }
-            function emitAMDModule(node, startIndex) {
+            function emitAMDModule(node) {
                 emitEmitHelpers(node);
                 collectExternalModuleInfo(node);
                 writeLine();
@@ -35289,6 +35298,7 @@ var ts;
                 }
                 emitAMDDependencies(node, /*includeNonAmdDependencies*/ true);
                 increaseIndent();
+                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true);
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);
@@ -35298,7 +35308,8 @@ var ts;
                 writeLine();
                 write("});");
             }
-            function emitCommonJSModule(node, startIndex) {
+            function emitCommonJSModule(node) {
+                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                 emitEmitHelpers(node);
                 collectExternalModuleInfo(node);
                 emitExportStarHelper();
@@ -35307,7 +35318,7 @@ var ts;
                 emitTempDeclarations(/*newLine*/ true);
                 emitExportEquals(/*emitAsReturn*/ false);
             }
-            function emitUMDModule(node, startIndex) {
+            function emitUMDModule(node) {
                 emitEmitHelpers(node);
                 collectExternalModuleInfo(node);
                 var dependencyNames = getAMDDependencyNames(node, /*includeNonAmdDependencies*/ false);
@@ -35318,6 +35329,7 @@ var ts;
                 writeLines("    }\n})(");
                 emitAMDFactoryHeader(dependencyNames);
                 increaseIndent();
+                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true);
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);
@@ -35327,11 +35339,12 @@ var ts;
                 writeLine();
                 write("});");
             }
-            function emitES6Module(node, startIndex) {
+            function emitES6Module(node) {
                 externalImports = undefined;
                 exportSpecifiers = undefined;
                 exportEquals = undefined;
                 hasExportStars = false;
+                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                 emitEmitHelpers(node);
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);
@@ -35501,13 +35514,13 @@ var ts;
                 writeLine();
                 emitShebang();
                 emitDetachedComments(node);
-                // emit prologue directives prior to __extends
-                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                 if (ts.isExternalModule(node) || compilerOptions.isolatedModules) {
                     var emitModule = moduleEmitDelegates[modulekind] || moduleEmitDelegates[1 /* CommonJS */];
-                    emitModule(node, startIndex);
+                    emitModule(node);
                 }
                 else {
+                    // emit prologue directives prior to __extends
+                    var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                     externalImports = undefined;
                     exportSpecifiers = undefined;
                     exportEquals = undefined;
@@ -40657,6 +40670,8 @@ var ts;
                 this.SpaceBetweenAsyncAndFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(116 /* AsyncKeyword */, 85 /* FunctionKeyword */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 // template string
                 this.SpaceBetweenTagAndTemplateString = new formatting.Rule(formatting.RuleDescriptor.create3(67 /* Identifier */, formatting.Shared.TokenRange.FromTokens([11 /* NoSubstitutionTemplateLiteral */, 12 /* TemplateHead */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.NoSpaceAfterTemplateHeadAndMiddle = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([12 /* TemplateHead */, 13 /* TemplateMiddle */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                this.NoSpaceBeforeTemplateMiddleAndTail = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([13 /* TemplateMiddle */, 14 /* TemplateTail */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 // These rules are higher in priority than user-configurable rules.
                 this.HighPriorityCommonRules =
                     [
@@ -40684,7 +40699,7 @@ var ts;
                         this.SpaceBeforeBinaryKeywordOperator, this.SpaceAfterBinaryKeywordOperator,
                         this.SpaceAfterVoidOperator,
                         this.SpaceBetweenAsyncAndFunctionKeyword,
-                        this.SpaceBetweenTagAndTemplateString,
+                        this.SpaceBetweenTagAndTemplateString, this.NoSpaceAfterTemplateHeadAndMiddle, this.NoSpaceBeforeTemplateMiddleAndTail,
                         // TypeScript-specific rules
                         this.NoSpaceAfterConstructor, this.NoSpaceAfterModuleImport,
                         this.SpaceAfterCertainTypeScriptKeywords, this.SpaceBeforeCertainTypeScriptKeywords,
@@ -45383,14 +45398,20 @@ var ts;
                 }
                 // Previous token may have been a keyword that was converted to an identifier.
                 switch (contextToken.getText()) {
+                    case "abstract":
+                    case "async":
                     case "class":
-                    case "interface":
+                    case "const":
+                    case "declare":
                     case "enum":
                     case "function":
-                    case "var":
-                    case "static":
+                    case "interface":
                     case "let":
-                    case "const":
+                    case "private":
+                    case "protected":
+                    case "public":
+                    case "static":
+                    case "var":
                     case "yield":
                         return true;
                 }
