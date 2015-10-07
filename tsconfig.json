@@ -15,9 +15,9 @@
         "./**/*.ts",
         "./**/*.tsx",
         "!./bin/**/*",
-        "!./TypeScript/**/*",
-        "!./node_modules/**/*",
-        "!./tests/grunt/**/*.ts"
+        "!./TypeScript/**",
+        "!./node_modules/**",
+        "!./tests/grunt/**"
     ],
     "files": [
         "./extensions/addExtensions.ts",
