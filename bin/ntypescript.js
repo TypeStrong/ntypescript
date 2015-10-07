@@ -17735,7 +17735,7 @@ var ts;
                 if (kind === 1 /* Construct */) {
                     // Only want to compare the construct signatures for abstractness guarantees.
                     // Because the "abstractness" of a class is the same across all construct signatures
-                    // (internally we are checking the corresponding declaration), it is enough to perform 
+                    // (internally we are checking the corresponding declaration), it is enough to perform
                     // the check and report an error once over all pairs of source and target construct signatures.
                     //
                     // sourceSig and targetSig are (possibly) undefined.
@@ -19029,7 +19029,7 @@ var ts;
             var container = ts.getSuperContainer(node, /*includeFunctions*/ true);
             var needToCaptureLexicalThis = false;
             if (!isCallExpression) {
-                // adjust the container reference in case if super is used inside arrow functions with arbitrary deep nesting                                    
+                // adjust the container reference in case if super is used inside arrow functions with arbitrary deep nesting
                 while (container && container.kind === 172 /* ArrowFunction */) {
                     container = ts.getSuperContainer(container, /*includeFunctions*/ true);
                     needToCaptureLexicalThis = languageVersion < 2 /* ES6 */;
@@ -19037,7 +19037,7 @@ var ts;
             }
             var canUseSuperExpression = isLegalUsageOfSuperExpression(container);
             var nodeCheckFlag = 0;
-            // always set NodeCheckFlags for 'super' expression node            
+            // always set NodeCheckFlags for 'super' expression node
             if (canUseSuperExpression) {
                 if ((container.flags & 128 /* Static */) || isCallExpression) {
                     nodeCheckFlag = 512 /* SuperStatic */;
@@ -20740,7 +20740,7 @@ var ts;
                     case 144 /* SetAccessor */:
                         // A method or accessor declaration decorator will have two or three arguments (see
                         // `PropertyDecorator` and `MethodDecorator` in core.d.ts)
-                        // If we are emitting decorators for ES3, we will only pass two arguments. 
+                        // If we are emitting decorators for ES3, we will only pass two arguments.
                         if (languageVersion === 0 /* ES3 */) {
                             return 2;
                         }
@@ -23187,7 +23187,8 @@ var ts;
             }
         }
         function checkNonThenableType(type, location, message) {
-            if (!(type.flags & 1 /* Any */) && isTypeAssignableTo(type, getGlobalThenableType())) {
+            type = getWidenedType(type);
+            if (!isTypeAny(type) && isTypeAssignableTo(type, getGlobalThenableType())) {
                 if (location) {
                     if (!message) {
                         message = ts.Diagnostics.Operand_for_await_does_not_have_a_valid_callable_then_member;
@@ -24261,7 +24262,12 @@ var ts;
                         if (ts.isAsyncFunctionLike(func)) {
                             var promisedType = getPromisedType(returnType);
                             var awaitedType = checkAwaitedType(exprType, node.expression, ts.Diagnostics.Return_expression_in_async_function_does_not_have_a_valid_callable_then_member);
-                            checkTypeAssignableTo(awaitedType, promisedType, node.expression);
+                            if (promisedType) {
+                                // If the function has a return type, but promisedType is
+                                // undefined, an error will be reported in checkAsyncFunctionReturnType
+                                // so we don't need to report one here.
+                                checkTypeAssignableTo(awaitedType, promisedType, node.expression);
+                            }
                         }
                         else {
                             checkTypeAssignableTo(exprType, returnType, node.expression);
@@ -24795,13 +24801,13 @@ var ts;
                         autoValue = computeConstantValueForEnumMemberInitializer(initializer, enumType, enumIsConst, ambient);
                     }
                     else if (ambient && !enumIsConst) {
-                        // In ambient enum declarations that specify no const modifier, enum member declarations 
+                        // In ambient enum declarations that specify no const modifier, enum member declarations
                         // that omit a value are considered computed members (as opposed to having auto-incremented values assigned).
                         autoValue = undefined;
                     }
                     else if (previousEnumMemberIsNonConstant) {
-                        // If the member declaration specifies no value, the member is considered a constant enum member. 
-                        // If the member is the first member in the enum declaration, it is assigned the value zero. 
+                        // If the member declaration specifies no value, the member is considered a constant enum member.
+                        // If the member is the first member in the enum declaration, it is assigned the value zero.
                         // Otherwise, it is assigned the value of the immediately preceding member plus one,
                         // and an error occurs if the immediately preceding member is not a constant enum member
                         error(member.name, ts.Diagnostics.Enum_member_must_have_initializer);
@@ -25657,7 +25663,7 @@ var ts;
                         case 212 /* ClassDeclaration */:
                         case 213 /* InterfaceDeclaration */:
                             // If we didn't come from static member of class or interface,
-                            // add the type parameters into the symbol table 
+                            // add the type parameters into the symbol table
                             // (type parameters of classDeclaration/classExpression and interface are in member property of the symbol.
                             // Note: that the memberFlags come from previous iteration.
                             if (!(memberFlags & 128 /* Static */)) {
@@ -26239,23 +26245,6 @@ var ts;
             var symbol = getReferencedValueSymbol(reference);
             return symbol && getExportSymbolOfValueSymbolIfExported(symbol).valueDeclaration;
         }
-        function getBlockScopedVariableId(n) {
-            ts.Debug.assert(!ts.nodeIsSynthesized(n));
-            var isVariableDeclarationOrBindingElement = n.parent.kind === 161 /* BindingElement */ || (n.parent.kind === 209 /* VariableDeclaration */ && n.parent.name === n);
-            var symbol = (isVariableDeclarationOrBindingElement ? getSymbolOfNode(n.parent) : undefined) ||
-                getNodeLinks(n).resolvedSymbol ||
-                resolveName(n, n.text, 107455 /* Value */ | 8388608 /* Alias */, /*nodeNotFoundMessage*/ undefined, /*nameArg*/ undefined);
-            var isLetOrConst = symbol &&
-                (symbol.flags & 2 /* BlockScopedVariable */) &&
-                symbol.valueDeclaration.parent.kind !== 242 /* CatchClause */;
-            if (isLetOrConst) {
-                // side-effect of calling this method:
-                //   assign id to symbol if it was not yet set
-                getSymbolLinks(symbol);
-                return symbol.id;
-            }
-            return undefined;
-        }
         function instantiateSingleCallFunctionType(functionType, typeArguments) {
             if (functionType === unknownType) {
                 return unknownType;
@@ -26287,7 +26276,6 @@ var ts;
                 isEntityNameVisible: isEntityNameVisible,
                 getConstantValue: getConstantValue,
                 collectLinkedAliases: collectLinkedAliases,
-                getBlockScopedVariableId: getBlockScopedVariableId,
                 getReferencedValueDeclaration: getReferencedValueDeclaration,
                 getTypeReferenceSerializationKind: getTypeReferenceSerializationKind,
                 isOptionalParameter: isOptionalParameter
@@ -27780,6 +27768,9 @@ var ts;
                             }
                             if (opt.isFilePath) {
                                 value = ts.normalizePath(ts.combinePaths(basePath, value));
+                                if (value === "") {
+                                    value = ".";
+                                }
                             }
                             options[opt.name] = value;
                         }
@@ -33538,8 +33529,8 @@ var ts;
                 write("class");
                 // emit name if
                 // - node has a name
-                // - this is default export and target is not ES6 (for ES6 `export default` does not need to be compiled downlevel)                
-                if ((node.name || (node.flags & 1024 /* Default */ && languageVersion < 2 /* ES6 */)) && !thisNodeIsDecorated) {
+                // - this is default export with static initializers
+                if ((node.name || (node.flags & 1024 /* Default */ && staticProperties.length > 0)) && !thisNodeIsDecorated) {
                     write(" ");
                     emitDeclarationName(node);
                 }
@@ -35585,7 +35576,7 @@ var ts;
                         // emitting the module as well.
                         return shouldEmitEnumDeclaration(node);
                 }
-                // If the node is emitted in specialized fashion, dont emit comments as this node will handle 
+                // If the node is emitted in specialized fashion, dont emit comments as this node will handle
                 // emitting comments when emitting itself
                 ts.Debug.assert(!isSpecializedCommentHandling(node));
                 // If this is the expression body of an arrow function that we're down-leveling,
