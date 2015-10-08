@@ -20351,6 +20351,7 @@ var ts;
         }
         /**
          * If indexArgumentExpression is a string literal or number literal, returns its text.
+         * If indexArgumentExpression is a constant value, returns its string value.
          * If indexArgumentExpression is a well known symbol, returns the property name corresponding
          *    to this symbol, as long as it is a proper symbol reference.
          * Otherwise, returns undefined.
@@ -20358,6 +20359,12 @@ var ts;
         function getPropertyNameForIndexedAccess(indexArgumentExpression, indexArgumentType) {
             if (indexArgumentExpression.kind === 9 /* StringLiteral */ || indexArgumentExpression.kind === 8 /* NumericLiteral */) {
                 return indexArgumentExpression.text;
+            }
+            if (indexArgumentExpression.kind === 165 /* ElementAccessExpression */ || indexArgumentExpression.kind === 164 /* PropertyAccessExpression */) {
+                var value = getConstantValue(indexArgumentExpression);
+                if (value !== undefined) {
+                    return value.toString();
+                }
             }
             if (checkThatExpressionIsProperSymbolReference(indexArgumentExpression, indexArgumentType, /*reportError*/ false)) {
                 var rightHandSideName = indexArgumentExpression.name.text;
@@ -32617,7 +32624,7 @@ var ts;
                         write(";");
                     }
                 }
-                if (languageVersion < 2 /* ES6 */ && node.parent === currentSourceFile) {
+                if (modulekind !== 5 /* ES6 */ && node.parent === currentSourceFile) {
                     ts.forEach(node.declarationList.declarations, emitExportVariableAssignments);
                 }
             }
@@ -32821,7 +32828,7 @@ var ts;
                     emitDeclarationName(node);
                 }
                 emitSignatureAndBody(node);
-                if (languageVersion < 2 /* ES6 */ && node.kind === 211 /* FunctionDeclaration */ && node.parent === currentSourceFile && node.name) {
+                if (modulekind !== 5 /* ES6 */ && node.kind === 211 /* FunctionDeclaration */ && node.parent === currentSourceFile && node.name) {
                     emitExportMemberAssignments(node.name);
                 }
                 emitEnd(node);
@@ -33437,6 +33444,9 @@ var ts;
                 else {
                     emitClassLikeDeclarationForES6AndHigher(node);
                 }
+                if (modulekind !== 5 /* ES6 */ && node.parent === currentSourceFile && node.name) {
+                    emitExportMemberAssignments(node.name);
+                }
             }
             function emitClassLikeDeclarationForES6AndHigher(node) {
                 var thisNodeIsDecorated = ts.nodeIsDecorated(node);
@@ -33668,9 +33678,6 @@ var ts;
                 emitEnd(node);
                 if (node.kind === 212 /* ClassDeclaration */) {
                     emitExportMemberAssignment(node);
-                }
-                if (languageVersion < 2 /* ES6 */ && node.parent === currentSourceFile && node.name) {
-                    emitExportMemberAssignments(node.name);
                 }
             }
             function emitClassMemberPrefix(node, member) {
@@ -34171,7 +34178,7 @@ var ts;
                     emitEnd(node);
                     write(";");
                 }
-                if (languageVersion < 2 /* ES6 */ && node.parent === currentSourceFile) {
+                if (modulekind !== 5 /* ES6 */ && node.parent === currentSourceFile) {
                     if (modulekind === 4 /* System */ && (node.flags & 1 /* Export */)) {
                         // write the call to exporter for enum
                         writeLine();
@@ -43775,8 +43782,8 @@ var ts;
         // We are not doing a full typecheck, we are not resolving the whole context,
         // so pass --noResolve to avoid reporting missing file errors.
         options.noResolve = true;
-        // Parse
-        var inputFileName = transpileOptions.fileName || "module.ts";
+        // if jsx is specified then treat file as .tsx
+        var inputFileName = transpileOptions.fileName || (options.jsx ? "module.tsx" : "module.ts");
         var sourceFile = ts.createSourceFile(inputFileName, input, options.target);
         if (transpileOptions.moduleName) {
             sourceFile.moduleName = transpileOptions.moduleName;

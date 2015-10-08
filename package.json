@@ -1,6 +1,6 @@
 {
   "name": "ntypescript",
-  "version": "1.201510072310.1+738b26f065a4d859c19b4c417b359baf1d74900a",
+  "version": "1.201510082310.1+350bb1f315a240237b7cb636c4218c59b0e45319",
   "description": "A naughty version of microsoft/typescript packaged and released",
   "main": "./bin/ntypescript.js",
   "bin": {

@@ -5108,7 +5108,7 @@ declare var CanvasPattern: {
 
 interface CanvasRenderingContext2D {
     canvas: HTMLCanvasElement;
-    fillStyle: any;
+    fillStyle: string | CanvasGradient | CanvasPattern;
     font: string;
     globalAlpha: number;
     globalCompositeOperation: string;
@@ -5123,7 +5123,7 @@ interface CanvasRenderingContext2D {
     shadowColor: string;
     shadowOffsetX: number;
     shadowOffsetY: number;
-    strokeStyle: any;
+    strokeStyle: string | CanvasGradient | CanvasPattern;
     textAlign: string;
     textBaseline: string;
     arc(x: number, y: number, radius: number, startAngle: number, endAngle: number, anticlockwise?: boolean): void;
@@ -12661,7 +12661,6 @@ declare var SVGDescElement: {
 
 interface SVGElement extends Element {
     id: string;
-    className: any;
     onclick: (ev: MouseEvent) => any;
     ondblclick: (ev: MouseEvent) => any;
     onfocusin: (ev: FocusEvent) => any;
@@ -12675,6 +12674,7 @@ interface SVGElement extends Element {
     ownerSVGElement: SVGSVGElement;
     viewportElement: SVGElement;
     xmlbase: string;
+    className: any;
     addEventListener(type: "MSGestureChange", listener: (ev: MSGestureEvent) => any, useCapture?: boolean): void;
     addEventListener(type: "MSGestureDoubleTap", listener: (ev: MSGestureEvent) => any, useCapture?: boolean): void;
     addEventListener(type: "MSGestureEnd", listener: (ev: MSGestureEvent) => any, useCapture?: boolean): void;
@@ -16550,7 +16550,6 @@ interface XMLHttpRequestEventTarget {
     addEventListener(type: string, listener: EventListenerOrEventListenerObject, useCapture?: boolean): void;
 }
 
-
 interface NodeListOf<TNode extends Node> extends NodeList {
     length: number;
     item(index: number): TNode;
@@ -16571,8 +16570,6 @@ interface EventListenerObject {
     handleEvent(evt: Event): void;
 }
 
-declare type EventListenerOrEventListenerObject = EventListener | EventListenerObject;
-
 interface MessageEventInit extends EventInit {
     data?: any;
     origin?: string;
@@ -16587,6 +16584,8 @@ interface ProgressEventInit extends EventInit {
     loaded?: number;
     total?: number;
 }
+
+declare type EventListenerOrEventListenerObject = EventListener | EventListenerObject;
 
 interface ErrorEventHandler {
     (message: string, filename?: string, lineno?: number, colno?: number, error?:Error): void;
