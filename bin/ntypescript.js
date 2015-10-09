@@ -42326,6 +42326,11 @@ var ts;
                 if (position > sourceFile.text.length) {
                     return 0; // past EOF
                 }
+                // no indentation when the indent style is set to none,
+                // so we can return fast
+                if (options.IndentStyle === ts.IndentStyle.None) {
+                    return 0;
+                }
                 var precedingToken = ts.findPrecedingToken(position, sourceFile);
                 if (!precedingToken) {
                     return 0;
@@ -42336,6 +42341,23 @@ var ts;
                     return 0;
                 }
                 var lineAtPosition = sourceFile.getLineAndCharacterOfPosition(position).line;
+                // indentation is first non-whitespace character in a previous line
+                // for block indentation, we should look for a line which contains something that's not
+                // whitespace.
+                if (options.IndentStyle === ts.IndentStyle.Block) {
+                    // move backwards until we find a line with a non-whitespace character,
+                    // then find the first non-whitespace character for that line.
+                    var current_1 = position;
+                    while (current_1 > 0) {
+                        var char = sourceFile.text.charCodeAt(current_1);
+                        if (!ts.isWhiteSpace(char) && !ts.isLineBreak(char)) {
+                            break;
+                        }
+                        current_1--;
+                    }
+                    var lineStart = ts.getLineStartPositionForPosition(current_1, sourceFile);
+                    return SmartIndenter.findFirstNonWhitespaceColumn(lineStart, current_1, sourceFile, options);
+                }
                 if (precedingToken.kind === 24 /* CommaToken */ && precedingToken.parent.kind !== 179 /* BinaryExpression */) {
                     // previous token is comma that separates items in list - find the previous item and try to derive indentation from it
                     var actualIndentation = getActualIndentationForListItemBeforeComma(precedingToken, sourceFile, options);
@@ -43466,6 +43488,12 @@ var ts;
         HighlightSpanKind.reference = "reference";
         HighlightSpanKind.writtenReference = "writtenReference";
     })(HighlightSpanKind = ts.HighlightSpanKind || (ts.HighlightSpanKind = {}));
+    (function (IndentStyle) {
+        IndentStyle[IndentStyle["None"] = 0] = "None";
+        IndentStyle[IndentStyle["Block"] = 1] = "Block";
+        IndentStyle[IndentStyle["Smart"] = 2] = "Smart";
+    })(ts.IndentStyle || (ts.IndentStyle = {}));
+    var IndentStyle = ts.IndentStyle;
     (function (SymbolDisplayPartKind) {
         SymbolDisplayPartKind[SymbolDisplayPartKind["aliasName"] = 0] = "aliasName";
         SymbolDisplayPartKind[SymbolDisplayPartKind["className"] = 1] = "className";
