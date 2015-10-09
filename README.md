@@ -2,16 +2,16 @@
 
 [![BuildStatus](https://travis-ci.org/TypeStrong/ntypescript.svg)](https://travis-ci.org/TypeStrong/ntypescript)
 
-**Naughty** [**TypeScript**](https://github.com/Microsoft/TypeScript). Main motivation is to make it easier to work with the compiler API. Kudos to the TypeScript team for maintaining all the code that this project depends on. This project is just a minor automation on top.
+**Nicer** [**TypeScript**](https://github.com/Microsoft/TypeScript). Main motivation is to make it easier to work with the compiler API. Kudos to the TypeScript team for maintaining all the code that this project depends on. This project is just a minor automation on top.
 
-Naughty list:
+Niceness list:
 
 * Releases everyday.
 * Consistent side by side usage (just add an `n` prefix): `require('ntypescript')`, `ntsc`
 * `package.json` links you to typescript definitions (using `typescript.definition` entry)
-* Super Naughty: We expose the internal APIs (the ones that have `/* internal */`)
-* Super Naughty: We expose the global `ts` variable. Just `require('ntypescript')` once and start using `ts` like you are in the actual compiler source code.
-* Super Naughty: Converts `const enum` in the compiler definition to `enum`. This decreases the typescript compiler version dependence on your dev tools TS->JS emit.
+* Super Nice: We expose the internal APIs (the ones that have `/* internal */`)
+* Super Nice: We expose the global `ts` variable. Just `require('ntypescript')` once and start using `ts` like you are in the actual compiler source code.
+* Super Nice: Converts `const enum` in the compiler definition to `enum`. This decreases the typescript compiler version dependence on your dev tools TS->JS emit.
 * Easier to muck around with the compiler / language service when installed from NPM. Just open any file from `node_modules/ntypescript/src` folder in atom-typescript and press `f6` to get a new *local* rebuild.
 
 Design incompatibilities:
