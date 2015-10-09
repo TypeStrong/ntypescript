@@ -3981,6 +3981,11 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        A_module_cannot_have_multiple_default_exports: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         JSX_element_attributes_type_0_must_be_an_object_type: {
             code: number;
             category: DiagnosticCategory;

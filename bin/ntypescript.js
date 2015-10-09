@@ -1988,6 +1988,7 @@ var ts;
         Initializer_provides_no_value_for_this_binding_element_and_the_binding_element_has_no_default_value: { code: 2525, category: ts.DiagnosticCategory.Error, key: "Initializer provides no value for this binding element and the binding element has no default value." },
         A_this_type_is_available_only_in_a_non_static_member_of_a_class_or_interface: { code: 2526, category: ts.DiagnosticCategory.Error, key: "A 'this' type is available only in a non-static member of a class or interface." },
         The_inferred_type_of_0_references_an_inaccessible_this_type_A_type_annotation_is_necessary: { code: 2527, category: ts.DiagnosticCategory.Error, key: "The inferred type of '{0}' references an inaccessible 'this' type. A type annotation is necessary." },
+        A_module_cannot_have_multiple_default_exports: { code: 2528, category: ts.DiagnosticCategory.Error, key: "A module cannot have multiple default exports." },
         JSX_element_attributes_type_0_must_be_an_object_type: { code: 2600, category: ts.DiagnosticCategory.Error, key: "JSX element attributes type '{0}' must be an object type." },
         The_return_type_of_a_JSX_element_constructor_must_return_an_object_type: { code: 2601, category: ts.DiagnosticCategory.Error, key: "The return type of a JSX element constructor must return an object type." },
         JSX_element_implicitly_has_type_any_because_the_global_type_JSX_Element_does_not_exist: { code: 2602, category: ts.DiagnosticCategory.Error, key: "JSX element implicitly has type 'any' because the global type 'JSX.Element' does not exist." },
@@ -3861,8 +3862,9 @@ var ts;
          */
         function declareSymbol(symbolTable, parent, node, includes, excludes) {
             ts.Debug.assert(!ts.hasDynamicName(node));
+            var isDefaultExport = node.flags & 1024 /* Default */;
             // The exported symbol for an export default function/class node is always named "default"
-            var name = node.flags & 1024 /* Default */ && parent ? "default" : getDeclarationName(node);
+            var name = isDefaultExport && parent ? "default" : getDeclarationName(node);
             var symbol;
             if (name !== undefined) {
                 // Check and see if the symbol table already has a symbol with this name.  If not,
@@ -3898,6 +3900,11 @@ var ts;
                     var message = symbol.flags & 2 /* BlockScopedVariable */
                         ? ts.Diagnostics.Cannot_redeclare_block_scoped_variable_0
                         : ts.Diagnostics.Duplicate_identifier_0;
+                    ts.forEach(symbol.declarations, function (declaration) {
+                        if (declaration.flags & 1024 /* Default */) {
+                            message = ts.Diagnostics.A_module_cannot_have_multiple_default_exports;
+                        }
+                    });
                     ts.forEach(symbol.declarations, function (declaration) {
                         file.bindDiagnostics.push(ts.createDiagnosticForNode(declaration.name || declaration, message, getDisplayName(declaration)));
                     });
@@ -21788,7 +21795,7 @@ var ts;
                         return !symbol || symbol === unknownSymbol || (symbol.flags & ~8 /* EnumMember */) !== 0;
                     }
                     case 165 /* ElementAccessExpression */:
-                        //  old compiler doesn't check indexed assess
+                        //  old compiler doesn't check indexed access
                         return true;
                     case 170 /* ParenthesizedExpression */:
                         return isReferenceOrErrorExpression(n.expression);
