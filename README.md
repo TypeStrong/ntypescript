@@ -1,7 +1,7 @@
 # NTypeScript
 
-[![BuildStatus](https://travis-ci.org/TypeStrong/ntypescript.svg)](https://travis-ci.org/TypeStrong/ntypescript)
 [![Downloads](http://img.shields.io/npm/dm/ntypescript.svg)](https://npmjs.org/package/ntypescript)
+[![BuildStatus](https://travis-ci.org/TypeStrong/ntypescript.svg)](https://travis-ci.org/TypeStrong/ntypescript)
 
 **Nicer** [**TypeScript**](https://github.com/Microsoft/TypeScript), **making it easier to work with the compiler API** 🌹
 
