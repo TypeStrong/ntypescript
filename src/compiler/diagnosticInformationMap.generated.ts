@@ -203,6 +203,7 @@ namespace ts {
         with_statements_are_not_allowed_in_an_async_function_block: { code: 1300, category: DiagnosticCategory.Error, key: "'with' statements are not allowed in an async function block." },
         await_expression_is_only_allowed_within_an_async_function: { code: 1308, category: DiagnosticCategory.Error, key: "'await' expression is only allowed within an async function." },
         Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: { code: 1311, category: DiagnosticCategory.Error, key: "Async functions are only available when targeting ECMAScript 6 and higher." },
+        can_only_be_used_in_an_object_literal_property_inside_a_destructuring_assignment: { code: 1312, category: DiagnosticCategory.Error, key: "'=' can only be used in an object literal property inside a destructuring assignment." },
         Duplicate_identifier_0: { code: 2300, category: DiagnosticCategory.Error, key: "Duplicate identifier '{0}'." },
         Initializer_of_instance_member_variable_0_cannot_reference_identifier_1_declared_in_the_constructor: { code: 2301, category: DiagnosticCategory.Error, key: "Initializer of instance member variable '{0}' cannot reference identifier '{1}' declared in the constructor." },
         Static_members_cannot_reference_class_type_parameters: { code: 2302, category: DiagnosticCategory.Error, key: "Static members cannot reference class type parameters." },

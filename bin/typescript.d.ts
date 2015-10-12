@@ -449,6 +449,8 @@ declare namespace ts {
     interface ShorthandPropertyAssignment extends ObjectLiteralElement {
         name: Identifier;
         questionToken?: Node;
+        equalsToken?: Node;
+        objectAssignmentInitializer?: Expression;
     }
     interface VariableLikeDeclaration extends Declaration {
         propertyName?: Identifier;
@@ -2907,6 +2909,11 @@ declare namespace ts {
             key: string;
         };
         Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
+        can_only_be_used_in_an_object_literal_property_inside_a_destructuring_assignment: {
             code: number;
             category: DiagnosticCategory;
             key: string;

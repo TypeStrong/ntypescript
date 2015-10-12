@@ -1774,6 +1774,7 @@ var ts;
         with_statements_are_not_allowed_in_an_async_function_block: { code: 1300, category: ts.DiagnosticCategory.Error, key: "'with' statements are not allowed in an async function block." },
         await_expression_is_only_allowed_within_an_async_function: { code: 1308, category: ts.DiagnosticCategory.Error, key: "'await' expression is only allowed within an async function." },
         Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: { code: 1311, category: ts.DiagnosticCategory.Error, key: "Async functions are only available when targeting ECMAScript 6 and higher." },
+        can_only_be_used_in_an_object_literal_property_inside_a_destructuring_assignment: { code: 1312, category: ts.DiagnosticCategory.Error, key: "'=' can only be used in an object literal property inside a destructuring assignment." },
         Duplicate_identifier_0: { code: 2300, category: ts.DiagnosticCategory.Error, key: "Duplicate identifier '{0}'." },
         Initializer_of_instance_member_variable_0_cannot_reference_identifier_1_declared_in_the_constructor: { code: 2301, category: ts.DiagnosticCategory.Error, key: "Initializer of instance member variable '{0}' cannot reference identifier '{1}' declared in the constructor." },
         Static_members_cannot_reference_class_type_parameters: { code: 2302, category: ts.DiagnosticCategory.Error, key: "Static members cannot reference class type parameters." },
@@ -7260,11 +7261,17 @@ var ts;
                 return visitNode(cbNode, node.name) ||
                     visitNode(cbNode, node.constraint) ||
                     visitNode(cbNode, node.expression);
+            case 244 /* ShorthandPropertyAssignment */:
+                return visitNodes(cbNodes, node.decorators) ||
+                    visitNodes(cbNodes, node.modifiers) ||
+                    visitNode(cbNode, node.name) ||
+                    visitNode(cbNode, node.questionToken) ||
+                    visitNode(cbNode, node.equalsToken) ||
+                    visitNode(cbNode, node.objectAssignmentInitializer);
             case 136 /* Parameter */:
             case 139 /* PropertyDeclaration */:
             case 138 /* PropertySignature */:
             case 243 /* PropertyAssignment */:
-            case 244 /* ShorthandPropertyAssignment */:
             case 209 /* VariableDeclaration */:
             case 161 /* BindingElement */:
                 return visitNodes(cbNodes, node.decorators) ||
@@ -10508,11 +10515,21 @@ var ts;
             if (asteriskToken || token === 17 /* OpenParenToken */ || token === 25 /* LessThanToken */) {
                 return parseMethodDeclaration(fullStart, decorators, modifiers, asteriskToken, propertyName, questionToken);
             }
-            // Parse to check if it is short-hand property assignment or normal property assignment
-            if ((token === 24 /* CommaToken */ || token === 16 /* CloseBraceToken */) && tokenIsIdentifier) {
+            // check if it is short-hand property assignment or normal property assignment
+            // NOTE: if token is EqualsToken it is interpreted as CoverInitializedName production
+            // CoverInitializedName[Yield] :
+            //     IdentifierReference[?Yield] Initializer[In, ?Yield]
+            // this is necessary because ObjectLiteral productions are also used to cover grammar for ObjectAssignmentPattern
+            var isShorthandPropertyAssignment = tokenIsIdentifier && (token === 24 /* CommaToken */ || token === 16 /* CloseBraceToken */ || token === 55 /* EqualsToken */);
+            if (isShorthandPropertyAssignment) {
                 var shorthandDeclaration = createNode(244 /* ShorthandPropertyAssignment */, fullStart);
                 shorthandDeclaration.name = propertyName;
                 shorthandDeclaration.questionToken = questionToken;
+                var equalsToken = parseOptionalToken(55 /* EqualsToken */);
+                if (equalsToken) {
+                    shorthandDeclaration.equalsToken = equalsToken;
+                    shorthandDeclaration.objectAssignmentInitializer = allowInAnd(parseAssignmentExpressionOrHigher);
+                }
                 return finishNode(shorthandDeclaration);
             }
             else {
@@ -19644,14 +19661,14 @@ var ts;
             return links.resolvedType;
         }
         function checkObjectLiteral(node, contextualMapper) {
+            var inDestructuringPattern = isAssignmentTarget(node);
             // Grammar checking
-            checkGrammarObjectLiteralExpression(node);
+            checkGrammarObjectLiteralExpression(node, inDestructuringPattern);
             var propertiesTable = {};
             var propertiesArray = [];
             var contextualType = getContextualType(node);
             var contextualTypeHasPattern = contextualType && contextualType.pattern &&
                 (contextualType.pattern.kind === 159 /* ObjectBindingPattern */ || contextualType.pattern.kind === 163 /* ObjectLiteralExpression */);
-            var inDestructuringPattern = isAssignmentTarget(node);
             var typeFlags = 0;
             for (var _i = 0, _a = node.properties; _i < _a.length; _i++) {
                 var memberDecl = _a[_i];
@@ -19675,7 +19692,9 @@ var ts;
                     if (inDestructuringPattern) {
                         // If object literal is an assignment pattern and if the assignment pattern specifies a default value
                         // for the property, make the property optional.
-                        if (memberDecl.kind === 243 /* PropertyAssignment */ && hasDefaultValue(memberDecl.initializer)) {
+                        var isOptional = (memberDecl.kind === 243 /* PropertyAssignment */ && hasDefaultValue(memberDecl.initializer)) ||
+                            (memberDecl.kind === 244 /* ShorthandPropertyAssignment */ && memberDecl.objectAssignmentInitializer);
+                        if (isOptional) {
                             prop.flags |= 536870912 /* Optional */;
                         }
                     }
@@ -21934,31 +21953,31 @@ var ts;
         function isConstEnumSymbol(symbol) {
             return (symbol.flags & 128 /* ConstEnum */) !== 0;
         }
-        function checkInstanceOfExpression(node, leftType, rightType) {
+        function checkInstanceOfExpression(left, right, leftType, rightType) {
             // TypeScript 1.0 spec (April 2014): 4.15.4
             // The instanceof operator requires the left operand to be of type Any, an object type, or a type parameter type,
             // and the right operand to be of type Any or a subtype of the 'Function' interface type.
             // The result is always of the Boolean primitive type.
             // NOTE: do not raise error if leftType is unknown as related error was already reported
             if (allConstituentTypesHaveKind(leftType, 16777726 /* Primitive */)) {
-                error(node.left, ts.Diagnostics.The_left_hand_side_of_an_instanceof_expression_must_be_of_type_any_an_object_type_or_a_type_parameter);
+                error(left, ts.Diagnostics.The_left_hand_side_of_an_instanceof_expression_must_be_of_type_any_an_object_type_or_a_type_parameter);
             }
             // NOTE: do not raise error if right is unknown as related error was already reported
             if (!(isTypeAny(rightType) || isTypeSubtypeOf(rightType, globalFunctionType))) {
-                error(node.right, ts.Diagnostics.The_right_hand_side_of_an_instanceof_expression_must_be_of_type_any_or_of_a_type_assignable_to_the_Function_interface_type);
+                error(right, ts.Diagnostics.The_right_hand_side_of_an_instanceof_expression_must_be_of_type_any_or_of_a_type_assignable_to_the_Function_interface_type);
             }
             return booleanType;
         }
-        function checkInExpression(node, leftType, rightType) {
+        function checkInExpression(left, right, leftType, rightType) {
             // TypeScript 1.0 spec (April 2014): 4.15.5
             // The in operator requires the left operand to be of type Any, the String primitive type, or the Number primitive type,
             // and the right operand to be of type Any, an object type, or a type parameter type.
             // The result is always of the Boolean primitive type.
             if (!isTypeAnyOrAllConstituentTypesHaveKind(leftType, 258 /* StringLike */ | 132 /* NumberLike */ | 16777216 /* ESSymbol */)) {
-                error(node.left, ts.Diagnostics.The_left_hand_side_of_an_in_expression_must_be_of_type_any_string_number_or_symbol);
+                error(left, ts.Diagnostics.The_left_hand_side_of_an_in_expression_must_be_of_type_any_string_number_or_symbol);
             }
             if (!isTypeAnyOrAllConstituentTypesHaveKind(rightType, 80896 /* ObjectType */ | 512 /* TypeParameter */)) {
-                error(node.right, ts.Diagnostics.The_right_hand_side_of_an_in_expression_must_be_of_type_any_an_object_type_or_a_type_parameter);
+                error(right, ts.Diagnostics.The_right_hand_side_of_an_in_expression_must_be_of_type_any_an_object_type_or_a_type_parameter);
             }
             return booleanType;
         }
@@ -21975,7 +21994,12 @@ var ts;
                             isNumericLiteralName(name_13.text) && getIndexTypeOfType(sourceType, 1 /* Number */) ||
                             getIndexTypeOfType(sourceType, 0 /* String */);
                     if (type) {
-                        checkDestructuringAssignment(p.initializer || name_13, type);
+                        if (p.kind === 244 /* ShorthandPropertyAssignment */) {
+                            checkDestructuringAssignment(p, type);
+                        }
+                        else {
+                            checkDestructuringAssignment(p.initializer || name_13, type);
+                        }
                     }
                     else {
                         error(name_13, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(sourceType), ts.declarationNameToString(name_13));
@@ -22033,7 +22057,18 @@ var ts;
             }
             return sourceType;
         }
-        function checkDestructuringAssignment(target, sourceType, contextualMapper) {
+        function checkDestructuringAssignment(exprOrAssignment, sourceType, contextualMapper) {
+            var target;
+            if (exprOrAssignment.kind === 244 /* ShorthandPropertyAssignment */) {
+                var prop = exprOrAssignment;
+                if (prop.objectAssignmentInitializer) {
+                    checkBinaryLikeExpression(prop.name, prop.equalsToken, prop.objectAssignmentInitializer, contextualMapper);
+                }
+                target = exprOrAssignment.name;
+            }
+            else {
+                target = exprOrAssignment;
+            }
             if (target.kind === 179 /* BinaryExpression */ && target.operatorToken.kind === 55 /* EqualsToken */) {
                 checkBinaryExpression(target, contextualMapper);
                 target = target.left;
@@ -22054,12 +22089,15 @@ var ts;
             return sourceType;
         }
         function checkBinaryExpression(node, contextualMapper) {
-            var operator = node.operatorToken.kind;
-            if (operator === 55 /* EqualsToken */ && (node.left.kind === 163 /* ObjectLiteralExpression */ || node.left.kind === 162 /* ArrayLiteralExpression */)) {
-                return checkDestructuringAssignment(node.left, checkExpression(node.right, contextualMapper), contextualMapper);
+            return checkBinaryLikeExpression(node.left, node.operatorToken, node.right, contextualMapper, node);
+        }
+        function checkBinaryLikeExpression(left, operatorToken, right, contextualMapper, errorNode) {
+            var operator = operatorToken.kind;
+            if (operator === 55 /* EqualsToken */ && (left.kind === 163 /* ObjectLiteralExpression */ || left.kind === 162 /* ArrayLiteralExpression */)) {
+                return checkDestructuringAssignment(left, checkExpression(right, contextualMapper), contextualMapper);
             }
-            var leftType = checkExpression(node.left, contextualMapper);
-            var rightType = checkExpression(node.right, contextualMapper);
+            var leftType = checkExpression(left, contextualMapper);
+            var rightType = checkExpression(right, contextualMapper);
             switch (operator) {
                 case 37 /* AsteriskToken */:
                 case 58 /* AsteriskEqualsToken */:
@@ -22096,13 +22134,13 @@ var ts;
                     // try and return them a helpful suggestion
                     if ((leftType.flags & 8 /* Boolean */) &&
                         (rightType.flags & 8 /* Boolean */) &&
-                        (suggestedOperator = getSuggestedBooleanOperator(node.operatorToken.kind)) !== undefined) {
-                        error(node, ts.Diagnostics.The_0_operator_is_not_allowed_for_boolean_types_Consider_using_1_instead, ts.tokenToString(node.operatorToken.kind), ts.tokenToString(suggestedOperator));
+                        (suggestedOperator = getSuggestedBooleanOperator(operatorToken.kind)) !== undefined) {
+                        error(errorNode || operatorToken, ts.Diagnostics.The_0_operator_is_not_allowed_for_boolean_types_Consider_using_1_instead, ts.tokenToString(operatorToken.kind), ts.tokenToString(suggestedOperator));
                     }
                     else {
                         // otherwise just check each operand separately and report errors as normal
-                        var leftOk = checkArithmeticOperandType(node.left, leftType, ts.Diagnostics.The_left_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
-                        var rightOk = checkArithmeticOperandType(node.right, rightType, ts.Diagnostics.The_right_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
+                        var leftOk = checkArithmeticOperandType(left, leftType, ts.Diagnostics.The_left_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
+                        var rightOk = checkArithmeticOperandType(right, rightType, ts.Diagnostics.The_right_hand_side_of_an_arithmetic_operation_must_be_of_type_any_number_or_an_enum_type);
                         if (leftOk && rightOk) {
                             checkAssignmentOperator(numberType);
                         }
@@ -22164,9 +22202,9 @@ var ts;
                     }
                     return booleanType;
                 case 89 /* InstanceOfKeyword */:
-                    return checkInstanceOfExpression(node, leftType, rightType);
+                    return checkInstanceOfExpression(left, right, leftType, rightType);
                 case 88 /* InKeyword */:
-                    return checkInExpression(node, leftType, rightType);
+                    return checkInExpression(left, right, leftType, rightType);
                 case 50 /* AmpersandAmpersandToken */:
                     return rightType;
                 case 51 /* BarBarToken */:
@@ -22179,8 +22217,8 @@ var ts;
             }
             // Return true if there was no error, false if there was an error.
             function checkForDisallowedESSymbolOperand(operator) {
-                var offendingSymbolOperand = someConstituentTypeHasKind(leftType, 16777216 /* ESSymbol */) ? node.left :
-                    someConstituentTypeHasKind(rightType, 16777216 /* ESSymbol */) ? node.right :
+                var offendingSymbolOperand = someConstituentTypeHasKind(leftType, 16777216 /* ESSymbol */) ? left :
+                    someConstituentTypeHasKind(rightType, 16777216 /* ESSymbol */) ? right :
                         undefined;
                 if (offendingSymbolOperand) {
                     error(offendingSymbolOperand, ts.Diagnostics.The_0_operator_cannot_be_applied_to_type_symbol, ts.tokenToString(operator));
@@ -22211,16 +22249,16 @@ var ts;
                     // requires VarExpr to be classified as a reference
                     // A compound assignment furthermore requires VarExpr to be classified as a reference (section 4.1)
                     // and the type of the non - compound operation to be assignable to the type of VarExpr.
-                    var ok = checkReferenceExpression(node.left, ts.Diagnostics.Invalid_left_hand_side_of_assignment_expression, ts.Diagnostics.Left_hand_side_of_assignment_expression_cannot_be_a_constant);
+                    var ok = checkReferenceExpression(left, ts.Diagnostics.Invalid_left_hand_side_of_assignment_expression, ts.Diagnostics.Left_hand_side_of_assignment_expression_cannot_be_a_constant);
                     // Use default messages
                     if (ok) {
                         // to avoid cascading errors check assignability only if 'isReference' check succeeded and no errors were reported
-                        checkTypeAssignableTo(valueType, leftType, node.left, /*headMessage*/ undefined);
+                        checkTypeAssignableTo(valueType, leftType, left, /*headMessage*/ undefined);
                     }
                 }
             }
             function reportOperatorError() {
-                error(node, ts.Diagnostics.Operator_0_cannot_be_applied_to_types_1_and_2, ts.tokenToString(node.operatorToken.kind), typeToString(leftType), typeToString(rightType));
+                error(errorNode || operatorToken, ts.Diagnostics.Operator_0_cannot_be_applied_to_types_1_and_2, ts.tokenToString(operatorToken.kind), typeToString(leftType), typeToString(rightType));
             }
         }
         function isYieldExpressionInClass(node) {
@@ -26841,7 +26879,7 @@ var ts;
                 return grammarErrorOnNode(questionToken, message);
             }
         }
-        function checkGrammarObjectLiteralExpression(node) {
+        function checkGrammarObjectLiteralExpression(node, inDestructuring) {
             var seen = {};
             var Property = 1;
             var GetAccessor = 2;
@@ -26855,6 +26893,11 @@ var ts;
                     // If the name is not a ComputedPropertyName, the grammar checking will skip it
                     checkGrammarComputedPropertyName(name_16);
                     continue;
+                }
+                if (prop.kind === 244 /* ShorthandPropertyAssignment */ && !inDestructuring && prop.objectAssignmentInitializer) {
+                    // having objectAssignmentInitializer is only valid in ObjectAssignmentPattern
+                    // outside of destructuring it is a syntax error
+                    return grammarErrorOnNode(prop.equalsToken, ts.Diagnostics.can_only_be_used_in_an_object_literal_property_inside_a_destructuring_assignment);
                 }
                 // ECMA-262 11.1.5 Object Initialiser
                 // If previous is not undefined then throw a SyntaxError exception if any of the following conditions are true
@@ -31315,6 +31358,10 @@ var ts;
                     write(": ");
                     emit(node.name);
                 }
+                if (languageVersion >= 2 /* ES6 */ && node.objectAssignmentInitializer) {
+                    write(" = ");
+                    emit(node.objectAssignmentInitializer);
+                }
             }
             function tryEmitConstantValue(node) {
                 var constantValue = tryGetConstEnumValue(node);
@@ -32442,7 +32489,8 @@ var ts;
                         var p = properties[_a];
                         if (p.kind === 243 /* PropertyAssignment */ || p.kind === 244 /* ShorthandPropertyAssignment */) {
                             var propName = p.name;
-                            emitDestructuringAssignment(p.initializer || propName, createPropertyAccessForDestructuringProperty(value, propName));
+                            var target_1 = p.kind === 244 /* ShorthandPropertyAssignment */ ? p : p.initializer || propName;
+                            emitDestructuringAssignment(target_1, createPropertyAccessForDestructuringProperty(value, propName));
                         }
                     }
                 }
@@ -32466,7 +32514,13 @@ var ts;
                     }
                 }
                 function emitDestructuringAssignment(target, value) {
-                    if (target.kind === 179 /* BinaryExpression */ && target.operatorToken.kind === 55 /* EqualsToken */) {
+                    if (target.kind === 244 /* ShorthandPropertyAssignment */) {
+                        if (target.objectAssignmentInitializer) {
+                            value = createDefaultValueCheck(value, target.objectAssignmentInitializer);
+                        }
+                        target = target.name;
+                    }
+                    else if (target.kind === 179 /* BinaryExpression */ && target.operatorToken.kind === 55 /* EqualsToken */) {
                         value = createDefaultValueCheck(value, target.right);
                         target = target.left;
                     }
