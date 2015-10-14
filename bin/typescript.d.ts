@@ -1567,7 +1567,6 @@ declare namespace ts {
         watch?: boolean;
         isolatedModules?: boolean;
         experimentalDecorators?: boolean;
-        experimentalAsyncFunctions?: boolean;
         emitDecoratorMetadata?: boolean;
         moduleResolution?: ModuleResolutionKind;
         stripInternal?: boolean;
@@ -2900,11 +2899,6 @@ declare namespace ts {
             key: string;
         };
         Method_0_cannot_have_an_implementation_because_it_is_marked_abstract: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Experimental_support_for_async_functions_is_a_feature_that_is_subject_to_change_in_a_future_release_Specify_experimentalAsyncFunctions_to_remove_this_warning: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4770,11 +4764,6 @@ declare namespace ts {
             key: string;
         };
         Enables_experimental_support_for_emitting_type_metadata_for_decorators: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
-        Option_experimentalAsyncFunctions_cannot_be_specified_when_targeting_ES5_or_lower: {
             code: number;
             category: DiagnosticCategory;
             key: string;
