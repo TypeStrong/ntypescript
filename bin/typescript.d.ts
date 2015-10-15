@@ -1901,6 +1901,7 @@ declare namespace ts {
      *  but still would like to load only TypeScript files as modules
      */
     const moduleFileExtensions: string[];
+    function isSupportedSourceFileName(fileName: string): boolean;
     function removeFileExtension(path: string): string;
     interface ObjectAllocator {
         getNodeConstructor(kind: SyntaxKind): new () => Node;
@@ -1920,6 +1921,7 @@ declare namespace ts {
         function assert(expression: boolean, message?: string, verboseDebugInfo?: () => string): void;
         function fail(message?: string): void;
     }
+    function copyListRemovingItem<T>(item: T, list: T[]): T[];
 }
 declare namespace ts {
     var Diagnostics: {
@@ -5093,7 +5095,8 @@ declare namespace ts {
         write(s: string): void;
         readFile(path: string, encoding?: string): string;
         writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
-        watchFile?(path: string, callback: (path: string, removed: boolean) => void): FileWatcher;
+        watchFile?(path: string, callback: (path: string, removed?: boolean) => void): FileWatcher;
+        watchDirectory?(path: string, callback: (path: string) => void, recursive?: boolean): FileWatcher;
         resolvePath(path: string): string;
         fileExists(path: string): boolean;
         directoryExists(path: string): boolean;
@@ -5345,6 +5348,7 @@ declare namespace ts {
      */
     function collapseTextChangeRangesAcrossMultipleVersions(changes: TextChangeRange[]): TextChangeRange;
     function getTypeParameterOwner(d: Declaration): Declaration;
+    function arrayStructurallyIsEqualTo<T>(array1: Array<T>, array2: Array<T>): boolean;
 }
 declare namespace ts {
     let parseTime: number;
@@ -5389,7 +5393,7 @@ declare namespace ts {
       * @param fileName The path to the config file
       * @param jsonText The text of the config file
       */
-    function parseConfigFileText(fileName: string, jsonText: string): {
+    function parseConfigFileTextToJson(fileName: string, jsonText: string): {
         config?: any;
         error?: Diagnostic;
     };
@@ -5399,7 +5403,7 @@ declare namespace ts {
       * @param basePath A root directory to resolve relative path entries in the config
       *    file to. e.g. outDir
       */
-    function parseConfigFile(json: any, host: ParseConfigHost, basePath: string): ParsedCommandLine;
+    function parseJsonConfigFileContent(json: any, host: ParseConfigHost, basePath: string): ParsedCommandLine;
 }
 declare namespace ts {
     function getDeclarationDiagnostics(host: EmitHost, resolver: EmitResolver, targetSourceFile: SourceFile): Diagnostic[];
