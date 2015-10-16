@@ -645,6 +645,7 @@ var ts;
         ModuleKind[ModuleKind["UMD"] = 3] = "UMD";
         ModuleKind[ModuleKind["System"] = 4] = "System";
         ModuleKind[ModuleKind["ES6"] = 5] = "ES6";
+        ModuleKind[ModuleKind["ES2015"] = 5] = "ES2015";
     })(ts.ModuleKind || (ts.ModuleKind = {}));
     var ModuleKind = ts.ModuleKind;
     (function (JsxEmit) {
@@ -662,6 +663,7 @@ var ts;
         ScriptTarget[ScriptTarget["ES3"] = 0] = "ES3";
         ScriptTarget[ScriptTarget["ES5"] = 1] = "ES5";
         ScriptTarget[ScriptTarget["ES6"] = 2] = "ES6";
+        ScriptTarget[ScriptTarget["ES2015"] = 2] = "ES2015";
         ScriptTarget[ScriptTarget["Latest"] = 2] = "Latest";
     })(ts.ScriptTarget || (ts.ScriptTarget = {}));
     var ScriptTarget = ts.ScriptTarget;
@@ -27773,6 +27775,7 @@ var ts;
                 "system": 4 /* System */,
                 "umd": 3 /* UMD */,
                 "es6": 5 /* ES6 */,
+                "es2015": 5 /* ES2015 */,
             },
             description: ts.Diagnostics.Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es6,
             paramType: ts.Diagnostics.KIND,
@@ -27901,7 +27904,12 @@ var ts;
         {
             name: "target",
             shortName: "t",
-            type: { "es3": 0 /* ES3 */, "es5": 1 /* ES5 */, "es6": 2 /* ES6 */ },
+            type: {
+                "es3": 0 /* ES3 */,
+                "es5": 1 /* ES5 */,
+                "es6": 2 /* ES6 */,
+                "es2015": 2 /* ES2015 */,
+            },
             description: ts.Diagnostics.Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES6_experimental,
             paramType: ts.Diagnostics.VERSION,
             error: ts.Diagnostics.Argument_for_target_option_must_be_ES3_ES5_or_ES6
