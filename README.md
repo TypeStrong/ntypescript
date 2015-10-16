@@ -5,6 +5,8 @@
 
 **Nicer** [**TypeScript**](https://github.com/Microsoft/TypeScript), **making it easier to work with the compiler API** 🌹
 
+[![NPM](https://nodei.co/npm-dl/ntypescript.png)](https://nodei.co/npm/ntypescript/)
+
 > Kudos to the TypeScript team for maintaining all the code that this project depends on. This project is just a minor automation on top.
 
 Niceness list:
