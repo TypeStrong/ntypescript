@@ -2018,7 +2018,6 @@ var ts;
         Non_abstract_class_0_does_not_implement_inherited_abstract_member_1_from_class_2: { code: 2515, category: ts.DiagnosticCategory.Error, key: "Non-abstract class '{0}' does not implement inherited abstract member '{1}' from class '{2}'." },
         All_declarations_of_an_abstract_method_must_be_consecutive: { code: 2516, category: ts.DiagnosticCategory.Error, key: "All declarations of an abstract method must be consecutive." },
         Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type: { code: 2517, category: ts.DiagnosticCategory.Error, key: "Cannot assign an abstract constructor type to a non-abstract constructor type." },
-        Only_an_ambient_class_can_be_merged_with_an_interface: { code: 2518, category: ts.DiagnosticCategory.Error, key: "Only an ambient class can be merged with an interface." },
         Duplicate_identifier_0_Compiler_uses_declaration_1_to_support_async_functions: { code: 2520, category: ts.DiagnosticCategory.Error, key: "Duplicate identifier '{0}'. Compiler uses declaration '{1}' to support async functions." },
         Expression_resolves_to_variable_declaration_0_that_compiler_uses_to_support_async_functions: { code: 2521, category: ts.DiagnosticCategory.Error, key: "Expression resolves to variable declaration '{0}' that compiler uses to support async functions." },
         The_arguments_object_cannot_be_referenced_in_an_async_arrow_function_Consider_using_a_standard_async_function_expression: { code: 2522, category: ts.DiagnosticCategory.Error, key: "The 'arguments' object cannot be referenced in an async arrow function. Consider using a standard async function expression." },
@@ -16623,7 +16622,9 @@ var ts;
         function getSignatureFromDeclaration(declaration) {
             var links = getNodeLinks(declaration);
             if (!links.resolvedSignature) {
-                var classType = declaration.kind === 144 /* Constructor */ ? getDeclaredTypeOfClassOrInterface(declaration.parent.symbol) : undefined;
+                var classType = declaration.kind === 144 /* Constructor */ ?
+                    getDeclaredTypeOfClassOrInterface(getMergedSymbol(declaration.parent.symbol))
+                    : undefined;
                 var typeParameters = classType ? classType.localTypeParameters :
                     declaration.typeParameters ? getTypeParametersFromDeclaration(declaration.typeParameters) : undefined;
                 var parameters = [];
@@ -21109,35 +21110,33 @@ var ts;
           */
         function getEffectiveDecoratorFirstArgumentType(node) {
             // The first argument to a decorator is its `target`.
-            switch (node.kind) {
-                case 214 /* ClassDeclaration */:
-                case 186 /* ClassExpression */:
-                    // For a class decorator, the `target` is the type of the class (e.g. the
-                    // "static" or "constructor" side of the class)
+            if (node.kind === 214 /* ClassDeclaration */) {
+                // For a class decorator, the `target` is the type of the class (e.g. the
+                // "static" or "constructor" side of the class)
+                var classSymbol = getSymbolOfNode(node);
+                return getTypeOfSymbol(classSymbol);
+            }
+            if (node.kind === 138 /* Parameter */) {
+                // For a parameter decorator, the `target` is the parent type of the
+                // parameter's containing method.
+                node = node.parent;
+                if (node.kind === 144 /* Constructor */) {
                     var classSymbol = getSymbolOfNode(node);
                     return getTypeOfSymbol(classSymbol);
-                case 138 /* Parameter */:
-                    // For a parameter decorator, the `target` is the parent type of the
-                    // parameter's containing method.
-                    node = node.parent;
-                    if (node.kind === 144 /* Constructor */) {
-                        var classSymbol_1 = getSymbolOfNode(node);
-                        return getTypeOfSymbol(classSymbol_1);
-                    }
-                // fall-through
-                case 141 /* PropertyDeclaration */:
-                case 143 /* MethodDeclaration */:
-                case 145 /* GetAccessor */:
-                case 146 /* SetAccessor */:
-                    // For a property or method decorator, the `target` is the
-                    // "static"-side type of the parent of the member if the member is
-                    // declared "static"; otherwise, it is the "instance"-side type of the
-                    // parent of the member.
-                    return getParentTypeOfClassElement(node);
-                default:
-                    ts.Debug.fail("Unsupported decorator target.");
-                    return unknownType;
+                }
             }
+            if (node.kind === 141 /* PropertyDeclaration */ ||
+                node.kind === 143 /* MethodDeclaration */ ||
+                node.kind === 145 /* GetAccessor */ ||
+                node.kind === 146 /* SetAccessor */) {
+                // For a property or method decorator, the `target` is the
+                // "static"-side type of the parent of the member if the member is
+                // declared "static"; otherwise, it is the "instance"-side type of the
+                // parent of the member.
+                return getParentTypeOfClassElement(node);
+            }
+            ts.Debug.fail("Unsupported decorator target.");
+            return unknownType;
         }
         /**
           * Returns the effective type for the second argument to a decorator.
@@ -21156,49 +21155,46 @@ var ts;
           */
         function getEffectiveDecoratorSecondArgumentType(node) {
             // The second argument to a decorator is its `propertyKey`
-            switch (node.kind) {
-                case 214 /* ClassDeclaration */:
-                    ts.Debug.fail("Class decorators should not have a second synthetic argument.");
-                    return unknownType;
-                case 138 /* Parameter */:
-                    node = node.parent;
-                    if (node.kind === 144 /* Constructor */) {
-                        // For a constructor parameter decorator, the `propertyKey` will be `undefined`.
-                        return anyType;
-                    }
-                // For a non-constructor parameter decorator, the `propertyKey` will be either
-                // a string or a symbol, based on the name of the parameter's containing method.
-                // fall-through
-                case 141 /* PropertyDeclaration */:
-                case 143 /* MethodDeclaration */:
-                case 145 /* GetAccessor */:
-                case 146 /* SetAccessor */:
-                    // The `propertyKey` for a property or method decorator will be a
-                    // string literal type if the member name is an identifier, number, or string;
-                    // otherwise, if the member name is a computed property name it will
-                    // be either string or symbol.
-                    var element = node;
-                    switch (element.name.kind) {
-                        case 69 /* Identifier */:
-                        case 8 /* NumericLiteral */:
-                        case 9 /* StringLiteral */:
-                            return getStringLiteralType(element.name);
-                        case 136 /* ComputedPropertyName */:
-                            var nameType = checkComputedPropertyName(element.name);
-                            if (allConstituentTypesHaveKind(nameType, 16777216 /* ESSymbol */)) {
-                                return nameType;
-                            }
-                            else {
-                                return stringType;
-                            }
-                        default:
-                            ts.Debug.fail("Unsupported property name.");
-                            return unknownType;
-                    }
-                default:
-                    ts.Debug.fail("Unsupported decorator target.");
-                    return unknownType;
+            if (node.kind === 214 /* ClassDeclaration */) {
+                ts.Debug.fail("Class decorators should not have a second synthetic argument.");
+                return unknownType;
             }
+            if (node.kind === 138 /* Parameter */) {
+                node = node.parent;
+                if (node.kind === 144 /* Constructor */) {
+                    // For a constructor parameter decorator, the `propertyKey` will be `undefined`.
+                    return anyType;
+                }
+            }
+            if (node.kind === 141 /* PropertyDeclaration */ ||
+                node.kind === 143 /* MethodDeclaration */ ||
+                node.kind === 145 /* GetAccessor */ ||
+                node.kind === 146 /* SetAccessor */) {
+                // The `propertyKey` for a property or method decorator will be a
+                // string literal type if the member name is an identifier, number, or string;
+                // otherwise, if the member name is a computed property name it will
+                // be either string or symbol.
+                var element = node;
+                switch (element.name.kind) {
+                    case 69 /* Identifier */:
+                    case 8 /* NumericLiteral */:
+                    case 9 /* StringLiteral */:
+                        return getStringLiteralType(element.name);
+                    case 136 /* ComputedPropertyName */:
+                        var nameType = checkComputedPropertyName(element.name);
+                        if (allConstituentTypesHaveKind(nameType, 16777216 /* ESSymbol */)) {
+                            return nameType;
+                        }
+                        else {
+                            return stringType;
+                        }
+                    default:
+                        ts.Debug.fail("Unsupported property name.");
+                        return unknownType;
+                }
+            }
+            ts.Debug.fail("Unsupported decorator target.");
+            return unknownType;
         }
         /**
           * Returns the effective argument type for the third argument to a decorator.
@@ -21210,27 +21206,28 @@ var ts;
         function getEffectiveDecoratorThirdArgumentType(node) {
             // The third argument to a decorator is either its `descriptor` for a method decorator
             // or its `parameterIndex` for a paramter decorator
-            switch (node.kind) {
-                case 214 /* ClassDeclaration */:
-                    ts.Debug.fail("Class decorators should not have a third synthetic argument.");
-                    return unknownType;
-                case 138 /* Parameter */:
-                    // The `parameterIndex` for a parameter decorator is always a number
-                    return numberType;
-                case 141 /* PropertyDeclaration */:
-                    ts.Debug.fail("Property decorators should not have a third synthetic argument.");
-                    return unknownType;
-                case 143 /* MethodDeclaration */:
-                case 145 /* GetAccessor */:
-                case 146 /* SetAccessor */:
-                    // The `descriptor` for a method decorator will be a `TypedPropertyDescriptor<T>`
-                    // for the type of the member.
-                    var propertyType = getTypeOfNode(node);
-                    return createTypedPropertyDescriptorType(propertyType);
-                default:
-                    ts.Debug.fail("Unsupported decorator target.");
-                    return unknownType;
+            if (node.kind === 214 /* ClassDeclaration */) {
+                ts.Debug.fail("Class decorators should not have a third synthetic argument.");
+                return unknownType;
             }
+            if (node.kind === 138 /* Parameter */) {
+                // The `parameterIndex` for a parameter decorator is always a number
+                return numberType;
+            }
+            if (node.kind === 141 /* PropertyDeclaration */) {
+                ts.Debug.fail("Property decorators should not have a third synthetic argument.");
+                return unknownType;
+            }
+            if (node.kind === 143 /* MethodDeclaration */ ||
+                node.kind === 145 /* GetAccessor */ ||
+                node.kind === 146 /* SetAccessor */) {
+                // The `descriptor` for a method decorator will be a `TypedPropertyDescriptor<T>`
+                // for the type of the member.
+                var propertyType = getTypeOfNode(node);
+                return createTypedPropertyDescriptorType(propertyType);
+            }
+            ts.Debug.fail("Unsupported decorator target.");
+            return unknownType;
         }
         /**
           * Returns the effective argument type for the provided argument to a decorator.
@@ -23253,7 +23250,12 @@ var ts;
         }
         function getEffectiveDeclarationFlags(n, flagsToCheck) {
             var flags = ts.getCombinedNodeFlags(n);
-            if (n.parent.kind !== 215 /* InterfaceDeclaration */ && ts.isInAmbientContext(n)) {
+            // children of classes (even ambient classes) should not be marked as ambient or export
+            // because those flags have no useful semantics there.
+            if (n.parent.kind !== 215 /* InterfaceDeclaration */ &&
+                n.parent.kind !== 214 /* ClassDeclaration */ &&
+                n.parent.kind !== 186 /* ClassExpression */ &&
+                ts.isInAmbientContext(n)) {
                 if (!(flags & 2 /* Ambient */)) {
                     // It is nested in an ambient context, which means it is automatically exported
                     flags |= 1 /* Export */;
@@ -24847,10 +24849,6 @@ var ts;
                 grammarErrorOnFirstToken(node, ts.Diagnostics.A_class_declaration_without_the_default_modifier_must_have_a_name);
             }
             checkClassLikeDeclaration(node);
-            // Interfaces cannot be merged with non-ambient classes.
-            if (getSymbolOfNode(node).flags & 64 /* Interface */ && !ts.isInAmbientContext(node)) {
-                error(node, ts.Diagnostics.Only_an_ambient_class_can_be_merged_with_an_interface);
-            }
             ts.forEach(node.members, checkSourceElement);
         }
         function checkClassLikeDeclaration(node) {
@@ -25105,16 +25103,6 @@ var ts;
                             checkTypeAssignableTo(typeWithThis, getTypeWithThisArgument(baseType, type.thisType), node.name, ts.Diagnostics.Interface_0_incorrectly_extends_interface_1);
                         }
                         checkIndexConstraints(type);
-                    }
-                }
-                // Interfaces cannot merge with non-ambient classes.
-                if (symbol && symbol.declarations) {
-                    for (var _b = 0, _c = symbol.declarations; _b < _c.length; _b++) {
-                        var declaration = _c[_b];
-                        if (declaration.kind === 214 /* ClassDeclaration */ && !ts.isInAmbientContext(declaration)) {
-                            error(node, ts.Diagnostics.Only_an_ambient_class_can_be_merged_with_an_interface);
-                            break;
-                        }
                     }
                 }
             }
@@ -36438,7 +36426,7 @@ var ts;
     /* @internal */ ts.ioWriteTime = 0;
     /** The version of the TypeScript compiler release */
     var emptyArray = [];
-    ts.version = "1.7.0";
+    ts.version = "1.8.0";
     function findConfigFile(searchPath) {
         var fileName = "tsconfig.json";
         while (true) {

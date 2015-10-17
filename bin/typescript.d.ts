@@ -3952,11 +3952,6 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Only_an_ambient_class_can_be_merged_with_an_interface: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-        };
         Duplicate_identifier_0_Compiler_uses_declaration_1_to_support_async_functions: {
             code: number;
             category: DiagnosticCategory;
