@@ -1598,9 +1598,10 @@ var ts;
     })(Debug = ts.Debug || (ts.Debug = {}));
     function copyListRemovingItem(item, list) {
         var copiedList = [];
-        for (var i = 0, len = list.length; i < len; i++) {
-            if (list[i] !== item) {
-                copiedList.push(list[i]);
+        for (var _i = 0; _i < list.length; _i++) {
+            var e = list[_i];
+            if (e !== item) {
+                copiedList.push(e);
             }
         }
         return copiedList;
@@ -5046,7 +5047,7 @@ var ts;
                 watchDirectory: function (path, callback, recursive) {
                     // Node 4.0 `fs.watch` function supports the "recursive" option on both OSX and Windows 
                     // (ref: https://github.com/nodejs/node/pull/2649 and https://github.com/Microsoft/TypeScript/issues/4643)
-                    return _fs.watch(path, { persisten: true, recursive: !!recursive }, function (eventName, relativeFileName) {
+                    return _fs.watch(path, { persistent: true, recursive: !!recursive }, function (eventName, relativeFileName) {
                         // In watchDirectory we only care about adding and removing files (when event name is
                         // "rename"); changes made within files are handled by corresponding fileWatchers (when
                         // event name is "change")
@@ -5157,15 +5158,15 @@ var ts;
         return node.end - node.pos;
     }
     ts.getFullWidth = getFullWidth;
-    function arrayIsEqualTo(arr1, arr2, comparer) {
-        if (!arr1 || !arr2) {
-            return arr1 === arr2;
+    function arrayIsEqualTo(array1, array2, equaler) {
+        if (!array1 || !array2) {
+            return array1 === array2;
         }
-        if (arr1.length !== arr2.length) {
+        if (array1.length !== array2.length) {
             return false;
         }
-        for (var i = 0; i < arr1.length; ++i) {
-            var equals = comparer ? comparer(arr1[i], arr2[i]) : arr1[i] === arr2[i];
+        for (var i = 0; i < array1.length; ++i) {
+            var equals = equaler ? equaler(array1[i], array2[i]) : array1[i] === array2[i];
             if (!equals) {
                 return false;
             }
@@ -7356,16 +7357,6 @@ var ts;
         }
     }
     ts.getTypeParameterOwner = getTypeParameterOwner;
-    function arrayStructurallyIsEqualTo(array1, array2) {
-        if (!array1 || !array2) {
-            return false;
-        }
-        if (array1.length !== array2.length) {
-            return false;
-        }
-        return ts.arrayIsEqualTo(array1.sort(), array2.sort());
-    }
-    ts.arrayStructurallyIsEqualTo = arrayStructurallyIsEqualTo;
 })(ts || (ts = {}));
 /// <reference path="scanner.ts"/>
 /// <reference path="utilities.ts"/>
@@ -17703,7 +17694,7 @@ var ts;
                     if (apparentType.flags & (80896 /* ObjectType */ | 32768 /* Intersection */) && target.flags & 80896 /* ObjectType */) {
                         // Report structural errors only if we haven't reported any errors yet
                         var reportStructuralErrors = reportErrors && errorInfo === saveErrorInfo;
-                        if (result = objectTypeRelatedTo(apparentType, target, reportStructuralErrors)) {
+                        if (result = objectTypeRelatedTo(apparentType, source, target, reportStructuralErrors)) {
                             errorInfo = saveErrorInfo;
                             return result;
                         }
@@ -17723,7 +17714,7 @@ var ts;
                             return result;
                         }
                     }
-                    return objectTypeRelatedTo(source, target, /*reportErrors*/ false);
+                    return objectTypeRelatedTo(source, source, target, /*reportErrors*/ false);
                 }
                 if (source.flags & 512 /* TypeParameter */ && target.flags & 512 /* TypeParameter */) {
                     return typeParameterIdenticalTo(source, target);
@@ -17870,11 +17861,11 @@ var ts;
             // Third, check if both types are part of deeply nested chains of generic type instantiations and if so assume the types are
             // equal and infinitely expanding. Fourth, if we have reached a depth of 100 nested comparisons, assume we have runaway recursion
             // and issue an error. Otherwise, actually compare the structure of the two types.
-            function objectTypeRelatedTo(source, target, reportErrors) {
+            function objectTypeRelatedTo(apparentSource, originalSource, target, reportErrors) {
                 if (overflow) {
                     return 0 /* False */;
                 }
-                var id = relation !== identityRelation || source.id < target.id ? source.id + "," + target.id : target.id + "," + source.id;
+                var id = relation !== identityRelation || apparentSource.id < target.id ? apparentSource.id + "," + target.id : target.id + "," + apparentSource.id;
                 var related = relation[id];
                 if (related !== undefined) {
                     // If we computed this relation already and it was failed and reported, or if we're not being asked to elaborate
@@ -17901,13 +17892,13 @@ var ts;
                     maybeStack = [];
                     expandingFlags = 0;
                 }
-                sourceStack[depth] = source;
+                sourceStack[depth] = apparentSource;
                 targetStack[depth] = target;
                 maybeStack[depth] = {};
                 maybeStack[depth][id] = 1 /* Succeeded */;
                 depth++;
                 var saveExpandingFlags = expandingFlags;
-                if (!(expandingFlags & 1) && isDeeplyNestedGeneric(source, sourceStack, depth))
+                if (!(expandingFlags & 1) && isDeeplyNestedGeneric(apparentSource, sourceStack, depth))
                     expandingFlags |= 1;
                 if (!(expandingFlags & 2) && isDeeplyNestedGeneric(target, targetStack, depth))
                     expandingFlags |= 2;
@@ -17916,15 +17907,15 @@ var ts;
                     result = 1 /* Maybe */;
                 }
                 else {
-                    result = propertiesRelatedTo(source, target, reportErrors);
+                    result = propertiesRelatedTo(apparentSource, target, reportErrors);
                     if (result) {
-                        result &= signaturesRelatedTo(source, target, 0 /* Call */, reportErrors);
+                        result &= signaturesRelatedTo(apparentSource, target, 0 /* Call */, reportErrors);
                         if (result) {
-                            result &= signaturesRelatedTo(source, target, 1 /* Construct */, reportErrors);
+                            result &= signaturesRelatedTo(apparentSource, target, 1 /* Construct */, reportErrors);
                             if (result) {
-                                result &= stringIndexTypesRelatedTo(source, target, reportErrors);
+                                result &= stringIndexTypesRelatedTo(apparentSource, originalSource, target, reportErrors);
                                 if (result) {
-                                    result &= numberIndexTypesRelatedTo(source, target, reportErrors);
+                                    result &= numberIndexTypesRelatedTo(apparentSource, originalSource, target, reportErrors);
                                 }
                             }
                         }
@@ -18221,12 +18212,17 @@ var ts;
                 }
                 return result;
             }
-            function stringIndexTypesRelatedTo(source, target, reportErrors) {
+            function stringIndexTypesRelatedTo(source, originalSource, target, reportErrors) {
                 if (relation === identityRelation) {
                     return indexTypesIdenticalTo(0 /* String */, source, target);
                 }
                 var targetType = getIndexTypeOfType(target, 0 /* String */);
-                if (targetType && !(targetType.flags & 1 /* Any */)) {
+                if (targetType) {
+                    if ((targetType.flags & 1 /* Any */) && !(originalSource.flags & 16777726 /* Primitive */)) {
+                        // non-primitive assignment to any is always allowed, eg 
+                        //   `var x: { [index: string]: any } = { property: 12 };`
+                        return -1 /* True */;
+                    }
                     var sourceType = getIndexTypeOfType(source, 0 /* String */);
                     if (!sourceType) {
                         if (reportErrors) {
@@ -18245,12 +18241,17 @@ var ts;
                 }
                 return -1 /* True */;
             }
-            function numberIndexTypesRelatedTo(source, target, reportErrors) {
+            function numberIndexTypesRelatedTo(source, originalSource, target, reportErrors) {
                 if (relation === identityRelation) {
                     return indexTypesIdenticalTo(1 /* Number */, source, target);
                 }
                 var targetType = getIndexTypeOfType(target, 1 /* Number */);
-                if (targetType && !(targetType.flags & 1 /* Any */)) {
+                if (targetType) {
+                    if ((targetType.flags & 1 /* Any */) && !(originalSource.flags & 16777726 /* Primitive */)) {
+                        // non-primitive assignment to any is always allowed, eg 
+                        //   `var x: { [index: number]: any } = { property: 12 };`
+                        return -1 /* True */;
+                    }
                     var sourceStringType = getIndexTypeOfType(source, 0 /* String */);
                     var sourceNumberType = getIndexTypeOfType(source, 1 /* Number */);
                     if (!(sourceStringType || sourceNumberType)) {
@@ -28082,60 +28083,17 @@ var ts;
     /**
       * Parse the contents of a config file (tsconfig.json).
       * @param json The contents of the config file to parse
+      * @param host Instance of ParseConfigHost used to enumerate files in folder.
       * @param basePath A root directory to resolve relative path entries in the config
       *    file to. e.g. outDir
       */
     function parseJsonConfigFileContent(json, host, basePath) {
-        var errors = [];
+        var _a = convertCompilerOptionsFromJson(json["compilerOptions"], basePath), options = _a.options, errors = _a.errors;
         return {
-            options: getCompilerOptions(),
+            options: options,
             fileNames: getFileNames(),
             errors: errors
         };
-        function getCompilerOptions() {
-            var options = {};
-            var optionNameMap = {};
-            ts.forEach(ts.optionDeclarations, function (option) {
-                optionNameMap[option.name] = option;
-            });
-            var jsonOptions = json["compilerOptions"];
-            if (jsonOptions) {
-                for (var id in jsonOptions) {
-                    if (ts.hasProperty(optionNameMap, id)) {
-                        var opt = optionNameMap[id];
-                        var optType = opt.type;
-                        var value = jsonOptions[id];
-                        var expectedType = typeof optType === "string" ? optType : "string";
-                        if (typeof value === expectedType) {
-                            if (typeof optType !== "string") {
-                                var key = value.toLowerCase();
-                                if (ts.hasProperty(optType, key)) {
-                                    value = optType[key];
-                                }
-                                else {
-                                    errors.push(ts.createCompilerDiagnostic(opt.error));
-                                    value = 0;
-                                }
-                            }
-                            if (opt.isFilePath) {
-                                value = ts.normalizePath(ts.combinePaths(basePath, value));
-                                if (value === "") {
-                                    value = ".";
-                                }
-                            }
-                            options[opt.name] = value;
-                        }
-                        else {
-                            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, id, expectedType));
-                        }
-                    }
-                    else {
-                        errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_compiler_option_0, id));
-                    }
-                }
-            }
-            return options;
-        }
         function getFileNames() {
             var fileNames = [];
             if (ts.hasProperty(json, "files")) {
@@ -28171,6 +28129,49 @@ var ts;
         }
     }
     ts.parseJsonConfigFileContent = parseJsonConfigFileContent;
+    function convertCompilerOptionsFromJson(jsonOptions, basePath) {
+        var options = {};
+        var errors = [];
+        if (!jsonOptions) {
+            return { options: options, errors: errors };
+        }
+        var optionNameMap = ts.arrayToMap(ts.optionDeclarations, function (opt) { return opt.name; });
+        for (var id in jsonOptions) {
+            if (ts.hasProperty(optionNameMap, id)) {
+                var opt = optionNameMap[id];
+                var optType = opt.type;
+                var value = jsonOptions[id];
+                var expectedType = typeof optType === "string" ? optType : "string";
+                if (typeof value === expectedType) {
+                    if (typeof optType !== "string") {
+                        var key = value.toLowerCase();
+                        if (ts.hasProperty(optType, key)) {
+                            value = optType[key];
+                        }
+                        else {
+                            errors.push(ts.createCompilerDiagnostic(opt.error));
+                            value = 0;
+                        }
+                    }
+                    if (opt.isFilePath) {
+                        value = ts.normalizePath(ts.combinePaths(basePath, value));
+                        if (value === "") {
+                            value = ".";
+                        }
+                    }
+                    options[opt.name] = value;
+                }
+                else {
+                    errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, id, expectedType));
+                }
+            }
+            else {
+                errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_compiler_option_0, id));
+            }
+        }
+        return { options: options, errors: errors };
+    }
+    ts.convertCompilerOptionsFromJson = convertCompilerOptionsFromJson;
 })(ts || (ts = {}));
 /// <reference path="checker.ts"/>
 /* @internal */
@@ -37639,7 +37640,8 @@ var ts;
             var parsedCommandLine = parseConfigFile();
             var newFileNames = ts.map(parsedCommandLine.fileNames, compilerHost.getCanonicalFileName);
             var canonicalRootFileNames = ts.map(rootFileNames, compilerHost.getCanonicalFileName);
-            if (!ts.arrayStructurallyIsEqualTo(newFileNames, canonicalRootFileNames)) {
+            // We check if the project file list has changed. If so, we just throw away the old program and start fresh.
+            if (!ts.arrayIsEqualTo(newFileNames && newFileNames.sort(), canonicalRootFileNames && canonicalRootFileNames.sort())) {
                 setCachedProgram(undefined);
                 startTimerForRecompilation();
             }
