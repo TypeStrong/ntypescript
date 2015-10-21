@@ -2044,6 +2044,7 @@ var ts;
         Exported_external_package_typings_file_cannot_contain_tripleslash_references_Please_contact_the_package_author_to_update_the_package_definition: { code: 2654, category: ts.DiagnosticCategory.Error, key: "Exported external package typings file cannot contain tripleslash references. Please contact the package author to update the package definition." },
         Exported_external_package_typings_can_only_be_in_d_ts_files_Please_contact_the_package_author_to_update_the_package_definition: { code: 2655, category: ts.DiagnosticCategory.Error, key: "Exported external package typings can only be in '.d.ts' files. Please contact the package author to update the package definition." },
         Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_the_package_definition: { code: 2656, category: ts.DiagnosticCategory.Error, key: "Exported external package typings file '{0}' is not a module. Please contact the package author to update the package definition." },
+        JSX_expressions_must_have_one_parent_element: { code: 2657, category: ts.DiagnosticCategory.Error, key: "JSX expressions must have one parent element" },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -10407,18 +10408,40 @@ var ts;
         }
         function parseJsxElementOrSelfClosingElement(inExpressionContext) {
             var opening = parseJsxOpeningOrSelfClosingElement(inExpressionContext);
+            var result;
             if (opening.kind === 235 /* JsxOpeningElement */) {
                 var node = createNode(233 /* JsxElement */, opening.pos);
                 node.openingElement = opening;
                 node.children = parseJsxChildren(node.openingElement.tagName);
                 node.closingElement = parseJsxClosingElement(inExpressionContext);
-                return finishNode(node);
+                result = finishNode(node);
             }
             else {
                 ts.Debug.assert(opening.kind === 234 /* JsxSelfClosingElement */);
                 // Nothing else to do for self-closing elements
-                return opening;
+                result = opening;
             }
+            // If the user writes the invalid code '<div></div><div></div>' in an expression context (i.e. not wrapped in
+            // an enclosing tag), we'll naively try to parse   ^ this as a 'less than' operator and the remainder of the tag
+            // as garbage, which will cause the formatter to badly mangle the JSX. Perform a speculative parse of a JSX
+            // element if we see a < token so that we can wrap it in a synthetic binary expression so the formatter
+            // does less damage and we can report a better error.
+            // Since JSX elements are invalid < operands anyway, this lookahead parse will only occur in error scenarios
+            // of one sort or another.
+            if (inExpressionContext && token === 25 /* LessThanToken */) {
+                var invalidElement = tryParse(function () { return parseJsxElementOrSelfClosingElement(/*inExpressionContext*/ true); });
+                if (invalidElement) {
+                    parseErrorAtCurrentToken(ts.Diagnostics.JSX_expressions_must_have_one_parent_element);
+                    var badNode = createNode(181 /* BinaryExpression */, result.pos);
+                    badNode.end = invalidElement.end;
+                    badNode.left = result;
+                    badNode.right = invalidElement;
+                    badNode.operatorToken = createMissingNode(24 /* CommaToken */, /*reportAtCurrentPosition*/ false, /*diagnosticMessage*/ undefined);
+                    badNode.operatorToken.pos = badNode.operatorToken.end = badNode.right.pos;
+                    return badNode;
+                }
+            }
+            return result;
         }
         function parseJsxText() {
             var node = createNode(236 /* JsxText */, scanner.getStartPos());
@@ -17740,33 +17763,34 @@ var ts;
                         resolved.stringIndexType || resolved.numberIndexType || getPropertyOfType(type, name)) {
                         return true;
                     }
-                    return false;
                 }
-                if (type.flags & 49152 /* UnionOrIntersection */) {
+                else if (type.flags & 49152 /* UnionOrIntersection */) {
                     for (var _i = 0, _a = type.types; _i < _a.length; _i++) {
                         var t = _a[_i];
                         if (isKnownProperty(t, name)) {
                             return true;
                         }
                     }
-                    return false;
                 }
-                return true;
+                return false;
             }
             function hasExcessProperties(source, target, reportErrors) {
-                for (var _i = 0, _a = getPropertiesOfObjectType(source); _i < _a.length; _i++) {
-                    var prop = _a[_i];
-                    if (!isKnownProperty(target, prop.name)) {
-                        if (reportErrors) {
-                            // We know *exactly* where things went wrong when comparing the types.
-                            // Use this property as the error node as this will be more helpful in
-                            // reasoning about what went wrong.
-                            errorNode = prop.valueDeclaration;
-                            reportError(ts.Diagnostics.Object_literal_may_only_specify_known_properties_and_0_does_not_exist_in_type_1, symbolToString(prop), typeToString(target));
+                if (someConstituentTypeHasKind(target, 80896 /* ObjectType */)) {
+                    for (var _i = 0, _a = getPropertiesOfObjectType(source); _i < _a.length; _i++) {
+                        var prop = _a[_i];
+                        if (!isKnownProperty(target, prop.name)) {
+                            if (reportErrors) {
+                                // We know *exactly* where things went wrong when comparing the types.
+                                // Use this property as the error node as this will be more helpful in
+                                // reasoning about what went wrong.
+                                errorNode = prop.valueDeclaration;
+                                reportError(ts.Diagnostics.Object_literal_may_only_specify_known_properties_and_0_does_not_exist_in_type_1, symbolToString(prop), typeToString(target));
+                            }
+                            return true;
                         }
-                        return true;
                     }
                 }
+                return false;
             }
             function eachTypeRelatedToSomeType(source, target) {
                 var result = -1 /* True */;
@@ -20119,9 +20143,6 @@ var ts;
                     case 234 /* JsxSelfClosingElement */:
                         checkJsxSelfClosingElement(child);
                         break;
-                    default:
-                        // No checks for JSX Text
-                        ts.Debug.assert(child.kind === 236 /* JsxText */);
                 }
             }
             return jsxElementType || anyType;
@@ -31170,34 +31191,38 @@ var ts;
                         write(".");
                     }
                 }
-                else if (modulekind !== 5 /* ES6 */) {
-                    var declaration = resolver.getReferencedImportDeclaration(node);
-                    if (declaration) {
-                        if (declaration.kind === 223 /* ImportClause */) {
-                            // Identifier references default import
-                            write(getGeneratedNameForNode(declaration.parent));
-                            write(languageVersion === 0 /* ES3 */ ? "[\"default\"]" : ".default");
-                            return;
-                        }
-                        else if (declaration.kind === 226 /* ImportSpecifier */) {
-                            // Identifier references named import
-                            write(getGeneratedNameForNode(declaration.parent.parent.parent));
-                            var name_24 = declaration.propertyName || declaration.name;
-                            var identifier = ts.getSourceTextOfNodeFromSourceFile(currentSourceFile, name_24);
-                            if (languageVersion === 0 /* ES3 */ && identifier === "default") {
-                                write("[\"default\"]");
+                else {
+                    if (modulekind !== 5 /* ES6 */) {
+                        var declaration = resolver.getReferencedImportDeclaration(node);
+                        if (declaration) {
+                            if (declaration.kind === 223 /* ImportClause */) {
+                                // Identifier references default import
+                                write(getGeneratedNameForNode(declaration.parent));
+                                write(languageVersion === 0 /* ES3 */ ? "[\"default\"]" : ".default");
+                                return;
                             }
-                            else {
-                                write(".");
-                                write(identifier);
+                            else if (declaration.kind === 226 /* ImportSpecifier */) {
+                                // Identifier references named import
+                                write(getGeneratedNameForNode(declaration.parent.parent.parent));
+                                var name_24 = declaration.propertyName || declaration.name;
+                                var identifier = ts.getSourceTextOfNodeFromSourceFile(currentSourceFile, name_24);
+                                if (languageVersion === 0 /* ES3 */ && identifier === "default") {
+                                    write("[\"default\"]");
+                                }
+                                else {
+                                    write(".");
+                                    write(identifier);
+                                }
+                                return;
                             }
-                            return;
                         }
                     }
-                    declaration = resolver.getReferencedNestedRedeclaration(node);
-                    if (declaration) {
-                        write(getGeneratedNameForNode(declaration.name));
-                        return;
+                    if (languageVersion !== 2 /* ES6 */) {
+                        var declaration = resolver.getReferencedNestedRedeclaration(node);
+                        if (declaration) {
+                            write(getGeneratedNameForNode(declaration.name));
+                            return;
+                        }
                     }
                 }
                 if (ts.nodeIsSynthesized(node)) {

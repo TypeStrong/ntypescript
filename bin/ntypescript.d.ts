@@ -4077,6 +4077,11 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
+        JSX_expressions_must_have_one_parent_element: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;
