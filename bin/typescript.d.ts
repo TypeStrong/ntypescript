@@ -313,6 +313,7 @@ declare namespace ts {
         FirstNode = 135,
     }
     const enum NodeFlags {
+        None = 0,
         Export = 1,
         Ambient = 2,
         Public = 16,
@@ -1906,7 +1907,7 @@ declare namespace ts {
     function isSupportedSourceFileName(fileName: string): boolean;
     function removeFileExtension(path: string): string;
     interface ObjectAllocator {
-        getNodeConstructor(kind: SyntaxKind): new () => Node;
+        getNodeConstructor(kind: SyntaxKind): new (pos?: number, end?: number) => Node;
         getSymbolConstructor(): new (flags: SymbolFlags, name: string) => Symbol;
         getTypeConstructor(): new (checker: TypeChecker, flags: TypeFlags) => Type;
         getSignatureConstructor(): new (checker: TypeChecker) => Signature;
@@ -5353,8 +5354,8 @@ declare namespace ts {
 }
 declare namespace ts {
     let parseTime: number;
-    function getNodeConstructor(kind: SyntaxKind): new () => Node;
-    function createNode(kind: SyntaxKind): Node;
+    function getNodeConstructor(kind: SyntaxKind): new (pos?: number, end?: number) => Node;
+    function createNode(kind: SyntaxKind, pos?: number, end?: number): Node;
     function forEachChild<T>(node: Node, cbNode: (node: Node) => T, cbNodeArray?: (nodes: Node[]) => T): T;
     function createSourceFile(fileName: string, sourceText: string, languageVersion: ScriptTarget, setParentNodes?: boolean): SourceFile;
     function updateSourceFile(sourceFile: SourceFile, newText: string, textChangeRange: TextChangeRange, aggressiveChecks?: boolean): SourceFile;

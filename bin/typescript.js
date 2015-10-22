@@ -334,6 +334,7 @@ var ts;
     })(ts.SyntaxKind || (ts.SyntaxKind = {}));
     var SyntaxKind = ts.SyntaxKind;
     (function (NodeFlags) {
+        NodeFlags[NodeFlags["None"] = 0] = "None";
         NodeFlags[NodeFlags["Export"] = 1] = "Export";
         NodeFlags[NodeFlags["Ambient"] = 2] = "Ambient";
         NodeFlags[NodeFlags["Public"] = 16] = "Public";
@@ -1552,15 +1553,13 @@ var ts;
     }
     ts.objectAllocator = {
         getNodeConstructor: function (kind) {
-            function Node() {
+            function Node(pos, end) {
+                this.pos = pos;
+                this.end = end;
+                this.flags = 0 /* None */;
+                this.parent = undefined;
             }
-            Node.prototype = {
-                kind: kind,
-                pos: -1,
-                end: -1,
-                flags: 0,
-                parent: undefined,
-            };
+            Node.prototype = { kind: kind };
             return Node;
         },
         getSymbolConstructor: function () { return Symbol; },
@@ -6525,7 +6524,7 @@ var ts;
     }
     ts.nodeIsSynthesized = nodeIsSynthesized;
     function createSynthesizedNode(kind, startsOnNewLine) {
-        var node = ts.createNode(kind);
+        var node = ts.createNode(kind, /* pos */ -1, /* end */ -1);
         node.startsOnNewLine = startsOnNewLine;
         return node;
     }
@@ -7369,8 +7368,8 @@ var ts;
         return nodeConstructors[kind] || (nodeConstructors[kind] = ts.objectAllocator.getNodeConstructor(kind));
     }
     ts.getNodeConstructor = getNodeConstructor;
-    function createNode(kind) {
-        return new (getNodeConstructor(kind))();
+    function createNode(kind, pos, end) {
+        return new (getNodeConstructor(kind))(pos, end);
     }
     ts.createNode = createNode;
     function visitNode(cbNode, node) {
@@ -8260,13 +8259,10 @@ var ts;
         }
         function createNode(kind, pos) {
             nodeCount++;
-            var node = new (nodeConstructors[kind] || (nodeConstructors[kind] = ts.objectAllocator.getNodeConstructor(kind)))();
             if (!(pos >= 0)) {
                 pos = scanner.getStartPos();
             }
-            node.pos = pos;
-            node.end = pos;
-            return node;
+            return new (nodeConstructors[kind] || (nodeConstructors[kind] = ts.objectAllocator.getNodeConstructor(kind)))(pos, pos);
         }
         function finishNode(node, end) {
             node.end = end === undefined ? scanner.getStartPos() : end;
@@ -42453,8 +42449,8 @@ var ts;
                     var tokenStart = sourceFile.getLineAndCharacterOfPosition(currentTokenInfo.token.pos);
                     if (isTokenInRange) {
                         var rangeHasError = rangeContainsError(currentTokenInfo.token);
-                        // save prevStartLine since processRange will overwrite this value with current ones
-                        var prevStartLine = previousRangeStartLine;
+                        // save previousRange since processRange will overwrite this value with current one
+                        var savePreviousRange = previousRange;
                         lineAdded = processRange(currentTokenInfo.token, tokenStart, parent, childContextNode, dynamicIndentation);
                         if (rangeHasError) {
                             // do not indent comments\token if token range overlaps with some error
@@ -42465,7 +42461,9 @@ var ts;
                                 indentToken = lineAdded;
                             }
                             else {
-                                indentToken = lastTriviaWasNewLine && tokenStart.line !== prevStartLine;
+                                // indent token only if end line of previous range does not match start line of the token
+                                var prevEndLine = savePreviousRange && sourceFile.getLineAndCharacterOfPosition(savePreviousRange.end).line;
+                                indentToken = lastTriviaWasNewLine && tokenStart.line !== prevEndLine;
                             }
                         }
                     }
@@ -43322,9 +43320,7 @@ var ts;
     ];
     var jsDocCompletionEntries;
     function createNode(kind, pos, end, flags, parent) {
-        var node = new (ts.getNodeConstructor(kind))();
-        node.pos = pos;
-        node.end = end;
+        var node = new (ts.getNodeConstructor(kind))(pos, end);
         node.flags = flags;
         node.parent = parent;
         return node;
@@ -49635,14 +49631,14 @@ var ts;
     function initializeServices() {
         ts.objectAllocator = {
             getNodeConstructor: function (kind) {
-                function Node() {
+                function Node(pos, end) {
+                    this.pos = pos;
+                    this.end = end;
+                    this.flags = 0 /* None */;
+                    this.parent = undefined;
                 }
                 var proto = kind === 248 /* SourceFile */ ? new SourceFileObject() : new NodeObject();
                 proto.kind = kind;
-                proto.pos = -1;
-                proto.end = -1;
-                proto.flags = 0;
-                proto.parent = undefined;
                 Node.prototype = proto;
                 return Node;
             },
