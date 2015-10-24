@@ -1770,7 +1770,7 @@ var ts;
         Line_terminator_not_permitted_before_arrow: { code: 1200, category: ts.DiagnosticCategory.Error, key: "Line terminator not permitted before arrow." },
         Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_import_d_from_mod_or_another_module_format_instead: { code: 1202, category: ts.DiagnosticCategory.Error, key: "Import assignment cannot be used when targeting ECMAScript 6 modules. Consider using 'import * as ns from \"mod\"', 'import {a} from \"mod\"', 'import d from \"mod\"', or another module format instead." },
         Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_export_default_or_another_module_format_instead: { code: 1203, category: ts.DiagnosticCategory.Error, key: "Export assignment cannot be used when targeting ECMAScript 6 modules. Consider using 'export default' or another module format instead." },
-        Cannot_compile_modules_into_es6_when_targeting_ES5_or_lower: { code: 1204, category: ts.DiagnosticCategory.Error, key: "Cannot compile modules into 'es6' when targeting 'ES5' or lower." },
+        Cannot_compile_modules_into_es2015_when_targeting_ES5_or_lower: { code: 1204, category: ts.DiagnosticCategory.Error, key: "Cannot compile modules into 'es2015' when targeting 'ES5' or lower." },
         Decorators_are_not_valid_here: { code: 1206, category: ts.DiagnosticCategory.Error, key: "Decorators are not valid here." },
         Decorators_cannot_be_applied_to_multiple_get_Slashset_accessors_of_the_same_name: { code: 1207, category: ts.DiagnosticCategory.Error, key: "Decorators cannot be applied to multiple get/set accessors of the same name." },
         Cannot_compile_namespaces_when_the_isolatedModules_flag_is_provided: { code: 1208, category: ts.DiagnosticCategory.Error, key: "Cannot compile namespaces when the '--isolatedModules' flag is provided." },
@@ -2124,7 +2124,7 @@ var ts;
         Compiler_option_0_requires_a_value_of_type_1: { code: 5024, category: ts.DiagnosticCategory.Error, key: "Compiler option '{0}' requires a value of type {1}." },
         Could_not_write_file_0_Colon_1: { code: 5033, category: ts.DiagnosticCategory.Error, key: "Could not write file '{0}': {1}" },
         Option_project_cannot_be_mixed_with_source_files_on_a_command_line: { code: 5042, category: ts.DiagnosticCategory.Error, key: "Option 'project' cannot be mixed with source files on a command line." },
-        Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES6_or_higher: { code: 5047, category: ts.DiagnosticCategory.Error, key: "Option 'isolatedModules' can only be used when either option'--module' is provided or option 'target' is 'ES6' or higher." },
+        Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES2015_or_higher: { code: 5047, category: ts.DiagnosticCategory.Error, key: "Option 'isolatedModules' can only be used when either option '--module' is provided or option 'target' is 'ES2015' or higher." },
         Option_inlineSources_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided: { code: 5051, category: ts.DiagnosticCategory.Error, key: "Option 'inlineSources' can only be used when either option '--inlineSourceMap' or option '--sourceMap' is provided." },
         Option_0_cannot_be_specified_without_specifying_option_1: { code: 5052, category: ts.DiagnosticCategory.Error, key: "Option '{0}' cannot be specified without specifying option '{1}'." },
         Option_0_cannot_be_specified_with_option_1: { code: 5053, category: ts.DiagnosticCategory.Error, key: "Option '{0}' cannot be specified with option '{1}'." },
@@ -2139,8 +2139,8 @@ var ts;
         Do_not_emit_outputs_if_any_errors_were_reported: { code: 6008, category: ts.DiagnosticCategory.Message, key: "Do not emit outputs if any errors were reported." },
         Do_not_emit_comments_to_output: { code: 6009, category: ts.DiagnosticCategory.Message, key: "Do not emit comments to output." },
         Do_not_emit_outputs: { code: 6010, category: ts.DiagnosticCategory.Message, key: "Do not emit outputs." },
-        Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES6_experimental: { code: 6015, category: ts.DiagnosticCategory.Message, key: "Specify ECMAScript target version: 'ES3' (default), 'ES5', or 'ES6' (experimental)" },
-        Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es6: { code: 6016, category: ts.DiagnosticCategory.Message, key: "Specify module code generation: 'commonjs', 'amd', 'system', 'umd' or 'es6'" },
+        Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015_experimental: { code: 6015, category: ts.DiagnosticCategory.Message, key: "Specify ECMAScript target version: 'ES3' (default), 'ES5', or 'ES2015' (experimental)" },
+        Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es2015: { code: 6016, category: ts.DiagnosticCategory.Message, key: "Specify module code generation: 'commonjs', 'amd', 'system', 'umd' or 'es2015'" },
         Print_this_message: { code: 6017, category: ts.DiagnosticCategory.Message, key: "Print this message." },
         Print_the_compiler_s_version: { code: 6019, category: ts.DiagnosticCategory.Message, key: "Print the compiler's version." },
         Compile_the_project_in_the_given_directory: { code: 6020, category: ts.DiagnosticCategory.Message, key: "Compile the project in the given directory." },
@@ -2161,8 +2161,8 @@ var ts;
         Generates_corresponding_map_file: { code: 6043, category: ts.DiagnosticCategory.Message, key: "Generates corresponding '.map' file." },
         Compiler_option_0_expects_an_argument: { code: 6044, category: ts.DiagnosticCategory.Error, key: "Compiler option '{0}' expects an argument." },
         Unterminated_quoted_string_in_response_file_0: { code: 6045, category: ts.DiagnosticCategory.Error, key: "Unterminated quoted string in response file '{0}'." },
-        Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es6: { code: 6046, category: ts.DiagnosticCategory.Error, key: "Argument for '--module' option must be 'commonjs', 'amd', 'system', 'umd', or 'es6'." },
-        Argument_for_target_option_must_be_ES3_ES5_or_ES6: { code: 6047, category: ts.DiagnosticCategory.Error, key: "Argument for '--target' option must be 'ES3', 'ES5', or 'ES6'." },
+        Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es2015: { code: 6046, category: ts.DiagnosticCategory.Error, key: "Argument for '--module' option must be 'commonjs', 'amd', 'system', 'umd', or 'es2015'." },
+        Argument_for_target_option_must_be_ES3_ES5_or_ES2015: { code: 6047, category: ts.DiagnosticCategory.Error, key: "Argument for '--target' option must be 'ES3', 'ES5', or 'ES2015'." },
         Locale_must_be_of_the_form_language_or_language_territory_For_example_0_or_1: { code: 6048, category: ts.DiagnosticCategory.Error, key: "Locale must be of the form <language> or <language>-<territory>. For example '{0}' or '{1}'." },
         Unsupported_locale_0: { code: 6049, category: ts.DiagnosticCategory.Error, key: "Unsupported locale '{0}'." },
         Unable_to_open_file_0: { code: 6050, category: ts.DiagnosticCategory.Error, key: "Unable to open file '{0}'." },
@@ -15805,22 +15805,27 @@ var ts;
             }
             return type.resolvedBaseConstructorType;
         }
+        function hasClassBaseType(type) {
+            return !!ts.forEach(getBaseTypes(type), function (t) { return !!(t.symbol.flags & 32 /* Class */); });
+        }
         function getBaseTypes(type) {
+            var isClass = type.symbol.flags & 32 /* Class */;
+            var isInterface = type.symbol.flags & 64 /* Interface */;
             if (!type.resolvedBaseTypes) {
-                if (type.symbol.flags & 32 /* Class */) {
+                if (!isClass && !isInterface) {
+                    ts.Debug.fail("type must be class or interface");
+                }
+                if (isClass) {
                     resolveBaseTypesOfClass(type);
                 }
-                else if (type.symbol.flags & 64 /* Interface */) {
+                if (isInterface) {
                     resolveBaseTypesOfInterface(type);
-                }
-                else {
-                    ts.Debug.fail("type must be class or interface");
                 }
             }
             return type.resolvedBaseTypes;
         }
         function resolveBaseTypesOfClass(type) {
-            type.resolvedBaseTypes = emptyArray;
+            type.resolvedBaseTypes = type.resolvedBaseTypes || emptyArray;
             var baseContructorType = getBaseConstructorTypeOfClass(type);
             if (!(baseContructorType.flags & 80896 /* ObjectType */)) {
                 return;
@@ -15855,10 +15860,15 @@ var ts;
                 error(type.symbol.valueDeclaration, ts.Diagnostics.Type_0_recursively_references_itself_as_a_base_type, typeToString(type, /*enclosingDeclaration*/ undefined, 1 /* WriteArrayAsGenericType */));
                 return;
             }
-            type.resolvedBaseTypes = [baseType];
+            if (type.resolvedBaseTypes === emptyArray) {
+                type.resolvedBaseTypes = [baseType];
+            }
+            else {
+                type.resolvedBaseTypes.push(baseType);
+            }
         }
         function resolveBaseTypesOfInterface(type) {
-            type.resolvedBaseTypes = [];
+            type.resolvedBaseTypes = type.resolvedBaseTypes || emptyArray;
             for (var _i = 0, _a = type.symbol.declarations; _i < _a.length; _i++) {
                 var declaration = _a[_i];
                 if (declaration.kind === 215 /* InterfaceDeclaration */ && ts.getInterfaceBaseTypeNodes(declaration)) {
@@ -15868,7 +15878,12 @@ var ts;
                         if (baseType !== unknownType) {
                             if (getTargetType(baseType).flags & (1024 /* Class */ | 2048 /* Interface */)) {
                                 if (type !== baseType && !hasBaseType(baseType, type)) {
-                                    type.resolvedBaseTypes.push(baseType);
+                                    if (type.resolvedBaseTypes === emptyArray) {
+                                        type.resolvedBaseTypes = [baseType];
+                                    }
+                                    else {
+                                        type.resolvedBaseTypes.push(baseType);
+                                    }
                                 }
                                 else {
                                     error(declaration, ts.Diagnostics.Type_0_recursively_references_itself_as_a_base_type, typeToString(type, /*enclosingDeclaration*/ undefined, 1 /* WriteArrayAsGenericType */));
@@ -16193,7 +16208,7 @@ var ts;
             return createSignature(sig.declaration, sig.typeParameters, sig.parameters, sig.resolvedReturnType, sig.typePredicate, sig.minArgumentCount, sig.hasRestParameter, sig.hasStringLiterals);
         }
         function getDefaultConstructSignatures(classType) {
-            if (!getBaseTypes(classType).length) {
+            if (!hasClassBaseType(classType)) {
                 return [createSignature(undefined, classType.localTypeParameters, emptyArray, classType, undefined, 0, false, false)];
             }
             var baseConstructorType = getBaseConstructorTypeOfClass(classType);
@@ -18391,11 +18406,10 @@ var ts;
             // M and N (the signatures) are instantiated using type Any as the type argument for all type parameters declared by M and N
             source = getErasedSignature(source);
             target = getErasedSignature(target);
-            var sourceLen = source.parameters.length;
             var targetLen = target.parameters.length;
             for (var i = 0; i < targetLen; i++) {
-                var s = source.hasRestParameter && i === sourceLen - 1 ? getRestTypeOfSignature(source) : getTypeOfSymbol(source.parameters[i]);
-                var t = target.hasRestParameter && i === targetLen - 1 ? getRestTypeOfSignature(target) : getTypeOfSymbol(target.parameters[i]);
+                var s = isRestParameterIndex(source, i) ? getRestTypeOfSignature(source) : getTypeOfSymbol(source.parameters[i]);
+                var t = isRestParameterIndex(target, i) ? getRestTypeOfSignature(target) : getTypeOfSymbol(target.parameters[i]);
                 var related = compareTypes(s, t);
                 if (!related) {
                     return 0 /* False */;
@@ -18406,6 +18420,9 @@ var ts;
                 result &= compareTypes(getReturnTypeOfSignature(source), getReturnTypeOfSignature(target));
             }
             return result;
+        }
+        function isRestParameterIndex(signature, parameterIndex) {
+            return signature.hasRestParameter && parameterIndex >= signature.parameters.length - 1;
         }
         function isSupertypeOfEach(candidate, types) {
             for (var _i = 0; _i < types.length; _i++) {
@@ -19476,8 +19493,9 @@ var ts;
                             return getTypeAtPosition(contextualSignature, indexOfParameter);
                         }
                         // If last parameter is contextually rest parameter get its type
-                        if (indexOfParameter === (func.parameters.length - 1) &&
-                            funcHasRestParameters && contextualSignature.hasRestParameter && func.parameters.length >= contextualSignature.parameters.length) {
+                        if (funcHasRestParameters &&
+                            indexOfParameter === (func.parameters.length - 1) &&
+                            isRestParameterIndex(contextualSignature, func.parameters.length - 1)) {
                             return getTypeOfSymbol(ts.lastOrUndefined(contextualSignature.parameters));
                         }
                     }
@@ -20898,7 +20916,7 @@ var ts;
             // If spread arguments are present, check that they correspond to a rest parameter. If so, no
             // further checking is necessary.
             if (spreadArgIndex >= 0) {
-                return signature.hasRestParameter && spreadArgIndex >= signature.parameters.length - 1;
+                return isRestParameterIndex(signature, spreadArgIndex);
             }
             // Too many arguments implies incorrect arity.
             if (!signature.hasRestParameter && adjustedArgCount > signature.parameters.length) {
@@ -21771,7 +21789,7 @@ var ts;
                 var contextualParameterType = getTypeAtPosition(context, i);
                 assignTypeToParameterAndFixTypeParameters(parameter, contextualParameterType, mapper);
             }
-            if (signature.hasRestParameter && context.hasRestParameter && signature.parameters.length >= context.parameters.length) {
+            if (signature.hasRestParameter && isRestParameterIndex(context, signature.parameters.length - 1)) {
                 var parameter = ts.lastOrUndefined(signature.parameters);
                 var contextualParameterType = getTypeOfSymbol(ts.lastOrUndefined(context.parameters));
                 assignTypeToParameterAndFixTypeParameters(parameter, contextualParameterType, mapper);
@@ -27783,9 +27801,9 @@ var ts;
                 "es6": 5 /* ES6 */,
                 "es2015": 5 /* ES2015 */,
             },
-            description: ts.Diagnostics.Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es6,
+            description: ts.Diagnostics.Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es2015,
             paramType: ts.Diagnostics.KIND,
-            error: ts.Diagnostics.Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es6
+            error: ts.Diagnostics.Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es2015
         },
         {
             name: "newLine",
@@ -27916,9 +27934,9 @@ var ts;
                 "es6": 2 /* ES6 */,
                 "es2015": 2 /* ES2015 */,
             },
-            description: ts.Diagnostics.Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES6_experimental,
+            description: ts.Diagnostics.Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015_experimental,
             paramType: ts.Diagnostics.VERSION,
-            error: ts.Diagnostics.Argument_for_target_option_must_be_ES3_ES5_or_ES6
+            error: ts.Diagnostics.Argument_for_target_option_must_be_ES3_ES5_or_ES2015
         },
         {
             name: "version",
@@ -32077,7 +32095,7 @@ var ts;
              *   we we emit variable statement 'var' should be dropped.
              */
             function isSourceFileLevelDeclarationInSystemJsModule(node, isExported) {
-                if (!node || languageVersion >= 2 /* ES6 */ || !isCurrentFileSystemExternalModule()) {
+                if (!node || !isCurrentFileSystemExternalModule()) {
                     return false;
                 }
                 var current = node;
@@ -37296,7 +37314,7 @@ var ts;
             var firstExternalModuleSourceFile = ts.forEach(files, function (f) { return ts.isExternalModule(f) ? f : undefined; });
             if (options.isolatedModules) {
                 if (!options.module && languageVersion < 2 /* ES6 */) {
-                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES6_or_higher));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES2015_or_higher));
                 }
                 var firstNonExternalModuleSourceFile = ts.forEach(files, function (f) { return !ts.isExternalModule(f) && !ts.isDeclarationFile(f) ? f : undefined; });
                 if (firstNonExternalModuleSourceFile) {
@@ -37311,7 +37329,7 @@ var ts;
             }
             // Cannot specify module gen target of es6 when below es6
             if (options.module === 5 /* ES6 */ && languageVersion < 2 /* ES6 */) {
-                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_compile_modules_into_es6_when_targeting_ES5_or_lower));
+                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_compile_modules_into_es2015_when_targeting_ES5_or_lower));
             }
             // there has to be common source directory if user specified --outdir || --sourceRoot
             // if user specified --mapRoot, there needs to be common source directory if there would be multiple files being emitted
@@ -37485,6 +37503,10 @@ var ts;
         var hostGetSourceFile; // getSourceFile method from default host
         var timerHandleForRecompilation; // Handle for 0.25s wait timer to trigger recompilation
         var timerHandleForDirectoryChanges; // Handle for 0.25s wait timer to trigger directory change handler
+        // This map stores and reuses results of fileExists check that happen inside 'createProgram'
+        // This allows to save time in module resolution heavy scenarios when existence of the same file might be checked multiple times.
+        var cachedExistingFiles;
+        var hostFileExists;
         if (commandLine.options.locale) {
             if (!isJSONSupported()) {
                 reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--locale"));
@@ -37587,13 +37609,23 @@ var ts;
                 compilerHost = ts.createCompilerHost(compilerOptions);
                 hostGetSourceFile = compilerHost.getSourceFile;
                 compilerHost.getSourceFile = getSourceFile;
+                hostFileExists = compilerHost.fileExists;
+                compilerHost.fileExists = cachedFileExists;
             }
+            // reset the cache of existing files
+            cachedExistingFiles = {};
             var compileResult = compile(rootFileNames, compilerOptions, compilerHost);
             if (!compilerOptions.watch) {
                 return ts.sys.exit(compileResult.exitStatus);
             }
             setCachedProgram(compileResult.program);
             reportWatchDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Compilation_complete_Watching_for_file_changes));
+        }
+        function cachedFileExists(fileName) {
+            if (ts.hasProperty(cachedExistingFiles, fileName)) {
+                return cachedExistingFiles[fileName];
+            }
+            return cachedExistingFiles[fileName] = hostFileExists(fileName);
         }
         function getSourceFile(fileName, languageVersion, onError) {
             // Return existing SourceFile object if one is available
@@ -37829,7 +37861,7 @@ var ts;
     }
     function writeConfigFile(options, fileNames) {
         var currentDirectory = ts.sys.getCurrentDirectory();
-        var file = ts.combinePaths(currentDirectory, "tsconfig.json");
+        var file = ts.normalizePath(ts.combinePaths(currentDirectory, "tsconfig.json"));
         if (ts.sys.fileExists(file)) {
             reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.A_tsconfig_json_file_is_already_defined_at_Colon_0, file));
         }

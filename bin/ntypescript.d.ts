@@ -2713,7 +2713,7 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Cannot_compile_modules_into_es6_when_targeting_ES5_or_lower: {
+        Cannot_compile_modules_into_es2015_when_targeting_ES5_or_lower: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4483,7 +4483,7 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES6_or_higher: {
+        Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES2015_or_higher: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4558,12 +4558,12 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES6_experimental: {
+        Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015_experimental: {
             code: number;
             category: DiagnosticCategory;
             key: string;
         };
-        Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es6: {
+        Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es2015: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4668,12 +4668,12 @@ declare namespace ts {
             category: DiagnosticCategory;
             key: string;
         };
-        Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es6: {
+        Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es2015: {
             code: number;
             category: DiagnosticCategory;
             key: string;
         };
-        Argument_for_target_option_must_be_ES3_ES5_or_ES6: {
+        Argument_for_target_option_must_be_ES3_ES5_or_ES2015: {
             code: number;
             category: DiagnosticCategory;
             key: string;
