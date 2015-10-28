@@ -1573,6 +1573,7 @@ declare namespace ts {
         experimentalDecorators?: boolean;
         emitDecoratorMetadata?: boolean;
         moduleResolution?: ModuleResolutionKind;
+        forceConsistentCasingInFileNames?: boolean;
         stripInternal?: boolean;
         skipDefaultLibCheck?: boolean;
         [option: string]: string | number | boolean;
@@ -5358,6 +5359,12 @@ declare namespace ts {
             message: string;
         };
         Suppress_excess_property_checks_for_object_literals: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Disallow_inconsistently_cased_references_to_the_same_file: {
             code: number;
             category: DiagnosticCategory;
             key: string;

@@ -571,6 +571,7 @@
   "Initializes_a_TypeScript_project_and_creates_a_tsconfig_json_file_6070" : "Initializes a TypeScript project and creates a tsconfig.json file.",
   "Successfully_created_a_tsconfig_json_file_6071" : "Successfully created a tsconfig.json file.",
   "Suppress_excess_property_checks_for_object_literals_6072" : "Suppress excess property checks for object literals.",
+  "Disallow_inconsistently_cased_references_to_the_same_file_6073" : "Disallow inconsistently-cased references to the same file.",
   "Variable_0_implicitly_has_an_1_type_7005" : "Variable '{0}' implicitly has an '{1}' type.",
   "Parameter_0_implicitly_has_an_1_type_7006" : "Parameter '{0}' implicitly has an '{1}' type.",
   "Member_0_implicitly_has_an_1_type_7008" : "Member '{0}' implicitly has an '{1}' type.",
