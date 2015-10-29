@@ -3132,6 +3132,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        The_body_of_an_if_statement_cannot_be_the_empty_statement: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Duplicate_identifier_0: {
             code: number;
             category: DiagnosticCategory;

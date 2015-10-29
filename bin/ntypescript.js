@@ -1815,6 +1815,7 @@ var ts;
         await_expression_is_only_allowed_within_an_async_function: { code: 1308, category: ts.DiagnosticCategory.Error, key: "await_expression_is_only_allowed_within_an_async_function_1308", message: "'await' expression is only allowed within an async function." },
         Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: { code: 1311, category: ts.DiagnosticCategory.Error, key: "Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher_1311", message: "Async functions are only available when targeting ECMAScript 6 and higher." },
         can_only_be_used_in_an_object_literal_property_inside_a_destructuring_assignment: { code: 1312, category: ts.DiagnosticCategory.Error, key: "can_only_be_used_in_an_object_literal_property_inside_a_destructuring_assignment_1312", message: "'=' can only be used in an object literal property inside a destructuring assignment." },
+        The_body_of_an_if_statement_cannot_be_the_empty_statement: { code: 1313, category: ts.DiagnosticCategory.Error, key: "The_body_of_an_if_statement_cannot_be_the_empty_statement_1313", message: "The body of an 'if' statement cannot be the empty statement." },
         Duplicate_identifier_0: { code: 2300, category: ts.DiagnosticCategory.Error, key: "Duplicate_identifier_0_2300", message: "Duplicate identifier '{0}'." },
         Initializer_of_instance_member_variable_0_cannot_reference_identifier_1_declared_in_the_constructor: { code: 2301, category: ts.DiagnosticCategory.Error, key: "Initializer_of_instance_member_variable_0_cannot_reference_identifier_1_declared_in_the_constructor_2301", message: "Initializer of instance member variable '{0}' cannot reference identifier '{1}' declared in the constructor." },
         Static_members_cannot_reference_class_type_parameters: { code: 2302, category: ts.DiagnosticCategory.Error, key: "Static_members_cannot_reference_class_type_parameters_2302", message: "Static members cannot reference class type parameters." },
@@ -18269,7 +18270,7 @@ var ts;
                 var targetType = getIndexTypeOfType(target, 0 /* String */);
                 if (targetType) {
                     if ((targetType.flags & 1 /* Any */) && !(originalSource.flags & 16777726 /* Primitive */)) {
-                        // non-primitive assignment to any is always allowed, eg 
+                        // non-primitive assignment to any is always allowed, eg
                         //   `var x: { [index: string]: any } = { property: 12 };`
                         return -1 /* True */;
                     }
@@ -18298,7 +18299,7 @@ var ts;
                 var targetType = getIndexTypeOfType(target, 1 /* Number */);
                 if (targetType) {
                     if ((targetType.flags & 1 /* Any */) && !(originalSource.flags & 16777726 /* Primitive */)) {
-                        // non-primitive assignment to any is always allowed, eg 
+                        // non-primitive assignment to any is always allowed, eg
                         //   `var x: { [index: number]: any } = { property: 12 };`
                         return -1 /* True */;
                     }
@@ -19309,9 +19310,9 @@ var ts;
                 symbol.valueDeclaration.parent.kind === 244 /* CatchClause */) {
                 return;
             }
-            // 1. walk from the use site up to the declaration and check 
+            // 1. walk from the use site up to the declaration and check
             // if there is anything function like between declaration and use-site (is binding/class is captured in function).
-            // 2. walk from the declaration up to the boundary of lexical environment and check 
+            // 2. walk from the declaration up to the boundary of lexical environment and check
             // if there is an iteration statement in between declaration and boundary (is binding/class declared inside iteration statement)
             var container;
             if (symbol.flags & 32 /* Class */) {
@@ -23811,9 +23812,12 @@ var ts;
                 // type as a value. As such, we will just return unknownType;
                 return unknownType;
             }
-            var promiseConstructor = getMergedSymbol(promiseType.symbol);
+            var promiseConstructor = getNodeLinks(node.type).resolvedSymbol;
             if (!promiseConstructor || !symbolIsValue(promiseConstructor)) {
-                error(node, ts.Diagnostics.Type_0_is_not_a_valid_async_function_return_type, typeToString(promiseType));
+                var typeName = promiseConstructor
+                    ? symbolToString(promiseConstructor)
+                    : typeToString(promiseType);
+                error(node, ts.Diagnostics.Type_0_is_not_a_valid_async_function_return_type, typeName);
                 return unknownType;
             }
             // Validate the promise constructor type.
@@ -24315,6 +24319,9 @@ var ts;
             checkGrammarStatementInAmbientContext(node);
             checkExpression(node.expression);
             checkSourceElement(node.thenStatement);
+            if (node.thenStatement.kind === 194 /* EmptyStatement */) {
+                error(node.thenStatement, ts.Diagnostics.The_body_of_an_if_statement_cannot_be_the_empty_statement);
+            }
             checkSourceElement(node.elseStatement);
         }
         function checkDoStatement(node) {
