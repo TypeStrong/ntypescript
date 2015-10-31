@@ -823,40 +823,50 @@ var ts;
         Ternary[Ternary["True"] = -1] = "True";
     })(ts.Ternary || (ts.Ternary = {}));
     var Ternary = ts.Ternary;
-    function createFileMap(getCanonicalFileName) {
+    function createFileMap(keyMapper) {
         var files = {};
         return {
             get: get,
             set: set,
             contains: contains,
             remove: remove,
-            clear: clear,
-            forEachValue: forEachValueInMap
+            forEachValue: forEachValueInMap,
+            clear: clear
         };
-        function set(fileName, value) {
-            files[normalizeKey(fileName)] = value;
-        }
-        function get(fileName) {
-            return files[normalizeKey(fileName)];
-        }
-        function contains(fileName) {
-            return hasProperty(files, normalizeKey(fileName));
-        }
-        function remove(fileName) {
-            var key = normalizeKey(fileName);
-            delete files[key];
-        }
         function forEachValueInMap(f) {
-            forEachValue(files, f);
+            for (var key in files) {
+                f(key, files[key]);
+            }
         }
-        function normalizeKey(key) {
-            return getCanonicalFileName(normalizeSlashes(key));
+        // path should already be well-formed so it does not need to be normalized
+        function get(path) {
+            return files[toKey(path)];
+        }
+        function set(path, value) {
+            files[toKey(path)] = value;
+        }
+        function contains(path) {
+            return hasProperty(files, toKey(path));
+        }
+        function remove(path) {
+            var key = toKey(path);
+            delete files[key];
         }
         function clear() {
             files = {};
         }
+        function toKey(path) {
+            return keyMapper ? keyMapper(path) : path;
+        }
     }
     ts.createFileMap = createFileMap;
+    function toPath(fileName, basePath, getCanonicalFileName) {
+        var nonCanonicalizedPath = isRootedDiskPath(fileName)
+            ? normalizePath(fileName)
+            : getNormalizedAbsolutePath(fileName, basePath);
+        return getCanonicalFileName(nonCanonicalizedPath);
+    }
+    ts.toPath = toPath;
     (function (Comparison) {
         Comparison[Comparison["LessThan"] = -1] = "LessThan";
         Comparison[Comparison["EqualTo"] = 0] = "EqualTo";
@@ -6378,7 +6388,6 @@ var ts;
     function tryResolveScriptReference(host, sourceFile, reference) {
         if (!host.getCompilerOptions().noResolve) {
             var referenceFileName = ts.isRootedDiskPath(reference.fileName) ? reference.fileName : ts.combinePaths(ts.getDirectoryPath(sourceFile.fileName), reference.fileName);
-            referenceFileName = ts.getNormalizedAbsolutePath(referenceFileName, host.getCurrentDirectory());
             return host.getSourceFile(referenceFileName);
         }
     }
@@ -7136,6 +7145,12 @@ var ts;
         return result;
     }
     ts.convertToBase64 = convertToBase64;
+    function convertToRelativePath(absoluteOrRelativePath, basePath, getCanonicalFileName) {
+        return !ts.isRootedDiskPath(absoluteOrRelativePath)
+            ? absoluteOrRelativePath
+            : ts.getRelativePathToDirectoryOrUrl(basePath, absoluteOrRelativePath, basePath, getCanonicalFileName, /* isAbsolutePathAnUrl */ false);
+    }
+    ts.convertToRelativePath = convertToRelativePath;
     var carriageReturnLineFeed = "\r\n";
     var lineFeed = "\n";
     function getNewLineCharacter(options) {
@@ -24680,7 +24695,7 @@ var ts;
                         error(node.expression, ts.Diagnostics.Setters_cannot_return_a_value);
                     }
                     else if (func.kind === 144 /* Constructor */) {
-                        if (!isTypeAssignableTo(exprType, returnType)) {
+                        if (!checkTypeAssignableTo(exprType, returnType, node.expression)) {
                             error(node.expression, ts.Diagnostics.Return_type_of_constructor_signature_must_be_assignable_to_the_instance_type_of_the_class);
                         }
                     }
@@ -32819,10 +32834,12 @@ var ts;
                 //
                 //     for (let v of arr) { }
                 //
-                // we don't want to emit a temporary variable for the RHS, just use it directly.
-                var rhsIsIdentifier = node.expression.kind === 69 /* Identifier */;
+                // we can't reuse 'arr' because it might be modified within the body of the loop.
                 var counter = createTempVariable(268435456 /* _i */);
-                var rhsReference = rhsIsIdentifier ? node.expression : createTempVariable(0 /* Auto */);
+                var rhsReference = ts.createSynthesizedNode(69 /* Identifier */);
+                rhsReference.text = node.expression.kind === 69 /* Identifier */ ?
+                    makeUniqueName(node.expression.text) :
+                    makeTempVariableName(0 /* Auto */);
                 // This is the let keyword for the counter and rhsReference. The let keyword for
                 // the LHS will be emitted inside the body.
                 emitStart(node.expression);
@@ -32831,15 +32848,13 @@ var ts;
                 emitNodeWithoutSourceMap(counter);
                 write(" = 0");
                 emitEnd(node.expression);
-                if (!rhsIsIdentifier) {
-                    // , _a = expr
-                    write(", ");
-                    emitStart(node.expression);
-                    emitNodeWithoutSourceMap(rhsReference);
-                    write(" = ");
-                    emitNodeWithoutSourceMap(node.expression);
-                    emitEnd(node.expression);
-                }
+                // , _a = expr
+                write(", ");
+                emitStart(node.expression);
+                emitNodeWithoutSourceMap(rhsReference);
+                write(" = ");
+                emitNodeWithoutSourceMap(node.expression);
+                emitEnd(node.expression);
                 write("; ");
                 // _i < _a.length;
                 emitStart(node.initializer);
@@ -37201,7 +37216,7 @@ var ts;
         var resolveModuleNamesWorker = host.resolveModuleNames
             ? (function (moduleNames, containingFile) { return host.resolveModuleNames(moduleNames, containingFile); })
             : (function (moduleNames, containingFile) { return ts.map(moduleNames, function (moduleName) { return resolveModuleName(moduleName, containingFile, options, host).resolvedModule; }); });
-        var filesByName = ts.createFileMap(getCanonicalFileName);
+        var filesByName = ts.createFileMap();
         // stores 'filename -> file association' ignoring case
         // used to track cases when two file names differ only in casing 
         var filesByNameIgnoreCase = host.useCaseSensitiveFileNames() ? ts.createFileMap(function (fileName) { return fileName.toLowerCase(); }) : undefined;
@@ -37278,7 +37293,7 @@ var ts;
             }
             // check if program source files has changed in the way that can affect structure of the program
             var newSourceFiles = [];
-            var normalizedAbsoluteFileNames = [];
+            var filePaths = [];
             var modifiedSourceFiles = [];
             for (var _i = 0, _a = oldProgram.getSourceFiles(); _i < _a.length; _i++) {
                 var oldSourceFile = _a[_i];
@@ -37286,8 +37301,8 @@ var ts;
                 if (!newSourceFile) {
                     return false;
                 }
-                var normalizedAbsolutePath = ts.getNormalizedAbsolutePath(newSourceFile.fileName, currentDirectory);
-                normalizedAbsoluteFileNames.push(normalizedAbsolutePath);
+                newSourceFile.path = oldSourceFile.path;
+                filePaths.push(newSourceFile.path);
                 if (oldSourceFile !== newSourceFile) {
                     if (oldSourceFile.hasNoDefaultLib !== newSourceFile.hasNoDefaultLib) {
                         // value of no-default-lib has changed
@@ -37307,7 +37322,7 @@ var ts;
                     }
                     if (resolveModuleNamesWorker) {
                         var moduleNames = ts.map(newSourceFile.imports, function (name) { return name.text; });
-                        var resolutions = resolveModuleNamesWorker(moduleNames, normalizedAbsolutePath);
+                        var resolutions = resolveModuleNamesWorker(moduleNames, ts.getNormalizedAbsolutePath(newSourceFile.fileName, currentDirectory));
                         // ensure that module resolution results are still correct
                         for (var i = 0; i < moduleNames.length; ++i) {
                             var newResolution = resolutions[i];
@@ -37335,7 +37350,7 @@ var ts;
             }
             // update fileName -> file mapping
             for (var i = 0, len = newSourceFiles.length; i < len; ++i) {
-                filesByName.set(normalizedAbsoluteFileNames[i], newSourceFiles[i]);
+                filesByName.set(filePaths[i], newSourceFiles[i]);
             }
             files = newSourceFiles;
             fileProcessingDiagnostics = oldProgram.getFileProcessingDiagnostics();
@@ -37390,7 +37405,7 @@ var ts;
             return emitResult;
         }
         function getSourceFile(fileName) {
-            return filesByName.get(ts.getNormalizedAbsolutePath(fileName, currentDirectory));
+            return filesByName.get(ts.toPath(fileName, currentDirectory, getCanonicalFileName));
         }
         function getDiagnosticsHelper(sourceFile, getDiagnostics, cancellationToken) {
             if (sourceFile) {
@@ -37534,7 +37549,7 @@ var ts;
                     diagnostic = ts.Diagnostics.File_0_has_unsupported_extension_The_only_supported_extensions_are_1;
                     diagnosticArgument = [fileName, "'" + ts.supportedExtensions.join("', '") + "'"];
                 }
-                else if (!findSourceFile(fileName, ts.getNormalizedAbsolutePath(fileName, currentDirectory), isDefaultLib, refFile, refPos, refEnd)) {
+                else if (!findSourceFile(fileName, ts.toPath(fileName, currentDirectory, getCanonicalFileName), isDefaultLib, refFile, refPos, refEnd)) {
                     diagnostic = ts.Diagnostics.File_0_not_found;
                     diagnosticArgument = [fileName];
                 }
@@ -37544,13 +37559,13 @@ var ts;
                 }
             }
             else {
-                var nonTsFile = options.allowNonTsExtensions && findSourceFile(fileName, ts.getNormalizedAbsolutePath(fileName, currentDirectory), isDefaultLib, refFile, refPos, refEnd);
+                var nonTsFile = options.allowNonTsExtensions && findSourceFile(fileName, ts.toPath(fileName, currentDirectory, getCanonicalFileName), isDefaultLib, refFile, refPos, refEnd);
                 if (!nonTsFile) {
                     if (options.allowNonTsExtensions) {
                         diagnostic = ts.Diagnostics.File_0_not_found;
                         diagnosticArgument = [fileName];
                     }
-                    else if (!ts.forEach(ts.supportedExtensions, function (extension) { return findSourceFile(fileName + extension, ts.getNormalizedAbsolutePath(fileName + extension, currentDirectory), isDefaultLib, refFile, refPos, refEnd); })) {
+                    else if (!ts.forEach(ts.supportedExtensions, function (extension) { return findSourceFile(fileName + extension, ts.toPath(fileName + extension, currentDirectory, getCanonicalFileName), isDefaultLib, refFile, refPos, refEnd); })) {
                         diagnostic = ts.Diagnostics.File_0_not_found;
                         fileName += ".ts";
                         diagnosticArgument = [fileName];
@@ -37596,6 +37611,7 @@ var ts;
             });
             filesByName.set(normalizedAbsolutePath, file);
             if (file) {
+                file.path = normalizedAbsolutePath;
                 if (host.useCaseSensitiveFileNames()) {
                     // for case-sensitive file systems check if we've already seen some file with similar filename ignoring case
                     var existingFile = filesByNameIgnoreCase.get(normalizedAbsolutePath);
@@ -37642,13 +37658,7 @@ var ts;
                     var resolution = resolutions[i];
                     ts.setResolvedModule(file, moduleNames[i], resolution);
                     if (resolution && !options.noResolve) {
-                        var absoluteImportPath = ts.isRootedDiskPath(resolution.resolvedFileName)
-                            ? resolution.resolvedFileName
-                            : ts.getNormalizedAbsolutePath(resolution.resolvedFileName, currentDirectory);
-                        // convert an absolute import path to path that is relative to current directory
-                        // this was host still can locate it but files names in user output will be shorter (and thus look nicer).
-                        var relativePath = ts.getRelativePathToDirectoryOrUrl(currentDirectory, absoluteImportPath, currentDirectory, getCanonicalFileName, false);
-                        var importedFile = findSourceFile(relativePath, absoluteImportPath, /* isDefaultLib */ false, file, ts.skipTrivia(file.text, file.imports[i].pos), file.imports[i].end);
+                        var importedFile = findSourceFile(resolution.resolvedFileName, ts.toPath(resolution.resolvedFileName, currentDirectory, getCanonicalFileName), /* isDefaultLib */ false, file, ts.skipTrivia(file.text, file.imports[i].pos), file.imports[i].end);
                         if (importedFile && resolution.isExternalLibraryImport) {
                             if (!ts.isExternalModule(importedFile)) {
                                 var start_2 = ts.getTokenPosOfNode(file.imports[i], file);
@@ -37894,19 +37904,22 @@ var ts;
         var diagnostic = ts.createCompilerDiagnostic.apply(undefined, arguments);
         return diagnostic.messageText;
     }
-    function reportDiagnostic(diagnostic) {
+    function reportDiagnostic(diagnostic, host) {
         var output = "";
         if (diagnostic.file) {
             var loc = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start);
-            output += diagnostic.file.fileName + "(" + (loc.line + 1) + "," + (loc.character + 1) + "): ";
+            var relativeFileName = host
+                ? ts.convertToRelativePath(diagnostic.file.fileName, host.getCurrentDirectory(), function (fileName) { return host.getCanonicalFileName(fileName); })
+                : diagnostic.file.fileName;
+            output += relativeFileName + "(" + (loc.line + 1) + "," + (loc.character + 1) + "): ";
         }
         var category = ts.DiagnosticCategory[diagnostic.category].toLowerCase();
         output += category + " TS" + diagnostic.code + ": " + ts.flattenDiagnosticMessageText(diagnostic.messageText, ts.sys.newLine) + ts.sys.newLine;
         ts.sys.write(output);
     }
-    function reportDiagnostics(diagnostics) {
+    function reportDiagnostics(diagnostics, host) {
         for (var i = 0; i < diagnostics.length; i++) {
-            reportDiagnostic(diagnostics[i]);
+            reportDiagnostic(diagnostics[i], host);
         }
     }
     function reportWatchDiagnostic(diagnostic) {
@@ -37961,7 +37974,7 @@ var ts;
         var hostFileExists;
         if (commandLine.options.locale) {
             if (!isJSONSupported()) {
-                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--locale"));
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--locale"), /* compilerHost */ undefined);
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
             validateLocaleAndSetLanguage(commandLine.options.locale, commandLine.errors);
@@ -37969,7 +37982,7 @@ var ts;
         // If there are any errors due to command line parsing and/or
         // setting up localization, report them and quit.
         if (commandLine.errors.length > 0) {
-            reportDiagnostics(commandLine.errors);
+            reportDiagnostics(commandLine.errors, compilerHost);
             return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
         }
         if (commandLine.options.init) {
@@ -37977,7 +37990,7 @@ var ts;
             return ts.sys.exit(ts.ExitStatus.Success);
         }
         if (commandLine.options.version) {
-            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Version_0, ts.version));
+            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Version_0, ts.version), /* compilerHost */ undefined);
             return ts.sys.exit(ts.ExitStatus.Success);
         }
         if (commandLine.options.help) {
@@ -37987,12 +38000,12 @@ var ts;
         }
         if (commandLine.options.project) {
             if (!isJSONSupported()) {
-                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--project"));
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--project"), /* compilerHost */ undefined);
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
             configFileName = ts.normalizePath(ts.combinePaths(commandLine.options.project, "tsconfig.json"));
             if (commandLine.fileNames.length !== 0) {
-                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Option_project_cannot_be_mixed_with_source_files_on_a_command_line));
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Option_project_cannot_be_mixed_with_source_files_on_a_command_line), /* compilerHost */ undefined);
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
         }
@@ -38008,7 +38021,7 @@ var ts;
         // Firefox has Object.prototype.watch
         if (commandLine.options.watch && commandLine.options.hasOwnProperty("watch")) {
             if (!ts.sys.watchFile) {
-                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"));
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* compilerHost */ undefined);
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
             if (configFileName) {
@@ -38040,7 +38053,7 @@ var ts;
             var configObject = result.config;
             var configParseResult = ts.parseJsonConfigFileContent(configObject, ts.sys, ts.getDirectoryPath(configFileName));
             if (configParseResult.errors.length > 0) {
-                reportDiagnostics(configParseResult.errors);
+                reportDiagnostics(configParseResult.errors, /* compilerHost */ undefined);
                 ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                 return;
             }
@@ -38217,7 +38230,7 @@ var ts;
                     diagnostics = program.getSemanticDiagnostics();
                 }
             }
-            reportDiagnostics(diagnostics);
+            reportDiagnostics(diagnostics, compilerHost);
             // If the user doesn't want us to emit, then we're done at this point.
             if (compilerOptions.noEmit) {
                 return diagnostics.length
@@ -38226,7 +38239,7 @@ var ts;
             }
             // Otherwise, emit and report any errors we ran into.
             var emitOutput = program.emit();
-            reportDiagnostics(emitOutput.diagnostics);
+            reportDiagnostics(emitOutput.diagnostics, compilerHost);
             // If the emitter didn't emit anything, then pass that value along.
             if (emitOutput.emitSkipped) {
                 return ts.ExitStatus.DiagnosticsPresent_OutputsSkipped;
@@ -38315,7 +38328,7 @@ var ts;
         var currentDirectory = ts.sys.getCurrentDirectory();
         var file = ts.normalizePath(ts.combinePaths(currentDirectory, "tsconfig.json"));
         if (ts.sys.fileExists(file)) {
-            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.A_tsconfig_json_file_is_already_defined_at_Colon_0, file));
+            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.A_tsconfig_json_file_is_already_defined_at_Colon_0, file), /* compilerHost */ undefined);
         }
         else {
             var compilerOptions = ts.extend(options, ts.defaultInitCompilerOptions);
@@ -38328,7 +38341,7 @@ var ts;
                 configurations.files = fileNames;
             }
             ts.sys.writeFile(file, JSON.stringify(configurations, undefined, 4));
-            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Successfully_created_a_tsconfig_json_file));
+            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Successfully_created_a_tsconfig_json_file), /* compilerHost */ undefined);
         }
         return;
         function serializeCompilerOptions(options) {
@@ -44685,13 +44698,15 @@ var ts;
     var HostCache = (function () {
         function HostCache(host, getCanonicalFileName) {
             this.host = host;
+            this.getCanonicalFileName = getCanonicalFileName;
             // script id => script index
-            this.fileNameToEntry = ts.createFileMap(getCanonicalFileName);
+            this.currentDirectory = host.getCurrentDirectory();
+            this.fileNameToEntry = ts.createFileMap();
             // Initialize the list with the root file names
             var rootFileNames = host.getScriptFileNames();
             for (var _i = 0; _i < rootFileNames.length; _i++) {
                 var fileName = rootFileNames[_i];
-                this.createEntry(fileName);
+                this.createEntry(fileName, ts.toPath(fileName, this.currentDirectory, getCanonicalFileName));
             }
             // store the compilation settings
             this._compilationSettings = host.getCompilationSettings() || getDefaultCompilerOptions();
@@ -44699,7 +44714,7 @@ var ts;
         HostCache.prototype.compilationSettings = function () {
             return this._compilationSettings;
         };
-        HostCache.prototype.createEntry = function (fileName) {
+        HostCache.prototype.createEntry = function (fileName, path) {
             var entry;
             var scriptSnapshot = this.host.getScriptSnapshot(fileName);
             if (scriptSnapshot) {
@@ -44709,36 +44724,37 @@ var ts;
                     scriptSnapshot: scriptSnapshot
                 };
             }
-            this.fileNameToEntry.set(fileName, entry);
+            this.fileNameToEntry.set(path, entry);
             return entry;
         };
-        HostCache.prototype.getEntry = function (fileName) {
-            return this.fileNameToEntry.get(fileName);
+        HostCache.prototype.getEntry = function (path) {
+            return this.fileNameToEntry.get(path);
         };
-        HostCache.prototype.contains = function (fileName) {
-            return this.fileNameToEntry.contains(fileName);
+        HostCache.prototype.contains = function (path) {
+            return this.fileNameToEntry.contains(path);
         };
         HostCache.prototype.getOrCreateEntry = function (fileName) {
-            if (this.contains(fileName)) {
-                return this.getEntry(fileName);
+            var path = ts.toPath(fileName, this.currentDirectory, this.getCanonicalFileName);
+            if (this.contains(path)) {
+                return this.getEntry(path);
             }
-            return this.createEntry(fileName);
+            return this.createEntry(fileName, path);
         };
         HostCache.prototype.getRootFileNames = function () {
             var fileNames = [];
-            this.fileNameToEntry.forEachValue(function (value) {
+            this.fileNameToEntry.forEachValue(function (path, value) {
                 if (value) {
                     fileNames.push(value.hostFileName);
                 }
             });
             return fileNames;
         };
-        HostCache.prototype.getVersion = function (fileName) {
-            var file = this.getEntry(fileName);
+        HostCache.prototype.getVersion = function (path) {
+            var file = this.getEntry(path);
             return file && file.version;
         };
-        HostCache.prototype.getScriptSnapshot = function (fileName) {
-            var file = this.getEntry(fileName);
+        HostCache.prototype.getScriptSnapshot = function (path) {
+            var file = this.getEntry(path);
             return file && file.scriptSnapshot;
         };
         return HostCache;
@@ -44920,7 +44936,8 @@ var ts;
             : (function (fileName) { return fileName.toLowerCase(); });
     }
     ts.createGetCanonicalFileName = createGetCanonicalFileName;
-    function createDocumentRegistry(useCaseSensitiveFileNames) {
+    function createDocumentRegistry(useCaseSensitiveFileNames, currentDirectory) {
+        if (currentDirectory === void 0) { currentDirectory = ""; }
         // Maps from compiler setting target (ES3, ES5, etc.) to all the cached documents we have
         // for those settings.
         var buckets = {};
@@ -44932,7 +44949,7 @@ var ts;
             var key = getKeyFromCompilationSettings(settings);
             var bucket = ts.lookUp(buckets, key);
             if (!bucket && createIfMissing) {
-                buckets[key] = bucket = ts.createFileMap(getCanonicalFileName);
+                buckets[key] = bucket = ts.createFileMap();
             }
             return bucket;
         }
@@ -44940,14 +44957,13 @@ var ts;
             var bucketInfoArray = Object.keys(buckets).filter(function (name) { return name && name.charAt(0) === '_'; }).map(function (name) {
                 var entries = ts.lookUp(buckets, name);
                 var sourceFiles = [];
-                for (var i in entries) {
-                    var entry = entries.get(i);
+                entries.forEachValue(function (key, entry) {
                     sourceFiles.push({
-                        name: i,
+                        name: key,
                         refCount: entry.languageServiceRefCount,
                         references: entry.owners.slice(0)
                     });
-                }
+                });
                 sourceFiles.sort(function (x, y) { return y.refCount - x.refCount; });
                 return {
                     bucket: name,
@@ -44964,7 +44980,8 @@ var ts;
         }
         function acquireOrUpdateDocument(fileName, compilationSettings, scriptSnapshot, version, acquiring) {
             var bucket = getBucketForCompilationSettings(compilationSettings, /*createIfMissing*/ true);
-            var entry = bucket.get(fileName);
+            var path = ts.toPath(fileName, currentDirectory, getCanonicalFileName);
+            var entry = bucket.get(path);
             if (!entry) {
                 ts.Debug.assert(acquiring, "How could we be trying to update a document that the registry doesn't have?");
                 // Have never seen this file with these settings.  Create a new source file for it.
@@ -44974,7 +44991,7 @@ var ts;
                     languageServiceRefCount: 0,
                     owners: []
                 };
-                bucket.set(fileName, entry);
+                bucket.set(path, entry);
             }
             else {
                 // We have an entry for this file.  However, it may be for a different version of
@@ -44997,11 +45014,12 @@ var ts;
         function releaseDocument(fileName, compilationSettings) {
             var bucket = getBucketForCompilationSettings(compilationSettings, false);
             ts.Debug.assert(bucket !== undefined);
-            var entry = bucket.get(fileName);
+            var path = ts.toPath(fileName, currentDirectory, getCanonicalFileName);
+            var entry = bucket.get(path);
             entry.languageServiceRefCount--;
             ts.Debug.assert(entry.languageServiceRefCount >= 0);
             if (entry.languageServiceRefCount === 0) {
-                bucket.remove(fileName);
+                bucket.remove(path);
             }
         }
         return {
@@ -45434,13 +45452,14 @@ var ts;
         return CancellationTokenObject;
     })();
     function createLanguageService(host, documentRegistry) {
-        if (documentRegistry === void 0) { documentRegistry = createDocumentRegistry(); }
+        if (documentRegistry === void 0) { documentRegistry = createDocumentRegistry(host.useCaseSensitiveFileNames && host.useCaseSensitiveFileNames(), host.getCurrentDirectory()); }
         var syntaxTreeCache = new SyntaxTreeCache(host);
         var ruleProvider;
         var program;
         var lastProjectVersion;
         var useCaseSensitivefileNames = false;
         var cancellationToken = new CancellationTokenObject(host.getCancellationToken && host.getCancellationToken());
+        var currentDirectory = host.getCurrentDirectory();
         // Check if the localized messages json is set, otherwise query the host for it
         if (!ts.localizedDiagnosticMessages && host.getLocalizedDiagnosticMessages) {
             ts.localizedDiagnosticMessages = host.getLocalizedDiagnosticMessages();
@@ -45452,8 +45471,7 @@ var ts;
         }
         var getCanonicalFileName = createGetCanonicalFileName(useCaseSensitivefileNames);
         function getValidSourceFile(fileName) {
-            fileName = ts.normalizeSlashes(fileName);
-            var sourceFile = program.getSourceFile(getCanonicalFileName(fileName));
+            var sourceFile = program.getSourceFile(fileName);
             if (!sourceFile) {
                 throw new Error("Could not find file: '" + fileName + "'.");
             }
@@ -45505,7 +45523,7 @@ var ts;
                 getNewLine: function () { return ts.getNewLineOrDefaultFromHost(host); },
                 getDefaultLibFileName: function (options) { return host.getDefaultLibFileName(options); },
                 writeFile: function (fileName, data, writeByteOrderMark) { },
-                getCurrentDirectory: function () { return host.getCurrentDirectory(); },
+                getCurrentDirectory: function () { return currentDirectory; },
                 fileExists: function (fileName) {
                     // stub missing host functionality
                     ts.Debug.assert(!host.resolveModuleNames);
@@ -45527,9 +45545,8 @@ var ts;
                 var oldSourceFiles = program.getSourceFiles();
                 for (var _i = 0; _i < oldSourceFiles.length; _i++) {
                     var oldSourceFile = oldSourceFiles[_i];
-                    var fileName = oldSourceFile.fileName;
-                    if (!newProgram.getSourceFile(fileName) || changesInCompilationSettingsAffectSyntax) {
-                        documentRegistry.releaseDocument(fileName, oldSettings);
+                    if (!newProgram.getSourceFile(oldSourceFile.fileName) || changesInCompilationSettingsAffectSyntax) {
+                        documentRegistry.releaseDocument(oldSourceFile.fileName, oldSettings);
                     }
                 }
             }
@@ -45585,7 +45602,8 @@ var ts;
                 return documentRegistry.acquireDocument(fileName, newSettings, hostFileInformation.scriptSnapshot, hostFileInformation.version);
             }
             function sourceFileUpToDate(sourceFile) {
-                return sourceFile && sourceFile.version === hostCache.getVersion(sourceFile.fileName);
+                var path = sourceFile.path || ts.toPath(sourceFile.fileName, currentDirectory, getCanonicalFileName);
+                return sourceFile && sourceFile.version === hostCache.getVersion(path);
             }
             function programUpToDate() {
                 // If we haven't create a program yet, then it is not up-to-date

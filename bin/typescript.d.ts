@@ -2,12 +2,15 @@ declare namespace ts {
     interface Map<T> {
         [index: string]: T;
     }
+    type Path = string & {
+        __pathBrand: any;
+    };
     interface FileMap<T> {
-        get(fileName: string): T;
-        set(fileName: string, value: T): void;
-        contains(fileName: string): boolean;
-        remove(fileName: string): void;
-        forEachValue(f: (v: T) => void): void;
+        get(fileName: Path): T;
+        set(fileName: Path, value: T): void;
+        contains(fileName: Path): boolean;
+        remove(fileName: Path): void;
+        forEachValue(f: (key: Path, v: T) => void): void;
         clear(): void;
     }
     interface TextRange {
@@ -941,6 +944,7 @@ declare namespace ts {
         statements: NodeArray<Statement>;
         endOfFileToken: Node;
         fileName: string;
+        path: Path;
         text: string;
         amdDependencies: {
             path: string;
@@ -1813,7 +1817,8 @@ declare namespace ts {
         Maybe = 1,
         True = -1,
     }
-    function createFileMap<T>(getCanonicalFileName: (fileName: string) => string): FileMap<T>;
+    function createFileMap<T>(keyMapper?: (key: string) => string): FileMap<T>;
+    function toPath(fileName: string, basePath: string, getCanonicalFileName: (path: string) => string): Path;
     const enum Comparison {
         LessThan = -1,
         EqualTo = 0,
@@ -5943,6 +5948,7 @@ declare namespace ts {
      * Converts a string to a base-64 encoded ASCII string.
      */
     function convertToBase64(input: string): string;
+    function convertToRelativePath(absoluteOrRelativePath: string, basePath: string, getCanonicalFileName: (path: string) => string): string;
     function getNewLineCharacter(options: CompilerOptions): string;
 }
 declare namespace ts {
@@ -7156,7 +7162,7 @@ declare namespace ts {
     let disableIncrementalParsing: boolean;
     function updateLanguageServiceSourceFile(sourceFile: SourceFile, scriptSnapshot: IScriptSnapshot, version: string, textChangeRange: TextChangeRange, aggressiveChecks?: boolean): SourceFile;
     function createGetCanonicalFileName(useCaseSensitivefileNames: boolean): (fileName: string) => string;
-    function createDocumentRegistry(useCaseSensitiveFileNames?: boolean): DocumentRegistry;
+    function createDocumentRegistry(useCaseSensitiveFileNames?: boolean, currentDirectory?: string): DocumentRegistry;
     function preProcessFile(sourceText: string, readImportFiles?: boolean): PreProcessedFileInfo;
     function getContainerNode(node: Node): Declaration;
     function getNodeKind(node: Node): string;
