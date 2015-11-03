@@ -317,27 +317,30 @@ declare namespace ts {
     }
     const enum NodeFlags {
         None = 0,
-        Export = 1,
-        Ambient = 2,
-        Public = 16,
-        Private = 32,
-        Protected = 64,
-        Static = 128,
-        Abstract = 256,
-        Async = 512,
-        Default = 1024,
-        MultiLine = 2048,
-        Synthetic = 4096,
-        DeclarationFile = 8192,
-        Let = 16384,
-        Const = 32768,
-        OctalLiteral = 65536,
-        Namespace = 131072,
-        ExportContext = 262144,
-        ContainsThis = 524288,
-        Modifier = 2035,
-        AccessibilityModifier = 112,
-        BlockScoped = 49152,
+        Export = 2,
+        Ambient = 4,
+        Public = 8,
+        Private = 16,
+        Protected = 32,
+        Static = 64,
+        Abstract = 128,
+        Async = 256,
+        Default = 512,
+        MultiLine = 1024,
+        Synthetic = 2048,
+        DeclarationFile = 4096,
+        Let = 8192,
+        Const = 16384,
+        OctalLiteral = 32768,
+        Namespace = 65536,
+        ExportContext = 131072,
+        ContainsThis = 262144,
+        HasImplicitReturn = 524288,
+        HasExplicitReturn = 1048576,
+        Modifier = 1022,
+        AccessibilityModifier = 56,
+        BlockScoped = 24576,
+        ReachabilityCheckFlags = 1572864,
     }
     const enum ParserContextFlags {
         None = 0,
@@ -1563,6 +1566,7 @@ declare namespace ts {
         outFile?: string;
         outDir?: string;
         preserveConstEnums?: boolean;
+        pretty?: DiagnosticStyle;
         project?: string;
         removeComments?: boolean;
         rootDir?: string;
@@ -1577,6 +1581,10 @@ declare namespace ts {
         experimentalDecorators?: boolean;
         emitDecoratorMetadata?: boolean;
         moduleResolution?: ModuleResolutionKind;
+        allowUnusedLabels?: boolean;
+        allowUnreachableCode?: boolean;
+        noImplicitReturns?: boolean;
+        noFallthroughCasesInSwitch?: boolean;
         forceConsistentCasingInFileNames?: boolean;
         stripInternal?: boolean;
         skipDefaultLibCheck?: boolean;
@@ -1614,6 +1622,10 @@ declare namespace ts {
     const enum LanguageVariant {
         Standard = 0,
         JSX = 1,
+    }
+    const enum DiagnosticStyle {
+        Simple = 0,
+        Pretty = 1,
     }
     interface ParsedCommandLine {
         options: CompilerOptions;
@@ -3455,7 +3467,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        A_function_whose_declared_type_is_neither_void_nor_any_must_return_a_value_or_consist_of_a_single_throw_statement: {
+        A_function_whose_declared_type_is_neither_void_nor_any_must_return_a_value: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -3581,7 +3593,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        A_get_accessor_must_return_a_value_or_consist_of_a_single_throw_statement: {
+        A_get_accessor_must_return_a_value: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5321,18 +5333,6 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Specify_JSX_code_generation_Colon_preserve_or_react: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
-        Argument_for_jsx_must_be_preserve_or_react: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
         Enables_experimental_support_for_ES7_decorators: {
             code: number;
             category: DiagnosticCategory;
@@ -5375,7 +5375,49 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Stylize_errors_and_messages_using_color_and_context_experimental: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Do_not_report_errors_on_unused_labels: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Report_error_when_not_all_code_paths_in_function_return_a_value: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Report_errors_for_fallthrough_cases_in_switch_statement: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Do_not_report_errors_on_unreachable_code: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Disallow_inconsistently_cased_references_to_the_same_file: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Specify_JSX_code_generation_Colon_preserve_or_react: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Argument_for_jsx_must_be_preserve_or_react: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5478,6 +5520,30 @@ declare namespace ts {
             message: string;
         };
         JSX_element_implicitly_has_type_any_because_no_interface_JSX_0_exists: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Unreachable_code_detected: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Unused_label: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Fallthrough_case_in_switch: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Not_all_code_paths_return_a_value: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5715,7 +5781,7 @@ declare namespace ts {
         ConstEnumOnly = 2,
     }
     function getModuleInstanceState(node: Node): ModuleInstanceState;
-    function bindSourceFile(file: SourceFile): void;
+    function bindSourceFile(file: SourceFile, options: CompilerOptions): void;
 }
 declare namespace ts {
     interface System {
@@ -5812,6 +5878,7 @@ declare namespace ts {
     function isAccessor(node: Node): node is AccessorDeclaration;
     function isClassLike(node: Node): node is ClassLikeDeclaration;
     function isFunctionLike(node: Node): node is FunctionLikeDeclaration;
+    function isFunctionLikeKind(kind: SyntaxKind): boolean;
     function introducesArgumentsExoticObject(node: Node): boolean;
     function isIterationStatement(node: Node, lookInLabeledStatements: boolean): boolean;
     function isFunctionBlock(node: Node): boolean;
@@ -5847,6 +5914,7 @@ declare namespace ts {
     function isTextualLiteralKind(kind: SyntaxKind): boolean;
     function isTemplateLiteralKind(kind: SyntaxKind): boolean;
     function isBindingPattern(node: Node): node is BindingPattern;
+    function isNodeDescendentOf(node: Node, ancestor: Node): boolean;
     function isInAmbientContext(node: Node): boolean;
     function isDeclaration(node: Node): boolean;
     function isStatement(n: Node): boolean;
@@ -5933,6 +6001,14 @@ declare namespace ts {
     };
     function emitNewLineBeforeLeadingComments(currentSourceFile: SourceFile, writer: EmitTextWriter, node: TextRange, leadingComments: CommentRange[]): void;
     function emitComments(currentSourceFile: SourceFile, writer: EmitTextWriter, comments: CommentRange[], trailingSeparator: boolean, newLine: string, writeComment: (currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string) => void): void;
+    /**
+     * Detached comment is a comment at the top of file or function body that is separated from
+     * the next statement by space.
+     */
+    function emitDetachedComments(currentSourceFile: SourceFile, writer: EmitTextWriter, writeComment: (currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string) => void, node: TextRange, newLine: string, removeComments: boolean): {
+        nodePos: number;
+        detachedCommentEndPos: number;
+    };
     function writeCommentRange(currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string): void;
     function modifierToFlag(token: SyntaxKind): NodeFlags;
     function isLeftHandSideExpression(expr: Expression): boolean;

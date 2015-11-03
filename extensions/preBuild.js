@@ -13,7 +13,7 @@ var lineFixes = [{
         orig: "export function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModule {",
         new: "export var resolveModuleName = (moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModule => {"
     }];
-for (var _i = 0; _i < lineFixes.length; _i++) {
-    var fix = lineFixes[_i];
+for (var _i = 0, lineFixes_1 = lineFixes; _i < lineFixes_1.length; _i++) {
+    var fix = lineFixes_1[_i];
     writeFile(fix.fileName, readFile(fix.fileName).replace(fix.orig, fix.new));
 }
