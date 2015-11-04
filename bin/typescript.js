@@ -5360,7 +5360,16 @@ var ts;
                 if (writeByteOrderMark) {
                     data = "\uFEFF" + data;
                 }
-                _fs.writeFileSync(fileName, data, "utf8");
+                var fd;
+                try {
+                    fd = _fs.openSync(fileName, "w");
+                    _fs.writeSync(fd, data, undefined, "utf8");
+                }
+                finally {
+                    if (fd !== undefined) {
+                        _fs.closeSync(fd);
+                    }
+                }
             }
             function getCanonicalPath(path) {
                 return useCaseSensitiveFileNames ? path.toLowerCase() : path;
@@ -38337,14 +38346,15 @@ var ts;
         var diagnostic = ts.createCompilerDiagnostic.apply(undefined, arguments);
         return diagnostic.messageText;
     }
+    function getRelativeFileName(fileName, host) {
+        return host ? ts.convertToRelativePath(fileName, host.getCurrentDirectory(), function (fileName) { return host.getCanonicalFileName(fileName); }) : fileName;
+    }
     function reportDiagnosticSimply(diagnostic, host) {
         var output = "";
         if (diagnostic.file) {
             var _a = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start), line = _a.line, character = _a.character;
-            var relativeFileName = host
-                ? ts.convertToRelativePath(diagnostic.file.fileName, host.getCurrentDirectory(), function (fileName) { return host.getCanonicalFileName(fileName); })
-                : diagnostic.file.fileName;
-            output += diagnostic.file.fileName + "(" + (line + 1) + "," + (character + 1) + "): ";
+            var relativeFileName = getRelativeFileName(diagnostic.file.fileName, host);
+            output += relativeFileName + "(" + (line + 1) + "," + (character + 1) + "): ";
         }
         var category = ts.DiagnosticCategory[diagnostic.category].toLowerCase();
         output += category + " TS" + diagnostic.code + ": " + ts.flattenDiagnosticMessageText(diagnostic.messageText, ts.sys.newLine) + ts.sys.newLine;
@@ -38373,6 +38383,7 @@ var ts;
             var _a = ts.getLineAndCharacterOfPosition(file, start), firstLine = _a.line, firstLineChar = _a.character;
             var _b = ts.getLineAndCharacterOfPosition(file, start + length_3), lastLine = _b.line, lastLineChar = _b.character;
             var lastLineInFile = ts.getLineAndCharacterOfPosition(file, file.text.length).line;
+            var relativeFileName = getRelativeFileName(file.fileName, host);
             var hasMoreThanFiveLines = (lastLine - firstLine) >= 4;
             var gutterWidth = (lastLine + 1 + "").length;
             if (hasMoreThanFiveLines) {
@@ -38415,7 +38426,7 @@ var ts;
                 output += ts.sys.newLine;
             }
             output += ts.sys.newLine;
-            output += file.fileName + "(" + (firstLine + 1) + "," + (firstLineChar + 1) + "): ";
+            output += relativeFileName + "(" + (firstLine + 1) + "," + (firstLineChar + 1) + "): ";
         }
         var categoryColor = categoryFormatMap[diagnostic.category];
         var category = ts.DiagnosticCategory[diagnostic.category].toLowerCase();
