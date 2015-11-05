@@ -5041,8 +5041,8 @@ var ts;
             switch (currentReachabilityState) {
                 case 4 /* Unreachable */:
                     var reportError = 
-                    // report error on all statements
-                    ts.isStatement(node) ||
+                    // report error on all statements except empty ones
+                    (ts.isStatement(node) && node.kind !== 194 /* EmptyStatement */) ||
                         // report error on class declarations
                         node.kind === 214 /* ClassDeclaration */ ||
                         // report error on instantiated modules or const-enums only modules if preserveConstEnums is set
@@ -10356,7 +10356,7 @@ var ts;
                     return 1 /* True */;
                 }
                 // This *could* be a parenthesized arrow function.
-                // Return Unknown to let the caller know.
+                // Return Unknown to const the caller know.
                 return 2 /* Unknown */;
             }
             else {
@@ -10442,7 +10442,7 @@ var ts;
                 // user meant to supply a block. For example, if the user wrote:
                 //
                 //  a =>
-                //      let v = 0;
+                //      const v = 0;
                 //  }
                 //
                 // they may be missing an open brace.  Check to see if that's the case so we can
@@ -10658,7 +10658,6 @@ var ts;
             var unaryOperator = token;
             var simpleUnaryExpression = parseSimpleUnaryExpression();
             if (token === 38 /* AsteriskAsteriskToken */) {
-                var diagnostic;
                 var start = ts.skipTrivia(sourceText, simpleUnaryExpression.pos);
                 if (simpleUnaryExpression.kind === 171 /* TypeAssertionExpression */) {
                     parseErrorAtPosition(start, simpleUnaryExpression.end - start, ts.Diagnostics.A_type_assertion_expression_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_expression_Consider_enclosing_the_expression_in_parentheses);
@@ -14291,7 +14290,7 @@ var ts;
                 //          declare module foo {
                 //              interface bar {}
                 //          }
-                //      let foo/*1*/: foo/*2*/.bar;
+                //      const foo/*1*/: foo/*2*/.bar;
                 // The foo at /*1*/ and /*2*/ will share same symbol with two meaning
                 // block - scope variable and namespace module. However, only when we
                 // try to resolve name in /*1*/ which is used in variable position,
@@ -14904,7 +14903,7 @@ var ts;
                     //     export class c {
                     //     }
                     // }
-                    // let x: typeof m.c
+                    // const x: typeof m.c
                     // In the above example when we start with checking if typeof m.c symbol is accessible,
                     // we are going to see if c can be accessed in scope directly.
                     // But it can't, hence the accessible is going to be undefined, but that doesn't mean m.c is inaccessible
@@ -15094,7 +15093,7 @@ var ts;
                     parentSymbol = symbol;
                     appendSymbolNameOnly(symbol, writer);
                 }
-                // Let the writer know we just wrote out a symbol.  The declaration emitter writer uses
+                // const the writer know we just wrote out a symbol.  The declaration emitter writer uses
                 // this to determine if an import it has previously seen (and not written out) needs
                 // to be written to the file once the walk of the tree is complete.
                 //
@@ -15644,7 +15643,7 @@ var ts;
                             // Private/protected properties/methods are not visible
                             return false;
                         }
-                    // Public properties/methods are visible if its parents are visible, so let it fall into next case statement
+                    // Public properties/methods are visible if its parents are visible, so const it fall into next case statement
                     case 144 /* Constructor */:
                     case 148 /* ConstructSignature */:
                     case 147 /* CallSignature */:
@@ -21283,7 +21282,7 @@ var ts;
         // so order how inherited signatures are processed is still preserved.
         // interface A { (x: string): void }
         // interface B extends A { (x: 'foo'): string }
-        // let b: B;
+        // const b: B;
         // b('foo') // <- here overloads should be processed as [(x:'foo'): string, (x: string): void]
         function reorderCandidates(signatures, result) {
             var lastParent;
@@ -24592,15 +24591,15 @@ var ts;
             // A non-initialized declaration is a no-op as the block declaration will resolve before the var
             // declaration. the problem is if the declaration has an initializer. this will act as a write to the
             // block declared value. this is fine for let, but not const.
-            // Only consider declarations with initializers, uninitialized let declarations will not
+            // Only consider declarations with initializers, uninitialized const declarations will not
             // step on a let/const variable.
-            // Do not consider let and const declarations, as duplicate block-scoped declarations
+            // Do not consider const and const declarations, as duplicate block-scoped declarations
             // are handled by the binder.
-            // We are only looking for let declarations that step on let\const declarations from a
+            // We are only looking for const declarations that step on let\const declarations from a
             // different scope. e.g.:
             //      {
             //          const x = 0; // localDeclarationSymbol obtained after name resolution will correspond to this declaration
-            //          let x = 0; // symbol for this declaration will be 'symbol'
+            //          const x = 0; // symbol for this declaration will be 'symbol'
             //      }
             // skip block-scoped variables and parameters
             if ((ts.getCombinedNodeFlags(node) & 24576 /* BlockScoped */) !== 0 || ts.isParameterDeclaration(node)) {
@@ -26299,8 +26298,8 @@ var ts;
         }
         // Function and class expression bodies are checked after all statements in the enclosing body. This is
         // to ensure constructs like the following are permitted:
-        //     let foo = function () {
-        //        let s = foo();
+        //     const foo = function () {
+        //        const s = foo();
         //        return "hello";
         //     }
         // Here, performing a full type check of the body of the function expression whilst in the process of
@@ -34281,7 +34280,6 @@ var ts;
                 var promiseConstructor = ts.getEntityNameFromTypeNode(node.type);
                 var isArrowFunction = node.kind === 174 /* ArrowFunction */;
                 var hasLexicalArguments = (resolver.getNodeCheckFlags(node) & 4096 /* CaptureArguments */) !== 0;
-                var args;
                 // An async function is emit as an outer function that calls an inner
                 // generator function. To preserve lexical bindings, we pass the current
                 // `this` and `arguments` objects to `__awaiter`. The generator function
@@ -37528,10 +37526,8 @@ var ts;
     /* @internal */
     ts.defaultInitCompilerOptions = {
         module: 1 /* CommonJS */,
-        target: 0 /* ES3 */,
+        target: 1 /* ES5 */,
         noImplicitAny: false,
-        outDir: "built",
-        rootDir: ".",
         sourceMap: false,
     };
     function createCompilerHost(options, setParentNodes) {
