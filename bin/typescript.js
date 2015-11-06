@@ -18845,18 +18845,29 @@ var ts;
             }
             return compareTypes(getTypeOfSymbol(sourceProp), getTypeOfSymbol(targetProp));
         }
+        function isMatchingSignature(source, target, partialMatch) {
+            // A source signature matches a target signature if the two signatures have the same number of required,
+            // optional, and rest parameters.
+            if (source.parameters.length === target.parameters.length &&
+                source.minArgumentCount === target.minArgumentCount &&
+                source.hasRestParameter === target.hasRestParameter) {
+                return true;
+            }
+            // A source signature partially matches a target signature if the target signature has no fewer required
+            // parameters and no more overall parameters than the source signature (where a signature with a rest
+            // parameter is always considered to have more overall parameters than one without).
+            if (partialMatch && source.minArgumentCount <= target.minArgumentCount && (source.hasRestParameter && !target.hasRestParameter ||
+                source.hasRestParameter === target.hasRestParameter && source.parameters.length >= target.parameters.length)) {
+                return true;
+            }
+            return false;
+        }
         function compareSignatures(source, target, partialMatch, ignoreReturnTypes, compareTypes) {
             if (source === target) {
                 return -1 /* True */;
             }
-            if (source.parameters.length !== target.parameters.length ||
-                source.minArgumentCount !== target.minArgumentCount ||
-                source.hasRestParameter !== target.hasRestParameter) {
-                if (!partialMatch ||
-                    source.parameters.length < target.parameters.length && !source.hasRestParameter ||
-                    source.minArgumentCount > target.minArgumentCount) {
-                    return 0 /* False */;
-                }
+            if (!(isMatchingSignature(source, target, partialMatch))) {
+                return 0 /* False */;
             }
             var result = -1 /* True */;
             if (source.typeParameters && target.typeParameters) {
