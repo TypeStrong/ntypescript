@@ -1463,6 +1463,7 @@ declare namespace ts {
         constraint: Type;
         target?: TypeParameter;
         mapper?: TypeMapper;
+        resolvedApparentType: Type;
     }
     enum SignatureKind {
         Call = 0,

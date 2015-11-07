@@ -16417,7 +16417,7 @@ var ts;
                     type.typeArguments = type.typeParameters;
                     type.thisType = createType(512 /* TypeParameter */ | 33554432 /* ThisType */);
                     type.thisType.symbol = symbol;
-                    type.thisType.constraint = getTypeWithThisArgument(type);
+                    type.thisType.constraint = type;
                 }
             }
             return links.declaredType;
@@ -16933,18 +16933,27 @@ var ts;
             return type.flags & 49152 /* UnionOrIntersection */ ? getPropertiesOfUnionOrIntersectionType(type) : getPropertiesOfObjectType(type);
         }
         /**
+         * The apparent type of a type parameter is the base constraint instantiated with the type parameter
+         * as the type argument for the 'this' type.
+         */
+        function getApparentTypeOfTypeParameter(type) {
+            if (!type.resolvedApparentType) {
+                var constraintType = getConstraintOfTypeParameter(type);
+                while (constraintType && constraintType.flags & 512 /* TypeParameter */) {
+                    constraintType = getConstraintOfTypeParameter(constraintType);
+                }
+                type.resolvedApparentType = getTypeWithThisArgument(constraintType || emptyObjectType, type);
+            }
+            return type.resolvedApparentType;
+        }
+        /**
          * For a type parameter, return the base constraint of the type parameter. For the string, number,
          * boolean, and symbol primitive types, return the corresponding object types. Otherwise return the
          * type itself. Note that the apparent type of a union type is the union type itself.
          */
         function getApparentType(type) {
             if (type.flags & 512 /* TypeParameter */) {
-                do {
-                    type = getConstraintOfTypeParameter(type);
-                } while (type && type.flags & 512 /* TypeParameter */);
-                if (!type) {
-                    type = emptyObjectType;
-                }
+                type = getApparentTypeOfTypeParameter(type);
             }
             if (type.flags & 258 /* StringLike */) {
                 type = globalStringType;
@@ -51796,7 +51805,7 @@ var ts;
         TypeScriptServicesFactory.prototype.createLanguageServiceShim = function (host) {
             try {
                 if (this.documentRegistry === undefined) {
-                    this.documentRegistry = ts.createDocumentRegistry(host.useCaseSensitiveFileNames && host.useCaseSensitiveFileNames());
+                    this.documentRegistry = ts.createDocumentRegistry(host.useCaseSensitiveFileNames && host.useCaseSensitiveFileNames(), host.getCurrentDirectory());
                 }
                 var hostAdapter = new LanguageServiceShimHostAdapter(host);
                 var languageService = ts.createLanguageService(hostAdapter, this.documentRegistry);
@@ -51829,7 +51838,7 @@ var ts;
         TypeScriptServicesFactory.prototype.close = function () {
             // Forget all the registered shims
             this._shims = [];
-            this.documentRegistry = ts.createDocumentRegistry();
+            this.documentRegistry = undefined;
         };
         TypeScriptServicesFactory.prototype.registerShim = function (shim) {
             this._shims.push(shim);
