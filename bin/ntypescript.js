@@ -19642,7 +19642,7 @@ var ts;
             }
             function narrowTypeByInstanceof(type, expr, assumeTrue) {
                 // Check that type is not any, assumed result is true, and we have variable symbol on the left
-                if (isTypeAny(type) || !assumeTrue || expr.left.kind !== 69 /* Identifier */ || getResolvedSymbol(expr.left) !== symbol) {
+                if (isTypeAny(type) || expr.left.kind !== 69 /* Identifier */ || getResolvedSymbol(expr.left) !== symbol) {
                     return type;
                 }
                 // Check that right operand is a function type with a prototype property
@@ -19673,6 +19673,12 @@ var ts;
                     }
                 }
                 if (targetType) {
+                    if (!assumeTrue) {
+                        if (type.flags & 16384 /* Union */) {
+                            return getUnionType(ts.filter(type.types, function (t) { return !isTypeSubtypeOf(t, targetType); }));
+                        }
+                        return type;
+                    }
                     return getNarrowedType(type, targetType);
                 }
                 return type;
