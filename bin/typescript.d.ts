@@ -968,7 +968,6 @@ declare namespace ts {
         hasNoDefaultLib: boolean;
         languageVersion: ScriptTarget;
         externalModuleIndicator: Node;
-        isDefaultLib: boolean;
         identifiers: Map<string>;
         nodeCount: number;
         identifierCount: number;
@@ -1218,6 +1217,7 @@ declare namespace ts {
         getTypeReferenceSerializationKind(typeName: EntityName): TypeReferenceSerializationKind;
         isOptionalParameter(node: ParameterDeclaration): boolean;
         isArgumentsLocalBinding(node: Identifier): boolean;
+        getExternalModuleFileFromDeclaration(declaration: ImportEqualsDeclaration | ImportDeclaration | ExportDeclaration): SourceFile;
     }
     const enum SymbolFlags {
         None = 0,
@@ -1929,7 +1929,8 @@ declare namespace ts {
     function isSupportedSourceFileName(fileName: string): boolean;
     function removeFileExtension(path: string): string;
     interface ObjectAllocator {
-        getNodeConstructor(kind: SyntaxKind): new (pos?: number, end?: number) => Node;
+        getNodeConstructor(): new (kind: SyntaxKind, pos?: number, end?: number) => Node;
+        getSourceFileConstructor(): new (kind: SyntaxKind, pos?: number, end?: number) => SourceFile;
         getSymbolConstructor(): new (flags: SymbolFlags, name: string) => Symbol;
         getTypeConstructor(): new (checker: TypeChecker, flags: TypeFlags) => Type;
         getSignatureConstructor(): new (checker: TypeChecker) => Signature;
@@ -5424,6 +5425,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Only_amd_and_system_modules_are_supported_alongside_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Variable_0_implicitly_has_an_1_type: {
             code: number;
             category: DiagnosticCategory;
@@ -5869,7 +5876,9 @@ declare namespace ts {
     function isLet(node: Node): boolean;
     function isPrologueDirective(node: Node): boolean;
     function getLeadingCommentRangesOfNode(node: Node, sourceFileOfNode: SourceFile): CommentRange[];
+    function getLeadingCommentRangesOfNodeFromText(node: Node, text: string): CommentRange[];
     function getJsDocComments(node: Node, sourceFileOfNode: SourceFile): CommentRange[];
+    function getJsDocCommentsFromText(node: Node, text: string): CommentRange[];
     let fullTripleSlashReferencePathRegEx: RegExp;
     let fullTripleSlashAMDReferencePathRegEx: RegExp;
     function isTypeNode(node: Node): boolean;
@@ -5972,7 +5981,7 @@ declare namespace ts {
     function escapeNonAsciiCharacters(s: string): string;
     interface EmitTextWriter {
         write(s: string): void;
-        writeTextOfNode(sourceFile: SourceFile, node: Node): void;
+        writeTextOfNode(text: string, node: Node): void;
         writeLine(): void;
         increaseIndent(): void;
         decreaseIndent(): void;
@@ -5983,14 +5992,20 @@ declare namespace ts {
         getLine(): number;
         getColumn(): number;
         getIndent(): number;
+        reset(): void;
     }
     function getIndentString(level: number): string;
     function getIndentSize(): number;
     function createTextWriter(newLine: String): EmitTextWriter;
+    /**
+     * Resolves a local path to a path which is absolute to the base of the emit
+     */
+    function getExternalModuleNameFromPath(host: EmitHost, fileName: string): string;
     function getOwnEmitOutputFilePath(sourceFile: SourceFile, host: EmitHost, extension: string): string;
     function getSourceFilePathInNewDir(sourceFile: SourceFile, host: EmitHost, newDirPath: string): string;
     function writeFile(host: EmitHost, diagnostics: Diagnostic[], fileName: string, data: string, writeByteOrderMark: boolean): void;
     function getLineOfLocalPosition(currentSourceFile: SourceFile, pos: number): number;
+    function getLineOfLocalPositionFromLineMap(lineMap: number[], pos: number): number;
     function getFirstConstructorWithBody(node: ClassLikeDeclaration): ConstructorDeclaration;
     function getSetAccessorTypeAnnotationNode(accessor: AccessorDeclaration): TypeNode;
     function shouldEmitToOwnFile(sourceFile: SourceFile, compilerOptions: CompilerOptions): boolean;
@@ -6000,17 +6015,17 @@ declare namespace ts {
         getAccessor: AccessorDeclaration;
         setAccessor: AccessorDeclaration;
     };
-    function emitNewLineBeforeLeadingComments(currentSourceFile: SourceFile, writer: EmitTextWriter, node: TextRange, leadingComments: CommentRange[]): void;
-    function emitComments(currentSourceFile: SourceFile, writer: EmitTextWriter, comments: CommentRange[], trailingSeparator: boolean, newLine: string, writeComment: (currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string) => void): void;
+    function emitNewLineBeforeLeadingComments(lineMap: number[], writer: EmitTextWriter, node: TextRange, leadingComments: CommentRange[]): void;
+    function emitComments(text: string, lineMap: number[], writer: EmitTextWriter, comments: CommentRange[], trailingSeparator: boolean, newLine: string, writeComment: (text: string, lineMap: number[], writer: EmitTextWriter, comment: CommentRange, newLine: string) => void): void;
     /**
      * Detached comment is a comment at the top of file or function body that is separated from
      * the next statement by space.
      */
-    function emitDetachedComments(currentSourceFile: SourceFile, writer: EmitTextWriter, writeComment: (currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string) => void, node: TextRange, newLine: string, removeComments: boolean): {
+    function emitDetachedComments(text: string, lineMap: number[], writer: EmitTextWriter, writeComment: (text: string, lineMap: number[], writer: EmitTextWriter, comment: CommentRange, newLine: string) => void, node: TextRange, newLine: string, removeComments: boolean): {
         nodePos: number;
         detachedCommentEndPos: number;
     };
-    function writeCommentRange(currentSourceFile: SourceFile, writer: EmitTextWriter, comment: CommentRange, newLine: string): void;
+    function writeCommentRange(text: string, lineMap: number[], writer: EmitTextWriter, comment: CommentRange, newLine: string): void;
     function modifierToFlag(token: SyntaxKind): NodeFlags;
     function isLeftHandSideExpression(expr: Expression): boolean;
     function isAssignmentOperator(token: SyntaxKind): boolean;
@@ -6060,7 +6075,6 @@ declare namespace ts {
 }
 declare namespace ts {
     let parseTime: number;
-    function getNodeConstructor(kind: SyntaxKind): new (pos?: number, end?: number) => Node;
     function createNode(kind: SyntaxKind, pos?: number, end?: number): Node;
     function forEachChild<T>(node: Node, cbNode: (node: Node) => T, cbNodeArray?: (nodes: Node[]) => T): T;
     function createSourceFile(fileName: string, sourceText: string, languageVersion: ScriptTarget, setParentNodes?: boolean): SourceFile;
@@ -6124,6 +6138,8 @@ declare namespace ts {
 }
 declare namespace ts {
     function isExternalModuleOrDeclarationFile(sourceFile: SourceFile): boolean;
+    function getResolvedExternalModuleName(host: EmitHost, file: SourceFile): string;
+    function getExternalModuleNameFromDeclaration(host: EmitHost, resolver: EmitResolver, declaration: ImportEqualsDeclaration | ImportDeclaration | ExportDeclaration): string;
     function emitFiles(resolver: EmitResolver, host: EmitHost, targetSourceFile: SourceFile): EmitResult;
 }
 declare namespace ts {

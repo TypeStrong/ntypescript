@@ -578,6 +578,7 @@
   "Disallow_inconsistently_cased_references_to_the_same_file_6078" : "Disallow inconsistently-cased references to the same file.",
   "Specify_JSX_code_generation_Colon_preserve_or_react_6080" : "Specify JSX code generation: 'preserve' or 'react'",
   "Argument_for_jsx_must_be_preserve_or_react_6081" : "Argument for '--jsx' must be 'preserve' or 'react'.",
+  "Only_amd_and_system_modules_are_supported_alongside_0_6082" : "Only 'amd' and 'system' modules are supported alongside --{0}.",
   "Variable_0_implicitly_has_an_1_type_7005" : "Variable '{0}' implicitly has an '{1}' type.",
   "Parameter_0_implicitly_has_an_1_type_7006" : "Parameter '{0}' implicitly has an '{1}' type.",
   "Member_0_implicitly_has_an_1_type_7008" : "Member '{0}' implicitly has an '{1}' type.",
