@@ -397,6 +397,7 @@ declare namespace ts {
         right: Identifier;
     }
     type EntityName = Identifier | QualifiedName;
+    type PropertyName = Identifier | LiteralExpression | ComputedPropertyName;
     type DeclarationName = Identifier | LiteralExpression | ComputedPropertyName | BindingPattern;
     interface Declaration extends Node {
         _declarationBrand: any;
@@ -435,7 +436,7 @@ declare namespace ts {
         initializer?: Expression;
     }
     interface BindingElement extends Declaration {
-        propertyName?: Identifier;
+        propertyName?: PropertyName;
         dotDotDotToken?: Node;
         name: Identifier | BindingPattern;
         initializer?: Expression;
@@ -462,7 +463,7 @@ declare namespace ts {
         objectAssignmentInitializer?: Expression;
     }
     interface VariableLikeDeclaration extends Declaration {
-        propertyName?: Identifier;
+        propertyName?: PropertyName;
         dotDotDotToken?: Node;
         name: DeclarationName;
         questionToken?: Node;
@@ -591,7 +592,7 @@ declare namespace ts {
         asteriskToken?: Node;
         expression?: Expression;
     }
-    interface BinaryExpression extends Expression {
+    interface BinaryExpression extends Expression, Declaration {
         left: Expression;
         operatorToken: Node;
         right: Expression;
@@ -635,7 +636,7 @@ declare namespace ts {
     interface ObjectLiteralExpression extends PrimaryExpression, Declaration {
         properties: NodeArray<ObjectLiteralElement>;
     }
-    interface PropertyAccessExpression extends MemberExpression {
+    interface PropertyAccessExpression extends MemberExpression, Declaration {
         expression: LeftHandSideExpression;
         dotToken: Node;
         name: Identifier;
@@ -968,6 +969,7 @@ declare namespace ts {
         hasNoDefaultLib: boolean;
         languageVersion: ScriptTarget;
         externalModuleIndicator: Node;
+        commonJsModuleIndicator: Node;
         identifiers: Map<string>;
         nodeCount: number;
         identifierCount: number;
@@ -1381,6 +1383,7 @@ declare namespace ts {
         ContainsAnyFunctionType = 8388608,
         ESSymbol = 16777216,
         ThisType = 33554432,
+        ObjectLiteralPatternWithComputedProperties = 67108864,
         Intrinsic = 16777343,
         Primitive = 16777726,
         StringLike = 258,
@@ -1920,12 +1923,7 @@ declare namespace ts {
      *  List of supported extensions in order of file resolution precedence.
      */
     const supportedExtensions: string[];
-    /**
-     *  List of extensions that will be used to look for external modules.
-     *  This list is kept separate from supportedExtensions to for cases when we'll allow to include .js files in compilation,
-     *  but still would like to load only TypeScript files as modules
-     */
-    const moduleFileExtensions: string[];
+    const supportedJsExtensions: string[];
     function isSupportedSourceFileName(fileName: string): boolean;
     function removeFileExtension(path: string): string;
     interface ObjectAllocator {
@@ -1948,6 +1946,309 @@ declare namespace ts {
         function fail(message?: string): void;
     }
     function copyListRemovingItem<T>(item: T, list: T[]): T[];
+}
+declare namespace ts {
+    interface System {
+        args: string[];
+        newLine: string;
+        useCaseSensitiveFileNames: boolean;
+        write(s: string): void;
+        readFile(path: string, encoding?: string): string;
+        writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
+        watchFile?(path: string, callback: (path: string, removed?: boolean) => void): FileWatcher;
+        watchDirectory?(path: string, callback: (path: string) => void, recursive?: boolean): FileWatcher;
+        resolvePath(path: string): string;
+        fileExists(path: string): boolean;
+        directoryExists(path: string): boolean;
+        createDirectory(path: string): void;
+        getExecutingFilePath(): string;
+        getCurrentDirectory(): string;
+        readDirectory(path: string, extension?: string, exclude?: string[]): string[];
+        getMemoryUsage?(): number;
+        exit(exitCode?: number): void;
+    }
+    interface FileWatcher {
+        close(): void;
+    }
+    var sys: System;
+}
+declare namespace ts {
+    interface ReferencePathMatchResult {
+        fileReference?: FileReference;
+        diagnosticMessage?: DiagnosticMessage;
+        isNoDefaultLib?: boolean;
+    }
+    interface SynthesizedNode extends Node {
+        leadingCommentRanges?: CommentRange[];
+        trailingCommentRanges?: CommentRange[];
+        startsOnNewLine: boolean;
+    }
+    function getDeclarationOfKind(symbol: Symbol, kind: SyntaxKind): Declaration;
+    interface StringSymbolWriter extends SymbolWriter {
+        string(): string;
+    }
+    interface EmitHost extends ScriptReferenceHost {
+        getSourceFiles(): SourceFile[];
+        getCommonSourceDirectory(): string;
+        getCanonicalFileName(fileName: string): string;
+        getNewLine(): string;
+        writeFile: WriteFileCallback;
+    }
+    function getSingleLineStringWriter(): StringSymbolWriter;
+    function releaseStringWriter(writer: StringSymbolWriter): void;
+    function getFullWidth(node: Node): number;
+    function arrayIsEqualTo<T>(array1: T[], array2: T[], equaler?: (a: T, b: T) => boolean): boolean;
+    function hasResolvedModule(sourceFile: SourceFile, moduleNameText: string): boolean;
+    function getResolvedModule(sourceFile: SourceFile, moduleNameText: string): ResolvedModule;
+    function setResolvedModule(sourceFile: SourceFile, moduleNameText: string, resolvedModule: ResolvedModule): void;
+    function containsParseError(node: Node): boolean;
+    function getSourceFileOfNode(node: Node): SourceFile;
+    function getStartPositionOfLine(line: number, sourceFile: SourceFile): number;
+    function nodePosToString(node: Node): string;
+    function getStartPosOfNode(node: Node): number;
+    function nodeIsMissing(node: Node): boolean;
+    function nodeIsPresent(node: Node): boolean;
+    function getTokenPosOfNode(node: Node, sourceFile?: SourceFile): number;
+    function getNonDecoratorTokenPosOfNode(node: Node, sourceFile?: SourceFile): number;
+    function getSourceTextOfNodeFromSourceFile(sourceFile: SourceFile, node: Node, includeTrivia?: boolean): string;
+    function getTextOfNodeFromSourceText(sourceText: string, node: Node): string;
+    function getTextOfNode(node: Node, includeTrivia?: boolean): string;
+    function escapeIdentifier(identifier: string): string;
+    function unescapeIdentifier(identifier: string): string;
+    function makeIdentifierFromModuleName(moduleName: string): string;
+    function isBlockOrCatchScoped(declaration: Declaration): boolean;
+    function getEnclosingBlockScopeContainer(node: Node): Node;
+    function isCatchClauseVariableDeclaration(declaration: Declaration): boolean;
+    function declarationNameToString(name: DeclarationName): string;
+    function createDiagnosticForNode(node: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any): Diagnostic;
+    function createDiagnosticForNodeFromMessageChain(node: Node, messageChain: DiagnosticMessageChain): Diagnostic;
+    function getSpanOfTokenAtPosition(sourceFile: SourceFile, pos: number): TextSpan;
+    function getErrorSpanForNode(sourceFile: SourceFile, node: Node): TextSpan;
+    function isExternalModule(file: SourceFile): boolean;
+    function isExternalOrCommonJsModule(file: SourceFile): boolean;
+    function isDeclarationFile(file: SourceFile): boolean;
+    function isConstEnumDeclaration(node: Node): boolean;
+    function getCombinedNodeFlags(node: Node): NodeFlags;
+    function isConst(node: Node): boolean;
+    function isLet(node: Node): boolean;
+    function isPrologueDirective(node: Node): boolean;
+    function getLeadingCommentRangesOfNode(node: Node, sourceFileOfNode: SourceFile): CommentRange[];
+    function getLeadingCommentRangesOfNodeFromText(node: Node, text: string): CommentRange[];
+    function getJsDocComments(node: Node, sourceFileOfNode: SourceFile): CommentRange[];
+    function getJsDocCommentsFromText(node: Node, text: string): CommentRange[];
+    let fullTripleSlashReferencePathRegEx: RegExp;
+    let fullTripleSlashAMDReferencePathRegEx: RegExp;
+    function isTypeNode(node: Node): boolean;
+    function forEachReturnStatement<T>(body: Block, visitor: (stmt: ReturnStatement) => T): T;
+    function forEachYieldExpression(body: Block, visitor: (expr: YieldExpression) => void): void;
+    function isVariableLike(node: Node): node is VariableLikeDeclaration;
+    function isAccessor(node: Node): node is AccessorDeclaration;
+    function isClassLike(node: Node): node is ClassLikeDeclaration;
+    function isFunctionLike(node: Node): node is FunctionLikeDeclaration;
+    function isFunctionLikeKind(kind: SyntaxKind): boolean;
+    function introducesArgumentsExoticObject(node: Node): boolean;
+    function isIterationStatement(node: Node, lookInLabeledStatements: boolean): boolean;
+    function isFunctionBlock(node: Node): boolean;
+    function isObjectLiteralMethod(node: Node): node is MethodDeclaration;
+    function getContainingFunction(node: Node): FunctionLikeDeclaration;
+    function getContainingClass(node: Node): ClassLikeDeclaration;
+    function getThisContainer(node: Node, includeArrowFunctions: boolean): Node;
+    function getSuperContainer(node: Node, includeFunctions: boolean): Node;
+    function getEntityNameFromTypeNode(node: TypeNode): EntityName | Expression;
+    function getInvokedExpression(node: CallLikeExpression): Expression;
+    function nodeCanBeDecorated(node: Node): boolean;
+    function nodeIsDecorated(node: Node): boolean;
+    function childIsDecorated(node: Node): boolean;
+    function nodeOrChildIsDecorated(node: Node): boolean;
+    function isPropertyAccessExpression(node: Node): node is PropertyAccessExpression;
+    function isElementAccessExpression(node: Node): node is ElementAccessExpression;
+    function isExpression(node: Node): boolean;
+    function isExternalModuleNameRelative(moduleName: string): boolean;
+    function isInstantiatedModule(node: ModuleDeclaration, preserveConstEnums: boolean): boolean;
+    function isExternalModuleImportEqualsDeclaration(node: Node): boolean;
+    function getExternalModuleImportEqualsDeclarationExpression(node: Node): Expression;
+    function isInternalModuleImportEqualsDeclaration(node: Node): node is ImportEqualsDeclaration;
+    function isSourceFileJavaScript(file: SourceFile): boolean;
+    function isInJavaScriptFile(node: Node): boolean;
+    /**
+     * Returns true if the node is a CallExpression to the identifier 'require' with
+     * exactly one string literal argument.
+     * This function does not test if the node is in a JavaScript file or not.
+    */
+    function isRequireCall(expression: Node): expression is CallExpression;
+    /**
+     * Returns true if the node is an assignment to a property on the identifier 'exports'.
+     * This function does not test if the node is in a JavaScript file or not.
+    */
+    function isExportsPropertyAssignment(expression: Node): boolean;
+    /**
+     * Returns true if the node is an assignment to the property access expression 'module.exports'.
+     * This function does not test if the node is in a JavaScript file or not.
+    */
+    function isModuleExportsAssignment(expression: Node): boolean;
+    function getExternalModuleName(node: Node): Expression;
+    function hasQuestionToken(node: Node): boolean;
+    function isJSDocConstructSignature(node: Node): boolean;
+    function getJSDocTypeTag(node: Node): JSDocTypeTag;
+    function getJSDocReturnTag(node: Node): JSDocReturnTag;
+    function getJSDocTemplateTag(node: Node): JSDocTemplateTag;
+    function getCorrespondingJSDocParameterTag(parameter: ParameterDeclaration): JSDocParameterTag;
+    function hasRestParameter(s: SignatureDeclaration): boolean;
+    function isRestParameter(node: ParameterDeclaration): boolean;
+    function isLiteralKind(kind: SyntaxKind): boolean;
+    function isTextualLiteralKind(kind: SyntaxKind): boolean;
+    function isTemplateLiteralKind(kind: SyntaxKind): boolean;
+    function isBindingPattern(node: Node): node is BindingPattern;
+    function isNodeDescendentOf(node: Node, ancestor: Node): boolean;
+    function isInAmbientContext(node: Node): boolean;
+    function isDeclaration(node: Node): boolean;
+    function isStatement(n: Node): boolean;
+    function isClassElement(n: Node): boolean;
+    function isDeclarationName(name: Node): boolean;
+    function isIdentifierName(node: Identifier): boolean;
+    function isAliasSymbolDeclaration(node: Node): boolean;
+    function getClassExtendsHeritageClauseElement(node: ClassLikeDeclaration): ExpressionWithTypeArguments;
+    function getClassImplementsHeritageClauseElements(node: ClassLikeDeclaration): NodeArray<ExpressionWithTypeArguments>;
+    function getInterfaceBaseTypeNodes(node: InterfaceDeclaration): NodeArray<ExpressionWithTypeArguments>;
+    function getHeritageClause(clauses: NodeArray<HeritageClause>, kind: SyntaxKind): HeritageClause;
+    function tryResolveScriptReference(host: ScriptReferenceHost, sourceFile: SourceFile, reference: FileReference): SourceFile;
+    function getAncestor(node: Node, kind: SyntaxKind): Node;
+    function getFileReferenceFromReferencePath(comment: string, commentRange: CommentRange): ReferencePathMatchResult;
+    function isKeyword(token: SyntaxKind): boolean;
+    function isTrivia(token: SyntaxKind): boolean;
+    function isAsyncFunctionLike(node: Node): boolean;
+    function isStringOrNumericLiteral(kind: SyntaxKind): boolean;
+    /**
+     * A declaration has a dynamic name if both of the following are true:
+     *   1. The declaration has a computed property name
+     *   2. The computed name is *not* expressed as Symbol.<name>, where name
+     *      is a property of the Symbol constructor that denotes a built in
+     *      Symbol.
+     */
+    function hasDynamicName(declaration: Declaration): boolean;
+    function isDynamicName(name: DeclarationName): boolean;
+    /**
+     * Checks if the expression is of the form:
+     *    Symbol.name
+     * where Symbol is literally the word "Symbol", and name is any identifierName
+     */
+    function isWellKnownSymbolSyntactically(node: Expression): boolean;
+    function getPropertyNameForPropertyNameNode(name: DeclarationName): string;
+    function getPropertyNameForKnownSymbolName(symbolName: string): string;
+    /**
+     * Includes the word "Symbol" with unicode escapes
+     */
+    function isESSymbolIdentifier(node: Node): boolean;
+    function isModifier(token: SyntaxKind): boolean;
+    function isParameterDeclaration(node: VariableLikeDeclaration): boolean;
+    function getRootDeclaration(node: Node): Node;
+    function nodeStartsNewLexicalEnvironment(n: Node): boolean;
+    function cloneEntityName(node: EntityName): EntityName;
+    function nodeIsSynthesized(node: Node): boolean;
+    function createSynthesizedNode(kind: SyntaxKind, startsOnNewLine?: boolean): Node;
+    function createSynthesizedNodeArray(): NodeArray<any>;
+    function createDiagnosticCollection(): DiagnosticCollection;
+    /**
+     * Based heavily on the abstract 'Quote'/'QuoteJSONString' operation from ECMA-262 (24.3.2.2),
+     * but augmented for a few select characters (e.g. lineSeparator, paragraphSeparator, nextLine)
+     * Note that this doesn't actually wrap the input in double quotes.
+     */
+    function escapeString(s: string): string;
+    function isIntrinsicJsxName(name: string): boolean;
+    function escapeNonAsciiCharacters(s: string): string;
+    interface EmitTextWriter {
+        write(s: string): void;
+        writeTextOfNode(text: string, node: Node): void;
+        writeLine(): void;
+        increaseIndent(): void;
+        decreaseIndent(): void;
+        getText(): string;
+        rawWrite(s: string): void;
+        writeLiteral(s: string): void;
+        getTextPos(): number;
+        getLine(): number;
+        getColumn(): number;
+        getIndent(): number;
+        reset(): void;
+    }
+    function getIndentString(level: number): string;
+    function getIndentSize(): number;
+    function createTextWriter(newLine: String): EmitTextWriter;
+    /**
+     * Resolves a local path to a path which is absolute to the base of the emit
+     */
+    function getExternalModuleNameFromPath(host: EmitHost, fileName: string): string;
+    function getOwnEmitOutputFilePath(sourceFile: SourceFile, host: EmitHost, extension: string): string;
+    function getSourceFilePathInNewDir(sourceFile: SourceFile, host: EmitHost, newDirPath: string): string;
+    function writeFile(host: EmitHost, diagnostics: Diagnostic[], fileName: string, data: string, writeByteOrderMark: boolean): void;
+    function getLineOfLocalPosition(currentSourceFile: SourceFile, pos: number): number;
+    function getLineOfLocalPositionFromLineMap(lineMap: number[], pos: number): number;
+    function getFirstConstructorWithBody(node: ClassLikeDeclaration): ConstructorDeclaration;
+    function getSetAccessorTypeAnnotationNode(accessor: AccessorDeclaration): TypeNode;
+    function shouldEmitToOwnFile(sourceFile: SourceFile, compilerOptions: CompilerOptions): boolean;
+    function getAllAccessorDeclarations(declarations: NodeArray<Declaration>, accessor: AccessorDeclaration): {
+        firstAccessor: AccessorDeclaration;
+        secondAccessor: AccessorDeclaration;
+        getAccessor: AccessorDeclaration;
+        setAccessor: AccessorDeclaration;
+    };
+    function emitNewLineBeforeLeadingComments(lineMap: number[], writer: EmitTextWriter, node: TextRange, leadingComments: CommentRange[]): void;
+    function emitComments(text: string, lineMap: number[], writer: EmitTextWriter, comments: CommentRange[], trailingSeparator: boolean, newLine: string, writeComment: (text: string, lineMap: number[], writer: EmitTextWriter, comment: CommentRange, newLine: string) => void): void;
+    /**
+     * Detached comment is a comment at the top of file or function body that is separated from
+     * the next statement by space.
+     */
+    function emitDetachedComments(text: string, lineMap: number[], writer: EmitTextWriter, writeComment: (text: string, lineMap: number[], writer: EmitTextWriter, comment: CommentRange, newLine: string) => void, node: TextRange, newLine: string, removeComments: boolean): {
+        nodePos: number;
+        detachedCommentEndPos: number;
+    };
+    function writeCommentRange(text: string, lineMap: number[], writer: EmitTextWriter, comment: CommentRange, newLine: string): void;
+    function modifierToFlag(token: SyntaxKind): NodeFlags;
+    function isLeftHandSideExpression(expr: Expression): boolean;
+    function isAssignmentOperator(token: SyntaxKind): boolean;
+    function isExpressionWithTypeArgumentsInClassExtendsClause(node: Node): boolean;
+    function isSupportedExpressionWithTypeArguments(node: ExpressionWithTypeArguments): boolean;
+    function isRightSideOfQualifiedNameOrPropertyAccess(node: Node): boolean;
+    function isEmptyObjectLiteralOrArrayLiteral(expression: Node): boolean;
+    function getLocalSymbolForExportDefault(symbol: Symbol): Symbol;
+    function hasJavaScriptFileExtension(fileName: string): boolean;
+    function allowsJsxExpressions(fileName: string): boolean;
+    /**
+     * Converts a string to a base-64 encoded ASCII string.
+     */
+    function convertToBase64(input: string): string;
+    function convertToRelativePath(absoluteOrRelativePath: string, basePath: string, getCanonicalFileName: (path: string) => string): string;
+    function getNewLineCharacter(options: CompilerOptions): string;
+}
+declare namespace ts {
+    function getDefaultLibFileName(options: CompilerOptions): string;
+    function textSpanEnd(span: TextSpan): number;
+    function textSpanIsEmpty(span: TextSpan): boolean;
+    function textSpanContainsPosition(span: TextSpan, position: number): boolean;
+    function textSpanContainsTextSpan(span: TextSpan, other: TextSpan): boolean;
+    function textSpanOverlapsWith(span: TextSpan, other: TextSpan): boolean;
+    function textSpanOverlap(span1: TextSpan, span2: TextSpan): TextSpan;
+    function textSpanIntersectsWithTextSpan(span: TextSpan, other: TextSpan): boolean;
+    function textSpanIntersectsWith(span: TextSpan, start: number, length: number): boolean;
+    function decodedTextSpanIntersectsWith(start1: number, length1: number, start2: number, length2: number): boolean;
+    function textSpanIntersectsWithPosition(span: TextSpan, position: number): boolean;
+    function textSpanIntersection(span1: TextSpan, span2: TextSpan): TextSpan;
+    function createTextSpan(start: number, length: number): TextSpan;
+    function createTextSpanFromBounds(start: number, end: number): TextSpan;
+    function textChangeRangeNewSpan(range: TextChangeRange): TextSpan;
+    function textChangeRangeIsUnchanged(range: TextChangeRange): boolean;
+    function createTextChangeRange(span: TextSpan, newLength: number): TextChangeRange;
+    let unchangedTextChangeRange: TextChangeRange;
+    /**
+     * Called to merge all the changes that occurred across several versions of a script snapshot
+     * into a single change.  i.e. if a user keeps making successive edits to a script we will
+     * have a text change from V1 to V2, V2 to V3, ..., Vn.
+     *
+     * This function will then merge those changes into a single change range valid between V1 and
+     * Vn.
+     */
+    function collapseTextChangeRangesAcrossMultipleVersions(changes: TextChangeRange[]): TextChangeRange;
+    function getTypeParameterOwner(d: Declaration): Declaration;
 }
 declare namespace ts {
     var Diagnostics: {
@@ -5782,298 +6083,6 @@ declare namespace ts {
     function createScanner(languageVersion: ScriptTarget, skipTrivia: boolean, languageVariant?: LanguageVariant, text?: string, onError?: ErrorCallback, start?: number, length?: number): Scanner;
 }
 declare namespace ts {
-    let bindTime: number;
-    enum ModuleInstanceState {
-        NonInstantiated = 0,
-        Instantiated = 1,
-        ConstEnumOnly = 2,
-    }
-    function getModuleInstanceState(node: Node): ModuleInstanceState;
-    function bindSourceFile(file: SourceFile, options: CompilerOptions): void;
-}
-declare namespace ts {
-    interface System {
-        args: string[];
-        newLine: string;
-        useCaseSensitiveFileNames: boolean;
-        write(s: string): void;
-        readFile(path: string, encoding?: string): string;
-        writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
-        watchFile?(path: string, callback: (path: string, removed?: boolean) => void): FileWatcher;
-        watchDirectory?(path: string, callback: (path: string) => void, recursive?: boolean): FileWatcher;
-        resolvePath(path: string): string;
-        fileExists(path: string): boolean;
-        directoryExists(path: string): boolean;
-        createDirectory(path: string): void;
-        getExecutingFilePath(): string;
-        getCurrentDirectory(): string;
-        readDirectory(path: string, extension?: string, exclude?: string[]): string[];
-        getMemoryUsage?(): number;
-        exit(exitCode?: number): void;
-    }
-    interface FileWatcher {
-        close(): void;
-    }
-    var sys: System;
-}
-declare namespace ts {
-    interface ReferencePathMatchResult {
-        fileReference?: FileReference;
-        diagnosticMessage?: DiagnosticMessage;
-        isNoDefaultLib?: boolean;
-    }
-    interface SynthesizedNode extends Node {
-        leadingCommentRanges?: CommentRange[];
-        trailingCommentRanges?: CommentRange[];
-        startsOnNewLine: boolean;
-    }
-    function getDeclarationOfKind(symbol: Symbol, kind: SyntaxKind): Declaration;
-    interface StringSymbolWriter extends SymbolWriter {
-        string(): string;
-    }
-    interface EmitHost extends ScriptReferenceHost {
-        getSourceFiles(): SourceFile[];
-        getCommonSourceDirectory(): string;
-        getCanonicalFileName(fileName: string): string;
-        getNewLine(): string;
-        writeFile: WriteFileCallback;
-    }
-    function getSingleLineStringWriter(): StringSymbolWriter;
-    function releaseStringWriter(writer: StringSymbolWriter): void;
-    function getFullWidth(node: Node): number;
-    function arrayIsEqualTo<T>(array1: T[], array2: T[], equaler?: (a: T, b: T) => boolean): boolean;
-    function hasResolvedModule(sourceFile: SourceFile, moduleNameText: string): boolean;
-    function getResolvedModule(sourceFile: SourceFile, moduleNameText: string): ResolvedModule;
-    function setResolvedModule(sourceFile: SourceFile, moduleNameText: string, resolvedModule: ResolvedModule): void;
-    function containsParseError(node: Node): boolean;
-    function getSourceFileOfNode(node: Node): SourceFile;
-    function getStartPositionOfLine(line: number, sourceFile: SourceFile): number;
-    function nodePosToString(node: Node): string;
-    function getStartPosOfNode(node: Node): number;
-    function nodeIsMissing(node: Node): boolean;
-    function nodeIsPresent(node: Node): boolean;
-    function getTokenPosOfNode(node: Node, sourceFile?: SourceFile): number;
-    function getNonDecoratorTokenPosOfNode(node: Node, sourceFile?: SourceFile): number;
-    function getSourceTextOfNodeFromSourceFile(sourceFile: SourceFile, node: Node, includeTrivia?: boolean): string;
-    function getTextOfNodeFromSourceText(sourceText: string, node: Node): string;
-    function getTextOfNode(node: Node, includeTrivia?: boolean): string;
-    function escapeIdentifier(identifier: string): string;
-    function unescapeIdentifier(identifier: string): string;
-    function makeIdentifierFromModuleName(moduleName: string): string;
-    function isBlockOrCatchScoped(declaration: Declaration): boolean;
-    function getEnclosingBlockScopeContainer(node: Node): Node;
-    function isCatchClauseVariableDeclaration(declaration: Declaration): boolean;
-    function declarationNameToString(name: DeclarationName): string;
-    function createDiagnosticForNode(node: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any): Diagnostic;
-    function createDiagnosticForNodeFromMessageChain(node: Node, messageChain: DiagnosticMessageChain): Diagnostic;
-    function getSpanOfTokenAtPosition(sourceFile: SourceFile, pos: number): TextSpan;
-    function getErrorSpanForNode(sourceFile: SourceFile, node: Node): TextSpan;
-    function isExternalModule(file: SourceFile): boolean;
-    function isDeclarationFile(file: SourceFile): boolean;
-    function isConstEnumDeclaration(node: Node): boolean;
-    function getCombinedNodeFlags(node: Node): NodeFlags;
-    function isConst(node: Node): boolean;
-    function isLet(node: Node): boolean;
-    function isPrologueDirective(node: Node): boolean;
-    function getLeadingCommentRangesOfNode(node: Node, sourceFileOfNode: SourceFile): CommentRange[];
-    function getLeadingCommentRangesOfNodeFromText(node: Node, text: string): CommentRange[];
-    function getJsDocComments(node: Node, sourceFileOfNode: SourceFile): CommentRange[];
-    function getJsDocCommentsFromText(node: Node, text: string): CommentRange[];
-    let fullTripleSlashReferencePathRegEx: RegExp;
-    let fullTripleSlashAMDReferencePathRegEx: RegExp;
-    function isTypeNode(node: Node): boolean;
-    function forEachReturnStatement<T>(body: Block, visitor: (stmt: ReturnStatement) => T): T;
-    function forEachYieldExpression(body: Block, visitor: (expr: YieldExpression) => void): void;
-    function isVariableLike(node: Node): node is VariableLikeDeclaration;
-    function isAccessor(node: Node): node is AccessorDeclaration;
-    function isClassLike(node: Node): node is ClassLikeDeclaration;
-    function isFunctionLike(node: Node): node is FunctionLikeDeclaration;
-    function isFunctionLikeKind(kind: SyntaxKind): boolean;
-    function introducesArgumentsExoticObject(node: Node): boolean;
-    function isIterationStatement(node: Node, lookInLabeledStatements: boolean): boolean;
-    function isFunctionBlock(node: Node): boolean;
-    function isObjectLiteralMethod(node: Node): node is MethodDeclaration;
-    function getContainingFunction(node: Node): FunctionLikeDeclaration;
-    function getContainingClass(node: Node): ClassLikeDeclaration;
-    function getThisContainer(node: Node, includeArrowFunctions: boolean): Node;
-    function getSuperContainer(node: Node, includeFunctions: boolean): Node;
-    function getEntityNameFromTypeNode(node: TypeNode): EntityName | Expression;
-    function getInvokedExpression(node: CallLikeExpression): Expression;
-    function nodeCanBeDecorated(node: Node): boolean;
-    function nodeIsDecorated(node: Node): boolean;
-    function childIsDecorated(node: Node): boolean;
-    function nodeOrChildIsDecorated(node: Node): boolean;
-    function isPropertyAccessExpression(node: Node): node is PropertyAccessExpression;
-    function isElementAccessExpression(node: Node): node is ElementAccessExpression;
-    function isExpression(node: Node): boolean;
-    function isExternalModuleNameRelative(moduleName: string): boolean;
-    function isInstantiatedModule(node: ModuleDeclaration, preserveConstEnums: boolean): boolean;
-    function isExternalModuleImportEqualsDeclaration(node: Node): boolean;
-    function getExternalModuleImportEqualsDeclarationExpression(node: Node): Expression;
-    function isInternalModuleImportEqualsDeclaration(node: Node): node is ImportEqualsDeclaration;
-    function getExternalModuleName(node: Node): Expression;
-    function hasQuestionToken(node: Node): boolean;
-    function isJSDocConstructSignature(node: Node): boolean;
-    function getJSDocTypeTag(node: Node): JSDocTypeTag;
-    function getJSDocReturnTag(node: Node): JSDocReturnTag;
-    function getJSDocTemplateTag(node: Node): JSDocTemplateTag;
-    function getCorrespondingJSDocParameterTag(parameter: ParameterDeclaration): JSDocParameterTag;
-    function hasRestParameter(s: SignatureDeclaration): boolean;
-    function isRestParameter(node: ParameterDeclaration): boolean;
-    function isLiteralKind(kind: SyntaxKind): boolean;
-    function isTextualLiteralKind(kind: SyntaxKind): boolean;
-    function isTemplateLiteralKind(kind: SyntaxKind): boolean;
-    function isBindingPattern(node: Node): node is BindingPattern;
-    function isNodeDescendentOf(node: Node, ancestor: Node): boolean;
-    function isInAmbientContext(node: Node): boolean;
-    function isDeclaration(node: Node): boolean;
-    function isStatement(n: Node): boolean;
-    function isClassElement(n: Node): boolean;
-    function isDeclarationName(name: Node): boolean;
-    function isIdentifierName(node: Identifier): boolean;
-    function isAliasSymbolDeclaration(node: Node): boolean;
-    function getClassExtendsHeritageClauseElement(node: ClassLikeDeclaration): ExpressionWithTypeArguments;
-    function getClassImplementsHeritageClauseElements(node: ClassLikeDeclaration): NodeArray<ExpressionWithTypeArguments>;
-    function getInterfaceBaseTypeNodes(node: InterfaceDeclaration): NodeArray<ExpressionWithTypeArguments>;
-    function getHeritageClause(clauses: NodeArray<HeritageClause>, kind: SyntaxKind): HeritageClause;
-    function tryResolveScriptReference(host: ScriptReferenceHost, sourceFile: SourceFile, reference: FileReference): SourceFile;
-    function getAncestor(node: Node, kind: SyntaxKind): Node;
-    function getFileReferenceFromReferencePath(comment: string, commentRange: CommentRange): ReferencePathMatchResult;
-    function isKeyword(token: SyntaxKind): boolean;
-    function isTrivia(token: SyntaxKind): boolean;
-    function isAsyncFunctionLike(node: Node): boolean;
-    /**
-     * A declaration has a dynamic name if both of the following are true:
-     *   1. The declaration has a computed property name
-     *   2. The computed name is *not* expressed as Symbol.<name>, where name
-     *      is a property of the Symbol constructor that denotes a built in
-     *      Symbol.
-     */
-    function hasDynamicName(declaration: Declaration): boolean;
-    /**
-     * Checks if the expression is of the form:
-     *    Symbol.name
-     * where Symbol is literally the word "Symbol", and name is any identifierName
-     */
-    function isWellKnownSymbolSyntactically(node: Expression): boolean;
-    function getPropertyNameForPropertyNameNode(name: DeclarationName): string;
-    function getPropertyNameForKnownSymbolName(symbolName: string): string;
-    /**
-     * Includes the word "Symbol" with unicode escapes
-     */
-    function isESSymbolIdentifier(node: Node): boolean;
-    function isModifier(token: SyntaxKind): boolean;
-    function isParameterDeclaration(node: VariableLikeDeclaration): boolean;
-    function getRootDeclaration(node: Node): Node;
-    function nodeStartsNewLexicalEnvironment(n: Node): boolean;
-    function cloneEntityName(node: EntityName): EntityName;
-    function nodeIsSynthesized(node: Node): boolean;
-    function createSynthesizedNode(kind: SyntaxKind, startsOnNewLine?: boolean): Node;
-    function createSynthesizedNodeArray(): NodeArray<any>;
-    function createDiagnosticCollection(): DiagnosticCollection;
-    /**
-     * Based heavily on the abstract 'Quote'/'QuoteJSONString' operation from ECMA-262 (24.3.2.2),
-     * but augmented for a few select characters (e.g. lineSeparator, paragraphSeparator, nextLine)
-     * Note that this doesn't actually wrap the input in double quotes.
-     */
-    function escapeString(s: string): string;
-    function isIntrinsicJsxName(name: string): boolean;
-    function escapeNonAsciiCharacters(s: string): string;
-    interface EmitTextWriter {
-        write(s: string): void;
-        writeTextOfNode(text: string, node: Node): void;
-        writeLine(): void;
-        increaseIndent(): void;
-        decreaseIndent(): void;
-        getText(): string;
-        rawWrite(s: string): void;
-        writeLiteral(s: string): void;
-        getTextPos(): number;
-        getLine(): number;
-        getColumn(): number;
-        getIndent(): number;
-        reset(): void;
-    }
-    function getIndentString(level: number): string;
-    function getIndentSize(): number;
-    function createTextWriter(newLine: String): EmitTextWriter;
-    /**
-     * Resolves a local path to a path which is absolute to the base of the emit
-     */
-    function getExternalModuleNameFromPath(host: EmitHost, fileName: string): string;
-    function getOwnEmitOutputFilePath(sourceFile: SourceFile, host: EmitHost, extension: string): string;
-    function getSourceFilePathInNewDir(sourceFile: SourceFile, host: EmitHost, newDirPath: string): string;
-    function writeFile(host: EmitHost, diagnostics: Diagnostic[], fileName: string, data: string, writeByteOrderMark: boolean): void;
-    function getLineOfLocalPosition(currentSourceFile: SourceFile, pos: number): number;
-    function getLineOfLocalPositionFromLineMap(lineMap: number[], pos: number): number;
-    function getFirstConstructorWithBody(node: ClassLikeDeclaration): ConstructorDeclaration;
-    function getSetAccessorTypeAnnotationNode(accessor: AccessorDeclaration): TypeNode;
-    function shouldEmitToOwnFile(sourceFile: SourceFile, compilerOptions: CompilerOptions): boolean;
-    function getAllAccessorDeclarations(declarations: NodeArray<Declaration>, accessor: AccessorDeclaration): {
-        firstAccessor: AccessorDeclaration;
-        secondAccessor: AccessorDeclaration;
-        getAccessor: AccessorDeclaration;
-        setAccessor: AccessorDeclaration;
-    };
-    function emitNewLineBeforeLeadingComments(lineMap: number[], writer: EmitTextWriter, node: TextRange, leadingComments: CommentRange[]): void;
-    function emitComments(text: string, lineMap: number[], writer: EmitTextWriter, comments: CommentRange[], trailingSeparator: boolean, newLine: string, writeComment: (text: string, lineMap: number[], writer: EmitTextWriter, comment: CommentRange, newLine: string) => void): void;
-    /**
-     * Detached comment is a comment at the top of file or function body that is separated from
-     * the next statement by space.
-     */
-    function emitDetachedComments(text: string, lineMap: number[], writer: EmitTextWriter, writeComment: (text: string, lineMap: number[], writer: EmitTextWriter, comment: CommentRange, newLine: string) => void, node: TextRange, newLine: string, removeComments: boolean): {
-        nodePos: number;
-        detachedCommentEndPos: number;
-    };
-    function writeCommentRange(text: string, lineMap: number[], writer: EmitTextWriter, comment: CommentRange, newLine: string): void;
-    function modifierToFlag(token: SyntaxKind): NodeFlags;
-    function isLeftHandSideExpression(expr: Expression): boolean;
-    function isAssignmentOperator(token: SyntaxKind): boolean;
-    function isExpressionWithTypeArgumentsInClassExtendsClause(node: Node): boolean;
-    function isSupportedExpressionWithTypeArguments(node: ExpressionWithTypeArguments): boolean;
-    function isRightSideOfQualifiedNameOrPropertyAccess(node: Node): boolean;
-    function isEmptyObjectLiteralOrArrayLiteral(expression: Node): boolean;
-    function getLocalSymbolForExportDefault(symbol: Symbol): Symbol;
-    function isJavaScript(fileName: string): boolean;
-    function isTsx(fileName: string): boolean;
-    /**
-     * Converts a string to a base-64 encoded ASCII string.
-     */
-    function convertToBase64(input: string): string;
-    function convertToRelativePath(absoluteOrRelativePath: string, basePath: string, getCanonicalFileName: (path: string) => string): string;
-    function getNewLineCharacter(options: CompilerOptions): string;
-}
-declare namespace ts {
-    function getDefaultLibFileName(options: CompilerOptions): string;
-    function textSpanEnd(span: TextSpan): number;
-    function textSpanIsEmpty(span: TextSpan): boolean;
-    function textSpanContainsPosition(span: TextSpan, position: number): boolean;
-    function textSpanContainsTextSpan(span: TextSpan, other: TextSpan): boolean;
-    function textSpanOverlapsWith(span: TextSpan, other: TextSpan): boolean;
-    function textSpanOverlap(span1: TextSpan, span2: TextSpan): TextSpan;
-    function textSpanIntersectsWithTextSpan(span: TextSpan, other: TextSpan): boolean;
-    function textSpanIntersectsWith(span: TextSpan, start: number, length: number): boolean;
-    function decodedTextSpanIntersectsWith(start1: number, length1: number, start2: number, length2: number): boolean;
-    function textSpanIntersectsWithPosition(span: TextSpan, position: number): boolean;
-    function textSpanIntersection(span1: TextSpan, span2: TextSpan): TextSpan;
-    function createTextSpan(start: number, length: number): TextSpan;
-    function createTextSpanFromBounds(start: number, end: number): TextSpan;
-    function textChangeRangeNewSpan(range: TextChangeRange): TextSpan;
-    function textChangeRangeIsUnchanged(range: TextChangeRange): boolean;
-    function createTextChangeRange(span: TextSpan, newLength: number): TextChangeRange;
-    let unchangedTextChangeRange: TextChangeRange;
-    /**
-     * Called to merge all the changes that occurred across several versions of a script snapshot
-     * into a single change.  i.e. if a user keeps making successive edits to a script we will
-     * have a text change from V1 to V2, V2 to V3, ..., Vn.
-     *
-     * This function will then merge those changes into a single change range valid between V1 and
-     * Vn.
-     */
-    function collapseTextChangeRangesAcrossMultipleVersions(changes: TextChangeRange[]): TextChangeRange;
-    function getTypeParameterOwner(d: Declaration): Declaration;
-}
-declare namespace ts {
     let parseTime: number;
     function createNode(kind: SyntaxKind, pos?: number, end?: number): Node;
     function forEachChild<T>(node: Node, cbNode: (node: Node) => T, cbNodeArray?: (nodes: Node[]) => T): T;
@@ -6087,6 +6096,16 @@ declare namespace ts {
         jsDocTypeExpression: JSDocTypeExpression;
         diagnostics: Diagnostic[];
     };
+}
+declare namespace ts {
+    let bindTime: number;
+    enum ModuleInstanceState {
+        NonInstantiated = 0,
+        Instantiated = 1,
+        ConstEnumOnly = 2,
+    }
+    function getModuleInstanceState(node: Node): ModuleInstanceState;
+    function bindSourceFile(file: SourceFile, options: CompilerOptions): void;
 }
 declare namespace ts {
     function getNodeId(node: Node): number;
@@ -7256,7 +7275,7 @@ declare namespace ts {
     function updateLanguageServiceSourceFile(sourceFile: SourceFile, scriptSnapshot: IScriptSnapshot, version: string, textChangeRange: TextChangeRange, aggressiveChecks?: boolean): SourceFile;
     function createGetCanonicalFileName(useCaseSensitivefileNames: boolean): (fileName: string) => string;
     function createDocumentRegistry(useCaseSensitiveFileNames?: boolean, currentDirectory?: string): DocumentRegistry;
-    function preProcessFile(sourceText: string, readImportFiles?: boolean): PreProcessedFileInfo;
+    function preProcessFile(sourceText: string, readImportFiles?: boolean, detectJavaScriptImports?: boolean): PreProcessedFileInfo;
     function getContainerNode(node: Node): Declaration;
     function getNodeKind(node: Node): string;
     function createLanguageService(host: LanguageServiceHost, documentRegistry?: DocumentRegistry): LanguageService;
