@@ -7230,6 +7230,9 @@ declare namespace ts {
         static typeAliasName: string;
         static parameterName: string;
         static docCommentTagName: string;
+        static jsxOpenTagName: string;
+        static jsxCloseTagName: string;
+        static jsxSelfClosingTagName: string;
     }
     enum ClassificationType {
         comment = 1,
@@ -7250,6 +7253,9 @@ declare namespace ts {
         typeAliasName = 16,
         parameterName = 17,
         docCommentTagName = 18,
+        jsxOpenTagName = 19,
+        jsxCloseTagName = 20,
+        jsxSelfClosingTagName = 21,
     }
     interface DisplayPartsSymbolWriter extends SymbolWriter {
         displayParts(): SymbolDisplayPart[];

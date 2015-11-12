@@ -13903,7 +13903,7 @@ var ts;
             symbolToString: symbolToString,
             getAugmentedPropertiesOfType: getAugmentedPropertiesOfType,
             getRootSymbols: getRootSymbols,
-            getContextualType: getApparentTypeOfContextualType,
+            getContextualType: getContextualType,
             getFullyQualifiedName: getFullyQualifiedName,
             getResolvedSignature: getResolvedSignature,
             getConstantValue: getConstantValue,
@@ -13928,8 +13928,8 @@ var ts;
         var undefinedType = createIntrinsicType(32 /* Undefined */ | 2097152 /* ContainsUndefinedOrNull */, "undefined");
         var nullType = createIntrinsicType(64 /* Null */ | 2097152 /* ContainsUndefinedOrNull */, "null");
         var unknownType = createIntrinsicType(1 /* Any */, "unknown");
-        var circularType = createIntrinsicType(1 /* Any */, "__circular__");
         var emptyObjectType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
+        var emptyUnionType = emptyObjectType;
         var emptyGenericType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         emptyGenericType.instantiations = {};
         var anyFunctionType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
@@ -14281,9 +14281,18 @@ var ts;
                         var moduleExports = getSymbolOfNode(location).exports;
                         if (location.kind === 248 /* SourceFile */ ||
                             (location.kind === 218 /* ModuleDeclaration */ && location.name.kind === 9 /* StringLiteral */)) {
-                            // It's an external module. Because of module/namespace merging, a module's exports are in scope,
-                            // yet we never want to treat an export specifier as putting a member in scope. Therefore,
-                            // if the name we find is purely an export specifier, it is not actually considered in scope.
+                            // It's an external module. First see if the module has an export default and if the local
+                            // name of that export default matches.
+                            if (result = moduleExports["default"]) {
+                                var localSymbol = ts.getLocalSymbolForExportDefault(result);
+                                if (localSymbol && (result.flags & meaning) && localSymbol.name === name) {
+                                    break loop;
+                                }
+                                result = undefined;
+                            }
+                            // Because of module/namespace merging, a module's exports are in scope,
+                            // yet we never want to treat an export specifier as putting a member in scope. 
+                            // Therefore, if the name we find is purely an export specifier, it is not actually considered in scope.
                             // Two things to note about this:
                             //     1. We have to check this without calling getSymbol. The problem with calling getSymbol
                             //        on an export specifier is that it might find the export specifier itself, and try to
@@ -14297,12 +14306,6 @@ var ts;
                                 ts.getDeclarationOfKind(moduleExports[name], 230 /* ExportSpecifier */)) {
                                 break;
                             }
-                            result = moduleExports["default"];
-                            var localSymbol = ts.getLocalSymbolForExportDefault(result);
-                            if (result && localSymbol && (result.flags & meaning) && localSymbol.name === name) {
-                                break loop;
-                            }
-                            result = undefined;
                         }
                         if (result = getSymbol(moduleExports, name, meaning & 8914931 /* ModuleMember */)) {
                             break loop;
@@ -17329,7 +17332,7 @@ var ts;
             if (node.initializer) {
                 var signatureDeclaration = node.parent;
                 var signature = getSignatureFromDeclaration(signatureDeclaration);
-                var parameterIndex = signatureDeclaration.parameters.indexOf(node);
+                var parameterIndex = ts.indexOf(signatureDeclaration.parameters, node);
                 ts.Debug.assert(parameterIndex >= 0);
                 return parameterIndex >= signature.minArgumentCount;
             }
@@ -17890,7 +17893,7 @@ var ts;
         // a named type that circularly references itself.
         function getUnionType(types, noSubtypeReduction) {
             if (types.length === 0) {
-                return emptyObjectType;
+                return emptyUnionType;
             }
             var typeSet = [];
             addTypesToSet(typeSet, types, 16384 /* Union */);
@@ -19631,26 +19634,6 @@ var ts;
             }
             ts.Debug.fail("should not get here");
         }
-        // For a union type, remove all constituent types that are of the given type kind (when isOfTypeKind is true)
-        // or not of the given type kind (when isOfTypeKind is false)
-        function removeTypesFromUnionType(type, typeKind, isOfTypeKind, allowEmptyUnionResult) {
-            if (type.flags & 16384 /* Union */) {
-                var types = type.types;
-                if (ts.forEach(types, function (t) { return !!(t.flags & typeKind) === isOfTypeKind; })) {
-                    // Above we checked if we have anything to remove, now use the opposite test to do the removal
-                    var narrowedType = getUnionType(ts.filter(types, function (t) { return !(t.flags & typeKind) === isOfTypeKind; }));
-                    if (allowEmptyUnionResult || narrowedType !== emptyObjectType) {
-                        return narrowedType;
-                    }
-                }
-            }
-            else if (allowEmptyUnionResult && !!(type.flags & typeKind) === isOfTypeKind) {
-                // Use getUnionType(emptyArray) instead of emptyObjectType in case the way empty union types
-                // are represented ever changes.
-                return getUnionType(emptyArray);
-            }
-            return type;
-        }
         function hasInitializer(node) {
             return !!(node.initializer || ts.isBindingPattern(node.parent) && hasInitializer(node.parent.parent));
         }
@@ -19747,33 +19730,16 @@ var ts;
             // Only narrow when symbol is variable of type any or an object, union, or type parameter type
             if (node && symbol.flags & 3 /* Variable */) {
                 if (isTypeAny(type) || type.flags & (80896 /* ObjectType */ | 16384 /* Union */ | 512 /* TypeParameter */)) {
+                    var originalType = type;
+                    var nodeStack = [];
                     loop: while (node.parent) {
                         var child = node;
                         node = node.parent;
-                        var narrowedType = type;
                         switch (node.kind) {
                             case 196 /* IfStatement */:
-                                // In a branch of an if statement, narrow based on controlling expression
-                                if (child !== node.expression) {
-                                    narrowedType = narrowType(type, node.expression, /*assumeTrue*/ child === node.thenStatement);
-                                }
-                                break;
                             case 182 /* ConditionalExpression */:
-                                // In a branch of a conditional expression, narrow based on controlling condition
-                                if (child !== node.condition) {
-                                    narrowedType = narrowType(type, node.condition, /*assumeTrue*/ child === node.whenTrue);
-                                }
-                                break;
                             case 181 /* BinaryExpression */:
-                                // In the right operand of an && or ||, narrow based on left operand
-                                if (child === node.right) {
-                                    if (node.operatorToken.kind === 51 /* AmpersandAmpersandToken */) {
-                                        narrowedType = narrowType(type, node.left, /*assumeTrue*/ true);
-                                    }
-                                    else if (node.operatorToken.kind === 52 /* BarBarToken */) {
-                                        narrowedType = narrowType(type, node.left, /*assumeTrue*/ false);
-                                    }
-                                }
+                                nodeStack.push({ node: node, child: child });
                                 break;
                             case 248 /* SourceFile */:
                             case 218 /* ModuleDeclaration */:
@@ -19786,13 +19752,45 @@ var ts;
                                 // Stop at the first containing function or module declaration
                                 break loop;
                         }
-                        // Use narrowed type if construct contains no assignments to variable
-                        if (narrowedType !== type) {
-                            if (isVariableAssignedWithin(symbol, node)) {
+                    }
+                    var nodes;
+                    while (nodes = nodeStack.pop()) {
+                        var node_2 = nodes.node, child = nodes.child;
+                        switch (node_2.kind) {
+                            case 196 /* IfStatement */:
+                                // In a branch of an if statement, narrow based on controlling expression
+                                if (child !== node_2.expression) {
+                                    type = narrowType(type, node_2.expression, /*assumeTrue*/ child === node_2.thenStatement);
+                                }
                                 break;
-                            }
-                            type = narrowedType;
+                            case 182 /* ConditionalExpression */:
+                                // In a branch of a conditional expression, narrow based on controlling condition
+                                if (child !== node_2.condition) {
+                                    type = narrowType(type, node_2.condition, /*assumeTrue*/ child === node_2.whenTrue);
+                                }
+                                break;
+                            case 181 /* BinaryExpression */:
+                                // In the right operand of an && or ||, narrow based on left operand
+                                if (child === node_2.right) {
+                                    if (node_2.operatorToken.kind === 51 /* AmpersandAmpersandToken */) {
+                                        type = narrowType(type, node_2.left, /*assumeTrue*/ true);
+                                    }
+                                    else if (node_2.operatorToken.kind === 52 /* BarBarToken */) {
+                                        type = narrowType(type, node_2.left, /*assumeTrue*/ false);
+                                    }
+                                }
+                                break;
+                            default:
+                                ts.Debug.fail("Unreachable!");
                         }
+                        // Use original type if construct contains assignments to variable
+                        if (type !== originalType && isVariableAssignedWithin(symbol, node_2)) {
+                            type = originalType;
+                        }
+                    }
+                    // Preserve old top-level behavior - if the branch is really an empty set, revert to prior type
+                    if (type === emptyUnionType) {
+                        type = originalType;
                     }
                 }
             }
@@ -19807,31 +19805,30 @@ var ts;
                 if (left.expression.kind !== 69 /* Identifier */ || getResolvedSymbol(left.expression) !== symbol) {
                     return type;
                 }
-                var typeInfo = primitiveTypeInfo[right.text];
                 if (expr.operatorToken.kind === 33 /* ExclamationEqualsEqualsToken */) {
                     assumeTrue = !assumeTrue;
                 }
-                if (assumeTrue) {
-                    // Assumed result is true. If check was not for a primitive type, remove all primitive types
-                    if (!typeInfo) {
-                        return removeTypesFromUnionType(type, /*typeKind*/ 258 /* StringLike */ | 132 /* NumberLike */ | 8 /* Boolean */ | 16777216 /* ESSymbol */, 
-                        /*isOfTypeKind*/ true, /*allowEmptyUnionResult*/ false);
-                    }
-                    // Check was for a primitive type, return that primitive type if it is a subtype
-                    if (isTypeSubtypeOf(typeInfo.type, type)) {
-                        return typeInfo.type;
-                    }
-                    // Otherwise, remove all types that aren't of the primitive type kind. This can happen when the type is
-                    // union of enum types and other types.
-                    return removeTypesFromUnionType(type, /*typeKind*/ typeInfo.flags, /*isOfTypeKind*/ false, /*allowEmptyUnionResult*/ false);
+                var typeInfo = primitiveTypeInfo[right.text];
+                // If the type to be narrowed is any and we're checking a primitive with assumeTrue=true, return the primitive
+                if (!!(type.flags & 1 /* Any */) && typeInfo && assumeTrue) {
+                    return typeInfo.type;
+                }
+                var flags;
+                if (typeInfo) {
+                    flags = typeInfo.flags;
                 }
                 else {
-                    // Assumed result is false. If check was for a primitive type, remove that primitive type
-                    if (typeInfo) {
-                        return removeTypesFromUnionType(type, /*typeKind*/ typeInfo.flags, /*isOfTypeKind*/ true, /*allowEmptyUnionResult*/ false);
-                    }
-                    // Otherwise we don't have enough information to do anything.
-                    return type;
+                    assumeTrue = !assumeTrue;
+                    flags = 132 /* NumberLike */ | 258 /* StringLike */ | 16777216 /* ESSymbol */ | 8 /* Boolean */;
+                }
+                // At this point we can bail if it's not a union
+                if (!(type.flags & 16384 /* Union */)) {
+                    // If the active non-union type would be removed from a union by this type guard, return an empty union
+                    return filterUnion(type) ? type : emptyUnionType;
+                }
+                return getUnionType(ts.filter(type.types, filterUnion), /*noSubtypeReduction*/ true);
+                function filterUnion(type) {
+                    return assumeTrue === !!(type.flags & flags);
                 }
             }
             function narrowTypeByAnd(type, expr, assumeTrue) {
@@ -19844,7 +19841,7 @@ var ts;
                     // and the second operand was false. We narrow with those assumptions and union the two resulting types.
                     return getUnionType([
                         narrowType(type, expr.left, /*assumeTrue*/ false),
-                        narrowType(narrowType(type, expr.left, /*assumeTrue*/ true), expr.right, /*assumeTrue*/ false)
+                        narrowType(type, expr.right, /*assumeTrue*/ false)
                     ]);
                 }
             }
@@ -19854,7 +19851,7 @@ var ts;
                     // and the second operand was true. We narrow with those assumptions and union the two resulting types.
                     return getUnionType([
                         narrowType(type, expr.left, /*assumeTrue*/ true),
-                        narrowType(narrowType(type, expr.left, /*assumeTrue*/ false), expr.right, /*assumeTrue*/ true)
+                        narrowType(type, expr.right, /*assumeTrue*/ true)
                     ]);
                 }
                 else {
@@ -20326,7 +20323,7 @@ var ts;
             else if (operator === 52 /* BarBarToken */) {
                 // When an || expression has a contextual type, the operands are contextually typed by that type. When an ||
                 // expression has no contextual type, the right operand is contextually typed by the type of the left operand.
-                var type = getApparentTypeOfContextualType(binaryExpression);
+                var type = getContextualType(binaryExpression);
                 if (!type && node === binaryExpression.right) {
                     type = checkExpression(binaryExpression.left);
                 }
@@ -20429,7 +20426,7 @@ var ts;
         // In a contextually typed conditional expression, the true/false expressions are contextually typed by the same type.
         function getContextualTypeForConditionalOperand(node) {
             var conditional = node.parent;
-            return node === conditional.whenTrue || node === conditional.whenFalse ? getApparentTypeOfContextualType(conditional) : undefined;
+            return node === conditional.whenTrue || node === conditional.whenFalse ? getContextualType(conditional) : undefined;
         }
         function getContextualTypeForJsxExpression(expr) {
             // Contextual type only applies to JSX expressions that are in attribute assignments (not in 'Children' positions)
@@ -20457,9 +20454,16 @@ var ts;
         /**
          * Woah! Do you really want to use this function?
          *
-         * Unless you're trying to get the *non-apparent* type for a value-literal type,
+         * Unless you're trying to get the *non-apparent* type for a
+         * value-literal type or you're authoring relevant portions of this algorithm,
          * you probably meant to use 'getApparentTypeOfContextualType'.
-         * Otherwise this is slightly less useful.
+         * Otherwise this may not be very useful.
+         *
+         * In cases where you *are* working on this function, you should understand
+         * when it is appropriate to use 'getContextualType' and 'getApparentTypeOfContetxualType'.
+         *
+         *   - Use 'getContextualType' when you are simply going to propagate the result to the expression.
+         *   - Use 'getApparentTypeOfContextualType' when you're going to need the members of the type.
          *
          * @param node the expression whose contextual type will be returned.
          * @returns the contextual type of an expression.
@@ -20503,7 +20507,7 @@ var ts;
                     ts.Debug.assert(parent.parent.kind === 183 /* TemplateExpression */);
                     return getContextualTypeForSubstitutionExpression(parent.parent, node);
                 case 172 /* ParenthesizedExpression */:
-                    return getApparentTypeOfContextualType(parent);
+                    return getContextualType(parent);
                 case 240 /* JsxExpression */:
                 case 239 /* JsxSpreadAttribute */:
                     return getContextualTypeForJsxExpression(parent);
@@ -25358,7 +25362,13 @@ var ts;
             ts.Debug.assert(languageVersion < 2 /* ES6 */);
             // After we remove all types that are StringLike, we will know if there was a string constituent
             // based on whether the remaining type is the same as the initial type.
-            var arrayType = removeTypesFromUnionType(arrayOrStringType, 258 /* StringLike */, /*isTypeOfKind*/ true, /*allowEmptyUnionResult*/ true);
+            var arrayType = arrayOrStringType;
+            if (arrayOrStringType.flags & 16384 /* Union */) {
+                arrayType = getUnionType(ts.filter(arrayOrStringType.types, function (t) { return !(t.flags & 258 /* StringLike */); }));
+            }
+            else if (arrayOrStringType.flags & 258 /* StringLike */) {
+                arrayType = emptyUnionType;
+            }
             var hasStringConstituent = arrayOrStringType !== arrayType;
             var reportedError = false;
             if (hasStringConstituent) {
@@ -43207,7 +43217,7 @@ var ts;
                 function TokenRangeAccess(from, to, except) {
                     this.tokens = [];
                     for (var token = from; token <= to; token++) {
-                        if (except.indexOf(token) < 0) {
+                        if (ts.indexOf(except, token) < 0) {
                             this.tokens.push(token);
                         }
                     }
@@ -45637,6 +45647,9 @@ var ts;
         ClassificationTypeNames.typeAliasName = "type alias name";
         ClassificationTypeNames.parameterName = "parameter name";
         ClassificationTypeNames.docCommentTagName = "doc comment tag name";
+        ClassificationTypeNames.jsxOpenTagName = "jsx open tag name";
+        ClassificationTypeNames.jsxCloseTagName = "jsx close tag name";
+        ClassificationTypeNames.jsxSelfClosingTagName = "jsx self closing tag name";
         return ClassificationTypeNames;
     })();
     ts.ClassificationTypeNames = ClassificationTypeNames;
@@ -45659,6 +45672,9 @@ var ts;
         ClassificationType[ClassificationType["typeAliasName"] = 16] = "typeAliasName";
         ClassificationType[ClassificationType["parameterName"] = 17] = "parameterName";
         ClassificationType[ClassificationType["docCommentTagName"] = 18] = "docCommentTagName";
+        ClassificationType[ClassificationType["jsxOpenTagName"] = 19] = "jsxOpenTagName";
+        ClassificationType[ClassificationType["jsxCloseTagName"] = 20] = "jsxCloseTagName";
+        ClassificationType[ClassificationType["jsxSelfClosingTagName"] = 21] = "jsxSelfClosingTagName";
     })(ts.ClassificationType || (ts.ClassificationType = {}));
     var ClassificationType = ts.ClassificationType;
     function displayPartsToString(displayParts) {
@@ -46683,8 +46699,11 @@ var ts;
                 return documentRegistry.acquireDocument(fileName, newSettings, hostFileInformation.scriptSnapshot, hostFileInformation.version);
             }
             function sourceFileUpToDate(sourceFile) {
+                if (!sourceFile) {
+                    return false;
+                }
                 var path = sourceFile.path || ts.toPath(sourceFile.fileName, currentDirectory, getCanonicalFileName);
-                return sourceFile && sourceFile.version === hostCache.getVersion(path);
+                return sourceFile.version === hostCache.getVersion(path);
             }
             function programUpToDate() {
                 // If we haven't create a program yet, then it is not up-to-date
@@ -47950,16 +47969,16 @@ var ts;
                                 case ScriptElementKind.parameterElement:
                                 case ScriptElementKind.localVariableElement:
                                     // If it is call or construct signature of lambda's write type name
-                                    displayParts.push(ts.punctuationPart(54 /* ColonToken */));
+                                    displayParts.push(ts.punctuationPart(ts.SyntaxKind.ColonToken));
                                     displayParts.push(ts.spacePart());
                                     if (useConstructSignatures) {
-                                        displayParts.push(ts.keywordPart(92 /* NewKeyword */));
+                                        displayParts.push(ts.keywordPart(ts.SyntaxKind.NewKeyword));
                                         displayParts.push(ts.spacePart());
                                     }
-                                    if (!(type.flags & 65536 /* Anonymous */)) {
-                                        ts.addRange(displayParts, ts.symbolToDisplayParts(typeChecker, type.symbol, enclosingDeclaration, /*meaning*/ undefined, 1 /* WriteTypeParametersOrArguments */));
+                                    if (!(type.flags & ts.TypeFlags.Anonymous)) {
+                                        ts.addRange(displayParts, ts.symbolToDisplayParts(typeChecker, type.symbol, enclosingDeclaration, /*meaning*/ undefined, ts.SymbolFormatFlags.WriteTypeParametersOrArguments));
                                     }
-                                    addSignatureDisplayParts(signature, allSignatures, 8 /* WriteArrowStyleSignature */);
+                                    addSignatureDisplayParts(signature, allSignatures, ts.TypeFormatFlags.WriteArrowStyleSignature);
                                     break;
                                 default:
                                     // Just signature
@@ -48667,8 +48686,8 @@ var ts;
                     return actualOwner && actualOwner === owner;
                 }
                 function getBreakOrContinueOwner(statement) {
-                    for (var node_2 = statement.parent; node_2; node_2 = node_2.parent) {
-                        switch (node_2.kind) {
+                    for (var node_3 = statement.parent; node_3; node_3 = node_3.parent) {
+                        switch (node_3.kind) {
                             case 206 /* SwitchStatement */:
                                 if (statement.kind === 202 /* ContinueStatement */) {
                                     continue;
@@ -48679,13 +48698,13 @@ var ts;
                             case 201 /* ForOfStatement */:
                             case 198 /* WhileStatement */:
                             case 197 /* DoStatement */:
-                                if (!statement.label || isLabeledBy(node_2, statement.label.text)) {
-                                    return node_2;
+                                if (!statement.label || isLabeledBy(node_3, statement.label.text)) {
+                                    return node_3;
                                 }
                                 break;
                             default:
                                 // Don't cross function boundaries.
-                                if (ts.isFunctionLike(node_2)) {
+                                if (ts.isFunctionLike(node_3)) {
                                     return undefined;
                                 }
                                 break;
@@ -50016,6 +50035,9 @@ var ts;
                 case 16 /* typeAliasName */: return ClassificationTypeNames.typeAliasName;
                 case 17 /* parameterName */: return ClassificationTypeNames.parameterName;
                 case 18 /* docCommentTagName */: return ClassificationTypeNames.docCommentTagName;
+                case 19 /* jsxOpenTagName */: return ClassificationTypeNames.jsxOpenTagName;
+                case 20 /* jsxCloseTagName */: return ClassificationTypeNames.jsxCloseTagName;
+                case 21 /* jsxSelfClosingTagName */: return ClassificationTypeNames.jsxSelfClosingTagName;
             }
         }
         function convertClassifications(classifications) {
@@ -50283,6 +50305,21 @@ var ts;
                             case 138 /* Parameter */:
                                 if (token.parent.name === token) {
                                     return 17 /* parameterName */;
+                                }
+                                return;
+                            case 235 /* JsxOpeningElement */:
+                                if (token.parent.tagName === token) {
+                                    return 19 /* jsxOpenTagName */;
+                                }
+                                return;
+                            case 237 /* JsxClosingElement */:
+                                if (token.parent.tagName === token) {
+                                    return 20 /* jsxCloseTagName */;
+                                }
+                                return;
+                            case 234 /* JsxSelfClosingElement */:
+                                if (token.parent.tagName === token) {
+                                    return 21 /* jsxSelfClosingTagName */;
                                 }
                                 return;
                         }
