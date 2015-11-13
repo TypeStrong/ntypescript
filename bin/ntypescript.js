@@ -25496,12 +25496,12 @@ var ts;
                     // TypeScript 1.0 spec (April 2014):5.9
                     // In a 'switch' statement, each 'case' expression must be of a type that is assignable to or from the type of the 'switch' expression.
                     var caseType = checkExpression(caseClause.expression);
+                    var expressionTypeIsAssignableToCaseType = 
                     // Permit 'number[] | "foo"' to be asserted to 'string'.
-                    if (expressionTypeIsStringLike && someConstituentTypeHasKind(caseType, 258 /* StringLike */)) {
-                        return;
-                    }
-                    if (!isTypeAssignableTo(expressionType, caseType)) {
-                        // check 'expressionType isAssignableTo caseType' failed, try the reversed check and report errors if it fails
+                    (expressionTypeIsStringLike && someConstituentTypeHasKind(caseType, 258 /* StringLike */)) ||
+                        isTypeAssignableTo(expressionType, caseType);
+                    if (!expressionTypeIsAssignableToCaseType) {
+                        // 'expressionType is not assignable to caseType', try the reversed check and report errors if it fails
                         checkTypeAssignableTo(caseType, expressionType, caseClause.expression, /*headMessage*/ undefined);
                     }
                 }
@@ -31904,13 +31904,13 @@ var ts;
                 /// these emit into an object literal property name, we don't need to be worried
                 /// about keywords, just non-identifier characters
                 function emitAttributeName(name) {
-                    if (/[A-Za-z_]+[\w*]/.test(name.text)) {
-                        write("\"");
+                    if (/^[A-Za-z_]\w*$/.test(name.text)) {
                         emit(name);
-                        write("\"");
                     }
                     else {
+                        write("\"");
                         emit(name);
+                        write("\"");
                     }
                 }
                 /// Emit an name/value pair for an attribute (e.g. "x: 3")
@@ -34941,8 +34941,10 @@ var ts;
                     increaseIndent();
                     writeLine();
                     emitLeadingComments(node.body);
+                    emitStart(body);
                     write("return ");
                     emit(body);
+                    emitEnd(body);
                     write(";");
                     emitTrailingComments(node.body);
                     emitTempDeclarations(/*newLine*/ true);
@@ -38668,13 +38670,13 @@ var ts;
                 if (options.mapRoot) {
                     programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "mapRoot", "inlineSourceMap"));
                 }
-                if (options.sourceRoot) {
-                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "sourceRoot", "inlineSourceMap"));
-                }
             }
             if (options.inlineSources) {
                 if (!options.sourceMap && !options.inlineSourceMap) {
                     programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_inlineSources_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided));
+                }
+                if (options.sourceRoot) {
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "sourceRoot", "inlineSources"));
                 }
             }
             if (options.out && options.outFile) {
@@ -38685,10 +38687,9 @@ var ts;
                 if (options.mapRoot) {
                     programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "mapRoot", "sourceMap"));
                 }
-                if (options.sourceRoot) {
+                if (options.sourceRoot && !options.inlineSourceMap) {
                     programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "sourceRoot", "sourceMap"));
                 }
-                return;
             }
             var languageVersion = options.target || 0 /* ES3 */;
             var outFile = options.outFile || options.out;
