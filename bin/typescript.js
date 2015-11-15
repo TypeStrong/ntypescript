@@ -24165,12 +24165,13 @@ var ts;
                         var errorNode_1 = subsequentNode.name || subsequentNode;
                         // TODO(jfreeman): These are methods, so handle computed name case
                         if (node.name && subsequentNode.name && node.name.text === subsequentNode.name.text) {
-                            ts.Debug.assert(node.kind === 143 /* MethodDeclaration */ || node.kind === 142 /* MethodSignature */);
+                            var reportError = (node.kind === 143 /* MethodDeclaration */ || node.kind === 142 /* MethodSignature */) &&
+                                (node.flags & 64 /* Static */) !== (subsequentNode.flags & 64 /* Static */);
                             // we can get here in two cases
                             // 1. mixed static and instance class members
                             // 2. something with the same name was defined before the set of overloads that prevents them from merging
                             // here we'll report error only for the first case since for second we should already report error in binder 
-                            if ((node.flags & 64 /* Static */) !== (subsequentNode.flags & 64 /* Static */)) {
+                            if (reportError) {
                                 var diagnostic = node.flags & 64 /* Static */ ? ts.Diagnostics.Function_overload_must_be_static : ts.Diagnostics.Function_overload_must_not_be_static;
                                 error(errorNode_1, diagnostic);
                             }

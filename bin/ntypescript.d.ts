@@ -1638,7 +1638,7 @@ declare namespace ts {
     }
     interface CommandLineOptionBase {
         name: string;
-        type: string | Map<number>;
+        type: "string" | "number" | "boolean" | Map<number>;
         isFilePath?: boolean;
         shortName?: string;
         description?: DiagnosticMessage;
@@ -1646,7 +1646,7 @@ declare namespace ts {
         experimental?: boolean;
     }
     interface CommandLineOptionOfPrimitiveType extends CommandLineOptionBase {
-        type: string;
+        type: "string" | "number" | "boolean";
     }
     interface CommandLineOptionOfCustomType extends CommandLineOptionBase {
         type: Map<number>;
