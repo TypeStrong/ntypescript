@@ -17364,7 +17364,13 @@ var ts;
                 var minArgumentCount = -1;
                 for (var i = 0, n = declaration.parameters.length; i < n; i++) {
                     var param = declaration.parameters[i];
-                    parameters.push(param.symbol);
+                    var paramSymbol = param.symbol;
+                    // Include parameter symbol instead of property symbol in the signature
+                    if (paramSymbol && !!(paramSymbol.flags & 4 /* Property */) && !ts.isBindingPattern(param.name)) {
+                        var resolvedSymbol = resolveName(param, paramSymbol.name, 107455 /* Value */, undefined, undefined);
+                        paramSymbol = resolvedSymbol;
+                    }
+                    parameters.push(paramSymbol);
                     if (param.type && param.type.kind === 9 /* StringLiteral */) {
                         hasStringLiterals = true;
                     }
@@ -38531,12 +38537,12 @@ var ts;
             }
         }
         // Get source file from normalized fileName
-        function findSourceFile(fileName, normalizedAbsolutePath, isDefaultLib, refFile, refPos, refEnd) {
-            if (filesByName.contains(normalizedAbsolutePath)) {
-                var file_1 = filesByName.get(normalizedAbsolutePath);
+        function findSourceFile(fileName, path, isDefaultLib, refFile, refPos, refEnd) {
+            if (filesByName.contains(path)) {
+                var file_1 = filesByName.get(path);
                 // try to check if we've already seen this file but with a different casing in path
                 // NOTE: this only makes sense for case-insensitive file systems
-                if (file_1 && options.forceConsistentCasingInFileNames && ts.getNormalizedAbsolutePath(file_1.fileName, currentDirectory) !== normalizedAbsolutePath) {
+                if (file_1 && options.forceConsistentCasingInFileNames && ts.getNormalizedAbsolutePath(file_1.fileName, currentDirectory) !== ts.getNormalizedAbsolutePath(fileName, currentDirectory)) {
                     reportFileNamesDifferOnlyInCasingError(fileName, file_1.fileName, refFile, refPos, refEnd);
                 }
                 return file_1;
@@ -38550,17 +38556,17 @@ var ts;
                     fileProcessingDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_read_file_0_Colon_1, fileName, hostErrorMessage));
                 }
             });
-            filesByName.set(normalizedAbsolutePath, file);
+            filesByName.set(path, file);
             if (file) {
-                file.path = normalizedAbsolutePath;
+                file.path = path;
                 if (host.useCaseSensitiveFileNames()) {
                     // for case-sensitive file systems check if we've already seen some file with similar filename ignoring case
-                    var existingFile = filesByNameIgnoreCase.get(normalizedAbsolutePath);
+                    var existingFile = filesByNameIgnoreCase.get(path);
                     if (existingFile) {
                         reportFileNamesDifferOnlyInCasingError(fileName, existingFile.fileName, refFile, refPos, refEnd);
                     }
                     else {
-                        filesByNameIgnoreCase.set(normalizedAbsolutePath, file);
+                        filesByNameIgnoreCase.set(path, file);
                     }
                 }
                 skipDefaultLib = skipDefaultLib || file.hasNoDefaultLib;
