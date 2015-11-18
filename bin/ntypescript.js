@@ -316,7 +316,7 @@ var ts;
         SyntaxKind[SyntaxKind["LastKeyword"] = 134] = "LastKeyword";
         SyntaxKind[SyntaxKind["FirstFutureReservedWord"] = 106] = "FirstFutureReservedWord";
         SyntaxKind[SyntaxKind["LastFutureReservedWord"] = 114] = "LastFutureReservedWord";
-        SyntaxKind[SyntaxKind["FirstTypeNode"] = 151] = "FirstTypeNode";
+        SyntaxKind[SyntaxKind["FirstTypeNode"] = 150] = "FirstTypeNode";
         SyntaxKind[SyntaxKind["LastTypeNode"] = 160] = "LastTypeNode";
         SyntaxKind[SyntaxKind["FirstPunctuation"] = 15] = "FirstPunctuation";
         SyntaxKind[SyntaxKind["LastPunctuation"] = 68] = "LastPunctuation";
@@ -2419,7 +2419,7 @@ var ts;
     ts.fullTripleSlashReferencePathRegEx = /^(\/\/\/\s*<reference\s+path\s*=\s*)('|")(.+?)\2.*?\/>/;
     ts.fullTripleSlashAMDReferencePathRegEx = /^(\/\/\/\s*<amd-dependency\s+path\s*=\s*)('|")(.+?)\2.*?\/>/;
     function isTypeNode(node) {
-        if (151 /* FirstTypeNode */ <= node.kind && node.kind <= 160 /* LastTypeNode */) {
+        if (150 /* FirstTypeNode */ <= node.kind && node.kind <= 160 /* LastTypeNode */) {
             return true;
         }
         switch (node.kind) {
@@ -2461,7 +2461,7 @@ var ts;
                 //
                 // Calling isTypeNode would consider the qualified name A.B a type node. Only C or
                 // A.B.C is a type node.
-                if (151 /* FirstTypeNode */ <= parent_1.kind && parent_1.kind <= 160 /* LastTypeNode */) {
+                if (150 /* FirstTypeNode */ <= parent_1.kind && parent_1.kind <= 160 /* LastTypeNode */) {
                     return true;
                 }
                 switch (parent_1.kind) {
@@ -3478,7 +3478,7 @@ var ts;
         return node.kind === 69 /* Identifier */ && node.text === "Symbol";
     }
     ts.isESSymbolIdentifier = isESSymbolIdentifier;
-    function isModifier(token) {
+    function isModifierKind(token) {
         switch (token) {
             case 115 /* AbstractKeyword */:
             case 118 /* AsyncKeyword */:
@@ -3494,7 +3494,7 @@ var ts;
         }
         return false;
     }
-    ts.isModifier = isModifier;
+    ts.isModifierKind = isModifierKind;
     function isParameterDeclaration(node) {
         var root = getRootDeclaration(node);
         return root.kind === 138 /* Parameter */;
@@ -7640,7 +7640,7 @@ var ts;
             return canFollowModifier();
         }
         function parseAnyContextualModifier() {
-            return ts.isModifier(token) && tryParse(nextTokenCanFollowModifier);
+            return ts.isModifierKind(token) && tryParse(nextTokenCanFollowModifier);
         }
         function canFollowModifier() {
             return token === 19 /* OpenBracketToken */
@@ -8371,7 +8371,7 @@ var ts;
             return undefined;
         }
         function isStartOfParameter() {
-            return token === 22 /* DotDotDotToken */ || isIdentifierOrPattern() || ts.isModifier(token) || token === 55 /* AtToken */;
+            return token === 22 /* DotDotDotToken */ || isIdentifierOrPattern() || ts.isModifierKind(token) || token === 55 /* AtToken */;
         }
         function setModifiers(node, modifiers) {
             if (modifiers) {
@@ -8387,7 +8387,7 @@ var ts;
             // FormalParameter [Yield,Await]:
             //      BindingElement[?Yield,?Await]
             node.name = parseIdentifierOrPattern();
-            if (ts.getFullWidth(node.name) === 0 && node.flags === 0 && ts.isModifier(token)) {
+            if (ts.getFullWidth(node.name) === 0 && node.flags === 0 && ts.isModifierKind(token)) {
                 // in cases like
                 // 'use strict'
                 // function foo(static)
@@ -8508,7 +8508,7 @@ var ts;
             if (token === 22 /* DotDotDotToken */ || token === 20 /* CloseBracketToken */) {
                 return true;
             }
-            if (ts.isModifier(token)) {
+            if (ts.isModifierKind(token)) {
                 nextToken();
                 if (isIdentifier()) {
                     return true;
@@ -8576,7 +8576,7 @@ var ts;
                 case 19 /* OpenBracketToken */:
                     return true;
                 default:
-                    if (ts.isModifier(token)) {
+                    if (ts.isModifierKind(token)) {
                         var result = lookAhead(isStartOfIndexSignatureDeclaration);
                         if (result) {
                             return result;
@@ -8586,7 +8586,7 @@ var ts;
             }
         }
         function isStartOfIndexSignatureDeclaration() {
-            while (ts.isModifier(token)) {
+            while (ts.isModifierKind(token)) {
                 nextToken();
             }
             return isIndexSignature();
@@ -8624,7 +8624,7 @@ var ts;
                     // when incrementally parsing as the parser will produce the Index declaration
                     // if it has the same text regardless of whether it is inside a class or an
                     // object type.
-                    if (ts.isModifier(token)) {
+                    if (ts.isModifierKind(token)) {
                         var result = tryParse(parseIndexSignatureWithModifiers);
                         if (result) {
                             return result;
@@ -8786,11 +8786,11 @@ var ts;
                 // ( ...
                 return true;
             }
-            if (isIdentifier() || ts.isModifier(token)) {
+            if (isIdentifier() || ts.isModifierKind(token)) {
                 nextToken();
                 if (token === 54 /* ColonToken */ || token === 24 /* CommaToken */ ||
                     token === 53 /* QuestionToken */ || token === 56 /* EqualsToken */ ||
-                    isIdentifier() || ts.isModifier(token)) {
+                    isIdentifier() || ts.isModifierKind(token)) {
                     // ( id :
                     // ( id ,
                     // ( id ?
@@ -9145,7 +9145,7 @@ var ts;
                     return 1 /* True */;
                 }
                 // This *could* be a parenthesized arrow function.
-                // Return Unknown to const the caller know.
+                // Return Unknown to let the caller know.
                 return 2 /* Unknown */;
             }
             else {
@@ -9231,7 +9231,7 @@ var ts;
                 // user meant to supply a block. For example, if the user wrote:
                 //
                 //  a =>
-                //      const v = 0;
+                //      let v = 0;
                 //  }
                 //
                 // they may be missing an open brace.  Check to see if that's the case so we can
@@ -10843,7 +10843,7 @@ var ts;
                 return true;
             }
             // Eat up all modifiers, but hold on to the last one in case it is actually an identifier.
-            while (ts.isModifier(token)) {
+            while (ts.isModifierKind(token)) {
                 idToken = token;
                 // If the idToken is a class modifier (protected, private, public, and static), it is
                 // certain that we are starting to parse class member. This allows better error recovery
@@ -11021,8 +11021,8 @@ var ts;
             // implements is a future reserved word so
             // 'class implements' might mean either
             // - class expression with omitted name, 'implements' starts heritage clause
-            // - class with name 'implements' 
-            // 'isImplementsClause' helps to disambiguate between these two cases 
+            // - class with name 'implements'
+            // 'isImplementsClause' helps to disambiguate between these two cases
             return isIdentifier() && !isImplementsClause()
                 ? parseIdentifier()
                 : undefined;
@@ -12589,6 +12589,8 @@ var ts;
                 file.symbolCount = symbolCount;
                 file.classifiableNames = classifiableNames;
             }
+            file = undefined;
+            options = undefined;
             parent = undefined;
             container = undefined;
             blockScopeContainer = undefined;
@@ -14275,15 +14277,36 @@ var ts;
                 // Locals of a source file are not in scope (because they get merged into the global symbol table)
                 if (location.locals && !isGlobalSourceFile(location)) {
                     if (result = getSymbol(location.locals, name, meaning)) {
-                        // Type parameters of a function are in scope in the entire function declaration, including the parameter
-                        // list and return type. However, local types are only in scope in the function body.
-                        if (!(meaning & 793056 /* Type */) ||
-                            !(result.flags & (793056 /* Type */ & ~262144 /* TypeParameter */)) ||
-                            !ts.isFunctionLike(location) ||
-                            lastLocation === location.body) {
+                        var useResult = true;
+                        if (ts.isFunctionLike(location) && lastLocation && lastLocation !== location.body) {
+                            // symbol lookup restrictions for function-like declarations
+                            // - Type parameters of a function are in scope in the entire function declaration, including the parameter
+                            //   list and return type. However, local types are only in scope in the function body.
+                            // - parameters are only in the scope of function body
+                            if (meaning & result.flags & 793056 /* Type */) {
+                                useResult = result.flags & 262144 /* TypeParameter */
+                                    ? lastLocation === location.type ||
+                                        lastLocation.kind === 138 /* Parameter */ ||
+                                        lastLocation.kind === 137 /* TypeParameter */
+                                    : false;
+                            }
+                            if (meaning & 107455 /* Value */ && result.flags & 1 /* FunctionScopedVariable */) {
+                                // parameters are visible only inside function body, parameter list and return type
+                                // technically for parameter list case here we might mix parameters and variables declared in function,
+                                // however it is detected separately when checking initializers of parameters
+                                // to make sure that they reference no variables declared after them.
+                                useResult =
+                                    lastLocation.kind === 138 /* Parameter */ ||
+                                        (lastLocation === location.type &&
+                                            result.valueDeclaration.kind === 138 /* Parameter */);
+                            }
+                        }
+                        if (useResult) {
                             break loop;
                         }
-                        result = undefined;
+                        else {
+                            result = undefined;
+                        }
                     }
                 }
                 switch (location.kind) {
@@ -31009,7 +31032,7 @@ var ts;
             var decorateEmitted;
             var paramEmitted;
             var awaiterEmitted;
-            var tempFlags;
+            var tempFlags = 0;
             var tempVariables;
             var tempParameters;
             var externalImports;
@@ -31063,32 +31086,8 @@ var ts;
             );
             return doEmit;
             function doEmit(jsFilePath, rootFile) {
-                // reset the state
-                writer.reset();
-                currentSourceFile = undefined;
-                currentText = undefined;
-                currentLineMap = undefined;
-                exportFunctionForFile = undefined;
                 generatedNameSet = {};
                 nodeToGeneratedName = [];
-                computedPropertyNamesToGeneratedNames = undefined;
-                convertedLoopState = undefined;
-                extendsEmitted = false;
-                decorateEmitted = false;
-                paramEmitted = false;
-                awaiterEmitted = false;
-                tempFlags = 0;
-                tempVariables = undefined;
-                tempParameters = undefined;
-                externalImports = undefined;
-                exportSpecifiers = undefined;
-                exportEquals = undefined;
-                hasExportStars = undefined;
-                detachedCommentsInfo = undefined;
-                sourceMapData = undefined;
-                isEs6Module = false;
-                renamedDependencies = undefined;
-                isCurrentFileExternalModule = false;
                 root = rootFile;
                 if (compilerOptions.sourceMap || compilerOptions.inlineSourceMap) {
                     initializeEmitterWithSourceMaps(jsFilePath, root);
@@ -31109,6 +31108,33 @@ var ts;
                 }
                 writeLine();
                 writeEmittedFiles(writer.getText(), jsFilePath, /*writeByteOrderMark*/ compilerOptions.emitBOM);
+                // reset the state
+                writer.reset();
+                currentSourceFile = undefined;
+                currentText = undefined;
+                currentLineMap = undefined;
+                exportFunctionForFile = undefined;
+                generatedNameSet = undefined;
+                nodeToGeneratedName = undefined;
+                computedPropertyNamesToGeneratedNames = undefined;
+                convertedLoopState = undefined;
+                extendsEmitted = false;
+                decorateEmitted = false;
+                paramEmitted = false;
+                awaiterEmitted = false;
+                tempFlags = 0;
+                tempVariables = undefined;
+                tempParameters = undefined;
+                externalImports = undefined;
+                exportSpecifiers = undefined;
+                exportEquals = undefined;
+                hasExportStars = undefined;
+                detachedCommentsInfo = undefined;
+                sourceMapData = undefined;
+                isEs6Module = false;
+                renamedDependencies = undefined;
+                isCurrentFileExternalModule = false;
+                root = undefined;
             }
             function emitSourceFile(sourceFile) {
                 currentSourceFile = sourceFile;
@@ -38626,7 +38652,7 @@ var ts;
         }
         function computeCommonSourceDirectory(sourceFiles) {
             var commonPathComponents;
-            ts.forEach(files, function (sourceFile) {
+            var failed = ts.forEach(files, function (sourceFile) {
                 // Each file contributes into common source file path
                 if (ts.isDeclarationFile(sourceFile)) {
                     return;
@@ -38639,10 +38665,10 @@ var ts;
                     return;
                 }
                 for (var i = 0, n = Math.min(commonPathComponents.length, sourcePathComponents.length); i < n; i++) {
-                    if (commonPathComponents[i] !== sourcePathComponents[i]) {
+                    if (getCanonicalFileName(commonPathComponents[i]) !== getCanonicalFileName(sourcePathComponents[i])) {
                         if (i === 0) {
-                            programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_find_the_common_subdirectory_path_for_the_input_files));
-                            return;
+                            // Failed to find any common path component
+                            return true;
                         }
                         // New common path found that is 0 -> i-1
                         commonPathComponents.length = i;
@@ -38654,6 +38680,10 @@ var ts;
                     commonPathComponents.length = sourcePathComponents.length;
                 }
             });
+            // A common path can not be found when paths span multiple drives on windows, for example
+            if (failed) {
+                return "";
+            }
             if (!commonPathComponents) {
                 return currentDirectory;
             }
@@ -38757,6 +38787,10 @@ var ts;
                 else {
                     // Compute the commonSourceDirectory from the input files
                     commonSourceDirectory = computeCommonSourceDirectory(files);
+                    // If we failed to find a good common directory, but outDir is specified and at least one of our files is on a windows drive/URL/other resource, add a failure
+                    if (options.outDir && commonSourceDirectory === "" && ts.forEach(files, function (file) { return ts.getRootLength(file.fileName) > 1; })) {
+                        programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_find_the_common_subdirectory_path_for_the_input_files));
+                    }
                 }
                 if (commonSourceDirectory && commonSourceDirectory[commonSourceDirectory.length - 1] !== ts.directorySeparator) {
                     // Make sure directory path ends with directory separator so this string can directly
@@ -47006,7 +47040,7 @@ var ts;
             var insideComment = isInsideComment(sourceFile, currentToken, position);
             log("getCompletionData: Is inside comment: " + (new Date().getTime() - start));
             if (insideComment) {
-                // The current position is next to the '@' sign, when no tag name being provided yet. 
+                // The current position is next to the '@' sign, when no tag name being provided yet.
                 // Provide a full list of tag names
                 if (ts.hasDocComment(sourceFile, position) && sourceFile.text.charCodeAt(position - 1) === 64 /* at */) {
                     isJsDocTagName = true;
@@ -47035,7 +47069,7 @@ var ts;
                     return { symbols: undefined, isMemberCompletion: false, isNewIdentifierLocation: false, location: undefined, isRightOfDot: false, isJsDocTagName: isJsDocTagName };
                 }
                 if (!insideJsDocTagExpression) {
-                    // Proceed if the current position is in jsDoc tag expression; otherwise it is a normal 
+                    // Proceed if the current position is in jsDoc tag expression; otherwise it is a normal
                     // comment or the plain text part of a jsDoc comment, so no completion should be available
                     log("Returning an empty list because completion was inside a regular comment or plain text part of a JsDoc comment.");
                     return undefined;
@@ -48634,7 +48668,7 @@ var ts;
                                 }
                                 break;
                             default:
-                                if (ts.isModifier(node.kind) && node.parent &&
+                                if (ts.isModifierKind(node.kind) && node.parent &&
                                     (ts.isDeclaration(node.parent) || node.parent.kind === 193 /* VariableStatement */)) {
                                     return getModifierOccurrences(node.kind, node.parent);
                                 }

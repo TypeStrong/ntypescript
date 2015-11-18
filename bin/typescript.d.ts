@@ -299,7 +299,7 @@ declare namespace ts {
         LastKeyword = 134,
         FirstFutureReservedWord = 106,
         LastFutureReservedWord = 114,
-        FirstTypeNode = 151,
+        FirstTypeNode = 150,
         LastTypeNode = 160,
         FirstPunctuation = 15,
         LastPunctuation = 68,
@@ -385,8 +385,10 @@ declare namespace ts {
     interface NodeArray<T> extends Array<T>, TextRange {
         hasTrailingComma?: boolean;
     }
-    interface ModifiersArray extends NodeArray<Node> {
+    interface ModifiersArray extends NodeArray<Modifier> {
         flags: number;
+    }
+    interface Modifier extends Node {
     }
     interface Identifier extends PrimaryExpression {
         text: string;
@@ -403,6 +405,9 @@ declare namespace ts {
         _declarationBrand: any;
         name?: DeclarationName;
     }
+    interface DeclarationStatement extends Declaration, Statement {
+        name?: Identifier;
+    }
     interface ComputedPropertyName extends Node {
         expression: Expression;
     }
@@ -415,9 +420,14 @@ declare namespace ts {
         expression?: Expression;
     }
     interface SignatureDeclaration extends Declaration {
+        name?: PropertyName;
         typeParameters?: NodeArray<TypeParameterDeclaration>;
         parameters: NodeArray<ParameterDeclaration>;
         type?: TypeNode;
+    }
+    interface CallSignatureDeclaration extends SignatureDeclaration, TypeElement {
+    }
+    interface ConstructSignatureDeclaration extends SignatureDeclaration, TypeElement {
     }
     interface VariableDeclaration extends Declaration {
         parent?: VariableDeclarationList;
@@ -441,18 +451,24 @@ declare namespace ts {
         name: Identifier | BindingPattern;
         initializer?: Expression;
     }
-    interface PropertyDeclaration extends Declaration, ClassElement {
-        name: DeclarationName;
+    interface PropertySignature extends TypeElement {
+        name: PropertyName;
         questionToken?: Node;
+        type?: TypeNode;
+    }
+    interface PropertyDeclaration extends ClassElement {
+        questionToken?: Node;
+        name: PropertyName;
         type?: TypeNode;
         initializer?: Expression;
     }
     interface ObjectLiteralElement extends Declaration {
         _objectLiteralBrandBrand: any;
+        name?: PropertyName;
     }
     interface PropertyAssignment extends ObjectLiteralElement {
         _propertyAssignmentBrand: any;
-        name: DeclarationName;
+        name: PropertyName;
         questionToken?: Node;
         initializer: Expression;
     }
@@ -470,8 +486,15 @@ declare namespace ts {
         type?: TypeNode;
         initializer?: Expression;
     }
+    interface PropertyLikeDeclaration extends Declaration {
+        name: PropertyName;
+    }
     interface BindingPattern extends Node {
         elements: NodeArray<BindingElement>;
+    }
+    interface ObjectBindingPattern extends BindingPattern {
+    }
+    interface ArrayBindingPattern extends BindingPattern {
     }
     /**
      * Several node kinds share function-like features such as a signature,
@@ -487,24 +510,33 @@ declare namespace ts {
         questionToken?: Node;
         body?: Block | Expression;
     }
-    interface FunctionDeclaration extends FunctionLikeDeclaration, Statement {
+    interface FunctionDeclaration extends FunctionLikeDeclaration, DeclarationStatement {
         name?: Identifier;
-        body?: Block;
+        body?: FunctionBody;
+    }
+    interface MethodSignature extends SignatureDeclaration, TypeElement {
+        name: PropertyName;
     }
     interface MethodDeclaration extends FunctionLikeDeclaration, ClassElement, ObjectLiteralElement {
-        body?: Block;
+        name: PropertyName;
+        body?: FunctionBody;
     }
     interface ConstructorDeclaration extends FunctionLikeDeclaration, ClassElement {
-        body?: Block;
+        body?: FunctionBody;
     }
     interface SemicolonClassElement extends ClassElement {
         _semicolonClassElementBrand: any;
     }
     interface AccessorDeclaration extends FunctionLikeDeclaration, ClassElement, ObjectLiteralElement {
         _accessorDeclarationBrand: any;
-        body: Block;
+        name: PropertyName;
+        body: FunctionBody;
     }
-    interface IndexSignatureDeclaration extends SignatureDeclaration, ClassElement {
+    interface GetAccessorDeclaration extends AccessorDeclaration {
+    }
+    interface SetAccessorDeclaration extends AccessorDeclaration {
+    }
+    interface IndexSignatureDeclaration extends SignatureDeclaration, ClassElement, TypeElement {
         _indexSignatureDeclarationBrand: any;
     }
     interface TypeNode extends Node {
@@ -512,6 +544,10 @@ declare namespace ts {
     }
     interface FunctionOrConstructorTypeNode extends TypeNode, SignatureDeclaration {
         _functionOrConstructorTypeNodeBrand: any;
+    }
+    interface FunctionTypeNode extends FunctionOrConstructorTypeNode {
+    }
+    interface ConstructorTypeNode extends FunctionOrConstructorTypeNode {
     }
     interface TypeReferenceNode extends TypeNode {
         typeName: EntityName;
@@ -525,7 +561,7 @@ declare namespace ts {
         exprName: EntityName;
     }
     interface TypeLiteralNode extends TypeNode, Declaration {
-        members: NodeArray<Node>;
+        members: NodeArray<TypeElement>;
     }
     interface ArrayTypeNode extends TypeNode {
         elementType: TypeNode;
@@ -549,6 +585,8 @@ declare namespace ts {
     interface Expression extends Node {
         _expressionBrand: any;
         contextualType?: Type;
+    }
+    interface OmittedExpression extends Expression {
     }
     interface UnaryExpression extends Expression {
         _unaryExpressionBrand: any;
@@ -604,12 +642,15 @@ declare namespace ts {
         colonToken: Node;
         whenFalse: Expression;
     }
+    type FunctionBody = Block;
+    type ConciseBody = FunctionBody | Expression;
     interface FunctionExpression extends PrimaryExpression, FunctionLikeDeclaration {
         name?: Identifier;
-        body: Block | Expression;
+        body: FunctionBody;
     }
     interface ArrowFunction extends Expression, FunctionLikeDeclaration {
         equalsGreaterThanToken: Node;
+        body: ConciseBody;
     }
     interface LiteralExpression extends PrimaryExpression {
         text: string;
@@ -704,6 +745,14 @@ declare namespace ts {
     interface Statement extends Node {
         _statementBrand: any;
     }
+    interface EmptyStatement extends Statement {
+    }
+    interface DebuggerStatement extends Statement {
+    }
+    interface MissingDeclaration extends DeclarationStatement, ClassElement, ObjectLiteralElement, TypeElement {
+        name?: Identifier;
+    }
+    type BlockLike = SourceFile | Block | ModuleBlock | CaseClause;
     interface Block extends Statement {
         statements: NodeArray<Statement>;
     }
@@ -740,9 +789,13 @@ declare namespace ts {
         initializer: VariableDeclarationList | Expression;
         expression: Expression;
     }
-    interface BreakOrContinueStatement extends Statement {
+    interface BreakStatement extends Statement {
         label?: Identifier;
     }
+    interface ContinueStatement extends Statement {
+        label?: Identifier;
+    }
+    type BreakOrContinueStatement = BreakStatement | ContinueStatement;
     interface ReturnStatement extends Statement {
         expression?: Expression;
     }
@@ -787,24 +840,31 @@ declare namespace ts {
         heritageClauses?: NodeArray<HeritageClause>;
         members: NodeArray<ClassElement>;
     }
-    interface ClassDeclaration extends ClassLikeDeclaration, Statement {
+    interface ClassDeclaration extends ClassLikeDeclaration, DeclarationStatement {
+        name?: Identifier;
     }
     interface ClassExpression extends ClassLikeDeclaration, PrimaryExpression {
     }
     interface ClassElement extends Declaration {
         _classElementBrand: any;
+        name?: PropertyName;
     }
-    interface InterfaceDeclaration extends Declaration, Statement {
+    interface TypeElement extends Declaration {
+        _typeElementBrand: any;
+        name?: PropertyName;
+        questionToken?: Node;
+    }
+    interface InterfaceDeclaration extends DeclarationStatement {
         name: Identifier;
         typeParameters?: NodeArray<TypeParameterDeclaration>;
         heritageClauses?: NodeArray<HeritageClause>;
-        members: NodeArray<Declaration>;
+        members: NodeArray<TypeElement>;
     }
     interface HeritageClause extends Node {
         token: SyntaxKind;
         types?: NodeArray<ExpressionWithTypeArguments>;
     }
-    interface TypeAliasDeclaration extends Declaration, Statement {
+    interface TypeAliasDeclaration extends DeclarationStatement {
         name: Identifier;
         typeParameters?: NodeArray<TypeParameterDeclaration>;
         type: TypeNode;
@@ -813,18 +873,19 @@ declare namespace ts {
         name: DeclarationName;
         initializer?: Expression;
     }
-    interface EnumDeclaration extends Declaration, Statement {
+    interface EnumDeclaration extends DeclarationStatement {
         name: Identifier;
         members: NodeArray<EnumMember>;
     }
-    interface ModuleDeclaration extends Declaration, Statement {
+    type ModuleBody = ModuleBlock | ModuleDeclaration;
+    interface ModuleDeclaration extends DeclarationStatement {
         name: Identifier | LiteralExpression;
         body: ModuleBlock | ModuleDeclaration;
     }
     interface ModuleBlock extends Node, Statement {
         statements: NodeArray<Statement>;
     }
-    interface ImportEqualsDeclaration extends Declaration, Statement {
+    interface ImportEqualsDeclaration extends DeclarationStatement {
         name: Identifier;
         moduleReference: EntityName | ExternalModuleReference;
     }
@@ -842,22 +903,27 @@ declare namespace ts {
     interface NamespaceImport extends Declaration {
         name: Identifier;
     }
-    interface ExportDeclaration extends Declaration, Statement {
+    interface ExportDeclaration extends DeclarationStatement {
         exportClause?: NamedExports;
         moduleSpecifier?: Expression;
     }
-    interface NamedImportsOrExports extends Node {
-        elements: NodeArray<ImportOrExportSpecifier>;
+    interface NamedImports extends Node {
+        elements: NodeArray<ImportSpecifier>;
     }
-    type NamedImports = NamedImportsOrExports;
-    type NamedExports = NamedImportsOrExports;
-    interface ImportOrExportSpecifier extends Declaration {
+    interface NamedExports extends Node {
+        elements: NodeArray<ExportSpecifier>;
+    }
+    type NamedImportsOrExports = NamedImports | NamedExports;
+    interface ImportSpecifier extends Declaration {
         propertyName?: Identifier;
         name: Identifier;
     }
-    type ImportSpecifier = ImportOrExportSpecifier;
-    type ExportSpecifier = ImportOrExportSpecifier;
-    interface ExportAssignment extends Declaration, Statement {
+    interface ExportSpecifier extends Declaration {
+        propertyName?: Identifier;
+        name: Identifier;
+    }
+    type ImportOrExportSpecifier = ImportSpecifier | ExportSpecifier;
+    interface ExportAssignment extends DeclarationStatement {
         isExportEquals?: boolean;
         expression: Expression;
     }
@@ -918,7 +984,7 @@ declare namespace ts {
     interface JSDocThisType extends JSDocType {
         type: JSDocType;
     }
-    interface JSDocRecordMember extends PropertyDeclaration {
+    interface JSDocRecordMember extends PropertySignature {
         name: Identifier | LiteralExpression;
         type?: JSDocType;
     }
@@ -944,16 +1010,17 @@ declare namespace ts {
         postParameterName?: Identifier;
         isBracketed: boolean;
     }
+    interface AmdDependency {
+        path: string;
+        name: string;
+    }
     interface SourceFile extends Declaration {
         statements: NodeArray<Statement>;
         endOfFileToken: Node;
         fileName: string;
         path: Path;
         text: string;
-        amdDependencies: {
-            path: string;
-            name: string;
-        }[];
+        amdDependencies: AmdDependency[];
         moduleName: string;
         referencedFiles: FileReference[];
         languageVariant: LanguageVariant;
@@ -2104,7 +2171,7 @@ declare namespace ts {
     function isDeclaration(node: Node): boolean;
     function isStatement(n: Node): boolean;
     function isClassElement(n: Node): boolean;
-    function isDeclarationName(name: Node): boolean;
+    function isDeclarationName(name: Node): name is Identifier | StringLiteral | LiteralExpression;
     function isIdentifierName(node: Identifier): boolean;
     function isAliasSymbolDeclaration(node: Node): boolean;
     function getClassExtendsHeritageClauseElement(node: ClassLikeDeclaration): ExpressionWithTypeArguments;
@@ -2139,7 +2206,7 @@ declare namespace ts {
      * Includes the word "Symbol" with unicode escapes
      */
     function isESSymbolIdentifier(node: Node): boolean;
-    function isModifier(token: SyntaxKind): boolean;
+    function isModifierKind(token: SyntaxKind): boolean;
     function isParameterDeclaration(node: VariableLikeDeclaration): boolean;
     function getRootDeclaration(node: Node): Node;
     function nodeStartsNewLexicalEnvironment(n: Node): boolean;
