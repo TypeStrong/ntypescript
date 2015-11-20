@@ -179,118 +179,119 @@ declare namespace ts {
         UnionType = 158,
         IntersectionType = 159,
         ParenthesizedType = 160,
-        ObjectBindingPattern = 161,
-        ArrayBindingPattern = 162,
-        BindingElement = 163,
-        ArrayLiteralExpression = 164,
-        ObjectLiteralExpression = 165,
-        PropertyAccessExpression = 166,
-        ElementAccessExpression = 167,
-        CallExpression = 168,
-        NewExpression = 169,
-        TaggedTemplateExpression = 170,
-        TypeAssertionExpression = 171,
-        ParenthesizedExpression = 172,
-        FunctionExpression = 173,
-        ArrowFunction = 174,
-        DeleteExpression = 175,
-        TypeOfExpression = 176,
-        VoidExpression = 177,
-        AwaitExpression = 178,
-        PrefixUnaryExpression = 179,
-        PostfixUnaryExpression = 180,
-        BinaryExpression = 181,
-        ConditionalExpression = 182,
-        TemplateExpression = 183,
-        YieldExpression = 184,
-        SpreadElementExpression = 185,
-        ClassExpression = 186,
-        OmittedExpression = 187,
-        ExpressionWithTypeArguments = 188,
-        AsExpression = 189,
-        TemplateSpan = 190,
-        SemicolonClassElement = 191,
-        Block = 192,
-        VariableStatement = 193,
-        EmptyStatement = 194,
-        ExpressionStatement = 195,
-        IfStatement = 196,
-        DoStatement = 197,
-        WhileStatement = 198,
-        ForStatement = 199,
-        ForInStatement = 200,
-        ForOfStatement = 201,
-        ContinueStatement = 202,
-        BreakStatement = 203,
-        ReturnStatement = 204,
-        WithStatement = 205,
-        SwitchStatement = 206,
-        LabeledStatement = 207,
-        ThrowStatement = 208,
-        TryStatement = 209,
-        DebuggerStatement = 210,
-        VariableDeclaration = 211,
-        VariableDeclarationList = 212,
-        FunctionDeclaration = 213,
-        ClassDeclaration = 214,
-        InterfaceDeclaration = 215,
-        TypeAliasDeclaration = 216,
-        EnumDeclaration = 217,
-        ModuleDeclaration = 218,
-        ModuleBlock = 219,
-        CaseBlock = 220,
-        ImportEqualsDeclaration = 221,
-        ImportDeclaration = 222,
-        ImportClause = 223,
-        NamespaceImport = 224,
-        NamedImports = 225,
-        ImportSpecifier = 226,
-        ExportAssignment = 227,
-        ExportDeclaration = 228,
-        NamedExports = 229,
-        ExportSpecifier = 230,
-        MissingDeclaration = 231,
-        ExternalModuleReference = 232,
-        JsxElement = 233,
-        JsxSelfClosingElement = 234,
-        JsxOpeningElement = 235,
-        JsxText = 236,
-        JsxClosingElement = 237,
-        JsxAttribute = 238,
-        JsxSpreadAttribute = 239,
-        JsxExpression = 240,
-        CaseClause = 241,
-        DefaultClause = 242,
-        HeritageClause = 243,
-        CatchClause = 244,
-        PropertyAssignment = 245,
-        ShorthandPropertyAssignment = 246,
-        EnumMember = 247,
-        SourceFile = 248,
-        JSDocTypeExpression = 249,
-        JSDocAllType = 250,
-        JSDocUnknownType = 251,
-        JSDocArrayType = 252,
-        JSDocUnionType = 253,
-        JSDocTupleType = 254,
-        JSDocNullableType = 255,
-        JSDocNonNullableType = 256,
-        JSDocRecordType = 257,
-        JSDocRecordMember = 258,
-        JSDocTypeReference = 259,
-        JSDocOptionalType = 260,
-        JSDocFunctionType = 261,
-        JSDocVariadicType = 262,
-        JSDocConstructorType = 263,
-        JSDocThisType = 264,
-        JSDocComment = 265,
-        JSDocTag = 266,
-        JSDocParameterTag = 267,
-        JSDocReturnTag = 268,
-        JSDocTypeTag = 269,
-        JSDocTemplateTag = 270,
-        SyntaxList = 271,
-        Count = 272,
+        ThisType = 161,
+        ObjectBindingPattern = 162,
+        ArrayBindingPattern = 163,
+        BindingElement = 164,
+        ArrayLiteralExpression = 165,
+        ObjectLiteralExpression = 166,
+        PropertyAccessExpression = 167,
+        ElementAccessExpression = 168,
+        CallExpression = 169,
+        NewExpression = 170,
+        TaggedTemplateExpression = 171,
+        TypeAssertionExpression = 172,
+        ParenthesizedExpression = 173,
+        FunctionExpression = 174,
+        ArrowFunction = 175,
+        DeleteExpression = 176,
+        TypeOfExpression = 177,
+        VoidExpression = 178,
+        AwaitExpression = 179,
+        PrefixUnaryExpression = 180,
+        PostfixUnaryExpression = 181,
+        BinaryExpression = 182,
+        ConditionalExpression = 183,
+        TemplateExpression = 184,
+        YieldExpression = 185,
+        SpreadElementExpression = 186,
+        ClassExpression = 187,
+        OmittedExpression = 188,
+        ExpressionWithTypeArguments = 189,
+        AsExpression = 190,
+        TemplateSpan = 191,
+        SemicolonClassElement = 192,
+        Block = 193,
+        VariableStatement = 194,
+        EmptyStatement = 195,
+        ExpressionStatement = 196,
+        IfStatement = 197,
+        DoStatement = 198,
+        WhileStatement = 199,
+        ForStatement = 200,
+        ForInStatement = 201,
+        ForOfStatement = 202,
+        ContinueStatement = 203,
+        BreakStatement = 204,
+        ReturnStatement = 205,
+        WithStatement = 206,
+        SwitchStatement = 207,
+        LabeledStatement = 208,
+        ThrowStatement = 209,
+        TryStatement = 210,
+        DebuggerStatement = 211,
+        VariableDeclaration = 212,
+        VariableDeclarationList = 213,
+        FunctionDeclaration = 214,
+        ClassDeclaration = 215,
+        InterfaceDeclaration = 216,
+        TypeAliasDeclaration = 217,
+        EnumDeclaration = 218,
+        ModuleDeclaration = 219,
+        ModuleBlock = 220,
+        CaseBlock = 221,
+        ImportEqualsDeclaration = 222,
+        ImportDeclaration = 223,
+        ImportClause = 224,
+        NamespaceImport = 225,
+        NamedImports = 226,
+        ImportSpecifier = 227,
+        ExportAssignment = 228,
+        ExportDeclaration = 229,
+        NamedExports = 230,
+        ExportSpecifier = 231,
+        MissingDeclaration = 232,
+        ExternalModuleReference = 233,
+        JsxElement = 234,
+        JsxSelfClosingElement = 235,
+        JsxOpeningElement = 236,
+        JsxText = 237,
+        JsxClosingElement = 238,
+        JsxAttribute = 239,
+        JsxSpreadAttribute = 240,
+        JsxExpression = 241,
+        CaseClause = 242,
+        DefaultClause = 243,
+        HeritageClause = 244,
+        CatchClause = 245,
+        PropertyAssignment = 246,
+        ShorthandPropertyAssignment = 247,
+        EnumMember = 248,
+        SourceFile = 249,
+        JSDocTypeExpression = 250,
+        JSDocAllType = 251,
+        JSDocUnknownType = 252,
+        JSDocArrayType = 253,
+        JSDocUnionType = 254,
+        JSDocTupleType = 255,
+        JSDocNullableType = 256,
+        JSDocNonNullableType = 257,
+        JSDocRecordType = 258,
+        JSDocRecordMember = 259,
+        JSDocTypeReference = 260,
+        JSDocOptionalType = 261,
+        JSDocFunctionType = 262,
+        JSDocVariadicType = 263,
+        JSDocConstructorType = 264,
+        JSDocThisType = 265,
+        JSDocComment = 266,
+        JSDocTag = 267,
+        JSDocParameterTag = 268,
+        JSDocReturnTag = 269,
+        JSDocTypeTag = 270,
+        JSDocTemplateTag = 271,
+        SyntaxList = 272,
+        Count = 273,
         FirstAssignment = 56,
         LastAssignment = 68,
         FirstReservedWord = 70,
@@ -300,7 +301,7 @@ declare namespace ts {
         FirstFutureReservedWord = 106,
         LastFutureReservedWord = 114,
         FirstTypeNode = 150,
-        LastTypeNode = 160,
+        LastTypeNode = 161,
         FirstPunctuation = 15,
         LastPunctuation = 68,
         FirstToken = 0,
@@ -1657,6 +1658,7 @@ declare namespace ts {
         noImplicitReturns?: boolean;
         noFallthroughCasesInSwitch?: boolean;
         forceConsistentCasingInFileNames?: boolean;
+        allowJs?: boolean;
         stripInternal?: boolean;
         skipDefaultLibCheck?: boolean;
         [option: string]: string | number | boolean;
@@ -1945,7 +1947,7 @@ declare namespace ts {
     function getProperty<T>(map: Map<T>, key: string): T;
     function isEmpty<T>(map: Map<T>): boolean;
     function clone<T>(object: T): T;
-    function extend<T1, T2>(first: Map<T1>, second: Map<T2>): Map<T1 & T2>;
+    function extend<T1 extends Map<{}>, T2 extends Map<{}>>(first: T1, second: T2): T1 & T2;
     function forEachValue<T, U>(map: Map<T>, callback: (value: T) => U): U;
     function forEachKey<T, U>(map: Map<T>, callback: (key: string) => U): U;
     function lookUp<T>(map: Map<T>, key: string): T;
@@ -1989,9 +1991,10 @@ declare namespace ts {
     /**
      *  List of supported extensions in order of file resolution precedence.
      */
-    const supportedExtensions: string[];
-    const supportedJsExtensions: string[];
-    function isSupportedSourceFileName(fileName: string): boolean;
+    const supportedTypeScriptExtensions: string[];
+    const supportedJavascriptExtensions: string[];
+    function getSupportedExtensions(options?: CompilerOptions): string[];
+    function isSupportedSourceFileName(fileName: string, compilerOptions?: CompilerOptions): boolean;
     function removeFileExtension(path: string): string;
     interface ObjectAllocator {
         getNodeConstructor(): new (kind: SyntaxKind, pos?: number, end?: number) => Node;
@@ -2059,6 +2062,7 @@ declare namespace ts {
         getCommonSourceDirectory(): string;
         getCanonicalFileName(fileName: string): string;
         getNewLine(): string;
+        isEmitBlocked(emitFileName: string): boolean;
         writeFile: WriteFileCallback;
     }
     function getSingleLineStringWriter(): StringSymbolWriter;
@@ -2246,13 +2250,20 @@ declare namespace ts {
      */
     function getExternalModuleNameFromPath(host: EmitHost, fileName: string): string;
     function getOwnEmitOutputFilePath(sourceFile: SourceFile, host: EmitHost, extension: string): string;
+    function getEmitScriptTarget(compilerOptions: CompilerOptions): ScriptTarget;
+    function getEmitModuleKind(compilerOptions: CompilerOptions): ModuleKind;
+    interface EmitFileNames {
+        jsFilePath: string;
+        sourceMapFilePath: string;
+        declarationFilePath: string;
+    }
+    function forEachExpectedEmitFile(host: EmitHost, action: (emitFileNames: EmitFileNames, sourceFiles: SourceFile[], isBundledEmit: boolean) => void, targetSourceFile?: SourceFile): void;
     function getSourceFilePathInNewDir(sourceFile: SourceFile, host: EmitHost, newDirPath: string): string;
-    function writeFile(host: EmitHost, diagnostics: Diagnostic[], fileName: string, data: string, writeByteOrderMark: boolean): void;
+    function writeFile(host: EmitHost, diagnostics: DiagnosticCollection, fileName: string, data: string, writeByteOrderMark: boolean): void;
     function getLineOfLocalPosition(currentSourceFile: SourceFile, pos: number): number;
     function getLineOfLocalPositionFromLineMap(lineMap: number[], pos: number): number;
     function getFirstConstructorWithBody(node: ClassLikeDeclaration): ConstructorDeclaration;
     function getSetAccessorTypeAnnotationNode(accessor: AccessorDeclaration): TypeNode;
-    function shouldEmitToOwnFile(sourceFile: SourceFile, compilerOptions: CompilerOptions): boolean;
     function getAllAccessorDeclarations(declarations: NodeArray<Declaration>, accessor: AccessorDeclaration): {
         firstAccessor: AccessorDeclaration;
         secondAccessor: AccessorDeclaration;
@@ -2279,7 +2290,6 @@ declare namespace ts {
     function isEmptyObjectLiteralOrArrayLiteral(expression: Node): boolean;
     function getLocalSymbolForExportDefault(symbol: Symbol): Symbol;
     function hasJavaScriptFileExtension(fileName: string): boolean;
-    function allowsJsxExpressions(fileName: string): boolean;
     /**
      * Converts a string to a base-64 encoded ASCII string.
      */
@@ -5409,6 +5419,18 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Cannot_write_file_0_because_it_would_overwrite_input_file: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Cannot_write_file_0_because_it_would_be_overwritten_by_multiple_input_files: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Concatenate_and_emit_output_to_single_file: {
             code: number;
             category: DiagnosticCategory;
@@ -5794,6 +5816,12 @@ declare namespace ts {
             message: string;
         };
         Only_amd_and_system_modules_are_supported_alongside_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Allow_javascript_files_to_be_compiled: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6212,7 +6240,7 @@ declare namespace ts {
       * @param basePath A root directory to resolve relative path entries in the config
       *    file to. e.g. outDir
       */
-    function parseJsonConfigFileContent(json: any, host: ParseConfigHost, basePath: string): ParsedCommandLine;
+    function parseJsonConfigFileContent(json: any, host: ParseConfigHost, basePath: string, existingOptions?: CompilerOptions): ParsedCommandLine;
     function convertCompilerOptionsFromJson(jsonOptions: any, basePath: string): {
         options: CompilerOptions;
         errors: Diagnostic[];
@@ -6220,10 +6248,9 @@ declare namespace ts {
 }
 declare namespace ts {
     function getDeclarationDiagnostics(host: EmitHost, resolver: EmitResolver, targetSourceFile: SourceFile): Diagnostic[];
-    function writeDeclarationFile(jsFilePath: string, sourceFile: SourceFile, host: EmitHost, resolver: EmitResolver, diagnostics: Diagnostic[]): void;
+    function writeDeclarationFile(declarationFilePath: string, sourceFiles: SourceFile[], isBundledEmit: boolean, host: EmitHost, resolver: EmitResolver, emitterDiagnostics: DiagnosticCollection): boolean;
 }
 declare namespace ts {
-    function isExternalModuleOrDeclarationFile(sourceFile: SourceFile): boolean;
     function getResolvedExternalModuleName(host: EmitHost, file: SourceFile): string;
     function getExternalModuleNameFromDeclaration(host: EmitHost, resolver: EmitResolver, declaration: ImportEqualsDeclaration | ImportDeclaration | ExportDeclaration): string;
     function emitFiles(resolver: EmitResolver, host: EmitHost, targetSourceFile: SourceFile): EmitResult;
@@ -6234,10 +6261,10 @@ declare namespace ts {
     let ioReadTime: number;
     let ioWriteTime: number;
     const version: string;
-    function findConfigFile(searchPath: string): string;
+    function findConfigFile(searchPath: string, fileExists: (fileName: string) => boolean): string;
     function resolveTripleslashReference(moduleName: string, containingFile: string): string;
     function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
-    function nodeModuleNameResolver(moduleName: string, containingFile: string, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
+    function nodeModuleNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
     function classicNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
     const defaultInitCompilerOptions: CompilerOptions;
     function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
@@ -6260,7 +6287,7 @@ declare namespace ts.NavigateTo {
     function getNavigateToItems(program: Program, cancellationToken: CancellationToken, searchValue: string, maxResultCount: number): NavigateToItem[];
 }
 declare namespace ts.NavigationBar {
-    function getNavigationBarItems(sourceFile: SourceFile): ts.NavigationBarItem[];
+    function getNavigationBarItems(sourceFile: SourceFile, compilerOptions: CompilerOptions): ts.NavigationBarItem[];
 }
 declare namespace ts {
     enum PatternMatchKind {
