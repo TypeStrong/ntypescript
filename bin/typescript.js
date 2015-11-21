@@ -3517,22 +3517,56 @@ var ts;
         return isFunctionLike(n) || n.kind === 219 /* ModuleDeclaration */ || n.kind === 249 /* SourceFile */;
     }
     ts.nodeStartsNewLexicalEnvironment = nodeStartsNewLexicalEnvironment;
-    function cloneEntityName(node) {
-        if (node.kind === 69 /* Identifier */) {
-            var clone_1 = createSynthesizedNode(69 /* Identifier */);
-            clone_1.text = node.text;
-            return clone_1;
+    /**
+     * Creates a shallow, memberwise clone of a node. The "kind", "pos", "end", "flags", and "parent"
+     * properties are excluded by default, and can be provided via the "location", "flags", and
+     * "parent" parameters.
+     * @param node The node to clone.
+     * @param location An optional TextRange to use to supply the new position.
+     * @param flags The NodeFlags to use for the cloned node.
+     * @param parent The parent for the new node.
+     */
+    function cloneNode(node, location, flags, parent) {
+        // We don't use "clone" from core.ts here, as we need to preserve the prototype chain of
+        // the original node. We also need to exclude specific properties and only include own-
+        // properties (to skip members already defined on the shared prototype).
+        var clone = location !== undefined
+            ? ts.createNode(node.kind, location.pos, location.end)
+            : createSynthesizedNode(node.kind);
+        for (var key in node) {
+            if (clone.hasOwnProperty(key) || !node.hasOwnProperty(key)) {
+                continue;
+            }
+            clone[key] = node[key];
         }
-        else {
-            var clone_2 = createSynthesizedNode(135 /* QualifiedName */);
-            clone_2.left = cloneEntityName(node.left);
-            clone_2.left.parent = clone_2;
-            clone_2.right = cloneEntityName(node.right);
-            clone_2.right.parent = clone_2;
-            return clone_2;
+        if (flags !== undefined) {
+            clone.flags = flags;
         }
+        if (parent !== undefined) {
+            clone.parent = parent;
+        }
+        return clone;
+    }
+    ts.cloneNode = cloneNode;
+    /**
+     * Creates a deep clone of an EntityName, with new parent pointers.
+     * @param node The EntityName to clone.
+     * @param parent The parent for the cloned node.
+     */
+    function cloneEntityName(node, parent) {
+        var clone = cloneNode(node, node, node.flags, parent);
+        if (isQualifiedName(clone)) {
+            var left = clone.left, right = clone.right;
+            clone.left = cloneEntityName(left, clone);
+            clone.right = cloneNode(right, right, right.flags, parent);
+        }
+        return clone;
     }
     ts.cloneEntityName = cloneEntityName;
+    function isQualifiedName(node) {
+        return node.kind === 135 /* QualifiedName */;
+    }
+    ts.isQualifiedName = isQualifiedName;
     function nodeIsSynthesized(node) {
         return node.pos === -1;
     }
@@ -3817,7 +3851,7 @@ var ts;
             // Can emit only sources that are not declaration file and are either non module code or module with --module or --target es6 specified
             var bundledSources = ts.filter(host.getSourceFiles(), function (sourceFile) { return !isDeclarationFile(sourceFile) &&
                 (!isExternalModule(sourceFile) ||
-                    (getEmitModuleKind(options) && isExternalModule(sourceFile))); }); // module that can emit - note falsy value from getEmitModuleKind means the module kind that shouldn't be emitted 
+                    (getEmitModuleKind(options) && isExternalModule(sourceFile))); }); // module that can emit - note falsy value from getEmitModuleKind means the module kind that shouldn't be emitted
             if (bundledSources.length) {
                 var jsFilePath = options.outFile || options.out;
                 var emitFileNames = {
@@ -35963,8 +35997,7 @@ var ts;
                     location = location.parent;
                 }
                 // Clone the type name and parent it to a location outside of the current declaration.
-                var typeName = ts.cloneEntityName(node.typeName);
-                typeName.parent = location;
+                var typeName = ts.cloneEntityName(node.typeName, location);
                 var result = resolver.getTypeReferenceSerializationKind(typeName);
                 switch (result) {
                     case ts.TypeReferenceSerializationKind.Unknown:

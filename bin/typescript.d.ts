@@ -2214,7 +2214,23 @@ declare namespace ts {
     function isParameterDeclaration(node: VariableLikeDeclaration): boolean;
     function getRootDeclaration(node: Node): Node;
     function nodeStartsNewLexicalEnvironment(n: Node): boolean;
-    function cloneEntityName(node: EntityName): EntityName;
+    /**
+     * Creates a shallow, memberwise clone of a node. The "kind", "pos", "end", "flags", and "parent"
+     * properties are excluded by default, and can be provided via the "location", "flags", and
+     * "parent" parameters.
+     * @param node The node to clone.
+     * @param location An optional TextRange to use to supply the new position.
+     * @param flags The NodeFlags to use for the cloned node.
+     * @param parent The parent for the new node.
+     */
+    function cloneNode<T extends Node>(node: T, location?: TextRange, flags?: NodeFlags, parent?: Node): T;
+    /**
+     * Creates a deep clone of an EntityName, with new parent pointers.
+     * @param node The EntityName to clone.
+     * @param parent The parent for the cloned node.
+     */
+    function cloneEntityName(node: EntityName, parent?: Node): EntityName;
+    function isQualifiedName(node: Node): node is QualifiedName;
     function nodeIsSynthesized(node: Node): boolean;
     function createSynthesizedNode(kind: SyntaxKind, startsOnNewLine?: boolean): Node;
     function createSynthesizedNodeArray(): NodeArray<any>;
