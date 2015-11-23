@@ -32434,6 +32434,9 @@ var ts;
                 if (resolver.getNodeCheckFlags(node) & 2 /* LexicalThis */) {
                     write("_this");
                 }
+                else if (convertedLoopState) {
+                    write(convertedLoopState.thisName || (convertedLoopState.thisName = makeUniqueName("this")));
+                }
                 else {
                     write("this");
                 }
@@ -33608,6 +33611,11 @@ var ts;
                         // use the same name in all nested loops
                         convertedLoopState.argumentsName = convertedOuterLoopState.argumentsName;
                     }
+                    if (convertedOuterLoopState.thisName) {
+                        // outer loop has already used 'this' so we've already have some name to alias it
+                        // use the same name in all nested loops
+                        convertedLoopState.thisName = convertedOuterLoopState.thisName;
+                    }
                     if (convertedOuterLoopState.hoistedLocalVariables) {
                         // we've already collected some non-block scoped variable declarations in enclosing loop
                         // use the same storage in nested loop
@@ -33631,6 +33639,21 @@ var ts;
                     else {
                         // this is top level converted loop and we need to create an alias for 'arguments' object
                         write("var " + convertedLoopState.argumentsName + " = arguments;");
+                        writeLine();
+                    }
+                }
+                if (convertedLoopState.thisName) {
+                    // if alias for this is set
+                    if (convertedOuterLoopState) {
+                        // pass it to outer converted loop
+                        convertedOuterLoopState.thisName = convertedLoopState.thisName;
+                    }
+                    else {
+                        // this is top level converted loop so we need to create an alias for 'this' here
+                        // NOTE: 
+                        // if converted loops were all nested in arrow function then we'll always emit '_this' so convertedLoopState.thisName will not be set.
+                        // If it is set this means that all nested loops are not nested in arrow function and it is safe to capture 'this'.
+                        write("var " + convertedLoopState.thisName + " = this;");
                         writeLine();
                     }
                 }
