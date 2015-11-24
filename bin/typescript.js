@@ -14882,9 +14882,6 @@ var ts;
             if (moduleName === undefined) {
                 return;
             }
-            if (moduleName.indexOf("!") >= 0) {
-                moduleName = moduleName.substr(0, moduleName.indexOf("!"));
-            }
             var isRelative = ts.isExternalModuleNameRelative(moduleName);
             if (!isRelative) {
                 var symbol = getSymbol(globals, "\"" + moduleName + "\"", 512 /* ValueModule */);
@@ -18742,9 +18739,12 @@ var ts;
                 var id = relation !== identityRelation || apparentSource.id < target.id ? apparentSource.id + "," + target.id : target.id + "," + apparentSource.id;
                 var related = relation[id];
                 if (related !== undefined) {
-                    // If we computed this relation already and it was failed and reported, or if we're not being asked to elaborate
-                    // errors, we can use the cached value. Otherwise, recompute the relation
-                    if (!elaborateErrors || (related === 3 /* FailedAndReported */)) {
+                    if (elaborateErrors && related === 2 /* Failed */) {
+                        // We are elaborating errors and the cached result is an unreported failure. Record the result as a reported
+                        // failure and continue computing the relation such that errors get reported.
+                        relation[id] = 3 /* FailedAndReported */;
+                    }
+                    else {
                         return related === 1 /* Succeeded */ ? -1 /* True */ : 0 /* False */;
                     }
                 }
