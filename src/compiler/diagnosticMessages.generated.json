@@ -516,6 +516,8 @@
   "A_tsconfig_json_file_is_already_defined_at_Colon_0_5054" : "A 'tsconfig.json' file is already defined at: '{0}'.",
   "Cannot_write_file_0_because_it_would_overwrite_input_file_5055" : "Cannot write file '{0}' because it would overwrite input file.",
   "Cannot_write_file_0_because_it_would_be_overwritten_by_multiple_input_files_5056" : "Cannot write file '{0}' because it would be overwritten by multiple input files.",
+  "Cannot_find_a_tsconfig_json_file_at_the_specified_directory_Colon_0_5057" : "Cannot find a tsconfig.json file at the specified directory: '{0}'",
+  "The_specified_path_does_not_exist_Colon_0_5058" : "The specified path does not exist: '{0}'",
   "Concatenate_and_emit_output_to_single_file_6001" : "Concatenate and emit output to single file.",
   "Generates_corresponding_d_ts_file_6002" : "Generates corresponding '.d.ts' file.",
   "Specifies_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations_6003" : "Specifies the location where debugger should locate map files instead of generated locations.",
