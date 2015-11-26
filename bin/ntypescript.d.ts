@@ -1668,6 +1668,7 @@ declare namespace ts {
         noImplicitReturns?: boolean;
         noFallthroughCasesInSwitch?: boolean;
         forceConsistentCasingInFileNames?: boolean;
+        allowSyntheticDefaultImports?: boolean;
         allowJs?: boolean;
         stripInternal?: boolean;
         skipDefaultLibCheck?: boolean;
@@ -5524,6 +5525,12 @@ declare namespace ts {
             message: string;
         };
         Do_not_emit_outputs: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Allow_default_imports_from_modules_with_no_default_export_This_does_not_affect_code_emit_just_typechecking: {
             code: number;
             category: DiagnosticCategory;
             key: string;

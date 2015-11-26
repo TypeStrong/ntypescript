@@ -528,6 +528,7 @@
   "Do_not_emit_outputs_if_any_errors_were_reported_6008" : "Do not emit outputs if any errors were reported.",
   "Do_not_emit_comments_to_output_6009" : "Do not emit comments to output.",
   "Do_not_emit_outputs_6010" : "Do not emit outputs.",
+  "Allow_default_imports_from_modules_with_no_default_export_This_does_not_affect_code_emit_just_typech_6011" : "Allow default imports from modules with no default export. This does not affect code emit, just typechecking.",
   "Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015_experimental_6015" : "Specify ECMAScript target version: 'ES3' (default), 'ES5', or 'ES2015' (experimental)",
   "Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es2015_6016" : "Specify module code generation: 'commonjs', 'amd', 'system', 'umd' or 'es2015'",
   "Print_this_message_6017" : "Print this message.",
