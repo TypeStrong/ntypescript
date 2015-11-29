@@ -24345,7 +24345,9 @@ var ts;
                         seen = c === node;
                     }
                 });
-                if (subsequentNode) {
+                // We may be here because of some extra junk between overloads that could not be parsed into a valid node.
+                // In this case the subsequent node is not really consecutive (.pos !== node.end), and we must ignore it here.
+                if (subsequentNode && subsequentNode.pos === node.end) {
                     if (subsequentNode.kind === node.kind) {
                         var errorNode_1 = subsequentNode.name || subsequentNode;
                         // TODO(jfreeman): These are methods, so handle computed name case
