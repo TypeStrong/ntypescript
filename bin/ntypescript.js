@@ -1164,6 +1164,32 @@ var ts;
         return result;
     }
     ts.arrayToMap = arrayToMap;
+    /**
+     * Reduce the properties of a map.
+     *
+     * @param map The map to reduce
+     * @param callback An aggregation function that is called for each entry in the map
+     * @param initial The initial value for the reduction.
+     */
+    function reduceProperties(map, callback, initial) {
+        var result = initial;
+        if (map) {
+            for (var key in map) {
+                if (hasProperty(map, key)) {
+                    result = callback(result, map[key], String(key));
+                }
+            }
+        }
+        return result;
+    }
+    ts.reduceProperties = reduceProperties;
+    /**
+     * Tests whether a value is an array.
+     */
+    function isArray(value) {
+        return Array.isArray ? Array.isArray(value) : value instanceof Array;
+    }
+    ts.isArray = isArray;
     function memoize(callback) {
         var value;
         return function () {
@@ -2856,21 +2882,6 @@ var ts;
         return false;
     }
     ts.nodeIsDecorated = nodeIsDecorated;
-    function childIsDecorated(node) {
-        switch (node.kind) {
-            case 216 /* ClassDeclaration */:
-                return ts.forEach(node.members, nodeOrChildIsDecorated);
-            case 143 /* MethodDeclaration */:
-            case 146 /* SetAccessor */:
-                return ts.forEach(node.parameters, nodeIsDecorated);
-        }
-        return false;
-    }
-    ts.childIsDecorated = childIsDecorated;
-    function nodeOrChildIsDecorated(node) {
-        return nodeIsDecorated(node) || childIsDecorated(node);
-    }
-    ts.nodeOrChildIsDecorated = nodeOrChildIsDecorated;
     function isPropertyAccessExpression(node) {
         return node.kind === 168 /* PropertyAccessExpression */;
     }
@@ -4257,6 +4268,47 @@ var ts;
         }
         return output;
     }
+    /**
+     * Serialize an object graph into a JSON string. This is intended only for use on an acyclic graph
+     * as the fallback implementation does not check for circular references by default.
+     */
+    ts.stringify = JSON && JSON.stringify
+        ? JSON.stringify
+        : stringifyFallback;
+    /**
+     * Serialize an object graph into a JSON string.
+     */
+    function stringifyFallback(value) {
+        // JSON.stringify returns `undefined` here, instead of the string "undefined".
+        return value === undefined ? undefined : stringifyValue(value);
+    }
+    function stringifyValue(value) {
+        return typeof value === "string" ? "\"" + escapeString(value) + "\""
+            : typeof value === "number" ? isFinite(value) ? String(value) : "null"
+                : typeof value === "boolean" ? value ? "true" : "false"
+                    : typeof value === "object" && value ? ts.isArray(value) ? cycleCheck(stringifyArray, value) : cycleCheck(stringifyObject, value)
+                        : "null";
+    }
+    function cycleCheck(cb, value) {
+        ts.Debug.assert(!value.hasOwnProperty("__cycle"), "Converting circular structure to JSON");
+        value.__cycle = true;
+        var result = cb(value);
+        delete value.__cycle;
+        return result;
+    }
+    function stringifyArray(value) {
+        return "[" + ts.reduceLeft(value, stringifyElement, "") + "]";
+    }
+    function stringifyElement(memo, value) {
+        return (memo ? memo + "," : memo) + stringifyValue(value);
+    }
+    function stringifyObject(value) {
+        return "{" + ts.reduceProperties(value, stringifyProperty, "") + "}";
+    }
+    function stringifyProperty(memo, value, key) {
+        return value === undefined || typeof value === "function" || key === "__cycle" ? memo
+            : (memo ? memo + "," : memo) + ("\"" + escapeString(key) + "\":" + stringifyValue(value));
+    }
     var base64Digits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
     /**
      * Converts a string to a base-64 encoded ASCII string.
@@ -5546,6 +5598,11 @@ var ts;
     ts.couldStartTrivia = couldStartTrivia;
     /* @internal */
     function skipTrivia(text, pos, stopAfterLineBreak) {
+        // Using ! with a greater than test is a fast way of testing the following conditions:
+        //  pos === undefined || pos === null || isNaN(pos) || pos < 0;
+        if (!(pos >= 0)) {
+            return pos;
+        }
         // Keep in sync with couldStartTrivia
         while (true) {
             var ch = text.charCodeAt(pos);
@@ -11008,7 +11065,7 @@ var ts;
                 }
                 if (!decorators) {
                     decorators = [];
-                    decorators.pos = scanner.getStartPos();
+                    decorators.pos = decoratorStart;
                 }
                 var decorator = createNode(139 /* Decorator */, decoratorStart);
                 decorator.expression = doInDecoratorContext(parseLeftHandSideExpressionOrHigher);
@@ -11462,11 +11519,13 @@ var ts;
             // reference comment.
             while (true) {
                 var kind = triviaScanner.scan();
-                if (kind === 5 /* WhitespaceTrivia */ || kind === 4 /* NewLineTrivia */ || kind === 3 /* MultiLineCommentTrivia */) {
-                    continue;
-                }
                 if (kind !== 2 /* SingleLineCommentTrivia */) {
-                    break;
+                    if (ts.isTrivia(kind)) {
+                        continue;
+                    }
+                    else {
+                        break;
+                    }
                 }
                 var range = { pos: triviaScanner.getTokenPos(), end: triviaScanner.getTextPos(), kind: triviaScanner.getToken() };
                 var comment = sourceText.substring(range.pos, range.end);
@@ -22943,27 +23002,34 @@ var ts;
                 return;
             }
             // Functions with with an explicitly specified 'void' or 'any' return type don't need any return expressions.
-            if (returnType && (returnType === voidType || isTypeAny(returnType))) {
-                return;
-            }
-            // if return type is not specified then we'll do the check only if 'noImplicitReturns' option is set
-            if (!returnType && !compilerOptions.noImplicitReturns) {
+            if (returnType === voidType || isTypeAny(returnType)) {
                 return;
             }
             // If all we have is a function signature, or an arrow function with an expression body, then there is nothing to check.
-            // also if HasImplicitReturnValue flags is not set this means that all codepaths in function body end with return of throw
+            // also if HasImplicitReturn flag is not set this means that all codepaths in function body end with return or throw
             if (ts.nodeIsMissing(func.body) || func.body.kind !== 194 /* Block */ || !(func.flags & 524288 /* HasImplicitReturn */)) {
                 return;
             }
-            if (!returnType || func.flags & 1048576 /* HasExplicitReturn */) {
-                if (compilerOptions.noImplicitReturns) {
-                    error(func.type || func, ts.Diagnostics.Not_all_code_paths_return_a_value);
-                }
-            }
-            else {
-                // This function does not conform to the specification.
+            var hasExplicitReturn = func.flags & 1048576 /* HasExplicitReturn */;
+            if (returnType && !hasExplicitReturn) {
+                // minimal check: function has syntactic return type annotation and no explicit return statements in the body 
+                // this function does not conform to the specification.
                 // NOTE: having returnType !== undefined is a precondition for entering this branch so func.type will always be present 
                 error(func.type, ts.Diagnostics.A_function_whose_declared_type_is_neither_void_nor_any_must_return_a_value);
+            }
+            else if (compilerOptions.noImplicitReturns) {
+                if (!returnType) {
+                    // If return type annotation is omitted check if function has any explicit return statements.
+                    // If it does not have any - its inferred return type is void - don't do any checks. 
+                    // Otherwise get inferred return type from function body and report error only if it is not void / anytype
+                    var inferredReturnType = hasExplicitReturn
+                        ? getReturnTypeOfSignature(getSignatureFromDeclaration(func))
+                        : voidType;
+                    if (inferredReturnType === voidType || isTypeAny(inferredReturnType)) {
+                        return;
+                    }
+                }
+                error(func.type || func, ts.Diagnostics.Not_all_code_paths_return_a_value);
             }
         }
         function checkFunctionExpressionOrObjectLiteralMethod(node, contextualMapper) {
@@ -24944,8 +25010,8 @@ var ts;
                 // - if node.localSymbol === undefined - this node is non-exported so we can just pick the result of getSymbolOfNode
                 var symbol = getSymbolOfNode(node);
                 var localSymbol = node.localSymbol || symbol;
-                // Since the javascript won't do semantic analysis like typescript, 
-                // if the javascript file comes before the typescript file and both contain same name functions, 
+                // Since the javascript won't do semantic analysis like typescript,
+                // if the javascript file comes before the typescript file and both contain same name functions,
                 // checkFunctionOrConstructorSymbol wouldn't be called if we didnt ignore javascript function.
                 var firstDeclaration = ts.forEach(localSymbol.declarations, 
                 // Get first non javascript function declaration
@@ -26952,6 +27018,7 @@ var ts;
                 emitExtends = false;
                 emitDecorate = false;
                 emitParam = false;
+                emitAwaiter = false;
                 potentialThisCollisions.length = 0;
                 ts.forEach(node.statements, checkSourceElement);
                 checkFunctionAndClassExpressionBodies(node);
@@ -30819,6 +30886,276 @@ var ts;
     ts.writeDeclarationFile = writeDeclarationFile;
 })(ts || (ts = {}));
 /// <reference path="checker.ts"/>
+/* @internal */
+var ts;
+(function (ts) {
+    var nop = Function.prototype;
+    var nullSourceMapWriter;
+    function getNullSourceMapWriter() {
+        if (nullSourceMapWriter === undefined) {
+            nullSourceMapWriter = {
+                getSourceMapData: function () { return undefined; },
+                setSourceFile: function (sourceFile) { },
+                emitStart: function (range) { },
+                emitEnd: function (range) { },
+                emitPos: function (pos) { },
+                getText: function () { return undefined; },
+                getSourceMappingURL: function () { return undefined; },
+                initialize: function (filePath, sourceMapFilePath, sourceFiles, isBundledEmit) { },
+                reset: function () { },
+            };
+        }
+        return nullSourceMapWriter;
+    }
+    ts.getNullSourceMapWriter = getNullSourceMapWriter;
+    function createSourceMapWriter(host, writer) {
+        var compilerOptions = host.getCompilerOptions();
+        var currentSourceFile;
+        var sourceMapDir; // The directory in which sourcemap will be
+        // Current source map file and its index in the sources list
+        var sourceMapSourceIndex;
+        // Last recorded and encoded spans
+        var lastRecordedSourceMapSpan;
+        var lastEncodedSourceMapSpan;
+        var lastEncodedNameIndex;
+        // Source map data
+        var sourceMapData;
+        return {
+            getSourceMapData: function () { return sourceMapData; },
+            setSourceFile: setSourceFile,
+            emitPos: emitPos,
+            emitStart: emitStart,
+            emitEnd: emitEnd,
+            getText: getText,
+            getSourceMappingURL: getSourceMappingURL,
+            initialize: initialize,
+            reset: reset,
+        };
+        function initialize(filePath, sourceMapFilePath, sourceFiles, isBundledEmit) {
+            if (sourceMapData) {
+                reset();
+            }
+            currentSourceFile = undefined;
+            // Current source map file and its index in the sources list
+            sourceMapSourceIndex = -1;
+            // Last recorded and encoded spans
+            lastRecordedSourceMapSpan = undefined;
+            lastEncodedSourceMapSpan = {
+                emittedLine: 1,
+                emittedColumn: 1,
+                sourceLine: 1,
+                sourceColumn: 1,
+                sourceIndex: 0
+            };
+            lastEncodedNameIndex = 0;
+            // Initialize source map data
+            sourceMapData = {
+                sourceMapFilePath: sourceMapFilePath,
+                jsSourceMappingURL: !compilerOptions.inlineSourceMap ? ts.getBaseFileName(ts.normalizeSlashes(sourceMapFilePath)) : undefined,
+                sourceMapFile: ts.getBaseFileName(ts.normalizeSlashes(filePath)),
+                sourceMapSourceRoot: compilerOptions.sourceRoot || "",
+                sourceMapSources: [],
+                inputSourceFileNames: [],
+                sourceMapNames: [],
+                sourceMapMappings: "",
+                sourceMapSourcesContent: compilerOptions.inlineSources ? [] : undefined,
+                sourceMapDecodedMappings: []
+            };
+            // Normalize source root and make sure it has trailing "/" so that it can be used to combine paths with the
+            // relative paths of the sources list in the sourcemap
+            sourceMapData.sourceMapSourceRoot = ts.normalizeSlashes(sourceMapData.sourceMapSourceRoot);
+            if (sourceMapData.sourceMapSourceRoot.length && sourceMapData.sourceMapSourceRoot.charCodeAt(sourceMapData.sourceMapSourceRoot.length - 1) !== 47 /* slash */) {
+                sourceMapData.sourceMapSourceRoot += ts.directorySeparator;
+            }
+            if (compilerOptions.mapRoot) {
+                sourceMapDir = ts.normalizeSlashes(compilerOptions.mapRoot);
+                if (!isBundledEmit) {
+                    ts.Debug.assert(sourceFiles.length === 1);
+                    // For modules or multiple emit files the mapRoot will have directory structure like the sources
+                    // So if src\a.ts and src\lib\b.ts are compiled together user would be moving the maps into mapRoot\a.js.map and mapRoot\lib\b.js.map
+                    sourceMapDir = ts.getDirectoryPath(ts.getSourceFilePathInNewDir(sourceFiles[0], host, sourceMapDir));
+                }
+                if (!ts.isRootedDiskPath(sourceMapDir) && !ts.isUrl(sourceMapDir)) {
+                    // The relative paths are relative to the common directory
+                    sourceMapDir = ts.combinePaths(host.getCommonSourceDirectory(), sourceMapDir);
+                    sourceMapData.jsSourceMappingURL = ts.getRelativePathToDirectoryOrUrl(ts.getDirectoryPath(ts.normalizePath(filePath)), // get the relative sourceMapDir path based on jsFilePath
+                    ts.combinePaths(sourceMapDir, sourceMapData.jsSourceMappingURL), // this is where user expects to see sourceMap
+                    host.getCurrentDirectory(), host.getCanonicalFileName, 
+                    /*isAbsolutePathAnUrl*/ true);
+                }
+                else {
+                    sourceMapData.jsSourceMappingURL = ts.combinePaths(sourceMapDir, sourceMapData.jsSourceMappingURL);
+                }
+            }
+            else {
+                sourceMapDir = ts.getDirectoryPath(ts.normalizePath(filePath));
+            }
+        }
+        function reset() {
+            currentSourceFile = undefined;
+            sourceMapDir = undefined;
+            sourceMapSourceIndex = undefined;
+            lastRecordedSourceMapSpan = undefined;
+            lastEncodedSourceMapSpan = undefined;
+            lastEncodedNameIndex = undefined;
+            sourceMapData = undefined;
+        }
+        // Encoding for sourcemap span
+        function encodeLastRecordedSourceMapSpan() {
+            if (!lastRecordedSourceMapSpan || lastRecordedSourceMapSpan === lastEncodedSourceMapSpan) {
+                return;
+            }
+            var prevEncodedEmittedColumn = lastEncodedSourceMapSpan.emittedColumn;
+            // Line/Comma delimiters
+            if (lastEncodedSourceMapSpan.emittedLine === lastRecordedSourceMapSpan.emittedLine) {
+                // Emit comma to separate the entry
+                if (sourceMapData.sourceMapMappings) {
+                    sourceMapData.sourceMapMappings += ",";
+                }
+            }
+            else {
+                // Emit line delimiters
+                for (var encodedLine = lastEncodedSourceMapSpan.emittedLine; encodedLine < lastRecordedSourceMapSpan.emittedLine; encodedLine++) {
+                    sourceMapData.sourceMapMappings += ";";
+                }
+                prevEncodedEmittedColumn = 1;
+            }
+            // 1. Relative Column 0 based
+            sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.emittedColumn - prevEncodedEmittedColumn);
+            // 2. Relative sourceIndex
+            sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.sourceIndex - lastEncodedSourceMapSpan.sourceIndex);
+            // 3. Relative sourceLine 0 based
+            sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.sourceLine - lastEncodedSourceMapSpan.sourceLine);
+            // 4. Relative sourceColumn 0 based
+            sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.sourceColumn - lastEncodedSourceMapSpan.sourceColumn);
+            // 5. Relative namePosition 0 based
+            if (lastRecordedSourceMapSpan.nameIndex >= 0) {
+                sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.nameIndex - lastEncodedNameIndex);
+                lastEncodedNameIndex = lastRecordedSourceMapSpan.nameIndex;
+            }
+            lastEncodedSourceMapSpan = lastRecordedSourceMapSpan;
+            sourceMapData.sourceMapDecodedMappings.push(lastEncodedSourceMapSpan);
+        }
+        function emitPos(pos) {
+            if (pos === -1) {
+                return;
+            }
+            var sourceLinePos = ts.getLineAndCharacterOfPosition(currentSourceFile, pos);
+            // Convert the location to be one-based.
+            sourceLinePos.line++;
+            sourceLinePos.character++;
+            var emittedLine = writer.getLine();
+            var emittedColumn = writer.getColumn();
+            // If this location wasn't recorded or the location in source is going backwards, record the span
+            if (!lastRecordedSourceMapSpan ||
+                lastRecordedSourceMapSpan.emittedLine !== emittedLine ||
+                lastRecordedSourceMapSpan.emittedColumn !== emittedColumn ||
+                (lastRecordedSourceMapSpan.sourceIndex === sourceMapSourceIndex &&
+                    (lastRecordedSourceMapSpan.sourceLine > sourceLinePos.line ||
+                        (lastRecordedSourceMapSpan.sourceLine === sourceLinePos.line && lastRecordedSourceMapSpan.sourceColumn > sourceLinePos.character)))) {
+                // Encode the last recordedSpan before assigning new
+                encodeLastRecordedSourceMapSpan();
+                // New span
+                lastRecordedSourceMapSpan = {
+                    emittedLine: emittedLine,
+                    emittedColumn: emittedColumn,
+                    sourceLine: sourceLinePos.line,
+                    sourceColumn: sourceLinePos.character,
+                    sourceIndex: sourceMapSourceIndex
+                };
+            }
+            else {
+                // Take the new pos instead since there is no change in emittedLine and column since last location
+                lastRecordedSourceMapSpan.sourceLine = sourceLinePos.line;
+                lastRecordedSourceMapSpan.sourceColumn = sourceLinePos.character;
+                lastRecordedSourceMapSpan.sourceIndex = sourceMapSourceIndex;
+            }
+        }
+        function emitStart(range) {
+            var rangeHasDecorators = !!range.decorators;
+            emitPos(range.pos !== -1 ? ts.skipTrivia(currentSourceFile.text, rangeHasDecorators ? range.decorators.end : range.pos) : -1);
+        }
+        function emitEnd(range) {
+            emitPos(range.end);
+        }
+        function setSourceFile(sourceFile) {
+            currentSourceFile = sourceFile;
+            // Add the file to tsFilePaths
+            // If sourceroot option: Use the relative path corresponding to the common directory path
+            // otherwise source locations relative to map file location
+            var sourcesDirectoryPath = compilerOptions.sourceRoot ? host.getCommonSourceDirectory() : sourceMapDir;
+            var source = ts.getRelativePathToDirectoryOrUrl(sourcesDirectoryPath, currentSourceFile.fileName, host.getCurrentDirectory(), host.getCanonicalFileName, 
+            /*isAbsolutePathAnUrl*/ true);
+            sourceMapSourceIndex = ts.indexOf(sourceMapData.sourceMapSources, source);
+            if (sourceMapSourceIndex === -1) {
+                sourceMapSourceIndex = sourceMapData.sourceMapSources.length;
+                sourceMapData.sourceMapSources.push(source);
+                // The one that can be used from program to get the actual source file
+                sourceMapData.inputSourceFileNames.push(sourceFile.fileName);
+                if (compilerOptions.inlineSources) {
+                    sourceMapData.sourceMapSourcesContent.push(sourceFile.text);
+                }
+            }
+        }
+        function getText() {
+            encodeLastRecordedSourceMapSpan();
+            return ts.stringify({
+                version: 3,
+                file: sourceMapData.sourceMapFile,
+                sourceRoot: sourceMapData.sourceMapSourceRoot,
+                sources: sourceMapData.sourceMapSources,
+                names: sourceMapData.sourceMapNames,
+                mappings: sourceMapData.sourceMapMappings,
+                sourcesContent: sourceMapData.sourceMapSourcesContent,
+            });
+        }
+        function getSourceMappingURL() {
+            if (compilerOptions.inlineSourceMap) {
+                // Encode the sourceMap into the sourceMap url
+                var base64SourceMapText = ts.convertToBase64(getText());
+                return sourceMapData.jsSourceMappingURL = "data:application/json;base64," + base64SourceMapText;
+            }
+            else {
+                return sourceMapData.jsSourceMappingURL;
+            }
+        }
+    }
+    ts.createSourceMapWriter = createSourceMapWriter;
+    var base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    function base64FormatEncode(inValue) {
+        if (inValue < 64) {
+            return base64Chars.charAt(inValue);
+        }
+        throw TypeError(inValue + ": not a 64 based value");
+    }
+    function base64VLQFormatEncode(inValue) {
+        // Add a new least significant bit that has the sign of the value.
+        // if negative number the least significant bit that gets added to the number has value 1
+        // else least significant bit value that gets added is 0
+        // eg. -1 changes to binary : 01 [1] => 3
+        //     +1 changes to binary : 01 [0] => 2
+        if (inValue < 0) {
+            inValue = ((-inValue) << 1) + 1;
+        }
+        else {
+            inValue = inValue << 1;
+        }
+        // Encode 5 bits at a time starting from least significant bits
+        var encodedStr = "";
+        do {
+            var currentDigit = inValue & 31; // 11111
+            inValue = inValue >> 5;
+            if (inValue > 0) {
+                // There are still more digits to decode, set the msb (6th bit)
+                currentDigit = currentDigit | 32;
+            }
+            encodedStr = encodedStr + base64FormatEncode(currentDigit);
+        } while (inValue > 0);
+        return encodedStr;
+    }
+})(ts || (ts = {}));
+/// <reference path="checker.ts"/>
+/// <reference path="sourcemap.ts" />
 /// <reference path="declarationEmitter.ts"/>
 /* @internal */
 var ts;
@@ -31173,6 +31510,8 @@ var ts;
         function createFileEmitter() {
             var writer = ts.createTextWriter(newLine);
             var write = writer.write, writeTextOfNode = writer.writeTextOfNode, writeLine = writer.writeLine, increaseIndent = writer.increaseIndent, decreaseIndent = writer.decreaseIndent;
+            var sourceMap = compilerOptions.sourceMap || compilerOptions.inlineSourceMap ? ts.createSourceMapWriter(host, writer) : ts.getNullSourceMapWriter();
+            var setSourceFile = sourceMap.setSourceFile, emitStart = sourceMap.emitStart, emitEnd = sourceMap.emitEnd, emitPos = sourceMap.emitPos;
             var currentSourceFile;
             var currentText;
             var currentLineMap;
@@ -31202,29 +31541,7 @@ var ts;
             var exportSpecifiers;
             var exportEquals;
             var hasExportStars;
-            /** Write emitted output to disk */
-            var writeEmittedFiles = writeJavaScriptFile;
             var detachedCommentsInfo;
-            var writeComment = ts.writeCommentRange;
-            /** Emit a node */
-            var emit = emitNodeWithCommentsAndWithoutSourcemap;
-            /** Called just before starting emit of a node */
-            var emitStart = function (node) { };
-            /** Called once the emit of the node is done */
-            var emitEnd = function (node) { };
-            /** Emit the text for the given token that comes after startPos
-              * This by default writes the text provided with the given tokenKind
-              * but if optional emitFn callback is provided the text is emitted using the callback instead of default text
-              * @param tokenKind the kind of the token to search and emit
-              * @param startPos the position in the source to start searching for the token
-              * @param emitFn if given will be invoked to emit the text instead of actual token emit */
-            var emitToken = emitTokenText;
-            /** Called to before starting the lexical scopes as in function/class in the emitted code because of node
-              * @param scopeDeclaration node that starts the lexical scope
-              * @param scopeName Optional name of this scope instead of deducing one from the declaration node */
-            var scopeEmitStart = function (scopeDeclaration, scopeName) { };
-            /** Called after coming out of the scope */
-            var scopeEmitEnd = function () { };
             /** Sourcemap data that will get encoded */
             var sourceMapData;
             /** Is the file being emitted into its own file */
@@ -31249,12 +31566,10 @@ var ts;
             );
             return doEmit;
             function doEmit(jsFilePath, sourceMapFilePath, sourceFiles, isBundledEmit) {
+                sourceMap.initialize(jsFilePath, sourceMapFilePath, sourceFiles, isBundledEmit);
                 generatedNameSet = {};
                 nodeToGeneratedName = [];
                 isOwnFileEmit = !isBundledEmit;
-                if (compilerOptions.sourceMap || compilerOptions.inlineSourceMap) {
-                    initializeEmitterWithSourceMaps(jsFilePath, sourceMapFilePath, sourceFiles, isBundledEmit);
-                }
                 // Emit helpers from all the files
                 if (isBundledEmit && modulekind) {
                     ts.forEach(sourceFiles, emitEmitHelpers);
@@ -31262,8 +31577,13 @@ var ts;
                 // Do not call emit directly. It does not set the currentSourceFile.
                 ts.forEach(sourceFiles, emitSourceFile);
                 writeLine();
-                writeEmittedFiles(writer.getText(), jsFilePath, /*writeByteOrderMark*/ compilerOptions.emitBOM);
+                var sourceMappingURL = sourceMap.getSourceMappingURL();
+                if (sourceMappingURL) {
+                    write("//# sourceMappingURL=" + sourceMappingURL);
+                }
+                writeEmittedFiles(writer.getText(), jsFilePath, sourceMapFilePath, /*writeByteOrderMark*/ compilerOptions.emitBOM);
                 // reset the state
+                sourceMap.reset();
                 writer.reset();
                 currentSourceFile = undefined;
                 currentText = undefined;
@@ -31299,7 +31619,8 @@ var ts;
                 renamedDependencies = sourceFile.renamedDependencies;
                 currentFileIdentifiers = sourceFile.identifiers;
                 isCurrentFileExternalModule = ts.isExternalModule(sourceFile);
-                emit(sourceFile);
+                setSourceFile(sourceFile);
+                emitNodeWithCommentsAndWithoutSourcemap(sourceFile);
             }
             function isUniqueName(name) {
                 return !resolver.hasGlobalName(name) &&
@@ -31386,337 +31707,14 @@ var ts;
                 var id = ts.getNodeId(node);
                 return nodeToGeneratedName[id] || (nodeToGeneratedName[id] = ts.unescapeIdentifier(generateNameForNode(node)));
             }
-            function initializeEmitterWithSourceMaps(jsFilePath, sourceMapFilePath, sourceFiles, isBundledEmit) {
-                var sourceMapDir; // The directory in which sourcemap will be
-                // Current source map file and its index in the sources list
-                var sourceMapSourceIndex = -1;
-                // Names and its index map
-                var sourceMapNameIndexMap = {};
-                var sourceMapNameIndices = [];
-                function getSourceMapNameIndex() {
-                    return sourceMapNameIndices.length ? ts.lastOrUndefined(sourceMapNameIndices) : -1;
+            /** Write emitted output to disk */
+            function writeEmittedFiles(emitOutput, jsFilePath, sourceMapFilePath, writeByteOrderMark) {
+                if (compilerOptions.sourceMap && !compilerOptions.inlineSourceMap) {
+                    ts.writeFile(host, emitterDiagnostics, sourceMapFilePath, sourceMap.getText(), /*writeByteOrderMark*/ false);
                 }
-                // Last recorded and encoded spans
-                var lastRecordedSourceMapSpan;
-                var lastEncodedSourceMapSpan = {
-                    emittedLine: 1,
-                    emittedColumn: 1,
-                    sourceLine: 1,
-                    sourceColumn: 1,
-                    sourceIndex: 0
-                };
-                var lastEncodedNameIndex = 0;
-                // Encoding for sourcemap span
-                function encodeLastRecordedSourceMapSpan() {
-                    if (!lastRecordedSourceMapSpan || lastRecordedSourceMapSpan === lastEncodedSourceMapSpan) {
-                        return;
-                    }
-                    var prevEncodedEmittedColumn = lastEncodedSourceMapSpan.emittedColumn;
-                    // Line/Comma delimiters
-                    if (lastEncodedSourceMapSpan.emittedLine === lastRecordedSourceMapSpan.emittedLine) {
-                        // Emit comma to separate the entry
-                        if (sourceMapData.sourceMapMappings) {
-                            sourceMapData.sourceMapMappings += ",";
-                        }
-                    }
-                    else {
-                        // Emit line delimiters
-                        for (var encodedLine = lastEncodedSourceMapSpan.emittedLine; encodedLine < lastRecordedSourceMapSpan.emittedLine; encodedLine++) {
-                            sourceMapData.sourceMapMappings += ";";
-                        }
-                        prevEncodedEmittedColumn = 1;
-                    }
-                    // 1. Relative Column 0 based
-                    sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.emittedColumn - prevEncodedEmittedColumn);
-                    // 2. Relative sourceIndex
-                    sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.sourceIndex - lastEncodedSourceMapSpan.sourceIndex);
-                    // 3. Relative sourceLine 0 based
-                    sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.sourceLine - lastEncodedSourceMapSpan.sourceLine);
-                    // 4. Relative sourceColumn 0 based
-                    sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.sourceColumn - lastEncodedSourceMapSpan.sourceColumn);
-                    // 5. Relative namePosition 0 based
-                    if (lastRecordedSourceMapSpan.nameIndex >= 0) {
-                        sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.nameIndex - lastEncodedNameIndex);
-                        lastEncodedNameIndex = lastRecordedSourceMapSpan.nameIndex;
-                    }
-                    lastEncodedSourceMapSpan = lastRecordedSourceMapSpan;
-                    sourceMapData.sourceMapDecodedMappings.push(lastEncodedSourceMapSpan);
-                    function base64VLQFormatEncode(inValue) {
-                        function base64FormatEncode(inValue) {
-                            if (inValue < 64) {
-                                return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".charAt(inValue);
-                            }
-                            throw TypeError(inValue + ": not a 64 based value");
-                        }
-                        // Add a new least significant bit that has the sign of the value.
-                        // if negative number the least significant bit that gets added to the number has value 1
-                        // else least significant bit value that gets added is 0
-                        // eg. -1 changes to binary : 01 [1] => 3
-                        //     +1 changes to binary : 01 [0] => 2
-                        if (inValue < 0) {
-                            inValue = ((-inValue) << 1) + 1;
-                        }
-                        else {
-                            inValue = inValue << 1;
-                        }
-                        // Encode 5 bits at a time starting from least significant bits
-                        var encodedStr = "";
-                        do {
-                            var currentDigit = inValue & 31; // 11111
-                            inValue = inValue >> 5;
-                            if (inValue > 0) {
-                                // There are still more digits to decode, set the msb (6th bit)
-                                currentDigit = currentDigit | 32;
-                            }
-                            encodedStr = encodedStr + base64FormatEncode(currentDigit);
-                        } while (inValue > 0);
-                        return encodedStr;
-                    }
+                if (sourceMapDataList) {
+                    sourceMapDataList.push(sourceMap.getSourceMapData());
                 }
-                function recordSourceMapSpan(pos) {
-                    var sourceLinePos = ts.computeLineAndCharacterOfPosition(currentLineMap, pos);
-                    // Convert the location to be one-based.
-                    sourceLinePos.line++;
-                    sourceLinePos.character++;
-                    var emittedLine = writer.getLine();
-                    var emittedColumn = writer.getColumn();
-                    // If this location wasn't recorded or the location in source is going backwards, record the span
-                    if (!lastRecordedSourceMapSpan ||
-                        lastRecordedSourceMapSpan.emittedLine !== emittedLine ||
-                        lastRecordedSourceMapSpan.emittedColumn !== emittedColumn ||
-                        (lastRecordedSourceMapSpan.sourceIndex === sourceMapSourceIndex &&
-                            (lastRecordedSourceMapSpan.sourceLine > sourceLinePos.line ||
-                                (lastRecordedSourceMapSpan.sourceLine === sourceLinePos.line && lastRecordedSourceMapSpan.sourceColumn > sourceLinePos.character)))) {
-                        // Encode the last recordedSpan before assigning new
-                        encodeLastRecordedSourceMapSpan();
-                        // New span
-                        lastRecordedSourceMapSpan = {
-                            emittedLine: emittedLine,
-                            emittedColumn: emittedColumn,
-                            sourceLine: sourceLinePos.line,
-                            sourceColumn: sourceLinePos.character,
-                            nameIndex: getSourceMapNameIndex(),
-                            sourceIndex: sourceMapSourceIndex
-                        };
-                    }
-                    else {
-                        // Take the new pos instead since there is no change in emittedLine and column since last location
-                        lastRecordedSourceMapSpan.sourceLine = sourceLinePos.line;
-                        lastRecordedSourceMapSpan.sourceColumn = sourceLinePos.character;
-                        lastRecordedSourceMapSpan.sourceIndex = sourceMapSourceIndex;
-                    }
-                }
-                function recordEmitNodeStartSpan(node) {
-                    // Get the token pos after skipping to the token (ignoring the leading trivia)
-                    recordSourceMapSpan(ts.skipTrivia(currentText, node.pos));
-                }
-                function recordEmitNodeEndSpan(node) {
-                    recordSourceMapSpan(node.end);
-                }
-                function writeTextWithSpanRecord(tokenKind, startPos, emitFn) {
-                    var tokenStartPos = ts.skipTrivia(currentText, startPos);
-                    recordSourceMapSpan(tokenStartPos);
-                    var tokenEndPos = emitTokenText(tokenKind, tokenStartPos, emitFn);
-                    recordSourceMapSpan(tokenEndPos);
-                    return tokenEndPos;
-                }
-                function recordNewSourceFileStart(node) {
-                    // Add the file to tsFilePaths
-                    // If sourceroot option: Use the relative path corresponding to the common directory path
-                    // otherwise source locations relative to map file location
-                    var sourcesDirectoryPath = compilerOptions.sourceRoot ? host.getCommonSourceDirectory() : sourceMapDir;
-                    sourceMapData.sourceMapSources.push(ts.getRelativePathToDirectoryOrUrl(sourcesDirectoryPath, node.fileName, host.getCurrentDirectory(), host.getCanonicalFileName, 
-                    /*isAbsolutePathAnUrl*/ true));
-                    sourceMapSourceIndex = sourceMapData.sourceMapSources.length - 1;
-                    // The one that can be used from program to get the actual source file
-                    sourceMapData.inputSourceFileNames.push(node.fileName);
-                    if (compilerOptions.inlineSources) {
-                        if (!sourceMapData.sourceMapSourcesContent) {
-                            sourceMapData.sourceMapSourcesContent = [];
-                        }
-                        sourceMapData.sourceMapSourcesContent.push(node.text);
-                    }
-                }
-                function recordScopeNameOfNode(node, scopeName) {
-                    function recordScopeNameIndex(scopeNameIndex) {
-                        sourceMapNameIndices.push(scopeNameIndex);
-                    }
-                    function recordScopeNameStart(scopeName) {
-                        var scopeNameIndex = -1;
-                        if (scopeName) {
-                            var parentIndex = getSourceMapNameIndex();
-                            if (parentIndex !== -1) {
-                                // Child scopes are always shown with a dot (even if they have no name),
-                                // unless it is a computed property. Then it is shown with brackets,
-                                // but the brackets are included in the name.
-                                var name_21 = node.name;
-                                if (!name_21 || name_21.kind !== 136 /* ComputedPropertyName */) {
-                                    scopeName = "." + scopeName;
-                                }
-                                scopeName = sourceMapData.sourceMapNames[parentIndex] + scopeName;
-                            }
-                            scopeNameIndex = ts.getProperty(sourceMapNameIndexMap, scopeName);
-                            if (scopeNameIndex === undefined) {
-                                scopeNameIndex = sourceMapData.sourceMapNames.length;
-                                sourceMapData.sourceMapNames.push(scopeName);
-                                sourceMapNameIndexMap[scopeName] = scopeNameIndex;
-                            }
-                        }
-                        recordScopeNameIndex(scopeNameIndex);
-                    }
-                    if (scopeName) {
-                        // The scope was already given a name  use it
-                        recordScopeNameStart(scopeName);
-                    }
-                    else if (node.kind === 215 /* FunctionDeclaration */ ||
-                        node.kind === 175 /* FunctionExpression */ ||
-                        node.kind === 143 /* MethodDeclaration */ ||
-                        node.kind === 142 /* MethodSignature */ ||
-                        node.kind === 145 /* GetAccessor */ ||
-                        node.kind === 146 /* SetAccessor */ ||
-                        node.kind === 220 /* ModuleDeclaration */ ||
-                        node.kind === 216 /* ClassDeclaration */ ||
-                        node.kind === 219 /* EnumDeclaration */) {
-                        // Declaration and has associated name use it
-                        if (node.name) {
-                            var name_22 = node.name;
-                            // For computed property names, the text will include the brackets
-                            scopeName = name_22.kind === 136 /* ComputedPropertyName */
-                                ? ts.getTextOfNode(name_22)
-                                : node.name.text;
-                        }
-                        recordScopeNameStart(scopeName);
-                    }
-                    else {
-                        // Block just use the name from upper level scope
-                        recordScopeNameIndex(getSourceMapNameIndex());
-                    }
-                }
-                function recordScopeNameEnd() {
-                    sourceMapNameIndices.pop();
-                }
-                ;
-                function writeCommentRangeWithMap(currentText, currentLineMap, writer, comment, newLine) {
-                    recordSourceMapSpan(comment.pos);
-                    ts.writeCommentRange(currentText, currentLineMap, writer, comment, newLine);
-                    recordSourceMapSpan(comment.end);
-                }
-                function serializeSourceMapContents(version, file, sourceRoot, sources, names, mappings, sourcesContent) {
-                    if (typeof JSON !== "undefined") {
-                        var map_2 = {
-                            version: version,
-                            file: file,
-                            sourceRoot: sourceRoot,
-                            sources: sources,
-                            names: names,
-                            mappings: mappings
-                        };
-                        if (sourcesContent !== undefined) {
-                            map_2.sourcesContent = sourcesContent;
-                        }
-                        return JSON.stringify(map_2);
-                    }
-                    return "{\"version\":" + version + ",\"file\":\"" + ts.escapeString(file) + "\",\"sourceRoot\":\"" + ts.escapeString(sourceRoot) + "\",\"sources\":[" + serializeStringArray(sources) + "],\"names\":[" + serializeStringArray(names) + "],\"mappings\":\"" + ts.escapeString(mappings) + "\" " + (sourcesContent !== undefined ? ",\"sourcesContent\":[" + serializeStringArray(sourcesContent) + "]" : "") + "}";
-                    function serializeStringArray(list) {
-                        var output = "";
-                        for (var i = 0, n = list.length; i < n; i++) {
-                            if (i) {
-                                output += ",";
-                            }
-                            output += "\"" + ts.escapeString(list[i]) + "\"";
-                        }
-                        return output;
-                    }
-                }
-                function writeJavaScriptAndSourceMapFile(emitOutput, jsFilePath, writeByteOrderMark) {
-                    encodeLastRecordedSourceMapSpan();
-                    var sourceMapText = serializeSourceMapContents(3, sourceMapData.sourceMapFile, sourceMapData.sourceMapSourceRoot, sourceMapData.sourceMapSources, sourceMapData.sourceMapNames, sourceMapData.sourceMapMappings, sourceMapData.sourceMapSourcesContent);
-                    sourceMapDataList.push(sourceMapData);
-                    var sourceMapUrl;
-                    if (compilerOptions.inlineSourceMap) {
-                        // Encode the sourceMap into the sourceMap url
-                        var base64SourceMapText = ts.convertToBase64(sourceMapText);
-                        sourceMapData.jsSourceMappingURL = "data:application/json;base64," + base64SourceMapText;
-                    }
-                    else {
-                        // Write source map file
-                        ts.writeFile(host, emitterDiagnostics, sourceMapData.sourceMapFilePath, sourceMapText, /*writeByteOrderMark*/ false);
-                    }
-                    sourceMapUrl = "//# sourceMappingURL=" + sourceMapData.jsSourceMappingURL;
-                    // Write sourcemap url to the js file and write the js file
-                    writeJavaScriptFile(emitOutput + sourceMapUrl, jsFilePath, writeByteOrderMark);
-                }
-                // Initialize source map data
-                sourceMapData = {
-                    sourceMapFilePath: sourceMapFilePath,
-                    jsSourceMappingURL: !compilerOptions.inlineSourceMap ? ts.getBaseFileName(ts.normalizeSlashes(sourceMapFilePath)) : undefined,
-                    sourceMapFile: ts.getBaseFileName(ts.normalizeSlashes(jsFilePath)),
-                    sourceMapSourceRoot: compilerOptions.sourceRoot || "",
-                    sourceMapSources: [],
-                    inputSourceFileNames: [],
-                    sourceMapNames: [],
-                    sourceMapMappings: "",
-                    sourceMapSourcesContent: undefined,
-                    sourceMapDecodedMappings: []
-                };
-                // Normalize source root and make sure it has trailing "/" so that it can be used to combine paths with the
-                // relative paths of the sources list in the sourcemap
-                sourceMapData.sourceMapSourceRoot = ts.normalizeSlashes(sourceMapData.sourceMapSourceRoot);
-                if (sourceMapData.sourceMapSourceRoot.length && sourceMapData.sourceMapSourceRoot.charCodeAt(sourceMapData.sourceMapSourceRoot.length - 1) !== 47 /* slash */) {
-                    sourceMapData.sourceMapSourceRoot += ts.directorySeparator;
-                }
-                if (compilerOptions.mapRoot) {
-                    sourceMapDir = ts.normalizeSlashes(compilerOptions.mapRoot);
-                    if (!isBundledEmit) {
-                        ts.Debug.assert(sourceFiles.length === 1);
-                        // For modules or multiple emit files the mapRoot will have directory structure like the sources
-                        // So if src\a.ts and src\lib\b.ts are compiled together user would be moving the maps into mapRoot\a.js.map and mapRoot\lib\b.js.map
-                        sourceMapDir = ts.getDirectoryPath(ts.getSourceFilePathInNewDir(sourceFiles[0], host, sourceMapDir));
-                    }
-                    if (!ts.isRootedDiskPath(sourceMapDir) && !ts.isUrl(sourceMapDir)) {
-                        // The relative paths are relative to the common directory
-                        sourceMapDir = ts.combinePaths(host.getCommonSourceDirectory(), sourceMapDir);
-                        sourceMapData.jsSourceMappingURL = ts.getRelativePathToDirectoryOrUrl(ts.getDirectoryPath(ts.normalizePath(jsFilePath)), // get the relative sourceMapDir path based on jsFilePath
-                        ts.combinePaths(sourceMapDir, sourceMapData.jsSourceMappingURL), // this is where user expects to see sourceMap
-                        host.getCurrentDirectory(), host.getCanonicalFileName, 
-                        /*isAbsolutePathAnUrl*/ true);
-                    }
-                    else {
-                        sourceMapData.jsSourceMappingURL = ts.combinePaths(sourceMapDir, sourceMapData.jsSourceMappingURL);
-                    }
-                }
-                else {
-                    sourceMapDir = ts.getDirectoryPath(ts.normalizePath(jsFilePath));
-                }
-                function emitNodeWithSourceMap(node) {
-                    if (node) {
-                        if (ts.nodeIsSynthesized(node)) {
-                            return emitNodeWithoutSourceMap(node);
-                        }
-                        if (node.kind !== 250 /* SourceFile */) {
-                            recordEmitNodeStartSpan(node);
-                            emitNodeWithoutSourceMap(node);
-                            recordEmitNodeEndSpan(node);
-                        }
-                        else {
-                            recordNewSourceFileStart(node);
-                            emitNodeWithoutSourceMap(node);
-                        }
-                    }
-                }
-                function emitNodeWithCommentsAndWithSourcemap(node) {
-                    emitNodeConsideringCommentsOption(node, emitNodeWithSourceMap);
-                }
-                writeEmittedFiles = writeJavaScriptAndSourceMapFile;
-                emit = emitNodeWithCommentsAndWithSourcemap;
-                emitStart = recordEmitNodeStartSpan;
-                emitEnd = recordEmitNodeEndSpan;
-                emitToken = writeTextWithSpanRecord;
-                scopeEmitStart = recordScopeNameOfNode;
-                scopeEmitEnd = recordScopeNameEnd;
-                writeComment = writeCommentRangeWithMap;
-            }
-            function writeJavaScriptFile(emitOutput, jsFilePath, writeByteOrderMark) {
                 ts.writeFile(host, emitterDiagnostics, jsFilePath, emitOutput, writeByteOrderMark);
             }
             // Create a temporary variable with a unique unused name.
@@ -31749,7 +31747,15 @@ var ts;
                     write(";");
                 }
             }
-            function emitTokenText(tokenKind, startPos, emitFn) {
+            /** Emit the text for the given token that comes after startPos
+              * This by default writes the text provided with the given tokenKind
+              * but if optional emitFn callback is provided the text is emitted using the callback instead of default text
+              * @param tokenKind the kind of the token to search and emit
+              * @param startPos the position in the source to start searching for the token
+              * @param emitFn if given will be invoked to emit the text instead of actual token emit */
+            function emitToken(tokenKind, startPos, emitFn) {
+                var tokenStartPos = ts.skipTrivia(currentText, startPos);
+                emitPos(tokenStartPos);
                 var tokenString = ts.tokenToString(tokenKind);
                 if (emitFn) {
                     emitFn();
@@ -31757,7 +31763,9 @@ var ts;
                 else {
                     write(tokenString);
                 }
-                return startPos + tokenString.length;
+                var tokenEndPos = tokenStartPos + tokenString.length;
+                emitPos(tokenEndPos);
+                return tokenEndPos;
             }
             function emitOptional(prefix, node) {
                 if (node) {
@@ -32439,8 +32447,8 @@ var ts;
                             else if (declaration.kind === 228 /* ImportSpecifier */) {
                                 // Identifier references named import
                                 write(getGeneratedNameForNode(declaration.parent.parent.parent));
-                                var name_23 = declaration.propertyName || declaration.name;
-                                var identifier = ts.getTextOfNodeFromSourceText(currentText, name_23);
+                                var name_21 = declaration.propertyName || declaration.name;
+                                var identifier = ts.getTextOfNodeFromSourceText(currentText, name_21);
                                 if (languageVersion === 0 /* ES3 */ && identifier === "default") {
                                     write("[\"default\"]");
                                 }
@@ -32484,8 +32492,8 @@ var ts;
                 if (convertedLoopState) {
                     if (node.text == "arguments" && resolver.isArgumentsLocalBinding(node)) {
                         // in converted loop body arguments cannot be used directly.
-                        var name_24 = convertedLoopState.argumentsName || (convertedLoopState.argumentsName = makeUniqueName("arguments"));
-                        write(name_24);
+                        var name_22 = convertedLoopState.argumentsName || (convertedLoopState.argumentsName = makeUniqueName("arguments"));
+                        write(name_22);
                         return;
                     }
                 }
@@ -33480,7 +33488,6 @@ var ts;
                 }
                 emitToken(15 /* OpenBraceToken */, node.pos);
                 increaseIndent();
-                scopeEmitStart(node.parent);
                 if (node.kind === 221 /* ModuleBlock */) {
                     ts.Debug.assert(node.parent.kind === 220 /* ModuleDeclaration */);
                     emitCaptureThisForNodeIfNecessary(node.parent);
@@ -33492,7 +33499,6 @@ var ts;
                 decreaseIndent();
                 writeLine();
                 emitToken(16 /* CloseBraceToken */, node.statements.end);
-                scopeEmitEnd();
             }
             function emitEmbeddedStatement(node) {
                 if (node.kind === 194 /* Block */) {
@@ -34749,12 +34755,12 @@ var ts;
             function emitParameter(node) {
                 if (languageVersion < 2 /* ES6 */) {
                     if (ts.isBindingPattern(node.name)) {
-                        var name_25 = createTempVariable(0 /* Auto */);
+                        var name_23 = createTempVariable(0 /* Auto */);
                         if (!tempParameters) {
                             tempParameters = [];
                         }
-                        tempParameters.push(name_25);
-                        emit(name_25);
+                        tempParameters.push(name_23);
+                        emit(name_23);
                     }
                     else {
                         emit(node.name);
@@ -35149,7 +35155,6 @@ var ts;
             }
             function emitDownLevelExpressionFunctionBody(node, body) {
                 write(" {");
-                scopeEmitStart(node);
                 increaseIndent();
                 var outPos = writer.getTextPos();
                 emitDetachedCommentsAndUpdateCommentsInfo(node.body);
@@ -35185,11 +35190,9 @@ var ts;
                 emitStart(node.body);
                 write("}");
                 emitEnd(node.body);
-                scopeEmitEnd();
             }
             function emitBlockFunctionBody(node, body) {
                 write(" {");
-                scopeEmitStart(node);
                 var initialTextPos = writer.getTextPos();
                 increaseIndent();
                 emitDetachedCommentsAndUpdateCommentsInfo(body.statements);
@@ -35218,7 +35221,6 @@ var ts;
                     decreaseIndent();
                 }
                 emitToken(16 /* CloseBraceToken */, body.statements.end);
-                scopeEmitEnd();
             }
             function findInitialSuperCall(ctor) {
                 if (ctor.body) {
@@ -35482,7 +35484,6 @@ var ts;
                 }
                 var startIndex = 0;
                 write(" {");
-                scopeEmitStart(node, "constructor");
                 increaseIndent();
                 if (ctor) {
                     // Emit all the directive prologues (like "use strict").  These have to come before
@@ -35532,7 +35533,6 @@ var ts;
                 }
                 decreaseIndent();
                 emitToken(16 /* CloseBraceToken */, ctor ? ctor.body.statements.end : node.members.end);
-                scopeEmitEnd();
                 emitEnd(ctor || node);
                 if (ctor) {
                     emitTrailingComments(ctor);
@@ -35658,14 +35658,12 @@ var ts;
                 }
                 write(" {");
                 increaseIndent();
-                scopeEmitStart(node);
                 writeLine();
                 emitConstructor(node, baseTypeNode);
                 emitMemberFunctionsForES6AndHigher(node);
                 decreaseIndent();
                 writeLine();
                 emitToken(16 /* CloseBraceToken */, node.members.end);
-                scopeEmitEnd();
                 // TODO(rbuckton): Need to go back to `let _a = class C {}` approach, removing the defineProperty call for now.
                 // For a decorated class, we need to assign its name (if it has one). This is because we emit
                 // the class as a class expression to avoid the double-binding of the identifier:
@@ -35760,7 +35758,6 @@ var ts;
                 tempParameters = undefined;
                 computedPropertyNamesToGeneratedNames = undefined;
                 increaseIndent();
-                scopeEmitStart(node);
                 if (baseTypeNode) {
                     writeLine();
                     emitStart(baseTypeNode);
@@ -35791,7 +35788,6 @@ var ts;
                 decreaseIndent();
                 writeLine();
                 emitToken(16 /* CloseBraceToken */, node.members.end);
-                scopeEmitEnd();
                 emitStart(node);
                 write(")(");
                 if (baseTypeNode) {
@@ -35820,9 +35816,9 @@ var ts;
             function emitDecoratorsOfConstructor(node) {
                 var decorators = node.decorators;
                 var constructor = ts.getFirstConstructorWithBody(node);
-                var hasDecoratedParameters = constructor && ts.forEach(constructor.parameters, ts.nodeIsDecorated);
+                var firstParameterDecorator = constructor && ts.forEach(constructor.parameters, function (parameter) { return parameter.decorators; });
                 // skip decoration of the constructor if neither it nor its parameters are decorated
-                if (!decorators && !hasDecoratedParameters) {
+                if (!decorators && !firstParameterDecorator) {
                     return;
                 }
                 // Emit the call to __decorate. Given the class:
@@ -35836,25 +35832,24 @@ var ts;
                 //   C = __decorate([dec], C);
                 //
                 writeLine();
-                emitStart(node);
+                emitStart(node.decorators || firstParameterDecorator);
                 emitDeclarationName(node);
                 write(" = __decorate([");
                 increaseIndent();
                 writeLine();
                 var decoratorCount = decorators ? decorators.length : 0;
-                var argumentsWritten = emitList(decorators, 0, decoratorCount, /*multiLine*/ true, /*trailingComma*/ false, /*leadingComma*/ false, /*noTrailingNewLine*/ true, function (decorator) {
-                    emitStart(decorator);
-                    emit(decorator.expression);
-                    emitEnd(decorator);
-                });
-                argumentsWritten += emitDecoratorsOfParameters(constructor, /*leadingComma*/ argumentsWritten > 0);
+                var argumentsWritten = emitList(decorators, 0, decoratorCount, /*multiLine*/ true, /*trailingComma*/ false, /*leadingComma*/ false, /*noTrailingNewLine*/ true, function (decorator) { return emit(decorator.expression); });
+                if (firstParameterDecorator) {
+                    argumentsWritten += emitDecoratorsOfParameters(constructor, /*leadingComma*/ argumentsWritten > 0);
+                }
                 emitSerializedTypeMetadata(node, /*leadingComma*/ argumentsWritten >= 0);
                 decreaseIndent();
                 writeLine();
                 write("], ");
                 emitDeclarationName(node);
-                write(");");
-                emitEnd(node);
+                write(")");
+                emitEnd(node.decorators || firstParameterDecorator);
+                write(";");
                 writeLine();
             }
             function emitDecoratorsOfMembers(node, staticFlag) {
@@ -35866,10 +35861,6 @@ var ts;
                     }
                     // skip members that cannot be decorated (such as the constructor)
                     if (!ts.nodeCanBeDecorated(member)) {
-                        continue;
-                    }
-                    // skip a member if it or any of its parameters are not decorated
-                    if (!ts.nodeOrChildIsDecorated(member)) {
                         continue;
                     }
                     // skip an accessor declaration if it is not the first accessor
@@ -35894,6 +35885,11 @@ var ts;
                         if (member.kind === 143 /* MethodDeclaration */) {
                             functionLikeMember = member;
                         }
+                    }
+                    var firstParameterDecorator = functionLikeMember && ts.forEach(functionLikeMember.parameters, function (parameter) { return parameter.decorators; });
+                    // skip a member if it or any of its parameters are not decorated
+                    if (!decorators && !firstParameterDecorator) {
+                        continue;
                     }
                     // Emit the call to __decorate. Given the following:
                     //
@@ -35926,26 +35922,22 @@ var ts;
                     //   ], C.prototype, "prop");
                     //
                     writeLine();
-                    emitStart(member);
+                    emitStart(decorators || firstParameterDecorator);
                     write("__decorate([");
                     increaseIndent();
                     writeLine();
                     var decoratorCount = decorators ? decorators.length : 0;
-                    var argumentsWritten = emitList(decorators, 0, decoratorCount, /*multiLine*/ true, /*trailingComma*/ false, /*leadingComma*/ false, /*noTrailingNewLine*/ true, function (decorator) {
-                        emitStart(decorator);
-                        emit(decorator.expression);
-                        emitEnd(decorator);
-                    });
-                    argumentsWritten += emitDecoratorsOfParameters(functionLikeMember, argumentsWritten > 0);
+                    var argumentsWritten = emitList(decorators, 0, decoratorCount, /*multiLine*/ true, /*trailingComma*/ false, /*leadingComma*/ false, /*noTrailingNewLine*/ true, function (decorator) { return emit(decorator.expression); });
+                    if (firstParameterDecorator) {
+                        argumentsWritten += emitDecoratorsOfParameters(functionLikeMember, argumentsWritten > 0);
+                    }
                     emitSerializedTypeMetadata(member, argumentsWritten > 0);
                     decreaseIndent();
                     writeLine();
                     write("], ");
-                    emitStart(member.name);
                     emitClassMemberPrefix(node, member);
                     write(", ");
                     emitExpressionForPropertyName(member.name);
-                    emitEnd(member.name);
                     if (languageVersion > 0 /* ES3 */) {
                         if (member.kind !== 141 /* PropertyDeclaration */) {
                             // We emit `null` here to indicate to `__decorate` that it can invoke `Object.getOwnPropertyDescriptor` directly.
@@ -35958,8 +35950,9 @@ var ts;
                             write(", void 0");
                         }
                     }
-                    write(");");
-                    emitEnd(member);
+                    write(")");
+                    emitEnd(decorators || firstParameterDecorator);
+                    write(";");
                     writeLine();
                 }
             }
@@ -35972,11 +35965,9 @@ var ts;
                         if (ts.nodeIsDecorated(parameter)) {
                             var decorators = parameter.decorators;
                             argumentsWritten += emitList(decorators, 0, decorators.length, /*multiLine*/ true, /*trailingComma*/ false, /*leadingComma*/ leadingComma, /*noTrailingNewLine*/ true, function (decorator) {
-                                emitStart(decorator);
                                 write("__param(" + parameterIndex + ", ");
                                 emit(decorator.expression);
                                 write(")");
-                                emitEnd(decorator);
                             });
                             leadingComma = true;
                         }
@@ -36281,12 +36272,10 @@ var ts;
                 emitEnd(node.name);
                 write(") {");
                 increaseIndent();
-                scopeEmitStart(node);
                 emitLines(node.members);
                 decreaseIndent();
                 writeLine();
                 emitToken(16 /* CloseBraceToken */, node.members.end);
-                scopeEmitEnd();
                 write(")(");
                 emitModuleMemberName(node);
                 write(" || (");
@@ -36398,7 +36387,6 @@ var ts;
                 else {
                     write("{");
                     increaseIndent();
-                    scopeEmitStart(node);
                     emitCaptureThisForNodeIfNecessary(node);
                     writeLine();
                     emit(node.body);
@@ -36406,7 +36394,6 @@ var ts;
                     writeLine();
                     var moduleBlock = getInnerMostModuleDeclarationFromDottedModule(node).body;
                     emitToken(16 /* CloseBraceToken */, moduleBlock.statements.end);
-                    scopeEmitEnd();
                 }
                 write(")(");
                 // write moduleDecl = containingModule.m only if it is not exported es6 module member
@@ -36789,8 +36776,8 @@ var ts;
                                 // export { x, y }
                                 for (var _c = 0, _d = node.exportClause.elements; _c < _d.length; _c++) {
                                     var specifier = _d[_c];
-                                    var name_26 = (specifier.propertyName || specifier.name).text;
-                                    (exportSpecifiers[name_26] || (exportSpecifiers[name_26] = [])).push(specifier);
+                                    var name_24 = (specifier.propertyName || specifier.name).text;
+                                    (exportSpecifiers[name_24] || (exportSpecifiers[name_24] = [])).push(specifier);
                                 }
                             }
                             break;
@@ -36829,9 +36816,9 @@ var ts;
             }
             function getExternalModuleNameText(importNode, emitRelativePathAsModuleName) {
                 if (emitRelativePathAsModuleName) {
-                    var name_27 = getExternalModuleNameFromDeclaration(host, resolver, importNode);
-                    if (name_27) {
-                        return "\"" + name_27 + "\"";
+                    var name_25 = getExternalModuleNameFromDeclaration(host, resolver, importNode);
+                    if (name_25) {
+                        return "\"" + name_25 + "\"";
                     }
                 }
                 var moduleName = ts.getExternalModuleName(importNode);
@@ -37003,12 +36990,12 @@ var ts;
                     var seen = {};
                     for (var i = 0; i < hoistedVars.length; ++i) {
                         var local = hoistedVars[i];
-                        var name_28 = local.kind === 69 /* Identifier */
+                        var name_26 = local.kind === 69 /* Identifier */
                             ? local
                             : local.name;
-                        if (name_28) {
+                        if (name_26) {
                             // do not emit duplicate entries (in case of declaration merging) in the list of hoisted variables
-                            var text = ts.unescapeIdentifier(name_28.text);
+                            var text = ts.unescapeIdentifier(name_26.text);
                             if (ts.hasProperty(seen, text)) {
                                 continue;
                             }
@@ -37087,15 +37074,15 @@ var ts;
                     }
                     if (node.kind === 213 /* VariableDeclaration */ || node.kind === 165 /* BindingElement */) {
                         if (shouldHoistVariable(node, /*checkIfSourceFileLevelDecl*/ false)) {
-                            var name_29 = node.name;
-                            if (name_29.kind === 69 /* Identifier */) {
+                            var name_27 = node.name;
+                            if (name_27.kind === 69 /* Identifier */) {
                                 if (!hoistedVars) {
                                     hoistedVars = [];
                                 }
-                                hoistedVars.push(name_29);
+                                hoistedVars.push(name_27);
                             }
                             else {
-                                ts.forEachChild(name_29, visit);
+                                ts.forEachChild(name_27, visit);
                             }
                         }
                         return;
@@ -37690,6 +37677,9 @@ var ts;
                 }
                 emitLeadingComments(node.endOfFileToken);
             }
+            function emit(node) {
+                emitNodeConsideringCommentsOption(node, emitNodeWithSourceMap);
+            }
             function emitNodeWithCommentsAndWithoutSourcemap(node) {
                 emitNodeConsideringCommentsOption(node, emitNodeWithoutSourceMap);
             }
@@ -37710,6 +37700,13 @@ var ts;
                     if (emitComments_1) {
                         emitTrailingComments(node);
                     }
+                }
+            }
+            function emitNodeWithSourceMap(node) {
+                if (node) {
+                    emitStart(node);
+                    emitNodeWithoutSourceMap(node);
+                    emitEnd(node);
                 }
             }
             function emitNodeWithoutSourceMap(node) {
@@ -38068,6 +38065,11 @@ var ts;
                         detachedCommentsInfo = [currentDetachedCommentInfo];
                     }
                 }
+            }
+            function writeComment(text, lineMap, writer, comment, newLine) {
+                emitPos(comment.pos);
+                ts.writeCommentRange(text, lineMap, writer, comment, newLine);
+                emitPos(comment.end);
             }
             function emitShebang() {
                 var shebang = ts.getShebang(currentText);
@@ -39850,10 +39852,10 @@ var ts;
         function serializeCompilerOptions(options) {
             var result = {};
             var optionsNameMap = ts.getOptionNameMap().optionNameMap;
-            for (var name_30 in options) {
-                if (ts.hasProperty(options, name_30)) {
-                    var value = options[name_30];
-                    switch (name_30) {
+            for (var name_28 in options) {
+                if (ts.hasProperty(options, name_28)) {
+                    var value = options[name_28];
+                    switch (name_28) {
                         case "init":
                         case "watch":
                         case "version":
@@ -39861,11 +39863,11 @@ var ts;
                         case "project":
                             break;
                         default:
-                            var optionDefinition = optionsNameMap[name_30.toLowerCase()];
+                            var optionDefinition = optionsNameMap[name_28.toLowerCase()];
                             if (optionDefinition) {
                                 if (typeof optionDefinition.type === "string") {
                                     // string, number or boolean
-                                    result[name_30] = value;
+                                    result[name_28] = value;
                                 }
                                 else {
                                     // Enum
@@ -39873,7 +39875,7 @@ var ts;
                                     for (var key in typeMap) {
                                         if (ts.hasProperty(typeMap, key)) {
                                             if (typeMap[key] === value)
-                                                result[name_30] = key;
+                                                result[name_28] = key;
                                         }
                                     }
                                 }
@@ -40064,12 +40066,12 @@ var ts;
             ts.forEach(program.getSourceFiles(), function (sourceFile) {
                 cancellationToken.throwIfCancellationRequested();
                 var nameToDeclarations = sourceFile.getNamedDeclarations();
-                for (var name_31 in nameToDeclarations) {
-                    var declarations = ts.getProperty(nameToDeclarations, name_31);
+                for (var name_29 in nameToDeclarations) {
+                    var declarations = ts.getProperty(nameToDeclarations, name_29);
                     if (declarations) {
                         // First do a quick check to see if the name of the declaration matches the 
                         // last portion of the (possibly) dotted name they're searching for.
-                        var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_31);
+                        var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_29);
                         if (!matches) {
                             continue;
                         }
@@ -40082,14 +40084,14 @@ var ts;
                                 if (!containers) {
                                     return undefined;
                                 }
-                                matches = patternMatcher.getMatches(containers, name_31);
+                                matches = patternMatcher.getMatches(containers, name_29);
                                 if (!matches) {
                                     continue;
                                 }
                             }
                             var fileName = sourceFile.fileName;
                             var matchKind = bestMatchKind(matches);
-                            rawItems.push({ name: name_31, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
+                            rawItems.push({ name: name_29, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
                         }
                     }
                 }
@@ -40470,9 +40472,9 @@ var ts;
                     case 213 /* VariableDeclaration */:
                     case 165 /* BindingElement */:
                         var variableDeclarationNode;
-                        var name_32;
+                        var name_30;
                         if (node.kind === 165 /* BindingElement */) {
-                            name_32 = node.name;
+                            name_30 = node.name;
                             variableDeclarationNode = node;
                             // binding elements are added only for variable declarations
                             // bubble up to the containing variable declaration
@@ -40484,16 +40486,16 @@ var ts;
                         else {
                             ts.Debug.assert(!ts.isBindingPattern(node.name));
                             variableDeclarationNode = node;
-                            name_32 = node.name;
+                            name_30 = node.name;
                         }
                         if (ts.isConst(variableDeclarationNode)) {
-                            return createItem(node, getTextOfNode(name_32), ts.ScriptElementKind.constElement);
+                            return createItem(node, getTextOfNode(name_30), ts.ScriptElementKind.constElement);
                         }
                         else if (ts.isLet(variableDeclarationNode)) {
-                            return createItem(node, getTextOfNode(name_32), ts.ScriptElementKind.letElement);
+                            return createItem(node, getTextOfNode(name_30), ts.ScriptElementKind.letElement);
                         }
                         else {
-                            return createItem(node, getTextOfNode(name_32), ts.ScriptElementKind.variableElement);
+                            return createItem(node, getTextOfNode(name_30), ts.ScriptElementKind.variableElement);
                         }
                     case 144 /* Constructor */:
                         return createItem(node, "constructor", ts.ScriptElementKind.constructorImplementationElement);
@@ -43274,9 +43276,9 @@ var ts;
             }
             Rules.prototype.getRuleName = function (rule) {
                 var o = this;
-                for (var name_33 in o) {
-                    if (o[name_33] === rule) {
-                        return name_33;
+                for (var name_31 in o) {
+                    if (o[name_31] === rule) {
+                        return name_31;
                     }
                 }
                 throw new Error("Unknown rule");
@@ -46350,7 +46352,7 @@ var ts;
                     sourceMapText = text;
                 }
                 else {
-                    ts.Debug.assert(outputText === undefined, "Unexpected multiple outputs for the file: " + name);
+                    ts.Debug.assert(outputText === undefined, "Unexpected multiple outputs for the file: '" + name + "'");
                     outputText = text;
                 }
             },
@@ -47943,8 +47945,8 @@ var ts;
                     if (element.getStart() <= position && position <= element.getEnd()) {
                         continue;
                     }
-                    var name_34 = element.propertyName || element.name;
-                    exisingImportsOrExports[name_34.text] = true;
+                    var name_32 = element.propertyName || element.name;
+                    exisingImportsOrExports[name_32.text] = true;
                 }
                 if (ts.isEmpty(exisingImportsOrExports)) {
                     return exportsOfModule;
@@ -48044,10 +48046,10 @@ var ts;
                 var entries = [];
                 var target = program.getCompilerOptions().target;
                 var nameTable = getNameTable(sourceFile);
-                for (var name_35 in nameTable) {
-                    if (!uniqueNames[name_35]) {
-                        uniqueNames[name_35] = name_35;
-                        var displayName = getCompletionEntryDisplayName(name_35, target, /*performCharacterChecks:*/ true);
+                for (var name_33 in nameTable) {
+                    if (!uniqueNames[name_33]) {
+                        uniqueNames[name_33] = name_33;
+                        var displayName = getCompletionEntryDisplayName(name_33, target, /*performCharacterChecks:*/ true);
                         if (displayName) {
                             var entry = {
                                 name: displayName,
@@ -48423,28 +48425,30 @@ var ts;
                 }
                 else {
                     // Method/function type parameter
-                    var container = ts.getContainingFunction(location);
-                    if (container) {
-                        var signatureDeclaration = ts.getDeclarationOfKind(symbol, 137 /* TypeParameter */).parent;
-                        var signature = typeChecker.getSignatureFromDeclaration(signatureDeclaration);
-                        if (signatureDeclaration.kind === 148 /* ConstructSignature */) {
-                            displayParts.push(ts.keywordPart(92 /* NewKeyword */));
+                    var declaration = ts.getDeclarationOfKind(symbol, 137 /* TypeParameter */);
+                    ts.Debug.assert(declaration !== undefined);
+                    declaration = declaration.parent;
+                    if (declaration) {
+                        if (ts.isFunctionLikeKind(declaration.kind)) {
+                            var signature = typeChecker.getSignatureFromDeclaration(declaration);
+                            if (declaration.kind === 148 /* ConstructSignature */) {
+                                displayParts.push(ts.keywordPart(92 /* NewKeyword */));
+                                displayParts.push(ts.spacePart());
+                            }
+                            else if (declaration.kind !== 147 /* CallSignature */ && declaration.name) {
+                                addFullSymbolName(declaration.symbol);
+                            }
+                            ts.addRange(displayParts, ts.signatureToDisplayParts(typeChecker, signature, sourceFile, 32 /* WriteTypeArgumentsOfSignature */));
+                        }
+                        else {
+                            // Type alias type parameter
+                            // For example
+                            //      type list<T> = T[];  // Both T will go through same code path
+                            displayParts.push(ts.keywordPart(132 /* TypeKeyword */));
                             displayParts.push(ts.spacePart());
+                            addFullSymbolName(declaration.symbol);
+                            writeTypeParametersOfSymbol(declaration.symbol, sourceFile);
                         }
-                        else if (signatureDeclaration.kind !== 147 /* CallSignature */ && signatureDeclaration.name) {
-                            addFullSymbolName(signatureDeclaration.symbol);
-                        }
-                        ts.addRange(displayParts, ts.signatureToDisplayParts(typeChecker, signature, sourceFile, 32 /* WriteTypeArgumentsOfSignature */));
-                    }
-                    else {
-                        // Type  aliash type parameter
-                        // For example
-                        //      type list<T> = T[];  // Both T will go through same code path
-                        var declaration = ts.getDeclarationOfKind(symbol, 137 /* TypeParameter */).parent;
-                        displayParts.push(ts.keywordPart(132 /* TypeKeyword */));
-                        displayParts.push(ts.spacePart());
-                        addFullSymbolName(declaration.symbol);
-                        writeTypeParametersOfSymbol(declaration.symbol, sourceFile);
                     }
                 }
             }
@@ -49947,19 +49951,19 @@ var ts;
                 if (isNameOfPropertyAssignment(node)) {
                     var objectLiteral = node.parent.parent;
                     var contextualType = typeChecker.getContextualType(objectLiteral);
-                    var name_36 = node.text;
+                    var name_34 = node.text;
                     if (contextualType) {
                         if (contextualType.flags & 16384 /* Union */) {
                             // This is a union type, first see if the property we are looking for is a union property (i.e. exists in all types)
                             // if not, search the constituent types for the property
-                            var unionProperty = contextualType.getProperty(name_36);
+                            var unionProperty = contextualType.getProperty(name_34);
                             if (unionProperty) {
                                 return [unionProperty];
                             }
                             else {
                                 var result_4 = [];
                                 ts.forEach(contextualType.types, function (t) {
-                                    var symbol = t.getProperty(name_36);
+                                    var symbol = t.getProperty(name_34);
                                     if (symbol) {
                                         result_4.push(symbol);
                                     }
@@ -49968,7 +49972,7 @@ var ts;
                             }
                         }
                         else {
-                            var symbol_1 = contextualType.getProperty(name_36);
+                            var symbol_1 = contextualType.getProperty(name_34);
                             if (symbol_1) {
                                 return [symbol_1];
                             }
@@ -51621,7 +51625,7 @@ var ts;
             }
             var tokenAtLocation = ts.getTokenAtPosition(sourceFile, position);
             var lineOfPosition = sourceFile.getLineAndCharacterOfPosition(position).line;
-            if (sourceFile.getLineAndCharacterOfPosition(tokenAtLocation.getStart()).line > lineOfPosition) {
+            if (sourceFile.getLineAndCharacterOfPosition(tokenAtLocation.getStart(sourceFile)).line > lineOfPosition) {
                 // Get previous token if the token is returned starts on new line
                 // eg: let x =10; |--- cursor is here
                 //     let y = 10; 
@@ -51640,13 +51644,19 @@ var ts;
             // Get the span in the node based on its syntax
             return spanInNode(tokenAtLocation);
             function textSpan(startNode, endNode) {
-                return ts.createTextSpanFromBounds(startNode.getStart(), (endNode || startNode).getEnd());
+                var start = startNode.decorators ?
+                    ts.skipTrivia(sourceFile.text, startNode.decorators.end) :
+                    startNode.getStart(sourceFile);
+                return ts.createTextSpanFromBounds(start, (endNode || startNode).getEnd());
             }
             function spanInNodeIfStartsOnSameLine(node, otherwiseOnNode) {
-                if (node && lineOfPosition === sourceFile.getLineAndCharacterOfPosition(node.getStart()).line) {
+                if (node && lineOfPosition === sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line) {
                     return spanInNode(node);
                 }
                 return spanInNode(otherwiseOnNode);
+            }
+            function spanInNodeArray(nodeArray) {
+                return ts.createTextSpanFromBounds(ts.skipTrivia(sourceFile.text, nodeArray.pos), nodeArray.end);
             }
             function spanInPreviousNode(node) {
                 return spanInNode(ts.findPrecedingToken(node.pos, sourceFile));
@@ -51660,6 +51670,10 @@ var ts;
                         if (node.parent.kind === 199 /* DoStatement */) {
                             // Set span as if on while keyword
                             return spanInPreviousNode(node);
+                        }
+                        if (node.parent.kind === 139 /* Decorator */) {
+                            // Set breakpoint on the decorator emit
+                            return spanInNode(node.parent);
                         }
                         if (node.parent.kind === 201 /* ForStatement */) {
                             // For now lets set the span on this expression, fix it later
@@ -51773,6 +51787,8 @@ var ts;
                         case 207 /* WithStatement */:
                             // span in statement
                             return spanInNode(node.statement);
+                        case 139 /* Decorator */:
+                            return spanInNodeArray(node.parent.decorators);
                         // No breakpoint in interface, type alias
                         case 217 /* InterfaceDeclaration */:
                         case 218 /* TypeAliasDeclaration */:

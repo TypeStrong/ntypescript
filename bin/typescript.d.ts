@@ -1974,6 +1974,18 @@ declare namespace ts {
      * index in the array will be the one associated with the produced key.
      */
     function arrayToMap<T>(array: T[], makeKey: (value: T) => string): Map<T>;
+    /**
+     * Reduce the properties of a map.
+     *
+     * @param map The map to reduce
+     * @param callback An aggregation function that is called for each entry in the map
+     * @param initial The initial value for the reduction.
+     */
+    function reduceProperties<T, U>(map: Map<T>, callback: (aggregate: U, value: T, key: string) => U, initial: U): U;
+    /**
+     * Tests whether a value is an array.
+     */
+    function isArray(value: any): value is any[];
     function memoize<T>(callback: () => T): () => T;
     let localizedDiagnosticMessages: Map<string>;
     function getLocaleSpecificMessage(message: DiagnosticMessage): string;
@@ -2140,8 +2152,6 @@ declare namespace ts {
     function getInvokedExpression(node: CallLikeExpression): Expression;
     function nodeCanBeDecorated(node: Node): boolean;
     function nodeIsDecorated(node: Node): boolean;
-    function childIsDecorated(node: Node): boolean;
-    function nodeOrChildIsDecorated(node: Node): boolean;
     function isPropertyAccessExpression(node: Node): node is PropertyAccessExpression;
     function isElementAccessExpression(node: Node): node is ElementAccessExpression;
     function isExpression(node: Node): boolean;
@@ -2317,6 +2327,11 @@ declare namespace ts {
     function isEmptyObjectLiteralOrArrayLiteral(expression: Node): boolean;
     function getLocalSymbolForExportDefault(symbol: Symbol): Symbol;
     function hasJavaScriptFileExtension(fileName: string): boolean;
+    /**
+     * Serialize an object graph into a JSON string. This is intended only for use on an acyclic graph
+     * as the fallback implementation does not check for circular references by default.
+     */
+    const stringify: (value: any) => string;
     /**
      * Converts a string to a base-64 encoded ASCII string.
      */
@@ -6294,6 +6309,21 @@ declare namespace ts {
 declare namespace ts {
     function getDeclarationDiagnostics(host: EmitHost, resolver: EmitResolver, targetSourceFile: SourceFile): Diagnostic[];
     function writeDeclarationFile(declarationFilePath: string, sourceFiles: SourceFile[], isBundledEmit: boolean, host: EmitHost, resolver: EmitResolver, emitterDiagnostics: DiagnosticCollection): boolean;
+}
+declare namespace ts {
+    interface SourceMapWriter {
+        getSourceMapData(): SourceMapData;
+        setSourceFile(sourceFile: SourceFile): void;
+        emitPos(pos: number): void;
+        emitStart(range: TextRange): void;
+        emitEnd(range: TextRange): void;
+        getText(): string;
+        getSourceMappingURL(): string;
+        initialize(filePath: string, sourceMapFilePath: string, sourceFiles: SourceFile[], isBundledEmit: boolean): void;
+        reset(): void;
+    }
+    function getNullSourceMapWriter(): SourceMapWriter;
+    function createSourceMapWriter(host: EmitHost, writer: EmitTextWriter): SourceMapWriter;
 }
 declare namespace ts {
     function getResolvedExternalModuleName(host: EmitHost, file: SourceFile): string;
