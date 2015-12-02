@@ -2275,6 +2275,7 @@ interface Document extends Node, GlobalEventHandlers, NodeSelector, DocumentEven
       * Gets or sets the version attribute specified in the declaration of an XML document.
       */
     xmlVersion: string;
+    currentScript: HTMLScriptElement;
     adoptNode(source: Node): Node;
     captureEvents(): void;
     clear(): void;
@@ -3194,6 +3195,7 @@ interface Element extends Node, GlobalEventHandlers, ElementTraversal, NodeSelec
     webkitRequestFullScreen(): void;
     webkitRequestFullscreen(): void;
     getElementsByClassName(classNames: string): NodeListOf<Element>;
+    matches(selector: string): boolean;
     addEventListener(type: "MSGestureChange", listener: (ev: MSGestureEvent) => any, useCapture?: boolean): void;
     addEventListener(type: "MSGestureDoubleTap", listener: (ev: MSGestureEvent) => any, useCapture?: boolean): void;
     addEventListener(type: "MSGestureEnd", listener: (ev: MSGestureEvent) => any, useCapture?: boolean): void;
@@ -4178,7 +4180,6 @@ interface HTMLElement extends Element {
     title: string;
     blur(): void;
     click(): void;
-    contains(child: HTMLElement): boolean;
     dragDrop(): boolean;
     focus(): void;
     insertAdjacentElement(position: string, insertedElement: Element): Element;
@@ -6352,7 +6353,7 @@ interface HTMLSelectElement extends HTMLElement {
       * Sets or retrieves the name of the object.
       */
     name: string;
-    options: HTMLSelectElement;
+    options: HTMLCollection;
     /**
       * When present, marks an element that can't be submitted without a value.
       */
@@ -6638,19 +6639,19 @@ interface HTMLTableElement extends HTMLElement {
     /**
       * Creates an empty caption element in the table.
       */
-    createCaption(): HTMLElement;
+    createCaption(): HTMLTableCaptionElement;
     /**
       * Creates an empty tBody element in the table.
       */
-    createTBody(): HTMLElement;
+    createTBody(): HTMLTableSectionElement;
     /**
       * Creates an empty tFoot element in the table.
       */
-    createTFoot(): HTMLElement;
+    createTFoot(): HTMLTableSectionElement;
     /**
       * Returns the tHead element object if successful, or null otherwise.
       */
-    createTHead(): HTMLElement;
+    createTHead(): HTMLTableSectionElement;
     /**
       * Deletes the caption element and its contents from the table.
       */
@@ -6672,7 +6673,7 @@ interface HTMLTableElement extends HTMLElement {
       * Creates a new row (tr) in the table, and adds the row to the rows collection.
       * @param index Number that specifies where to insert the row in the rows collection. The default value is -1, which appends the new row to the end of the rows collection.
       */
-    insertRow(index?: number): HTMLElement;
+    insertRow(index?: number): HTMLTableRowElement;
 }
 
 declare var HTMLTableElement: {
@@ -6723,7 +6724,7 @@ interface HTMLTableRowElement extends HTMLElement, HTMLTableAlignment {
       * Creates a new cell in the table row, and adds the cell to the cells collection.
       * @param index Number that specifies where to insert the cell in the tr. The default value is -1, which appends the new cell to the end of the cells collection.
       */
-    insertCell(index?: number): HTMLElement;
+    insertCell(index?: number): HTMLTableCellElement;
     addEventListener(type: string, listener: EventListenerOrEventListenerObject, useCapture?: boolean): void;
 }
 
@@ -6750,7 +6751,7 @@ interface HTMLTableSectionElement extends HTMLElement, HTMLTableAlignment {
       * Creates a new row (tr) in the table, and adds the row to the rows collection.
       * @param index Number that specifies where to insert the row in the rows collection. The default value is -1, which appends the new row to the end of the rows collection.
       */
-    insertRow(index?: number): HTMLElement;
+    insertRow(index?: number): HTMLTableRowElement;
     addEventListener(type: string, listener: EventListenerOrEventListenerObject, useCapture?: boolean): void;
 }
 
@@ -7288,7 +7289,7 @@ declare var IDBVersionChangeEvent: {
 }
 
 interface ImageData {
-    data: number[];
+    data: Uint8ClampedArray;
     height: number;
     width: number;
 }
@@ -8086,6 +8087,7 @@ interface Navigator extends Object, NavigatorID, NavigatorOnLine, NavigatorConte
     getGamepads(): Gamepad[];
     javaEnabled(): boolean;
     msLaunchUri(uri: string, successCallback?: MSLaunchUriCallback, noHandlerCallback?: MSLaunchUriCallback): void;
+    vibrate(pattern: number | number[]): boolean;
     addEventListener(type: string, listener: EventListenerOrEventListenerObject, useCapture?: boolean): void;
 }
 
@@ -8126,6 +8128,7 @@ interface Node extends EventTarget {
     normalize(): void;
     removeChild(oldChild: Node): Node;
     replaceChild(newChild: Node, oldChild: Node): Node;
+    contains(node: Node): boolean;
     ATTRIBUTE_NODE: number;
     CDATA_SECTION_NODE: number;
     COMMENT_NODE: number;

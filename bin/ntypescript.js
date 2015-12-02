@@ -395,10 +395,14 @@ var ts;
     var ParserContextFlags = ts.ParserContextFlags;
     (function (JsxFlags) {
         JsxFlags[JsxFlags["None"] = 0] = "None";
+        /** An element from a named property of the JSX.IntrinsicElements interface */
         JsxFlags[JsxFlags["IntrinsicNamedElement"] = 1] = "IntrinsicNamedElement";
+        /** An element inferred from the string index signature of the JSX.IntrinsicElements interface */
         JsxFlags[JsxFlags["IntrinsicIndexedElement"] = 2] = "IntrinsicIndexedElement";
-        JsxFlags[JsxFlags["ClassElement"] = 4] = "ClassElement";
-        JsxFlags[JsxFlags["UnknownElement"] = 8] = "UnknownElement";
+        /** An element backed by a class, class-like, or function value */
+        JsxFlags[JsxFlags["ValueElement"] = 4] = "ValueElement";
+        /** Element resolution failed */
+        JsxFlags[JsxFlags["UnknownElement"] = 16] = "UnknownElement";
         JsxFlags[JsxFlags["IntrinsicElement"] = 3] = "IntrinsicElement";
     })(ts.JsxFlags || (ts.JsxFlags = {}));
     var JsxFlags = ts.JsxFlags;
@@ -4787,6 +4791,8 @@ var ts;
         _0_modifier_cannot_be_used_with_1_modifier: { code: 1243, category: ts.DiagnosticCategory.Error, key: "_0_modifier_cannot_be_used_with_1_modifier_1243", message: "'{0}' modifier cannot be used with '{1}' modifier." },
         Abstract_methods_can_only_appear_within_an_abstract_class: { code: 1244, category: ts.DiagnosticCategory.Error, key: "Abstract_methods_can_only_appear_within_an_abstract_class_1244", message: "Abstract methods can only appear within an abstract class." },
         Method_0_cannot_have_an_implementation_because_it_is_marked_abstract: { code: 1245, category: ts.DiagnosticCategory.Error, key: "Method_0_cannot_have_an_implementation_because_it_is_marked_abstract_1245", message: "Method '{0}' cannot have an implementation because it is marked abstract." },
+        An_interface_property_cannot_have_an_initializer: { code: 1246, category: ts.DiagnosticCategory.Error, key: "An_interface_property_cannot_have_an_initializer_1246", message: "An interface property cannot have an initializer." },
+        A_type_literal_property_cannot_have_an_initializer: { code: 1247, category: ts.DiagnosticCategory.Error, key: "A_type_literal_property_cannot_have_an_initializer_1247", message: "A type literal property cannot have an initializer." },
         with_statements_are_not_allowed_in_an_async_function_block: { code: 1300, category: ts.DiagnosticCategory.Error, key: "with_statements_are_not_allowed_in_an_async_function_block_1300", message: "'with' statements are not allowed in an async function block." },
         await_expression_is_only_allowed_within_an_async_function: { code: 1308, category: ts.DiagnosticCategory.Error, key: "await_expression_is_only_allowed_within_an_async_function_1308", message: "'await' expression is only allowed within an async function." },
         Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: { code: 1311, category: ts.DiagnosticCategory.Error, key: "Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher_1311", message: "Async functions are only available when targeting ECMAScript 6 and higher." },
@@ -8725,6 +8731,12 @@ var ts;
                 property.name = name;
                 property.questionToken = questionToken;
                 property.type = parseTypeAnnotation();
+                if (token === 56 /* EqualsToken */) {
+                    // Although type literal properties cannot not have initializers, we attempt
+                    // to parse an initializer so we can report in the checker that an interface
+                    // property or type literal property cannot have an initializer.
+                    property.initializer = parseNonParameterInitializer();
+                }
                 parseTypeMemberSemicolon();
                 return finishNode(property);
             }
@@ -14122,9 +14134,6 @@ var ts;
         var globalRegExpType;
         var globalTemplateStringsArrayType;
         var globalESSymbolType;
-        var jsxElementType;
-        /** Lazily loaded, use getJsxIntrinsicElementType() */
-        var jsxIntrinsicElementsType;
         var globalIterableType;
         var globalIteratorType;
         var globalIterableIteratorType;
@@ -14181,12 +14190,17 @@ var ts;
                 flags: 2097152 /* ContainsUndefinedOrNull */
             }
         };
+        var jsxElementType;
+        /** Things we lazy load from the JSX namespace */
+        var jsxTypes = {};
         var JsxNames = {
             JSX: "JSX",
             IntrinsicElements: "IntrinsicElements",
             ElementClass: "ElementClass",
             ElementAttributesPropertyNameContainer: "ElementAttributesProperty",
-            Element: "Element"
+            Element: "Element",
+            IntrinsicAttributes: "IntrinsicAttributes",
+            IntrinsicClassAttributes: "IntrinsicClassAttributes"
         };
         var subtypeRelation = {};
         var assignableRelation = {};
@@ -21241,12 +21255,11 @@ var ts;
             }
             return type;
         }
-        /// Returns the type JSX.IntrinsicElements. May return `unknownType` if that type is not present.
-        function getJsxIntrinsicElementsType() {
-            if (!jsxIntrinsicElementsType) {
-                jsxIntrinsicElementsType = getExportedTypeFromNamespace(JsxNames.JSX, JsxNames.IntrinsicElements) || unknownType;
+        function getJsxType(name) {
+            if (jsxTypes[name] === undefined) {
+                return jsxTypes[name] = getExportedTypeFromNamespace(JsxNames.JSX, name) || unknownType;
             }
-            return jsxIntrinsicElementsType;
+            return jsxTypes[name];
         }
         /// Given a JSX opening element or self-closing element, return the symbol of the property that the tag name points to if
         /// this is an intrinsic tag. This might be a named
@@ -21255,7 +21268,7 @@ var ts;
         /// type or factory function.
         /// Otherwise, returns unknownSymbol.
         function getJsxElementTagSymbol(node) {
-            var flags = 8 /* UnknownElement */;
+            var flags = 16 /* UnknownElement */;
             var links = getNodeLinks(node);
             if (!links.resolvedSymbol) {
                 if (isJsxIntrinsicIdentifier(node.tagName)) {
@@ -21267,7 +21280,7 @@ var ts;
             }
             return links.resolvedSymbol;
             function lookupIntrinsicTag(node) {
-                var intrinsicElementsType = getJsxIntrinsicElementsType();
+                var intrinsicElementsType = getJsxType(JsxNames.IntrinsicElements);
                 if (intrinsicElementsType !== unknownType) {
                     // Property case
                     var intrinsicProp = getPropertyOfType(intrinsicElementsType, node.tagName.text);
@@ -21295,7 +21308,7 @@ var ts;
                 var valueSymbol = resolveJsxTagName(node);
                 // Look up the value in the current scope
                 if (valueSymbol && valueSymbol !== unknownSymbol) {
-                    links.jsxFlags |= 4 /* ClassElement */;
+                    links.jsxFlags |= 4 /* ValueElement */;
                     if (valueSymbol.flags & 8388608 /* Alias */) {
                         markAliasSymbolAsReferenced(valueSymbol);
                     }
@@ -21321,7 +21334,7 @@ var ts;
         function getJsxElementInstanceType(node) {
             // There is no such thing as an instance type for a non-class element. This
             // line shouldn't be hit.
-            ts.Debug.assert(!!(getNodeLinks(node).jsxFlags & 4 /* ClassElement */), "Should not call getJsxElementInstanceType on non-class Element");
+            ts.Debug.assert(!!(getNodeLinks(node).jsxFlags & 4 /* ValueElement */), "Should not call getJsxElementInstanceType on non-class Element");
             var classSymbol = getJsxElementTagSymbol(node);
             if (classSymbol === unknownSymbol) {
                 // Couldn't find the class instance type. Error has already been issued
@@ -21343,13 +21356,7 @@ var ts;
                     return unknownType;
                 }
             }
-            var returnType = getUnionType(signatures.map(getReturnTypeOfSignature));
-            // Issue an error if this return type isn't assignable to JSX.ElementClass
-            var elemClassType = getJsxGlobalElementClassType();
-            if (elemClassType) {
-                checkTypeRelatedTo(returnType, elemClassType, assignableRelation, node, ts.Diagnostics.JSX_element_type_0_is_not_a_constructor_function_for_JSX_elements);
-            }
-            return returnType;
+            return getUnionType(signatures.map(getReturnTypeOfSignature));
         }
         /// e.g. "props" for React.d.ts,
         /// or 'undefined' if ElementAttributesPropery doesn't exist (which means all
@@ -21391,8 +21398,27 @@ var ts;
             var links = getNodeLinks(node);
             if (!links.resolvedJsxType) {
                 var sym = getJsxElementTagSymbol(node);
-                if (links.jsxFlags & 4 /* ClassElement */) {
+                if (links.jsxFlags & 4 /* ValueElement */) {
+                    // Get the element instance type (the result of newing or invoking this tag)
                     var elemInstanceType = getJsxElementInstanceType(node);
+                    // Is this is a stateless function component? See if its single signature is
+                    // assignable to the JSX Element Type
+                    var callSignature = getSingleCallSignature(getTypeOfSymbol(sym));
+                    var callReturnType = callSignature && getReturnTypeOfSignature(callSignature);
+                    var paramType = callReturnType && (callSignature.parameters.length === 0 ? emptyObjectType : getTypeOfSymbol(callSignature.parameters[0]));
+                    if (callReturnType && isTypeAssignableTo(callReturnType, jsxElementType) && (paramType.flags & 80896 /* ObjectType */)) {
+                        // Intersect in JSX.IntrinsicAttributes if it exists
+                        var intrinsicAttributes = getJsxType(JsxNames.IntrinsicAttributes);
+                        if (intrinsicAttributes !== unknownType) {
+                            paramType = intersectTypes(intrinsicAttributes, paramType);
+                        }
+                        return paramType;
+                    }
+                    // Issue an error if this return type isn't assignable to JSX.ElementClass
+                    var elemClassType = getJsxGlobalElementClassType();
+                    if (elemClassType) {
+                        checkTypeRelatedTo(elemInstanceType, elemClassType, assignableRelation, node, ts.Diagnostics.JSX_element_type_0_is_not_a_constructor_function_for_JSX_elements);
+                    }
                     if (isTypeAny(elemInstanceType)) {
                         return links.resolvedJsxType = elemInstanceType;
                     }
@@ -21412,14 +21438,34 @@ var ts;
                             return links.resolvedJsxType = emptyObjectType;
                         }
                         else if (isTypeAny(attributesType) || (attributesType === unknownType)) {
+                            // Props is of type 'any' or unknown
                             return links.resolvedJsxType = attributesType;
                         }
                         else if (!(attributesType.flags & 80896 /* ObjectType */)) {
+                            // Props is not an object type
                             error(node.tagName, ts.Diagnostics.JSX_element_attributes_type_0_must_be_an_object_type, typeToString(attributesType));
                             return links.resolvedJsxType = anyType;
                         }
                         else {
-                            return links.resolvedJsxType = attributesType;
+                            // Normal case -- add in IntrinsicClassElements<T> and IntrinsicElements
+                            var apparentAttributesType = attributesType;
+                            var intrinsicClassAttribs = getJsxType(JsxNames.IntrinsicClassAttributes);
+                            if (intrinsicClassAttribs !== unknownType) {
+                                var typeParams = getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(intrinsicClassAttribs.symbol);
+                                if (typeParams) {
+                                    if (typeParams.length === 1) {
+                                        apparentAttributesType = intersectTypes(createTypeReference(intrinsicClassAttribs, [elemInstanceType]), apparentAttributesType);
+                                    }
+                                }
+                                else {
+                                    apparentAttributesType = intersectTypes(attributesType, intrinsicClassAttribs);
+                                }
+                            }
+                            var intrinsicAttribs = getJsxType(JsxNames.IntrinsicAttributes);
+                            if (intrinsicAttribs !== unknownType) {
+                                apparentAttributesType = intersectTypes(intrinsicAttribs, apparentAttributesType);
+                            }
+                            return links.resolvedJsxType = apparentAttributesType;
                         }
                     }
                 }
@@ -21454,7 +21500,7 @@ var ts;
         }
         /// Returns all the properties of the Jsx.IntrinsicElements interface
         function getJsxIntrinsicTagNames() {
-            var intrinsics = getJsxIntrinsicElementsType();
+            var intrinsics = getJsxType(JsxNames.IntrinsicElements);
             return intrinsics ? getPropertiesOfType(intrinsics) : emptyArray;
         }
         function checkJsxPreconditions(errorNode) {
@@ -23012,15 +23058,15 @@ var ts;
             }
             var hasExplicitReturn = func.flags & 1048576 /* HasExplicitReturn */;
             if (returnType && !hasExplicitReturn) {
-                // minimal check: function has syntactic return type annotation and no explicit return statements in the body 
+                // minimal check: function has syntactic return type annotation and no explicit return statements in the body
                 // this function does not conform to the specification.
-                // NOTE: having returnType !== undefined is a precondition for entering this branch so func.type will always be present 
+                // NOTE: having returnType !== undefined is a precondition for entering this branch so func.type will always be present
                 error(func.type, ts.Diagnostics.A_function_whose_declared_type_is_neither_void_nor_any_must_return_a_value);
             }
             else if (compilerOptions.noImplicitReturns) {
                 if (!returnType) {
                     // If return type annotation is omitted check if function has any explicit return statements.
-                    // If it does not have any - its inferred return type is void - don't do any checks. 
+                    // If it does not have any - its inferred return type is void - don't do any checks.
                     // Otherwise get inferred return type from function body and report error only if it is not void / anytype
                     var inferredReturnType = hasExplicitReturn
                         ? getReturnTypeOfSignature(getSignatureFromDeclaration(func))
@@ -24841,6 +24887,8 @@ var ts;
                 error(node, ts.Diagnostics.Type_0_is_not_a_valid_async_function_return_type, typeName);
                 return unknownType;
             }
+            // If the Promise constructor, resolved locally, is an alias symbol we should mark it as referenced.
+            checkReturnTypeAnnotationAsExpression(node);
             // Validate the promise constructor type.
             var promiseConstructorType = getTypeOfSymbol(promiseConstructor);
             if (!checkTypeAssignableTo(promiseConstructorType, globalPromiseConstructorLikeType, node, ts.Diagnostics.Type_0_is_not_a_valid_async_function_return_type)) {
@@ -24848,10 +24896,10 @@ var ts;
             }
             // Verify there is no local declaration that could collide with the promise constructor.
             var promiseName = ts.getEntityNameFromTypeNode(node.type);
-            var root = getFirstIdentifier(promiseName);
-            var rootSymbol = getSymbol(node.locals, root.text, 107455 /* Value */);
+            var promiseNameOrNamespaceRoot = getFirstIdentifier(promiseName);
+            var rootSymbol = getSymbol(node.locals, promiseNameOrNamespaceRoot.text, 107455 /* Value */);
             if (rootSymbol) {
-                error(rootSymbol.valueDeclaration, ts.Diagnostics.Duplicate_identifier_0_Compiler_uses_declaration_1_to_support_async_functions, root.text, getFullyQualifiedName(promiseConstructor));
+                error(rootSymbol.valueDeclaration, ts.Diagnostics.Duplicate_identifier_0_Compiler_uses_declaration_1_to_support_async_functions, promiseNameOrNamespaceRoot.text, getFullyQualifiedName(promiseConstructor));
                 return unknownType;
             }
             // Get and return the awaited type of the return type.
@@ -24916,23 +24964,10 @@ var ts;
           * an expression if it is a type reference to a type with a value declaration.
           */
         function checkTypeAnnotationAsExpression(node) {
-            switch (node.kind) {
-                case 141 /* PropertyDeclaration */:
-                    checkTypeNodeAsExpression(node.type);
-                    break;
-                case 138 /* Parameter */:
-                    checkTypeNodeAsExpression(node.type);
-                    break;
-                case 143 /* MethodDeclaration */:
-                    checkTypeNodeAsExpression(node.type);
-                    break;
-                case 145 /* GetAccessor */:
-                    checkTypeNodeAsExpression(node.type);
-                    break;
-                case 146 /* SetAccessor */:
-                    checkTypeNodeAsExpression(ts.getSetAccessorTypeAnnotationNode(node));
-                    break;
-            }
+            checkTypeNodeAsExpression(node.type);
+        }
+        function checkReturnTypeAnnotationAsExpression(node) {
+            checkTypeNodeAsExpression(node.type);
         }
         /** Checks the type annotation of the parameters of a function/method or the constructor of a class as expressions */
         function checkParameterTypeAnnotationsAsExpressions(node) {
@@ -24965,10 +25000,11 @@ var ts;
                         }
                         break;
                     case 143 /* MethodDeclaration */:
-                        checkParameterTypeAnnotationsAsExpressions(node);
-                    // fall-through
-                    case 146 /* SetAccessor */:
                     case 145 /* GetAccessor */:
+                    case 146 /* SetAccessor */:
+                        checkParameterTypeAnnotationsAsExpressions(node);
+                        checkReturnTypeAnnotationAsExpression(node);
+                        break;
                     case 141 /* PropertyDeclaration */:
                     case 138 /* Parameter */:
                         checkTypeAnnotationAsExpression(node);
@@ -28712,10 +28748,16 @@ var ts;
                 if (checkGrammarForNonSymbolComputedProperty(node.name, ts.Diagnostics.A_computed_property_name_in_an_interface_must_directly_refer_to_a_built_in_symbol)) {
                     return true;
                 }
+                if (node.initializer) {
+                    return grammarErrorOnNode(node.initializer, ts.Diagnostics.An_interface_property_cannot_have_an_initializer);
+                }
             }
             else if (node.parent.kind === 155 /* TypeLiteral */) {
                 if (checkGrammarForNonSymbolComputedProperty(node.name, ts.Diagnostics.A_computed_property_name_in_a_type_literal_must_directly_refer_to_a_built_in_symbol)) {
                     return true;
+                }
+                if (node.initializer) {
+                    return grammarErrorOnNode(node.initializer, ts.Diagnostics.A_type_literal_property_cannot_have_an_initializer);
                 }
             }
             if (ts.isInAmbientContext(node) && node.initializer) {
@@ -30861,7 +30903,7 @@ var ts;
     /* @internal */
     function writeDeclarationFile(declarationFilePath, sourceFiles, isBundledEmit, host, resolver, emitterDiagnostics) {
         var emitDeclarationResult = emitDeclarations(host, resolver, emitterDiagnostics, declarationFilePath, sourceFiles, isBundledEmit);
-        var emitSkipped = emitDeclarationResult.reportedDeclarationError || host.isEmitBlocked(declarationFilePath);
+        var emitSkipped = emitDeclarationResult.reportedDeclarationError || host.isEmitBlocked(declarationFilePath) || host.getCompilerOptions().noEmit;
         if (!emitSkipped) {
             var declarationOutput = emitDeclarationResult.referencePathsOutput
                 + getDeclarationOutput(emitDeclarationResult.synchronousDeclarationOutput, emitDeclarationResult.moduleElementDeclarationEmitInfo);
@@ -33045,6 +33087,9 @@ var ts;
                     case 135 /* QualifiedName */:
                         emitQualifiedNameAsExpression(node, useFallback);
                         break;
+                    default:
+                        emitNodeWithoutSourceMap(node);
+                        break;
                 }
             }
             function emitIndexedAccess(node) {
@@ -33731,7 +33776,7 @@ var ts;
                     }
                     else {
                         // this is top level converted loop so we need to create an alias for 'this' here
-                        // NOTE: 
+                        // NOTE:
                         // if converted loops were all nested in arrow function then we'll always emit '_this' so convertedLoopState.thisName will not be set.
                         // If it is set this means that all nested loops are not nested in arrow function and it is safe to capture 'this'.
                         write("var " + convertedLoopState.thisName + " = this;");
@@ -34887,7 +34932,7 @@ var ts;
                 }
                 if (node.kind === 215 /* FunctionDeclaration */) {
                     // Emit name if one is present, or emit generated name in down-level case (for export default case)
-                    return !!node.name || languageVersion < 2 /* ES6 */;
+                    return !!node.name || modulekind !== 5 /* ES6 */;
                 }
             }
             function emitFunctionDeclaration(node) {
@@ -35052,17 +35097,16 @@ var ts;
                 }
                 write(" __awaiter(this");
                 if (hasLexicalArguments) {
-                    write(", arguments");
+                    write(", arguments, ");
                 }
                 else {
-                    write(", void 0");
+                    write(", void 0, ");
                 }
                 if (promiseConstructor) {
-                    write(", ");
-                    emitNodeWithoutSourceMap(promiseConstructor);
+                    emitEntityNameAsExpression(promiseConstructor, /*useFallback*/ false);
                 }
                 else {
-                    write(", Promise");
+                    write("Promise");
                 }
                 // Emit the call to __awaiter.
                 if (hasLexicalArguments) {
@@ -35115,7 +35159,7 @@ var ts;
                     emitSignatureParameters(node);
                 }
                 var isAsync = ts.isAsyncFunctionLike(node);
-                if (isAsync && languageVersion === 2 /* ES6 */) {
+                if (isAsync) {
                     emitAsyncFunctionBodyForES6(node);
                 }
                 else {
@@ -35647,7 +35691,7 @@ var ts;
                 // emit name if
                 // - node has a name
                 // - this is default export with static initializers
-                if ((node.name || (node.flags & 512 /* Default */ && staticProperties.length > 0)) && !thisNodeIsDecorated) {
+                if ((node.name || (node.flags & 512 /* Default */ && (staticProperties.length > 0 || modulekind !== 5 /* ES6 */))) && !thisNodeIsDecorated) {
                     write(" ");
                     emitDeclarationName(node);
                 }
@@ -38082,7 +38126,7 @@ var ts;
         function emitFile(_a, sourceFiles, isBundledEmit) {
             var jsFilePath = _a.jsFilePath, sourceMapFilePath = _a.sourceMapFilePath, declarationFilePath = _a.declarationFilePath;
             // Make sure not to write js File and source map file if any of them cannot be written
-            if (!host.isEmitBlocked(jsFilePath)) {
+            if (!host.isEmitBlocked(jsFilePath) && !compilerOptions.noEmit) {
                 emitJavaScript(jsFilePath, sourceMapFilePath, sourceFiles, isBundledEmit);
             }
             else {

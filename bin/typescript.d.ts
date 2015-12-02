@@ -359,10 +359,14 @@ declare namespace ts {
     }
     const enum JsxFlags {
         None = 0,
+        /** An element from a named property of the JSX.IntrinsicElements interface */
         IntrinsicNamedElement = 1,
+        /** An element inferred from the string index signature of the JSX.IntrinsicElements interface */
         IntrinsicIndexedElement = 2,
-        ClassElement = 4,
-        UnknownElement = 8,
+        /** An element backed by a class, class-like, or function value */
+        ValueElement = 4,
+        /** Element resolution failed */
+        UnknownElement = 16,
         IntrinsicElement = 3,
     }
     const enum RelationComparisonResult {
@@ -457,6 +461,7 @@ declare namespace ts {
         name: PropertyName;
         questionToken?: Node;
         type?: TypeNode;
+        initializer?: Expression;
     }
     interface PropertyDeclaration extends ClassElement {
         questionToken?: Node;
@@ -3542,6 +3547,18 @@ declare namespace ts {
             message: string;
         };
         Method_0_cannot_have_an_implementation_because_it_is_marked_abstract: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        An_interface_property_cannot_have_an_initializer: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        A_type_literal_property_cannot_have_an_initializer: {
             code: number;
             category: DiagnosticCategory;
             key: string;

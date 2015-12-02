@@ -195,6 +195,8 @@
   "_0_modifier_cannot_be_used_with_1_modifier_1243" : "'{0}' modifier cannot be used with '{1}' modifier.",
   "Abstract_methods_can_only_appear_within_an_abstract_class_1244" : "Abstract methods can only appear within an abstract class.",
   "Method_0_cannot_have_an_implementation_because_it_is_marked_abstract_1245" : "Method '{0}' cannot have an implementation because it is marked abstract.",
+  "An_interface_property_cannot_have_an_initializer_1246" : "An interface property cannot have an initializer.",
+  "A_type_literal_property_cannot_have_an_initializer_1247" : "A type literal property cannot have an initializer.",
   "with_statements_are_not_allowed_in_an_async_function_block_1300" : "'with' statements are not allowed in an async function block.",
   "await_expression_is_only_allowed_within_an_async_function_1308" : "'await' expression is only allowed within an async function.",
   "Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher_1311" : "Async functions are only available when targeting ECMAScript 6 and higher.",
