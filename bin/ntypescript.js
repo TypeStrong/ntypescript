@@ -3809,8 +3809,10 @@ var ts;
      * Resolves a local path to a path which is absolute to the base of the emit
      */
     function getExternalModuleNameFromPath(host, fileName) {
-        var dir = ts.toPath(host.getCommonSourceDirectory(), host.getCurrentDirectory(), function (f) { return host.getCanonicalFileName(f); });
-        var relativePath = ts.getRelativePathToDirectoryOrUrl(dir, fileName, dir, function (f) { return host.getCanonicalFileName(f); }, /*isAbsolutePathAnUrl*/ false);
+        var getCanonicalFileName = function (f) { return host.getCanonicalFileName(f); };
+        var dir = ts.toPath(host.getCommonSourceDirectory(), host.getCurrentDirectory(), getCanonicalFileName);
+        var filePath = ts.getNormalizedAbsolutePath(fileName, host.getCurrentDirectory());
+        var relativePath = ts.getRelativePathToDirectoryOrUrl(dir, filePath, dir, getCanonicalFileName, /*isAbsolutePathAnUrl*/ false);
         return ts.removeFileExtension(relativePath);
     }
     ts.getExternalModuleNameFromPath = getExternalModuleNameFromPath;
@@ -4276,7 +4278,7 @@ var ts;
      * Serialize an object graph into a JSON string. This is intended only for use on an acyclic graph
      * as the fallback implementation does not check for circular references by default.
      */
-    ts.stringify = JSON && JSON.stringify
+    ts.stringify = typeof JSON !== "undefined" && JSON.stringify
         ? JSON.stringify
         : stringifyFallback;
     /**
@@ -5028,6 +5030,7 @@ var ts;
         Exported_external_package_typings_file_cannot_contain_tripleslash_references_Please_contact_the_package_author_to_update_the_package_definition: { code: 2654, category: ts.DiagnosticCategory.Error, key: "Exported_external_package_typings_file_cannot_contain_tripleslash_references_Please_contact_the_pack_2654", message: "Exported external package typings file cannot contain tripleslash references. Please contact the package author to update the package definition." },
         Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_the_package_definition: { code: 2656, category: ts.DiagnosticCategory.Error, key: "Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_2656", message: "Exported external package typings file '{0}' is not a module. Please contact the package author to update the package definition." },
         JSX_expressions_must_have_one_parent_element: { code: 2657, category: ts.DiagnosticCategory.Error, key: "JSX_expressions_must_have_one_parent_element_2657", message: "JSX expressions must have one parent element" },
+        Type_0_provides_no_match_for_the_signature_1: { code: 2658, category: ts.DiagnosticCategory.Error, key: "Type_0_provides_no_match_for_the_signature_1_2658", message: "Type '{0}' provides no match for the signature '{1}'" },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -14368,6 +14371,13 @@ var ts;
         function isGlobalSourceFile(node) {
             return node.kind === 250 /* SourceFile */ && !ts.isExternalOrCommonJsModule(node);
         }
+        /** Is this type one of the apparent types created from the primitive types. */
+        function isPrimitiveApparentType(type) {
+            return type === globalStringType ||
+                type === globalNumberType ||
+                type === globalBooleanType ||
+                type === globalESSymbolType;
+        }
         function getSymbol(symbols, name, meaning) {
             if (meaning && ts.hasProperty(symbols, name)) {
                 var symbol = symbols[name];
@@ -15392,9 +15402,9 @@ var ts;
             ts.releaseStringWriter(writer);
             return result;
         }
-        function signatureToString(signature, enclosingDeclaration, flags) {
+        function signatureToString(signature, enclosingDeclaration, flags, kind) {
             var writer = ts.getSingleLineStringWriter();
-            getSymbolDisplayBuilder().buildSignatureDisplay(signature, writer, enclosingDeclaration, flags);
+            getSymbolDisplayBuilder().buildSignatureDisplay(signature, writer, enclosingDeclaration, flags, kind);
             var result = writer.string();
             ts.releaseStringWriter(writer);
             return result;
@@ -15716,7 +15726,7 @@ var ts;
                             if (flags & 64 /* InElementType */) {
                                 writePunctuation(writer, 17 /* OpenParenToken */);
                             }
-                            buildSignatureDisplay(resolved.callSignatures[0], writer, enclosingDeclaration, globalFlagsToPass | 8 /* WriteArrowStyleSignature */, symbolStack);
+                            buildSignatureDisplay(resolved.callSignatures[0], writer, enclosingDeclaration, globalFlagsToPass | 8 /* WriteArrowStyleSignature */, /*kind*/ undefined, symbolStack);
                             if (flags & 64 /* InElementType */) {
                                 writePunctuation(writer, 18 /* CloseParenToken */);
                             }
@@ -15728,7 +15738,7 @@ var ts;
                             }
                             writeKeyword(writer, 92 /* NewKeyword */);
                             writeSpace(writer);
-                            buildSignatureDisplay(resolved.constructSignatures[0], writer, enclosingDeclaration, globalFlagsToPass | 8 /* WriteArrowStyleSignature */, symbolStack);
+                            buildSignatureDisplay(resolved.constructSignatures[0], writer, enclosingDeclaration, globalFlagsToPass | 8 /* WriteArrowStyleSignature */, /*kind*/ undefined, symbolStack);
                             if (flags & 64 /* InElementType */) {
                                 writePunctuation(writer, 18 /* CloseParenToken */);
                             }
@@ -15742,15 +15752,13 @@ var ts;
                     writer.increaseIndent();
                     for (var _i = 0, _a = resolved.callSignatures; _i < _a.length; _i++) {
                         var signature = _a[_i];
-                        buildSignatureDisplay(signature, writer, enclosingDeclaration, globalFlagsToPass, symbolStack);
+                        buildSignatureDisplay(signature, writer, enclosingDeclaration, globalFlagsToPass, /*kind*/ undefined, symbolStack);
                         writePunctuation(writer, 23 /* SemicolonToken */);
                         writer.writeLine();
                     }
                     for (var _b = 0, _c = resolved.constructSignatures; _b < _c.length; _b++) {
                         var signature = _c[_b];
-                        writeKeyword(writer, 92 /* NewKeyword */);
-                        writeSpace(writer);
-                        buildSignatureDisplay(signature, writer, enclosingDeclaration, globalFlagsToPass, symbolStack);
+                        buildSignatureDisplay(signature, writer, enclosingDeclaration, globalFlagsToPass, 1 /* Construct */, symbolStack);
                         writePunctuation(writer, 23 /* SemicolonToken */);
                         writer.writeLine();
                     }
@@ -15793,7 +15801,7 @@ var ts;
                                 if (p.flags & 536870912 /* Optional */) {
                                     writePunctuation(writer, 53 /* QuestionToken */);
                                 }
-                                buildSignatureDisplay(signature, writer, enclosingDeclaration, globalFlagsToPass, symbolStack);
+                                buildSignatureDisplay(signature, writer, enclosingDeclaration, globalFlagsToPass, /*kind*/ undefined, symbolStack);
                                 writePunctuation(writer, 23 /* SemicolonToken */);
                                 writer.writeLine();
                             }
@@ -15903,7 +15911,11 @@ var ts;
                 }
                 buildTypeDisplay(returnType, writer, enclosingDeclaration, flags, symbolStack);
             }
-            function buildSignatureDisplay(signature, writer, enclosingDeclaration, flags, symbolStack) {
+            function buildSignatureDisplay(signature, writer, enclosingDeclaration, flags, kind, symbolStack) {
+                if (kind === 1 /* Construct */) {
+                    writeKeyword(writer, 92 /* NewKeyword */);
+                    writeSpace(writer);
+                }
                 if (signature.target && (flags & 32 /* WriteTypeArgumentsOfSignature */)) {
                     // Instantiated signature, write type arguments instead
                     // This is achieved by passing in the mapper separately
@@ -19028,20 +19040,24 @@ var ts;
                 outer: for (var _i = 0, targetSignatures_1 = targetSignatures; _i < targetSignatures_1.length; _i++) {
                     var t = targetSignatures_1[_i];
                     if (!t.hasStringLiterals || target.flags & 262144 /* FromSignature */) {
-                        var localErrors = reportErrors;
-                        var checkedAbstractAssignability = false;
+                        // Only elaborate errors from the first failure
+                        var shouldElaborateErrors = reportErrors;
                         for (var _a = 0, sourceSignatures_1 = sourceSignatures; _a < sourceSignatures_1.length; _a++) {
                             var s = sourceSignatures_1[_a];
                             if (!s.hasStringLiterals || source.flags & 262144 /* FromSignature */) {
-                                var related = signatureRelatedTo(s, t, localErrors);
+                                var related = signatureRelatedTo(s, t, shouldElaborateErrors);
                                 if (related) {
                                     result &= related;
                                     errorInfo = saveErrorInfo;
                                     continue outer;
                                 }
-                                // Only report errors from the first failure
-                                localErrors = false;
+                                shouldElaborateErrors = false;
                             }
+                        }
+                        // don't elaborate the primitive apparent types (like Number) 
+                        // because the actual primitives will have already been reported.
+                        if (shouldElaborateErrors && !isPrimitiveApparentType(source)) {
+                            reportError(ts.Diagnostics.Type_0_provides_no_match_for_the_signature_1, typeToString(source), signatureToString(t, /*enclosingDeclaration*/ undefined, /*flags*/ undefined, kind));
                         }
                         return 0 /* False */;
                     }
@@ -34346,12 +34362,12 @@ var ts;
                     // only allow export default at a source file level
                     if (modulekind === 1 /* CommonJS */ || modulekind === 2 /* AMD */ || modulekind === 3 /* UMD */) {
                         if (!isEs6Module) {
-                            if (languageVersion === 1 /* ES5 */) {
+                            if (languageVersion !== 0 /* ES3 */) {
                                 // default value of configurable, enumerable, writable are `false`.
                                 write("Object.defineProperty(exports, \"__esModule\", { value: true });");
                                 writeLine();
                             }
-                            else if (languageVersion === 0 /* ES3 */) {
+                            else {
                                 write("exports.__esModule = true;");
                                 writeLine();
                             }
@@ -35745,35 +35761,30 @@ var ts;
                 if (!(node.flags & 2 /* Export */)) {
                     return;
                 }
-                // If this is an exported class, but not on the top level (i.e. on an internal
-                // module), export it
-                if (node.flags & 512 /* Default */) {
-                    // if this is a top level default export of decorated class, write the export after the declaration.
-                    writeLine();
-                    if (thisNodeIsDecorated && modulekind === 5 /* ES6 */) {
-                        write("export default ");
-                        emitDeclarationName(node);
-                        write(";");
-                    }
-                    else if (modulekind === 4 /* System */) {
-                        write(exportFunctionForFile + "(\"default\", ");
-                        emitDeclarationName(node);
-                        write(");");
-                    }
-                    else if (modulekind !== 5 /* ES6 */) {
-                        write("exports.default = ");
-                        emitDeclarationName(node);
-                        write(";");
-                    }
+                if (modulekind !== 5 /* ES6 */) {
+                    emitExportMemberAssignment(node);
                 }
-                else if (node.parent.kind !== 250 /* SourceFile */ || (modulekind !== 5 /* ES6 */ && !(node.flags & 512 /* Default */))) {
-                    writeLine();
-                    emitStart(node);
-                    emitModuleMemberName(node);
-                    write(" = ");
-                    emitDeclarationName(node);
-                    emitEnd(node);
-                    write(";");
+                else {
+                    // If this is an exported class, but not on the top level (i.e. on an internal
+                    // module), export it
+                    if (node.flags & 512 /* Default */) {
+                        // if this is a top level default export of decorated class, write the export after the declaration.
+                        if (thisNodeIsDecorated) {
+                            writeLine();
+                            write("export default ");
+                            emitDeclarationName(node);
+                            write(";");
+                        }
+                    }
+                    else if (node.parent.kind !== 250 /* SourceFile */) {
+                        writeLine();
+                        emitStart(node);
+                        emitModuleMemberName(node);
+                        write(" = ");
+                        emitDeclarationName(node);
+                        emitEnd(node);
+                        write(";");
+                    }
                 }
             }
             function emitClassLikeDeclarationBelowES6(node) {
