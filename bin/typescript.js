@@ -1880,7 +1880,7 @@ var ts;
             // REVIEW: for now this implementation uses polling.
             // The advantage of polling is that it works reliably
             // on all os and with network mounted files.
-            // For 90 referenced files, the average time to detect 
+            // For 90 referenced files, the average time to detect
             // changes is 2*msInterval (by default 5 seconds).
             // The overhead of this is .04 percent (1/2500) with
             // average pause of < 1 millisecond (and max
@@ -1997,7 +1997,7 @@ var ts;
                     };
                 },
                 watchDirectory: function (path, callback, recursive) {
-                    // Node 4.0 `fs.watch` function supports the "recursive" option on both OSX and Windows 
+                    // Node 4.0 `fs.watch` function supports the "recursive" option on both OSX and Windows
                     // (ref: https://github.com/nodejs/node/pull/2649 and https://github.com/Microsoft/TypeScript/issues/4643)
                     return _fs.watch(path, { persistent: true, recursive: !!recursive }, function (eventName, relativeFileName) {
                         // In watchDirectory we only care about adding and removing files (when event name is
@@ -2042,6 +2042,33 @@ var ts;
                 }
             };
         }
+        function getChakraSystem() {
+            return {
+                newLine: "\r\n",
+                args: ChakraHost.args,
+                useCaseSensitiveFileNames: false,
+                write: ChakraHost.echo,
+                readFile: function (path, encoding) {
+                    // encoding is automatically handled by the implementation in ChakraHost
+                    return ChakraHost.readFile(path);
+                },
+                writeFile: function (path, data, writeByteOrderMark) {
+                    // If a BOM is required, emit one
+                    if (writeByteOrderMark) {
+                        data = "\uFEFF" + data;
+                    }
+                    ChakraHost.writeFile(path, data);
+                },
+                resolvePath: ChakraHost.resolvePath,
+                fileExists: ChakraHost.fileExists,
+                directoryExists: ChakraHost.directoryExists,
+                createDirectory: ChakraHost.createDirectory,
+                getExecutingFilePath: function () { return ChakraHost.executingFile; },
+                getCurrentDirectory: function () { return ChakraHost.currentDirectory; },
+                readDirectory: ChakraHost.readDirectory,
+                exit: ChakraHost.quit,
+            };
+        }
         if (typeof WScript !== "undefined" && typeof ActiveXObject === "function") {
             return getWScriptSystem();
         }
@@ -2049,6 +2076,9 @@ var ts;
             // process and process.nextTick checks if current environment is node-like
             // process.browser check excludes webpack and browserify
             return getNodeSystem();
+        }
+        else if (typeof ChakraHost !== "undefined") {
+            return getChakraSystem();
         }
         else {
             return undefined; // Unsupported host
@@ -18687,9 +18717,6 @@ var ts;
                     }
                     return objectTypeRelatedTo(source, source, target, /*reportErrors*/ false);
                 }
-                if (source.flags & 512 /* TypeParameter */ && target.flags & 512 /* TypeParameter */) {
-                    return typeParameterIdenticalTo(source, target);
-                }
                 if (source.flags & 16384 /* Union */ && target.flags & 16384 /* Union */ ||
                     source.flags & 32768 /* Intersection */ && target.flags & 32768 /* Intersection */) {
                     if (result = eachTypeRelatedToSomeType(source, target)) {
@@ -18814,16 +18841,6 @@ var ts;
                     result &= related;
                 }
                 return result;
-            }
-            function typeParameterIdenticalTo(source, target) {
-                // covers case when both type parameters does not have constraint (both equal to noConstraintType)
-                if (source.constraint === target.constraint) {
-                    return -1 /* True */;
-                }
-                if (source.constraint === noConstraintType || target.constraint === noConstraintType) {
-                    return 0 /* False */;
-                }
-                return isIdenticalTo(source.constraint, target.constraint);
             }
             // Determine if two object types are related by structure. First, check if the result is already available in the global cache.
             // Second, check if we have already started a comparison of the given two types in which case we assume the result to be true.
@@ -19338,26 +19355,19 @@ var ts;
             if (!(isMatchingSignature(source, target, partialMatch))) {
                 return 0 /* False */;
             }
-            var result = -1 /* True */;
-            if (source.typeParameters && target.typeParameters) {
-                if (source.typeParameters.length !== target.typeParameters.length) {
-                    return 0 /* False */;
-                }
-                for (var i = 0, len = source.typeParameters.length; i < len; ++i) {
-                    var related = compareTypes(source.typeParameters[i], target.typeParameters[i]);
-                    if (!related) {
-                        return 0 /* False */;
-                    }
-                    result &= related;
-                }
-            }
-            else if (source.typeParameters || target.typeParameters) {
+            // Check that the two signatures have the same number of type parameters. We might consider
+            // also checking that any type parameter constraints match, but that would require instantiating
+            // the constraints with a common set of type arguments to get relatable entities in places where
+            // type parameters occur in the constraints. The complexity of doing that doesn't seem worthwhile,
+            // particularly as we're comparing erased versions of the signatures below.
+            if ((source.typeParameters ? source.typeParameters.length : 0) !== (target.typeParameters ? target.typeParameters.length : 0)) {
                 return 0 /* False */;
             }
             // Spec 1.0 Section 3.8.3 & 3.8.4:
             // M and N (the signatures) are instantiated using type Any as the type argument for all type parameters declared by M and N
             source = getErasedSignature(source);
             target = getErasedSignature(target);
+            var result = -1 /* True */;
             var targetLen = target.parameters.length;
             for (var i = 0; i < targetLen; i++) {
                 var s = isRestParameterIndex(source, i) ? getRestTypeOfSignature(source) : getTypeOfSymbol(source.parameters[i]);
@@ -19740,9 +19750,11 @@ var ts;
                 }
                 else {
                     source = getApparentType(source);
-                    if (source.flags & 80896 /* ObjectType */ && (target.flags & (4096 /* Reference */ | 8192 /* Tuple */) ||
-                        (target.flags & 65536 /* Anonymous */) && target.symbol && target.symbol.flags & (8192 /* Method */ | 2048 /* TypeLiteral */ | 32 /* Class */))) {
-                        // If source is an object type, and target is a type reference, a tuple type, the type of a method, or a type literal, infer from members
+                    if (source.flags & 80896 /* ObjectType */ && (target.flags & 4096 /* Reference */ && target.typeArguments ||
+                        target.flags & 8192 /* Tuple */ ||
+                        target.flags & 65536 /* Anonymous */ && target.symbol && target.symbol.flags & (8192 /* Method */ | 2048 /* TypeLiteral */ | 32 /* Class */))) {
+                        // If source is an object type, and target is a type reference with type arguments, a tuple type,
+                        // the type of a method, or a type literal, infer from members
                         if (isInProcess(source, target)) {
                             return;
                         }
@@ -38710,17 +38722,16 @@ var ts;
             }
         }
         function getSemanticDiagnosticsForFile(sourceFile, cancellationToken) {
-            // For JavaScript files, we don't want to report the normal typescript semantic errors.
-            // Instead, we just report errors for using TypeScript-only constructs from within a
-            // JavaScript file.
-            if (ts.isSourceFileJavaScript(sourceFile)) {
-                return getJavaScriptSemanticDiagnosticsForFile(sourceFile, cancellationToken);
-            }
             return runWithCancellationToken(function () {
                 var typeChecker = getDiagnosticsProducingTypeChecker();
                 ts.Debug.assert(!!sourceFile.bindDiagnostics);
                 var bindDiagnostics = sourceFile.bindDiagnostics;
-                var checkDiagnostics = typeChecker.getDiagnostics(sourceFile, cancellationToken);
+                // For JavaScript files, we don't want to report the normal typescript semantic errors.
+                // Instead, we just report errors for using TypeScript-only constructs from within a
+                // JavaScript file.
+                var checkDiagnostics = ts.isSourceFileJavaScript(sourceFile) ?
+                    getJavaScriptSemanticDiagnosticsForFile(sourceFile, cancellationToken) :
+                    typeChecker.getDiagnostics(sourceFile, cancellationToken);
                 var fileProcessingDiagnosticsInFile = fileProcessingDiagnostics.getDiagnostics(sourceFile.fileName);
                 var programDiagnosticsInFile = programDiagnostics.getDiagnostics(sourceFile.fileName);
                 return bindDiagnostics.concat(checkDiagnostics).concat(fileProcessingDiagnosticsInFile).concat(programDiagnosticsInFile);
@@ -39080,6 +39091,8 @@ var ts;
                     if (resolution && !options.noResolve) {
                         var importedFile = findSourceFile(resolution.resolvedFileName, ts.toPath(resolution.resolvedFileName, currentDirectory, getCanonicalFileName), /*isDefaultLib*/ false, file, ts.skipTrivia(file.text, file.imports[i].pos), file.imports[i].end);
                         if (importedFile && resolution.isExternalLibraryImport) {
+                            // Since currently irrespective of allowJs, we only look for supportedTypeScript extension external module files,
+                            // this check is ok. Otherwise this would be never true for javascript file
                             if (!ts.isExternalModule(importedFile)) {
                                 var start_5 = ts.getTokenPosOfNode(file.imports[i], file);
                                 fileProcessingDiagnostics.add(ts.createFileDiagnostic(file, start_5, file.imports[i].end - start_5, ts.Diagnostics.Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_the_package_definition, importedFile.fileName));
