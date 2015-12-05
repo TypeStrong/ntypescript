@@ -3642,6 +3642,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Module_0_has_already_exported_a_member_named_1_Consider_explicitly_re_exporting_to_resolve_the_ambiguity: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         An_export_assignment_cannot_be_used_in_a_module_with_other_exported_elements: {
             code: number;
             category: DiagnosticCategory;
@@ -3721,6 +3727,12 @@ declare namespace ts {
             message: string;
         };
         Type_0_is_not_assignable_to_type_1: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Cannot_redeclare_exported_variable_0: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4141,6 +4153,12 @@ declare namespace ts {
             message: string;
         };
         Duplicate_identifier_arguments_Compiler_uses_arguments_to_initialize_rest_parameters: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Declaration_name_conflicts_with_built_in_global_identifier_0: {
             code: number;
             category: DiagnosticCategory;
             key: string;

@@ -4838,6 +4838,7 @@ var ts;
         Module_0_has_no_exported_member_1: { code: 2305, category: ts.DiagnosticCategory.Error, key: "Module_0_has_no_exported_member_1_2305", message: "Module '{0}' has no exported member '{1}'." },
         File_0_is_not_a_module: { code: 2306, category: ts.DiagnosticCategory.Error, key: "File_0_is_not_a_module_2306", message: "File '{0}' is not a module." },
         Cannot_find_module_0: { code: 2307, category: ts.DiagnosticCategory.Error, key: "Cannot_find_module_0_2307", message: "Cannot find module '{0}'." },
+        Module_0_has_already_exported_a_member_named_1_Consider_explicitly_re_exporting_to_resolve_the_ambiguity: { code: 2308, category: ts.DiagnosticCategory.Error, key: "Module_0_has_already_exported_a_member_named_1_Consider_explicitly_re_exporting_to_resolve_the_ambig_2308", message: "Module {0} has already exported a member named '{1}'. Consider explicitly re-exporting to resolve the ambiguity." },
         An_export_assignment_cannot_be_used_in_a_module_with_other_exported_elements: { code: 2309, category: ts.DiagnosticCategory.Error, key: "An_export_assignment_cannot_be_used_in_a_module_with_other_exported_elements_2309", message: "An export assignment cannot be used in a module with other exported elements." },
         Type_0_recursively_references_itself_as_a_base_type: { code: 2310, category: ts.DiagnosticCategory.Error, key: "Type_0_recursively_references_itself_as_a_base_type_2310", message: "Type '{0}' recursively references itself as a base type." },
         A_class_may_only_extend_another_class: { code: 2311, category: ts.DiagnosticCategory.Error, key: "A_class_may_only_extend_another_class_2311", message: "A class may only extend another class." },
@@ -4852,6 +4853,7 @@ var ts;
         Interface_0_cannot_simultaneously_extend_types_1_and_2: { code: 2320, category: ts.DiagnosticCategory.Error, key: "Interface_0_cannot_simultaneously_extend_types_1_and_2_2320", message: "Interface '{0}' cannot simultaneously extend types '{1}' and '{2}'." },
         Excessive_stack_depth_comparing_types_0_and_1: { code: 2321, category: ts.DiagnosticCategory.Error, key: "Excessive_stack_depth_comparing_types_0_and_1_2321", message: "Excessive stack depth comparing types '{0}' and '{1}'." },
         Type_0_is_not_assignable_to_type_1: { code: 2322, category: ts.DiagnosticCategory.Error, key: "Type_0_is_not_assignable_to_type_1_2322", message: "Type '{0}' is not assignable to type '{1}'." },
+        Cannot_redeclare_exported_variable_0: { code: 2323, category: ts.DiagnosticCategory.Error, key: "Cannot_redeclare_exported_variable_0_2323", message: "Cannot redeclare exported variable '{0}'." },
         Property_0_is_missing_in_type_1: { code: 2324, category: ts.DiagnosticCategory.Error, key: "Property_0_is_missing_in_type_1_2324", message: "Property '{0}' is missing in type '{1}'." },
         Property_0_is_private_in_type_1_but_not_in_type_2: { code: 2325, category: ts.DiagnosticCategory.Error, key: "Property_0_is_private_in_type_1_but_not_in_type_2_2325", message: "Property '{0}' is private in type '{1}' but not in type '{2}'." },
         Types_of_property_0_are_incompatible: { code: 2326, category: ts.DiagnosticCategory.Error, key: "Types_of_property_0_are_incompatible_2326", message: "Types of property '{0}' are incompatible." },
@@ -4922,6 +4924,7 @@ var ts;
         Overload_signature_is_not_compatible_with_function_implementation: { code: 2394, category: ts.DiagnosticCategory.Error, key: "Overload_signature_is_not_compatible_with_function_implementation_2394", message: "Overload signature is not compatible with function implementation." },
         Individual_declarations_in_merged_declaration_0_must_be_all_exported_or_all_local: { code: 2395, category: ts.DiagnosticCategory.Error, key: "Individual_declarations_in_merged_declaration_0_must_be_all_exported_or_all_local_2395", message: "Individual declarations in merged declaration '{0}' must be all exported or all local." },
         Duplicate_identifier_arguments_Compiler_uses_arguments_to_initialize_rest_parameters: { code: 2396, category: ts.DiagnosticCategory.Error, key: "Duplicate_identifier_arguments_Compiler_uses_arguments_to_initialize_rest_parameters_2396", message: "Duplicate identifier 'arguments'. Compiler uses 'arguments' to initialize rest parameters." },
+        Declaration_name_conflicts_with_built_in_global_identifier_0: { code: 2397, category: ts.DiagnosticCategory.Error, key: "Declaration_name_conflicts_with_built_in_global_identifier_0_2397", message: "Declaration name conflicts with built-in global identifier '{0}'." },
         Duplicate_identifier_this_Compiler_uses_variable_declaration_this_to_capture_this_reference: { code: 2399, category: ts.DiagnosticCategory.Error, key: "Duplicate_identifier_this_Compiler_uses_variable_declaration_this_to_capture_this_reference_2399", message: "Duplicate identifier '_this'. Compiler uses variable declaration '_this' to capture 'this' reference." },
         Expression_resolves_to_variable_declaration_this_that_compiler_uses_to_capture_this_reference: { code: 2400, category: ts.DiagnosticCategory.Error, key: "Expression_resolves_to_variable_declaration_this_that_compiler_uses_to_capture_this_reference_2400", message: "Expression resolves to variable declaration '_this' that compiler uses to capture 'this' reference." },
         Duplicate_identifier_super_Compiler_uses_super_to_capture_base_class_reference: { code: 2401, category: ts.DiagnosticCategory.Error, key: "Duplicate_identifier_super_Compiler_uses_super_to_capture_base_class_reference_2401", message: "Duplicate identifier '_super'. Compiler uses '_super' to capture base class reference." },
@@ -11452,16 +11455,17 @@ var ts;
             return finishNode(node);
         }
         function parseModuleSpecifier() {
-            // We allow arbitrary expressions here, even though the grammar only allows string
-            // literals.  We check to ensure that it is only a string literal later in the grammar
-            // walker.
-            var result = parseExpression();
-            // Ensure the string being required is in our 'identifier' table.  This will ensure
-            // that features like 'find refs' will look inside this file when search for its name.
-            if (result.kind === 9 /* StringLiteral */) {
+            if (token === 9 /* StringLiteral */) {
+                var result = parseLiteralNode();
                 internIdentifier(result.text);
+                return result;
             }
-            return result;
+            else {
+                // We allow arbitrary expressions here, even though the grammar only allows string
+                // literals.  We check to ensure that it is only a string literal later in the grammar
+                // check pass.
+                return parseExpression();
+            }
         }
         function parseNamespaceImport() {
             // NameSpaceImport:
@@ -14090,6 +14094,7 @@ var ts;
         var allowSyntheticDefaultImports = typeof compilerOptions.allowSyntheticDefaultImports !== "undefined" ? compilerOptions.allowSyntheticDefaultImports : modulekind === 4 /* System */;
         var emitResolver = createResolver();
         var undefinedSymbol = createSymbol(4 /* Property */ | 67108864 /* Transient */, "undefined");
+        undefinedSymbol.declarations = [];
         var argumentsSymbol = createSymbol(4 /* Property */ | 67108864 /* Transient */, "arguments");
         var checker = {
             getNodeCount: function () { return ts.sum(host.getSourceFiles(), "nodeCount"); },
@@ -14247,6 +14252,10 @@ var ts;
             TypeSystemPropertyName[TypeSystemPropertyName["DeclaredType"] = 2] = "DeclaredType";
             TypeSystemPropertyName[TypeSystemPropertyName["ResolvedReturnType"] = 3] = "ResolvedReturnType";
         })(TypeSystemPropertyName || (TypeSystemPropertyName = {}));
+        var builtinGlobals = (_a = {},
+            _a[undefinedSymbol.name] = undefinedSymbol,
+            _a
+        );
         initializeTypeChecker();
         return checker;
         function getEmitResolver(sourceFile, cancellationToken) {
@@ -14383,6 +14392,22 @@ var ts;
                         mergeSymbol(symbol, source[id]);
                     }
                 }
+            }
+        }
+        function addToSymbolTable(target, source, message) {
+            for (var id in source) {
+                if (ts.hasProperty(source, id)) {
+                    if (ts.hasProperty(target, id)) {
+                        // Error on redeclarations
+                        ts.forEach(target[id].declarations, addDeclarationDiagnostic(id, message));
+                    }
+                    else {
+                        target[id] = source[id];
+                    }
+                }
+            }
+            function addDeclarationDiagnostic(id, message) {
+                return function (declaration) { return diagnostics.add(ts.createDiagnosticForNode(declaration, message, id)); };
             }
         }
         function getSymbolLinks(symbol) {
@@ -15056,38 +15081,66 @@ var ts;
             var links = getSymbolLinks(moduleSymbol);
             return links.resolvedExports || (links.resolvedExports = getExportsForModule(moduleSymbol));
         }
-        function extendExportSymbols(target, source) {
+        /**
+         * Extends one symbol table with another while collecting information on name collisions for error message generation into the `lookupTable` argument
+         * Not passing `lookupTable` and `exportNode` disables this collection, and just extends the tables
+         */
+        function extendExportSymbols(target, source, lookupTable, exportNode) {
             for (var id in source) {
                 if (id !== "default" && !ts.hasProperty(target, id)) {
                     target[id] = source[id];
+                    if (lookupTable && exportNode) {
+                        lookupTable[id] = {
+                            specifierText: ts.getTextOfNode(exportNode.moduleSpecifier)
+                        };
+                    }
+                }
+                else if (lookupTable && exportNode && id !== "default" && ts.hasProperty(target, id) && resolveSymbol(target[id]) !== resolveSymbol(source[id])) {
+                    if (!lookupTable[id].exportsWithDuplicate) {
+                        lookupTable[id].exportsWithDuplicate = [exportNode];
+                    }
+                    else {
+                        lookupTable[id].exportsWithDuplicate.push(exportNode);
+                    }
                 }
             }
         }
         function getExportsForModule(moduleSymbol) {
-            var result;
             var visitedSymbols = [];
-            visit(moduleSymbol);
-            return result || moduleSymbol.exports;
+            return visit(moduleSymbol) || moduleSymbol.exports;
             // The ES6 spec permits export * declarations in a module to circularly reference the module itself. For example,
             // module 'a' can 'export * from "b"' and 'b' can 'export * from "a"' without error.
             function visit(symbol) {
-                if (symbol && symbol.flags & 1952 /* HasExports */ && !ts.contains(visitedSymbols, symbol)) {
-                    visitedSymbols.push(symbol);
-                    if (symbol !== moduleSymbol) {
-                        if (!result) {
-                            result = cloneSymbolTable(moduleSymbol.exports);
-                        }
-                        extendExportSymbols(result, symbol.exports);
-                    }
-                    // All export * declarations are collected in an __export symbol by the binder
-                    var exportStars = symbol.exports["__export"];
-                    if (exportStars) {
-                        for (var _i = 0, _a = exportStars.declarations; _i < _a.length; _i++) {
-                            var node = _a[_i];
-                            visit(resolveExternalModuleName(node, node.moduleSpecifier));
-                        }
-                    }
+                if (!(symbol && symbol.flags & 1952 /* HasExports */ && !ts.contains(visitedSymbols, symbol))) {
+                    return;
                 }
+                visitedSymbols.push(symbol);
+                var symbols = cloneSymbolTable(symbol.exports);
+                // All export * declarations are collected in an __export symbol by the binder
+                var exportStars = symbol.exports["__export"];
+                if (exportStars) {
+                    var nestedSymbols = {};
+                    var lookupTable = {};
+                    for (var _i = 0, _a = exportStars.declarations; _i < _a.length; _i++) {
+                        var node = _a[_i];
+                        var resolvedModule = resolveExternalModuleName(node, node.moduleSpecifier);
+                        var exportedSymbols = visit(resolvedModule);
+                        extendExportSymbols(nestedSymbols, exportedSymbols, lookupTable, node);
+                    }
+                    for (var id in lookupTable) {
+                        var exportsWithDuplicate = lookupTable[id].exportsWithDuplicate;
+                        // It's not an error if the file with multiple `export *`s with duplicate names exports a member with that name itself
+                        if (id === "export=" || !(exportsWithDuplicate && exportsWithDuplicate.length) || ts.hasProperty(symbols, id)) {
+                            continue;
+                        }
+                        for (var _b = 0, exportsWithDuplicate_1 = exportsWithDuplicate; _b < exportsWithDuplicate_1.length; _b++) {
+                            var node = exportsWithDuplicate_1[_b];
+                            diagnostics.add(ts.createDiagnosticForNode(node, ts.Diagnostics.Module_0_has_already_exported_a_member_named_1_Consider_explicitly_re_exporting_to_resolve_the_ambiguity, lookupTable[id].specifierText, id));
+                        }
+                    }
+                    extendExportSymbols(symbols, nestedSymbols);
+                }
+                return symbols;
             }
         }
         function getMergedSymbol(symbol) {
@@ -16733,9 +16786,6 @@ var ts;
             }
             return type.resolvedBaseConstructorType;
         }
-        function hasClassBaseType(type) {
-            return !!ts.forEach(getBaseTypes(type), function (t) { return !!(t.symbol.flags & 32 /* Class */); });
-        }
         function getBaseTypes(type) {
             var isClass = type.symbol.flags & 32 /* Class */;
             var isInterface = type.symbol.flags & 64 /* Interface */;
@@ -17149,11 +17199,11 @@ var ts;
             return createSignature(sig.declaration, sig.typeParameters, sig.parameters, sig.resolvedReturnType, sig.typePredicate, sig.minArgumentCount, sig.hasRestParameter, sig.hasStringLiterals);
         }
         function getDefaultConstructSignatures(classType) {
-            if (!hasClassBaseType(classType)) {
-                return [createSignature(undefined, classType.localTypeParameters, emptyArray, classType, undefined, 0, /*hasRestParameter*/ false, /*hasStringLiterals*/ false)];
-            }
             var baseConstructorType = getBaseConstructorTypeOfClass(classType);
             var baseSignatures = getSignaturesOfType(baseConstructorType, 1 /* Construct */);
+            if (baseSignatures.length === 0) {
+                return [createSignature(undefined, classType.localTypeParameters, emptyArray, classType, undefined, 0, /*hasRestParameter*/ false, /*hasStringLiterals*/ false)];
+            }
             var baseTypeNode = getBaseTypeNodeOfClass(classType);
             var typeArguments = ts.map(baseTypeNode.typeArguments, getTypeFromTypeNode);
             var typeArgCount = typeArguments ? typeArguments.length : 0;
@@ -17363,15 +17413,15 @@ var ts;
             }
             return type;
         }
-        // Return properties of an object type or an empty array for other types
+        /** Return properties of an object type or an empty array for other types */
         function getPropertiesOfObjectType(type) {
             if (type.flags & 80896 /* ObjectType */) {
                 return resolveStructuredTypeMembers(type).properties;
             }
             return emptyArray;
         }
-        // If the given type is an object type and that type has a property by the given name,
-        // return the symbol for that property.Otherwise return undefined.
+        /** If the given type is an object type and that type has a property by the given name,
+         * return the symbol for that property. Otherwise return undefined. */
         function getPropertyOfObjectType(type, name) {
             if (type.flags & 80896 /* ObjectType */) {
                 var resolved = resolveStructuredTypeMembers(type);
@@ -26820,7 +26870,28 @@ var ts;
                     var declaration = getDeclarationOfAliasSymbol(exportEqualsSymbol) || exportEqualsSymbol.valueDeclaration;
                     error(declaration, ts.Diagnostics.An_export_assignment_cannot_be_used_in_a_module_with_other_exported_elements);
                 }
+                // Checks for export * conflicts
+                var exports = getExportsOfModule(moduleSymbol);
+                for (var id in exports) {
+                    if (id === "__export") {
+                        continue;
+                    }
+                    var _a = exports[id], declarations = _a.declarations, flags = _a.flags;
+                    // ECMA262: 15.2.1.1 It is a Syntax Error if the ExportedNames of ModuleItemList contains any duplicate entries. (TS Exceptions: namespaces, function overloads, enums, and interfaces)
+                    if (!(flags & (1536 /* Namespace */ | 64 /* Interface */ | 384 /* Enum */)) && declarations.length > 1) {
+                        var exportedDeclarations = ts.filter(declarations, isNotOverload);
+                        if (exportedDeclarations.length > 1) {
+                            for (var _i = 0, exportedDeclarations_1 = exportedDeclarations; _i < exportedDeclarations_1.length; _i++) {
+                                var declaration = exportedDeclarations_1[_i];
+                                diagnostics.add(ts.createDiagnosticForNode(declaration, ts.Diagnostics.Cannot_redeclare_exported_variable_0, id));
+                            }
+                        }
+                    }
+                }
                 links.exportsChecked = true;
+            }
+            function isNotOverload(declaration) {
+                return declaration.kind !== 215 /* FunctionDeclaration */ || !!declaration.body;
             }
         }
         function checkTypePredicate(node) {
@@ -27832,10 +27903,11 @@ var ts;
                     mergeSymbolTable(globals, file.locals);
                 }
             });
+            // Setup global builtins
+            addToSymbolTable(globals, builtinGlobals, ts.Diagnostics.Declaration_name_conflicts_with_built_in_global_identifier_0);
             getSymbolLinks(undefinedSymbol).type = undefinedType;
             getSymbolLinks(argumentsSymbol).type = getGlobalType("IArguments");
             getSymbolLinks(unknownSymbol).type = unknownType;
-            globals[undefinedSymbol.name] = undefinedSymbol;
             // Initialize special types
             globalArrayType = getGlobalType("Array", /*arity*/ 1);
             globalObjectType = getGlobalType("Object");
@@ -28465,13 +28537,24 @@ var ts;
             if (forInOrOfStatement.initializer.kind === 214 /* VariableDeclarationList */) {
                 var variableList = forInOrOfStatement.initializer;
                 if (!checkGrammarVariableDeclarationList(variableList)) {
-                    if (variableList.declarations.length > 1) {
+                    var declarations = variableList.declarations;
+                    // declarations.length can be zero if there is an error in variable declaration in for-of or for-in
+                    // See http://www.ecma-international.org/ecma-262/6.0/#sec-for-in-and-for-of-statements for details
+                    // For example:
+                    //      var let = 10;
+                    //      for (let of [1,2,3]) {} // this is invalid ES6 syntax
+                    //      for (let in [1,2,3]) {} // this is invalid ES6 syntax
+                    // We will then want to skip on grammar checking on variableList declaration
+                    if (!declarations.length) {
+                        return false;
+                    }
+                    if (declarations.length > 1) {
                         var diagnostic = forInOrOfStatement.kind === 202 /* ForInStatement */
                             ? ts.Diagnostics.Only_a_single_variable_declaration_is_allowed_in_a_for_in_statement
                             : ts.Diagnostics.Only_a_single_variable_declaration_is_allowed_in_a_for_of_statement;
                         return grammarErrorOnFirstToken(variableList.declarations[1], diagnostic);
                     }
-                    var firstDeclaration = variableList.declarations[0];
+                    var firstDeclaration = declarations[0];
                     if (firstDeclaration.initializer) {
                         var diagnostic = forInOrOfStatement.kind === 202 /* ForInStatement */
                             ? ts.Diagnostics.The_variable_declaration_of_a_for_in_statement_cannot_have_an_initializer
@@ -28651,7 +28734,7 @@ var ts;
                     }
                 }
             }
-            var checkLetConstNames = languageVersion >= 2 /* ES6 */ && (ts.isLet(node) || ts.isConst(node));
+            var checkLetConstNames = (ts.isLet(node) || ts.isConst(node));
             // 1. LexicalDeclaration : LetOrConst BindingList ;
             // It is a Syntax Error if the BoundNames of BindingList contains "let".
             // 2. ForDeclaration: ForDeclaration : LetOrConst ForBinding
@@ -28662,7 +28745,7 @@ var ts;
         }
         function checkGrammarNameInLetOrConstDeclarations(name) {
             if (name.kind === 69 /* Identifier */) {
-                if (name.text === "let") {
+                if (name.originalKeywordKind === 108 /* LetKeyword */) {
                     return grammarErrorOnNode(name, ts.Diagnostics.let_is_not_allowed_to_be_used_as_a_name_in_let_or_const_declarations);
                 }
             }
@@ -28871,6 +28954,7 @@ var ts;
                 return true;
             }
         }
+        var _a;
     }
     ts.createTypeChecker = createTypeChecker;
 })(ts || (ts = {}));
@@ -36320,9 +36404,10 @@ var ts;
                 }
                 if (!shouldHoistDeclarationInSystemJsModule(node)) {
                     // do not emit var if variable was already hoisted
-                    if (!(node.flags & 2 /* Export */) || isES6ExportedDeclaration(node)) {
+                    var isES6ExportedEnum = isES6ExportedDeclaration(node);
+                    if (!(node.flags & 2 /* Export */) || (isES6ExportedEnum && isFirstDeclarationOfKind(node, node.symbol && node.symbol.declarations, 219 /* EnumDeclaration */))) {
                         emitStart(node);
-                        if (isES6ExportedDeclaration(node)) {
+                        if (isES6ExportedEnum) {
                             write("export ");
                         }
                         write("var ");
@@ -36413,6 +36498,9 @@ var ts;
             function isModuleMergedWithES6Class(node) {
                 return languageVersion === 2 /* ES6 */ && !!(resolver.getNodeCheckFlags(node) & 32768 /* LexicalModuleMergesWithClass */);
             }
+            function isFirstDeclarationOfKind(node, declarations, kind) {
+                return !ts.forEach(declarations, function (declaration) { return declaration.kind === kind && declaration.pos < node.pos; });
+            }
             function emitModuleDeclaration(node) {
                 // Emit only if this module is non-ambient.
                 var shouldEmit = shouldEmitModuleDeclaration(node);
@@ -36422,15 +36510,18 @@ var ts;
                 var hoistedInDeclarationScope = shouldHoistDeclarationInSystemJsModule(node);
                 var emitVarForModule = !hoistedInDeclarationScope && !isModuleMergedWithES6Class(node);
                 if (emitVarForModule) {
-                    emitStart(node);
-                    if (isES6ExportedDeclaration(node)) {
-                        write("export ");
+                    var isES6ExportedNamespace = isES6ExportedDeclaration(node);
+                    if (!isES6ExportedNamespace || isFirstDeclarationOfKind(node, node.symbol && node.symbol.declarations, 220 /* ModuleDeclaration */)) {
+                        emitStart(node);
+                        if (isES6ExportedNamespace) {
+                            write("export ");
+                        }
+                        write("var ");
+                        emit(node.name);
+                        write(";");
+                        emitEnd(node);
+                        writeLine();
                     }
-                    write("var ");
-                    emit(node.name);
-                    write(";");
-                    emitEnd(node);
-                    writeLine();
                 }
                 emitStart(node);
                 write("(function (");
@@ -38142,6 +38233,7 @@ var ts;
                 var shebang = ts.getShebang(currentText);
                 if (shebang) {
                     write(shebang);
+                    writeLine();
                 }
             }
             var _a, _b;
