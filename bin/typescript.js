@@ -19707,14 +19707,26 @@ var ts;
             function inferFromTypes(source, target) {
                 if (source.flags & 16384 /* Union */ && target.flags & 16384 /* Union */ ||
                     source.flags & 32768 /* Intersection */ && target.flags & 32768 /* Intersection */) {
-                    // Source and target are both unions or both intersections. To improve the quality of
-                    // inferences we first reduce the types by removing constituents that are identically
-                    // matched by a constituent in the other type. For example, when inferring from
-                    // 'string | string[]' to 'string | T', we reduce the types to 'string[]' and 'T'.
-                    var reducedSource = reduceUnionOrIntersectionType(source, target);
-                    var reducedTarget = reduceUnionOrIntersectionType(target, source);
-                    source = reducedSource;
-                    target = reducedTarget;
+                    // Source and target are both unions or both intersections. First, find each
+                    // target constituent type that has an identically matching source constituent
+                    // type, and for each such target constituent type infer from the type to itself.
+                    // When inferring from a type to itself we effectively find all type parameter
+                    // occurrences within that type and infer themselves as their type arguments.
+                    var matchingTypes;
+                    for (var _i = 0, _a = target.types; _i < _a.length; _i++) {
+                        var t = _a[_i];
+                        if (typeIdenticalToSomeType(t, source.types)) {
+                            (matchingTypes || (matchingTypes = [])).push(t);
+                            inferFromTypes(t, t);
+                        }
+                    }
+                    // Next, to improve the quality of inferences, reduce the source and target types by
+                    // removing the identically matched constituents. For example, when inferring from
+                    // 'string | string[]' to 'string | T' we reduce the types to 'string[]' and 'T'.
+                    if (matchingTypes) {
+                        source = removeTypesFromUnionOrIntersection(source, matchingTypes);
+                        target = removeTypesFromUnionOrIntersection(target, matchingTypes);
+                    }
                 }
                 if (target.flags & 512 /* TypeParameter */) {
                     // If target is a type parameter, make an inference, unless the source type contains
@@ -19770,8 +19782,8 @@ var ts;
                     var typeParameterCount = 0;
                     var typeParameter;
                     // First infer to each type in union or intersection that isn't a type parameter
-                    for (var _i = 0, targetTypes_2 = targetTypes; _i < targetTypes_2.length; _i++) {
-                        var t = targetTypes_2[_i];
+                    for (var _b = 0, targetTypes_2 = targetTypes; _b < targetTypes_2.length; _b++) {
+                        var t = targetTypes_2[_b];
                         if (t.flags & 512 /* TypeParameter */ && ts.contains(context.typeParameters, t)) {
                             typeParameter = t;
                             typeParameterCount++;
@@ -19793,8 +19805,8 @@ var ts;
                 else if (source.flags & 49152 /* UnionOrIntersection */) {
                     // Source is a union or intersection type, infer from each consituent type
                     var sourceTypes = source.types;
-                    for (var _a = 0, sourceTypes_3 = sourceTypes; _a < sourceTypes_3.length; _a++) {
-                        var sourceType = sourceTypes_3[_a];
+                    for (var _c = 0, sourceTypes_3 = sourceTypes; _c < sourceTypes_3.length; _c++) {
+                        var sourceType = sourceTypes_3[_c];
                         inferFromTypes(sourceType, target);
                     }
                 }
@@ -19872,39 +19884,28 @@ var ts;
                 }
             }
         }
-        function typeIdenticalToSomeType(source, target) {
-            for (var _i = 0, _a = target.types; _i < _a.length; _i++) {
-                var t = _a[_i];
-                if (isTypeIdenticalTo(source, t)) {
+        function typeIdenticalToSomeType(type, types) {
+            for (var _i = 0, types_7 = types; _i < types_7.length; _i++) {
+                var t = types_7[_i];
+                if (isTypeIdenticalTo(t, type)) {
                     return true;
                 }
             }
             return false;
         }
         /**
-         * Return the reduced form of the source type. This type is computed by by removing all source
-         * constituents that have an identical match in the target type.
+         * Return a new union or intersection type computed by removing a given set of types
+         * from a given union or intersection type.
          */
-        function reduceUnionOrIntersectionType(source, target) {
-            var sourceTypes = source.types;
-            var sourceIndex = 0;
-            var modified = false;
-            while (sourceIndex < sourceTypes.length) {
-                if (typeIdenticalToSomeType(sourceTypes[sourceIndex], target)) {
-                    if (!modified) {
-                        sourceTypes = sourceTypes.slice(0);
-                        modified = true;
-                    }
-                    sourceTypes.splice(sourceIndex, 1);
-                }
-                else {
-                    sourceIndex++;
+        function removeTypesFromUnionOrIntersection(type, typesToRemove) {
+            var reducedTypes = [];
+            for (var _i = 0, _a = type.types; _i < _a.length; _i++) {
+                var t = _a[_i];
+                if (!typeIdenticalToSomeType(t, typesToRemove)) {
+                    reducedTypes.push(t);
                 }
             }
-            if (modified) {
-                return source.flags & 16384 /* Union */ ? getUnionType(sourceTypes, /*noSubtypeReduction*/ true) : getIntersectionType(sourceTypes);
-            }
-            return source;
+            return type.flags & 16384 /* Union */ ? getUnionType(reducedTypes, /*noSubtypeReduction*/ true) : getIntersectionType(reducedTypes);
         }
         function getInferenceCandidates(context, index) {
             var inferences = context.inferences[index];
@@ -20689,8 +20690,8 @@ var ts;
             var types = type.types;
             var mappedType;
             var mappedTypes;
-            for (var _i = 0, types_7 = types; _i < types_7.length; _i++) {
-                var current = types_7[_i];
+            for (var _i = 0, types_8 = types; _i < types_8.length; _i++) {
+                var current = types_8[_i];
                 var t = mapper(current);
                 if (t) {
                     if (!mappedType) {
@@ -20900,8 +20901,8 @@ var ts;
             }
             var signatureList;
             var types = type.types;
-            for (var _i = 0, types_8 = types; _i < types_8.length; _i++) {
-                var current = types_8[_i];
+            for (var _i = 0, types_9 = types; _i < types_9.length; _i++) {
+                var current = types_9[_i];
                 var signature = getNonGenericSignature(current);
                 if (signature) {
                     if (!signatureList) {
@@ -23396,8 +23397,8 @@ var ts;
             }
             if (type.flags & 49152 /* UnionOrIntersection */) {
                 var types = type.types;
-                for (var _i = 0, types_9 = types; _i < types_9.length; _i++) {
-                    var current = types_9[_i];
+                for (var _i = 0, types_10 = types; _i < types_10.length; _i++) {
+                    var current = types_10[_i];
                     if (current.flags & kind) {
                         return true;
                     }
@@ -23413,8 +23414,8 @@ var ts;
             }
             if (type.flags & 49152 /* UnionOrIntersection */) {
                 var types = type.types;
-                for (var _i = 0, types_10 = types; _i < types_10.length; _i++) {
-                    var current = types_10[_i];
+                for (var _i = 0, types_11 = types; _i < types_11.length; _i++) {
+                    var current = types_11[_i];
                     if (!(current.flags & kind)) {
                         return false;
                     }
