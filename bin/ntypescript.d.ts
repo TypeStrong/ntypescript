@@ -3030,7 +3030,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Cannot_compile_modules_unless_the_module_flag_is_provided: {
+        Cannot_compile_modules_unless_the_module_flag_is_provided_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -3559,6 +3559,12 @@ declare namespace ts {
             message: string;
         };
         A_type_literal_property_cannot_have_an_initializer: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        A_class_member_cannot_have_the_0_keyword: {
             code: number;
             category: DiagnosticCategory;
             key: string;

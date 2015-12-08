@@ -435,7 +435,7 @@
         "category": "Error",
         "code": 1147
     },
-    "Cannot compile modules unless the '--module' flag is provided.": {
+    "Cannot compile modules unless the '--module' flag is provided. Consider setting the 'module' compiler option in a 'tsconfig.json' file.": {
         "category": "Error",
         "code": 1148
     },
@@ -791,7 +791,10 @@
         "category": "Error",
         "code": 1247
     },
-
+    "A class member cannot have the '{0}' keyword.": {
+        "category": "Error",
+        "code": 1248
+    },
     "'with' statements are not allowed in an async function block.": {
         "category": "Error",
         "code": 1300

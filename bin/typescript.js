@@ -4736,7 +4736,7 @@ var ts;
         Modifiers_not_permitted_on_index_signature_members: { code: 1145, category: ts.DiagnosticCategory.Error, key: "Modifiers_not_permitted_on_index_signature_members_1145", message: "Modifiers not permitted on index signature members." },
         Declaration_expected: { code: 1146, category: ts.DiagnosticCategory.Error, key: "Declaration_expected_1146", message: "Declaration expected." },
         Import_declarations_in_a_namespace_cannot_reference_a_module: { code: 1147, category: ts.DiagnosticCategory.Error, key: "Import_declarations_in_a_namespace_cannot_reference_a_module_1147", message: "Import declarations in a namespace cannot reference a module." },
-        Cannot_compile_modules_unless_the_module_flag_is_provided: { code: 1148, category: ts.DiagnosticCategory.Error, key: "Cannot_compile_modules_unless_the_module_flag_is_provided_1148", message: "Cannot compile modules unless the '--module' flag is provided." },
+        Cannot_compile_modules_unless_the_module_flag_is_provided_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file: { code: 1148, category: ts.DiagnosticCategory.Error, key: "Cannot_compile_modules_unless_the_module_flag_is_provided_Consider_setting_the_module_compiler_optio_1148", message: "Cannot compile modules unless the '--module' flag is provided. Consider setting the 'module' compiler option in a 'tsconfig.json' file." },
         File_name_0_differs_from_already_included_file_name_1_only_in_casing: { code: 1149, category: ts.DiagnosticCategory.Error, key: "File_name_0_differs_from_already_included_file_name_1_only_in_casing_1149", message: "File name '{0}' differs from already included file name '{1}' only in casing" },
         new_T_cannot_be_used_to_create_an_array_Use_new_Array_T_instead: { code: 1150, category: ts.DiagnosticCategory.Error, key: "new_T_cannot_be_used_to_create_an_array_Use_new_Array_T_instead_1150", message: "'new T[]' cannot be used to create an array. Use 'new Array<T>()' instead." },
         const_declarations_must_be_initialized: { code: 1155, category: ts.DiagnosticCategory.Error, key: "const_declarations_must_be_initialized_1155", message: "'const' declarations must be initialized" },
@@ -4825,6 +4825,7 @@ var ts;
         Method_0_cannot_have_an_implementation_because_it_is_marked_abstract: { code: 1245, category: ts.DiagnosticCategory.Error, key: "Method_0_cannot_have_an_implementation_because_it_is_marked_abstract_1245", message: "Method '{0}' cannot have an implementation because it is marked abstract." },
         An_interface_property_cannot_have_an_initializer: { code: 1246, category: ts.DiagnosticCategory.Error, key: "An_interface_property_cannot_have_an_initializer_1246", message: "An interface property cannot have an initializer." },
         A_type_literal_property_cannot_have_an_initializer: { code: 1247, category: ts.DiagnosticCategory.Error, key: "A_type_literal_property_cannot_have_an_initializer_1247", message: "A type literal property cannot have an initializer." },
+        A_class_member_cannot_have_the_0_keyword: { code: 1248, category: ts.DiagnosticCategory.Error, key: "A_class_member_cannot_have_the_0_keyword_1248", message: "A class member cannot have the '{0}' keyword." },
         with_statements_are_not_allowed_in_an_async_function_block: { code: 1300, category: ts.DiagnosticCategory.Error, key: "with_statements_are_not_allowed_in_an_async_function_block_1300", message: "'with' statements are not allowed in an async function block." },
         await_expression_is_only_allowed_within_an_async_function: { code: 1308, category: ts.DiagnosticCategory.Error, key: "await_expression_is_only_allowed_within_an_async_function_1308", message: "'await' expression is only allowed within an async function." },
         Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: { code: 1311, category: ts.DiagnosticCategory.Error, key: "Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher_1311", message: "Async functions are only available when targeting ECMAScript 6 and higher." },
@@ -7802,6 +7803,13 @@ var ts;
         function parseContextualModifier(t) {
             return token === t && tryParse(nextTokenCanFollowModifier);
         }
+        function nextTokenIsOnSameLineAndCanFollowModifier() {
+            nextToken();
+            if (scanner.hasPrecedingLineBreak()) {
+                return false;
+            }
+            return canFollowModifier();
+        }
         function nextTokenCanFollowModifier() {
             if (token === 74 /* ConstKeyword */) {
                 // 'const' is only a modifier if followed by 'enum'.
@@ -7821,11 +7829,7 @@ var ts;
                 nextToken();
                 return canFollowModifier();
             }
-            nextToken();
-            if (scanner.hasPrecedingLineBreak()) {
-                return false;
-            }
-            return canFollowModifier();
+            return nextTokenIsOnSameLineAndCanFollowModifier();
         }
         function parseAnyContextualModifier() {
             return ts.isModifierKind(token) && tryParse(nextTokenCanFollowModifier);
@@ -11124,14 +11128,30 @@ var ts;
             }
             return decorators;
         }
-        function parseModifiers() {
+        /*
+         * There are situations in which a modifier like 'const' will appear unexpectedly, such as on a class member.
+         * In those situations, if we are entirely sure that 'const' is not valid on its own (such as when ASI takes effect
+         * and turns it into a standalone declaration), then it is better to parse it and report an error later.
+         *
+         * In such situations, 'permitInvalidConstAsModifier' should be set to true.
+         */
+        function parseModifiers(permitInvalidConstAsModifier) {
             var flags = 0;
             var modifiers;
             while (true) {
                 var modifierStart = scanner.getStartPos();
                 var modifierKind = token;
-                if (!parseAnyContextualModifier()) {
-                    break;
+                if (token === 74 /* ConstKeyword */ && permitInvalidConstAsModifier) {
+                    // We need to ensure that any subsequent modifiers appear on the same line
+                    // so that when 'const' is a standalone declaration, we don't issue an error.                
+                    if (!tryParse(nextTokenIsOnSameLineAndCanFollowModifier)) {
+                        break;
+                    }
+                }
+                else {
+                    if (!parseAnyContextualModifier()) {
+                        break;
+                    }
                 }
                 if (!modifiers) {
                     modifiers = [];
@@ -11170,7 +11190,7 @@ var ts;
             }
             var fullStart = getNodePos();
             var decorators = parseDecorators();
-            var modifiers = parseModifiers();
+            var modifiers = parseModifiers(/*permitInvalidConstAsModifier*/ true);
             var accessor = tryParseAccessorDeclaration(fullStart, decorators, modifiers);
             if (accessor) {
                 return accessor;
@@ -28035,6 +28055,11 @@ var ts;
             for (var _i = 0, _a = node.modifiers; _i < _a.length; _i++) {
                 var modifier = _a[_i];
                 switch (modifier.kind) {
+                    case 74 /* ConstKeyword */:
+                        if (node.kind !== 219 /* EnumDeclaration */ && node.parent.kind === 216 /* ClassDeclaration */) {
+                            return grammarErrorOnNode(node, ts.Diagnostics.A_class_member_cannot_have_the_0_keyword, ts.tokenToString(74 /* ConstKeyword */));
+                        }
+                        break;
                     case 112 /* PublicKeyword */:
                     case 111 /* ProtectedKeyword */:
                     case 110 /* PrivateKeyword */:
@@ -32529,6 +32554,7 @@ var ts;
                     case 202 /* ForInStatement */:
                     case 203 /* ForOfStatement */:
                     case 198 /* IfStatement */:
+                    case 239 /* JsxClosingElement */:
                     case 236 /* JsxSelfClosingElement */:
                     case 237 /* JsxOpeningElement */:
                     case 241 /* JsxSpreadAttribute */:
@@ -38344,7 +38370,7 @@ var ts;
                 // gracefully handle if readFile fails or returns not JSON 
                 jsonContent = { typings: undefined };
             }
-            if (jsonContent.typings) {
+            if (typeof jsonContent.typings === "string") {
                 var result = loadNodeModuleFromFile(extensions, ts.normalizePath(ts.combinePaths(candidate, jsonContent.typings)), failedLookupLocation, host);
                 if (result) {
                     return result;
@@ -39319,7 +39345,7 @@ var ts;
             else if (firstExternalModuleSourceFile && languageVersion < 2 /* ES6 */ && !options.module) {
                 // We cannot use createDiagnosticFromNode because nodes do not have parents yet
                 var span = ts.getErrorSpanForNode(firstExternalModuleSourceFile, firstExternalModuleSourceFile.externalModuleIndicator);
-                programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_unless_the_module_flag_is_provided));
+                programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_unless_the_module_flag_is_provided_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file));
             }
             // Cannot specify module gen target of es6 when below es6
             if (options.module === 5 /* ES6 */ && languageVersion < 2 /* ES6 */) {
@@ -45368,6 +45394,7 @@ var ts;
                     case 160 /* ParenthesizedType */:
                     case 172 /* TaggedTemplateExpression */:
                     case 180 /* AwaitExpression */:
+                    case 227 /* NamedImports */:
                         return true;
                 }
                 return false;
@@ -48130,7 +48157,8 @@ var ts;
                     // Ignore omitted expressions for missing members
                     if (m.kind !== 247 /* PropertyAssignment */ &&
                         m.kind !== 248 /* ShorthandPropertyAssignment */ &&
-                        m.kind !== 165 /* BindingElement */) {
+                        m.kind !== 165 /* BindingElement */ &&
+                        m.kind !== 143 /* MethodDeclaration */) {
                         continue;
                     }
                     // If this is the current item we are editing right now, do not filter it out
