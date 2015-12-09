@@ -9991,7 +9991,7 @@ var ts;
             var node = createNode(242 /* JsxExpression */);
             parseExpected(15 /* OpenBraceToken */);
             if (token !== 16 /* CloseBraceToken */) {
-                node.expression = parseExpression();
+                node.expression = parseAssignmentExpressionOrHigher();
             }
             if (inExpressionContext) {
                 parseExpected(16 /* CloseBraceToken */);
@@ -10294,6 +10294,7 @@ var ts;
             }
             else {
                 var propertyAssignment = createNode(247 /* PropertyAssignment */, fullStart);
+                propertyAssignment.modifiers = modifiers;
                 propertyAssignment.name = propertyName;
                 propertyAssignment.questionToken = questionToken;
                 parseExpected(54 /* ColonToken */);
@@ -27628,6 +27629,30 @@ var ts;
         function isArgumentsLocalBinding(node) {
             return getReferencedValueSymbol(node) === argumentsSymbol;
         }
+        function moduleExportsSomeValue(moduleReferenceExpression) {
+            var moduleSymbol = resolveExternalModuleName(moduleReferenceExpression.parent, moduleReferenceExpression);
+            if (!moduleSymbol) {
+                // module not found - be conservative
+                return true;
+            }
+            var hasExportAssignment = getExportAssignmentSymbol(moduleSymbol) !== undefined;
+            // if module has export assignment then 'resolveExternalModuleSymbol' will return resolved symbol for export assignment
+            // otherwise it will return moduleSymbol itself
+            moduleSymbol = resolveExternalModuleSymbol(moduleSymbol);
+            var symbolLinks = getSymbolLinks(moduleSymbol);
+            if (symbolLinks.exportsSomeValue === undefined) {
+                // for export assignments - check if resolved symbol for RHS is itself a value
+                // otherwise - check if at least one export is value
+                symbolLinks.exportsSomeValue = hasExportAssignment
+                    ? !!(moduleSymbol.flags & 107455 /* Value */)
+                    : ts.forEachValue(getExportsOfModule(moduleSymbol), isValue);
+            }
+            return symbolLinks.exportsSomeValue;
+            function isValue(s) {
+                s = resolveSymbol(s);
+                return s && !!(s.flags & 107455 /* Value */);
+            }
+        }
         // When resolved as an expression identifier, if the given node references an exported entity, return the declaration
         // node of the exported entity's container. Otherwise, return undefined.
         function getReferencedExportContainer(node) {
@@ -27901,6 +27926,7 @@ var ts;
                 getReferencedValueDeclaration: getReferencedValueDeclaration,
                 getTypeReferenceSerializationKind: getTypeReferenceSerializationKind,
                 isOptionalParameter: isOptionalParameter,
+                moduleExportsSomeValue: moduleExportsSomeValue,
                 isArgumentsLocalBinding: isArgumentsLocalBinding,
                 getExternalModuleFileFromDeclaration: getExternalModuleFileFromDeclaration
             };
@@ -28470,20 +28496,25 @@ var ts;
             var GetAccessor = 2;
             var SetAccesor = 4;
             var GetOrSetAccessor = GetAccessor | SetAccesor;
-            for (var _i = 0, _a = node.properties; _i < _a.length; _i++) {
-                var prop = _a[_i];
+            var _loop_1 = function(prop) {
                 var name_16 = prop.name;
                 if (prop.kind === 189 /* OmittedExpression */ ||
                     name_16.kind === 136 /* ComputedPropertyName */) {
                     // If the name is not a ComputedPropertyName, the grammar checking will skip it
                     checkGrammarComputedPropertyName(name_16);
-                    continue;
+                    return "continue";
                 }
                 if (prop.kind === 248 /* ShorthandPropertyAssignment */ && !inDestructuring && prop.objectAssignmentInitializer) {
                     // having objectAssignmentInitializer is only valid in ObjectAssignmentPattern
                     // outside of destructuring it is a syntax error
-                    return grammarErrorOnNode(prop.equalsToken, ts.Diagnostics.can_only_be_used_in_an_object_literal_property_inside_a_destructuring_assignment);
+                    return { value: grammarErrorOnNode(prop.equalsToken, ts.Diagnostics.can_only_be_used_in_an_object_literal_property_inside_a_destructuring_assignment) };
                 }
+                // Modifiers are never allowed on properties except for 'async' on a method declaration
+                ts.forEach(prop.modifiers, function (mod) {
+                    if (mod.kind !== 118 /* AsyncKeyword */ || prop.kind !== 143 /* MethodDeclaration */) {
+                        grammarErrorOnNode(mod, ts.Diagnostics._0_modifier_cannot_be_used_here, ts.getTextOfNode(mod));
+                    }
+                });
                 // ECMA-262 11.1.5 Object Initialiser
                 // If previous is not undefined then throw a SyntaxError exception if any of the following conditions are true
                 // a.This production is contained in strict code and IsDataDescriptor(previous) is true and
@@ -28519,20 +28550,26 @@ var ts;
                 else {
                     var existingKind = seen[name_16.text];
                     if (currentKind === Property && existingKind === Property) {
-                        continue;
+                        return "continue";
                     }
                     else if ((currentKind & GetOrSetAccessor) && (existingKind & GetOrSetAccessor)) {
                         if (existingKind !== GetOrSetAccessor && currentKind !== existingKind) {
                             seen[name_16.text] = currentKind | existingKind;
                         }
                         else {
-                            return grammarErrorOnNode(name_16, ts.Diagnostics.An_object_literal_cannot_have_multiple_get_Slashset_accessors_with_the_same_name);
+                            return { value: grammarErrorOnNode(name_16, ts.Diagnostics.An_object_literal_cannot_have_multiple_get_Slashset_accessors_with_the_same_name) };
                         }
                     }
                     else {
-                        return grammarErrorOnNode(name_16, ts.Diagnostics.An_object_literal_cannot_have_property_and_accessor_with_the_same_name);
+                        return { value: grammarErrorOnNode(name_16, ts.Diagnostics.An_object_literal_cannot_have_property_and_accessor_with_the_same_name) };
                     }
                 }
+            };
+            for (var _i = 0, _a = node.properties; _i < _a.length; _i++) {
+                var prop = _a[_i];
+                var state_1 = _loop_1(prop);
+                if (typeof state_1 === "object") return state_1.value
+                if (state_1 === "continue") continue;
             }
         }
         function checkGrammarJsxElement(node) {
@@ -31720,7 +31757,7 @@ var ts;
             var externalImports;
             var exportSpecifiers;
             var exportEquals;
-            var hasExportStars;
+            var hasExportStarsToExportValues;
             var detachedCommentsInfo;
             /** Sourcemap data that will get encoded */
             var sourceMapData;
@@ -31783,7 +31820,7 @@ var ts;
                 externalImports = undefined;
                 exportSpecifiers = undefined;
                 exportEquals = undefined;
-                hasExportStars = undefined;
+                hasExportStarsToExportValues = undefined;
                 detachedCommentsInfo = undefined;
                 sourceMapData = undefined;
                 isEs6Module = false;
@@ -36832,15 +36869,17 @@ var ts;
                         }
                         else {
                             // export * from "foo"
-                            writeLine();
-                            write("__export(");
-                            if (modulekind !== 2 /* AMD */) {
-                                emitRequire(ts.getExternalModuleName(node));
+                            if (hasExportStarsToExportValues && resolver.moduleExportsSomeValue(node.moduleSpecifier)) {
+                                writeLine();
+                                write("__export(");
+                                if (modulekind !== 2 /* AMD */) {
+                                    emitRequire(ts.getExternalModuleName(node));
+                                }
+                                else {
+                                    write(generatedName);
+                                }
+                                write(");");
                             }
-                            else {
-                                write(generatedName);
-                            }
-                            write(");");
                         }
                         emitEnd(node);
                     }
@@ -36925,7 +36964,7 @@ var ts;
                 externalImports = [];
                 exportSpecifiers = {};
                 exportEquals = undefined;
-                hasExportStars = false;
+                hasExportStarsToExportValues = false;
                 for (var _a = 0, _b = sourceFile.statements; _a < _b.length; _a++) {
                     var node = _b[_a];
                     switch (node.kind) {
@@ -36949,8 +36988,10 @@ var ts;
                             if (node.moduleSpecifier) {
                                 if (!node.exportClause) {
                                     // export * from "mod"
-                                    externalImports.push(node);
-                                    hasExportStars = true;
+                                    if (resolver.moduleExportsSomeValue(node.moduleSpecifier)) {
+                                        externalImports.push(node);
+                                        hasExportStarsToExportValues = true;
+                                    }
                                 }
                                 else if (resolver.isValueAliasDeclaration(node)) {
                                     // export { x, y } from "mod" where at least one export is a value symbol
@@ -36976,7 +37017,7 @@ var ts;
                 }
             }
             function emitExportStarHelper() {
-                if (hasExportStars) {
+                if (hasExportStarsToExportValues) {
                     writeLine();
                     write("function __export(m) {");
                     increaseIndent();
@@ -37044,7 +37085,7 @@ var ts;
                 // should always win over entries with similar names that were added via star exports
                 // to support this we store names of local/indirect exported entries in a set.
                 // this set is used to filter names brought by star expors.
-                if (!hasExportStars) {
+                if (!hasExportStarsToExportValues) {
                     // local names set is needed only in presence of star exports
                     return undefined;
                 }
@@ -37417,6 +37458,8 @@ var ts;
                                     write("});");
                                 }
                                 else {
+                                    // collectExternalModuleInfo prefilters star exports to keep only ones that export values
+                                    // this means that check 'resolver.moduleExportsSomeValue' is redundant and can be omitted here
                                     writeLine();
                                     // export * from 'foo'
                                     // emit as:
@@ -37651,7 +37694,7 @@ var ts;
                 externalImports = undefined;
                 exportSpecifiers = undefined;
                 exportEquals = undefined;
-                hasExportStars = false;
+                hasExportStarsToExportValues = false;
                 var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                 emitEmitHelpers(node);
                 emitCaptureThisForNodeIfNecessary(node);
@@ -37854,7 +37897,7 @@ var ts;
                     externalImports = undefined;
                     exportSpecifiers = undefined;
                     exportEquals = undefined;
-                    hasExportStars = false;
+                    hasExportStarsToExportValues = false;
                     emitEmitHelpers(node);
                     emitCaptureThisForNodeIfNecessary(node);
                     emitLinesStartingAt(node.statements, startIndex);
@@ -43335,6 +43378,7 @@ var ts;
                 // Treat string literals in module names as identifiers, and add a space between the literal and the opening Brace braces, e.g.: module "m2" {
                 this.SpaceAfterModuleName = new formatting.Rule(formatting.RuleDescriptor.create1(9 /* StringLiteral */, 15 /* OpenBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsModuleDeclContext), 2 /* Space */));
                 // Lambda expressions
+                this.SpaceBeforeArrow = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 34 /* EqualsGreaterThanToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 this.SpaceAfterArrow = new formatting.Rule(formatting.RuleDescriptor.create3(34 /* EqualsGreaterThanToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 // Optional parameters and let args
                 this.NoSpaceAfterEllipsis = new formatting.Rule(formatting.RuleDescriptor.create1(22 /* DotDotDotToken */, 69 /* Identifier */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
@@ -43364,63 +43408,61 @@ var ts;
                 this.NoSpaceAfterTemplateHeadAndMiddle = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([12 /* TemplateHead */, 13 /* TemplateMiddle */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 this.NoSpaceBeforeTemplateMiddleAndTail = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([13 /* TemplateMiddle */, 14 /* TemplateTail */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 // These rules are higher in priority than user-configurable rules.
-                this.HighPriorityCommonRules =
-                    [
-                        this.IgnoreBeforeComment, this.IgnoreAfterLineComment,
-                        this.NoSpaceBeforeColon, this.SpaceAfterColon, this.NoSpaceBeforeQuestionMark, this.SpaceAfterQuestionMarkInConditionalOperator,
-                        this.NoSpaceAfterQuestionMark,
-                        this.NoSpaceBeforeDot, this.NoSpaceAfterDot,
-                        this.NoSpaceAfterUnaryPrefixOperator,
-                        this.NoSpaceAfterUnaryPreincrementOperator, this.NoSpaceAfterUnaryPredecrementOperator,
-                        this.NoSpaceBeforeUnaryPostincrementOperator, this.NoSpaceBeforeUnaryPostdecrementOperator,
-                        this.SpaceAfterPostincrementWhenFollowedByAdd,
-                        this.SpaceAfterAddWhenFollowedByUnaryPlus, this.SpaceAfterAddWhenFollowedByPreincrement,
-                        this.SpaceAfterPostdecrementWhenFollowedBySubtract,
-                        this.SpaceAfterSubtractWhenFollowedByUnaryMinus, this.SpaceAfterSubtractWhenFollowedByPredecrement,
-                        this.NoSpaceAfterCloseBrace,
-                        this.SpaceAfterOpenBrace, this.SpaceBeforeCloseBrace, this.NewLineBeforeCloseBraceInBlockContext,
-                        this.SpaceAfterCloseBrace, this.SpaceBetweenCloseBraceAndElse, this.SpaceBetweenCloseBraceAndWhile, this.NoSpaceBetweenEmptyBraceBrackets,
-                        this.NoSpaceBetweenFunctionKeywordAndStar, this.SpaceAfterStarInGeneratorDeclaration,
-                        this.SpaceAfterFunctionInFuncDecl, this.NewLineAfterOpenBraceInBlockContext, this.SpaceAfterGetSetInMember,
-                        this.NoSpaceBetweenYieldKeywordAndStar, this.SpaceBetweenYieldOrYieldStarAndOperand,
-                        this.NoSpaceBetweenReturnAndSemicolon,
-                        this.SpaceAfterCertainKeywords,
-                        this.SpaceAfterLetConstInVariableDeclaration,
-                        this.NoSpaceBeforeOpenParenInFuncCall,
-                        this.SpaceBeforeBinaryKeywordOperator, this.SpaceAfterBinaryKeywordOperator,
-                        this.SpaceAfterVoidOperator,
-                        this.SpaceBetweenAsyncAndOpenParen, this.SpaceBetweenAsyncAndFunctionKeyword,
-                        this.SpaceBetweenTagAndTemplateString, this.NoSpaceAfterTemplateHeadAndMiddle, this.NoSpaceBeforeTemplateMiddleAndTail,
-                        // TypeScript-specific rules
-                        this.NoSpaceAfterConstructor, this.NoSpaceAfterModuleImport,
-                        this.SpaceAfterCertainTypeScriptKeywords, this.SpaceBeforeCertainTypeScriptKeywords,
-                        this.SpaceAfterModuleName,
-                        this.SpaceAfterArrow,
-                        this.NoSpaceAfterEllipsis,
-                        this.NoSpaceAfterOptionalParameters,
-                        this.NoSpaceBetweenEmptyInterfaceBraceBrackets,
-                        this.NoSpaceBeforeOpenAngularBracket,
-                        this.NoSpaceBetweenCloseParenAndAngularBracket,
-                        this.NoSpaceAfterOpenAngularBracket,
-                        this.NoSpaceBeforeCloseAngularBracket,
-                        this.NoSpaceAfterCloseAngularBracket,
-                        this.NoSpaceAfterTypeAssertion,
-                        this.SpaceBeforeAt,
-                        this.NoSpaceAfterAt,
-                        this.SpaceAfterDecorator,
-                    ];
+                this.HighPriorityCommonRules = [
+                    this.IgnoreBeforeComment, this.IgnoreAfterLineComment,
+                    this.NoSpaceBeforeColon, this.SpaceAfterColon, this.NoSpaceBeforeQuestionMark, this.SpaceAfterQuestionMarkInConditionalOperator,
+                    this.NoSpaceAfterQuestionMark,
+                    this.NoSpaceBeforeDot, this.NoSpaceAfterDot,
+                    this.NoSpaceAfterUnaryPrefixOperator,
+                    this.NoSpaceAfterUnaryPreincrementOperator, this.NoSpaceAfterUnaryPredecrementOperator,
+                    this.NoSpaceBeforeUnaryPostincrementOperator, this.NoSpaceBeforeUnaryPostdecrementOperator,
+                    this.SpaceAfterPostincrementWhenFollowedByAdd,
+                    this.SpaceAfterAddWhenFollowedByUnaryPlus, this.SpaceAfterAddWhenFollowedByPreincrement,
+                    this.SpaceAfterPostdecrementWhenFollowedBySubtract,
+                    this.SpaceAfterSubtractWhenFollowedByUnaryMinus, this.SpaceAfterSubtractWhenFollowedByPredecrement,
+                    this.NoSpaceAfterCloseBrace,
+                    this.SpaceAfterOpenBrace, this.SpaceBeforeCloseBrace, this.NewLineBeforeCloseBraceInBlockContext,
+                    this.SpaceAfterCloseBrace, this.SpaceBetweenCloseBraceAndElse, this.SpaceBetweenCloseBraceAndWhile, this.NoSpaceBetweenEmptyBraceBrackets,
+                    this.NoSpaceBetweenFunctionKeywordAndStar, this.SpaceAfterStarInGeneratorDeclaration,
+                    this.SpaceAfterFunctionInFuncDecl, this.NewLineAfterOpenBraceInBlockContext, this.SpaceAfterGetSetInMember,
+                    this.NoSpaceBetweenYieldKeywordAndStar, this.SpaceBetweenYieldOrYieldStarAndOperand,
+                    this.NoSpaceBetweenReturnAndSemicolon,
+                    this.SpaceAfterCertainKeywords,
+                    this.SpaceAfterLetConstInVariableDeclaration,
+                    this.NoSpaceBeforeOpenParenInFuncCall,
+                    this.SpaceBeforeBinaryKeywordOperator, this.SpaceAfterBinaryKeywordOperator,
+                    this.SpaceAfterVoidOperator,
+                    this.SpaceBetweenAsyncAndOpenParen, this.SpaceBetweenAsyncAndFunctionKeyword,
+                    this.SpaceBetweenTagAndTemplateString, this.NoSpaceAfterTemplateHeadAndMiddle, this.NoSpaceBeforeTemplateMiddleAndTail,
+                    // TypeScript-specific rules
+                    this.NoSpaceAfterConstructor, this.NoSpaceAfterModuleImport,
+                    this.SpaceAfterCertainTypeScriptKeywords, this.SpaceBeforeCertainTypeScriptKeywords,
+                    this.SpaceAfterModuleName,
+                    this.SpaceBeforeArrow, this.SpaceAfterArrow,
+                    this.NoSpaceAfterEllipsis,
+                    this.NoSpaceAfterOptionalParameters,
+                    this.NoSpaceBetweenEmptyInterfaceBraceBrackets,
+                    this.NoSpaceBeforeOpenAngularBracket,
+                    this.NoSpaceBetweenCloseParenAndAngularBracket,
+                    this.NoSpaceAfterOpenAngularBracket,
+                    this.NoSpaceBeforeCloseAngularBracket,
+                    this.NoSpaceAfterCloseAngularBracket,
+                    this.NoSpaceAfterTypeAssertion,
+                    this.SpaceBeforeAt,
+                    this.NoSpaceAfterAt,
+                    this.SpaceAfterDecorator,
+                ];
                 // These rules are lower in priority than user-configurable rules.
-                this.LowPriorityCommonRules =
-                    [
-                        this.NoSpaceBeforeSemicolon,
-                        this.SpaceBeforeOpenBraceInControl, this.SpaceBeforeOpenBraceInFunction, this.SpaceBeforeOpenBraceInTypeScriptDeclWithBlock,
-                        this.NoSpaceBeforeComma,
-                        this.NoSpaceBeforeOpenBracket,
-                        this.NoSpaceAfterCloseBracket,
-                        this.SpaceAfterSemicolon,
-                        this.NoSpaceBeforeOpenParenInFuncDecl,
-                        this.SpaceBetweenStatements, this.SpaceAfterTryFinally
-                    ];
+                this.LowPriorityCommonRules = [
+                    this.NoSpaceBeforeSemicolon,
+                    this.SpaceBeforeOpenBraceInControl, this.SpaceBeforeOpenBraceInFunction, this.SpaceBeforeOpenBraceInTypeScriptDeclWithBlock,
+                    this.NoSpaceBeforeComma,
+                    this.NoSpaceBeforeOpenBracket,
+                    this.NoSpaceAfterCloseBracket,
+                    this.SpaceAfterSemicolon,
+                    this.NoSpaceBeforeOpenParenInFuncDecl,
+                    this.SpaceBetweenStatements, this.SpaceAfterTryFinally
+                ];
                 ///
                 /// Rules controlled by user options
                 ///
@@ -44316,17 +44358,17 @@ var ts;
          */
         function getOwnOrInheritedDelta(n, options, sourceFile) {
             var previousLine = -1 /* Unknown */;
-            var childKind = 0 /* Unknown */;
+            var child;
             while (n) {
                 var line = sourceFile.getLineAndCharacterOfPosition(n.getStart(sourceFile)).line;
                 if (previousLine !== -1 /* Unknown */ && line !== previousLine) {
                     break;
                 }
-                if (formatting.SmartIndenter.shouldIndentChildNode(n.kind, childKind)) {
+                if (formatting.SmartIndenter.shouldIndentChildNode(n, child)) {
                     return options.IndentSize;
                 }
                 previousLine = line;
-                childKind = n.kind;
+                child = n;
                 n = n.parent;
             }
             return 0;
@@ -44384,32 +44426,7 @@ var ts;
             }
             function computeIndentation(node, startLine, inheritedIndentation, parent, parentDynamicIndentation, effectiveParentStartLine) {
                 var indentation = inheritedIndentation;
-                if (indentation === -1 /* Unknown */) {
-                    if (isSomeBlock(node.kind)) {
-                        // blocks should be indented in 
-                        // - other blocks
-                        // - source file 
-                        // - switch\default clauses
-                        if (isSomeBlock(parent.kind) ||
-                            parent.kind === 250 /* SourceFile */ ||
-                            parent.kind === 243 /* CaseClause */ ||
-                            parent.kind === 244 /* DefaultClause */) {
-                            indentation = parentDynamicIndentation.getIndentation() + parentDynamicIndentation.getDelta();
-                        }
-                        else {
-                            indentation = parentDynamicIndentation.getIndentation();
-                        }
-                    }
-                    else {
-                        if (formatting.SmartIndenter.childStartsOnTheSameLineWithElseInIfStatement(parent, node, startLine, sourceFile)) {
-                            indentation = parentDynamicIndentation.getIndentation();
-                        }
-                        else {
-                            indentation = parentDynamicIndentation.getIndentation() + parentDynamicIndentation.getDelta();
-                        }
-                    }
-                }
-                var delta = formatting.SmartIndenter.shouldIndentChildNode(node.kind, 0 /* Unknown */) ? options.IndentSize : 0;
+                var delta = formatting.SmartIndenter.shouldIndentChildNode(node) ? options.IndentSize : 0;
                 if (effectiveParentStartLine === startLine) {
                     // if node is located on the same line with the parent
                     // - inherit indentation from the parent
@@ -44417,7 +44434,15 @@ var ts;
                     indentation = startLine === lastIndentedLine
                         ? indentationOnLastIndentedLine
                         : parentDynamicIndentation.getIndentation();
-                    delta = Math.min(options.IndentSize, parentDynamicIndentation.getDelta() + delta);
+                    delta = Math.min(options.IndentSize, parentDynamicIndentation.getDelta(node) + delta);
+                }
+                else if (indentation === -1 /* Unknown */) {
+                    if (formatting.SmartIndenter.childStartsOnTheSameLineWithElseInIfStatement(parent, node, startLine, sourceFile)) {
+                        indentation = parentDynamicIndentation.getIndentation();
+                    }
+                    else {
+                        indentation = parentDynamicIndentation.getIndentation() + parentDynamicIndentation.getDelta(node);
+                    }
                 }
                 return {
                     indentation: indentation,
@@ -44447,7 +44472,7 @@ var ts;
             }
             function getDynamicIndentation(node, nodeStartLine, indentation, delta) {
                 return {
-                    getIndentationForComment: function (kind, tokenIndentation) {
+                    getIndentationForComment: function (kind, tokenIndentation, container) {
                         switch (kind) {
                             // preceding comment to the token that closes the indentation scope inherits the indentation from the scope
                             // ..  {
@@ -44456,11 +44481,11 @@ var ts;
                             case 16 /* CloseBraceToken */:
                             case 20 /* CloseBracketToken */:
                             case 18 /* CloseParenToken */:
-                                return indentation + delta;
+                                return indentation + getEffectiveDelta(delta, container);
                         }
                         return tokenIndentation !== -1 /* Unknown */ ? tokenIndentation : indentation;
                     },
-                    getIndentationForToken: function (line, kind) {
+                    getIndentationForToken: function (line, kind, container) {
                         if (nodeStartLine !== line && node.decorators) {
                             if (kind === getFirstNonDecoratorTokenOfNode(node)) {
                                 // if this token is the first token following the list of decorators, we do not need to indent
@@ -44481,28 +44506,32 @@ var ts;
                                 return indentation;
                             default:
                                 // if token line equals to the line of containing node (this is a first token in the node) - use node indentation
-                                return nodeStartLine !== line ? indentation + delta : indentation;
+                                return nodeStartLine !== line ? indentation + getEffectiveDelta(delta, container) : indentation;
                         }
                     },
                     getIndentation: function () { return indentation; },
-                    getDelta: function () { return delta; },
+                    getDelta: function (child) { return getEffectiveDelta(delta, child); },
                     recomputeIndentation: function (lineAdded) {
-                        if (node.parent && formatting.SmartIndenter.shouldIndentChildNode(node.parent.kind, node.kind)) {
+                        if (node.parent && formatting.SmartIndenter.shouldIndentChildNode(node.parent, node)) {
                             if (lineAdded) {
                                 indentation += options.IndentSize;
                             }
                             else {
                                 indentation -= options.IndentSize;
                             }
-                            if (formatting.SmartIndenter.shouldIndentChildNode(node.kind, 0 /* Unknown */)) {
+                            if (formatting.SmartIndenter.shouldIndentChildNode(node)) {
                                 delta = options.IndentSize;
                             }
                             else {
                                 delta = 0;
                             }
                         }
-                    },
+                    }
                 };
+                function getEffectiveDelta(delta, child) {
+                    // Delta value should be zero when the node explicitly prevents indentation of the child node
+                    return formatting.SmartIndenter.nodeWillIndentChild(node, child, true) ? delta : 0;
+                }
             }
             function processNode(node, contextNode, nodeStartLine, undecoratedNodeStartLine, indentation, delta) {
                 if (!ts.rangeOverlapsWithStartEnd(originalRange, node.getStart(sourceFile), node.getEnd())) {
@@ -44574,7 +44603,7 @@ var ts;
                         // if child node is a token, it does not impact indentation, proceed it using parent indentation scope rules
                         var tokenInfo = formattingScanner.readTokenInfo(child);
                         ts.Debug.assert(tokenInfo.token.end === child.end);
-                        consumeTokenAndAdvanceScanner(tokenInfo, node, parentDynamicIndentation);
+                        consumeTokenAndAdvanceScanner(tokenInfo, node, parentDynamicIndentation, child);
                         return inheritedIndentation;
                     }
                     var effectiveParentStartLine = child.kind === 139 /* Decorator */ ? childStartLine : undecoratedParentStartLine;
@@ -44628,7 +44657,7 @@ var ts;
                         }
                     }
                 }
-                function consumeTokenAndAdvanceScanner(currentTokenInfo, parent, dynamicIndentation) {
+                function consumeTokenAndAdvanceScanner(currentTokenInfo, parent, dynamicIndentation, container) {
                     ts.Debug.assert(ts.rangeContainsRange(parent, currentTokenInfo.token));
                     var lastTriviaWasNewLine = formattingScanner.lastTrailingTriviaWasNewLine();
                     var indentToken = false;
@@ -44663,10 +44692,10 @@ var ts;
                     }
                     if (indentToken) {
                         var tokenIndentation = (isTokenInRange && !rangeContainsError(currentTokenInfo.token)) ?
-                            dynamicIndentation.getIndentationForToken(tokenStart.line, currentTokenInfo.token.kind) :
+                            dynamicIndentation.getIndentationForToken(tokenStart.line, currentTokenInfo.token.kind, container) :
                             -1 /* Unknown */;
                         if (currentTokenInfo.leadingTrivia) {
-                            var commentIndentation = dynamicIndentation.getIndentationForComment(currentTokenInfo.token.kind, tokenIndentation);
+                            var commentIndentation = dynamicIndentation.getIndentationForComment(currentTokenInfo.token.kind, tokenIndentation, container);
                             var indentNextTokenOrTrivia = true;
                             for (var _i = 0, _a = currentTokenInfo.leadingTrivia; _i < _a.length; _i++) {
                                 var triviaItem = _a[_i];
@@ -45063,7 +45092,7 @@ var ts;
                 var currentStart;
                 var indentationDelta;
                 while (current) {
-                    if (ts.positionBelongsToNode(current, position, sourceFile) && shouldIndentChildNode(current.kind, previous ? previous.kind : 0 /* Unknown */)) {
+                    if (ts.positionBelongsToNode(current, position, sourceFile) && shouldIndentChildNode(current, previous)) {
                         currentStart = getStartLineAndCharacterForNode(current, sourceFile);
                         if (nextTokenIsCurlyBraceOnSameLineAsCursor(precedingToken, current, lineAtPosition, sourceFile)) {
                             indentationDelta = 0;
@@ -45130,7 +45159,7 @@ var ts;
                         }
                     }
                     // increase indentation if parent node wants its content to be indented and parent and child nodes don't start on the same line
-                    if (shouldIndentChildNode(parent.kind, current.kind) && !parentAndChildShareLine) {
+                    if (shouldIndentChildNode(parent, current) && !parentAndChildShareLine) {
                         indentationDelta += options.IndentSize;
                     }
                     current = parent;
@@ -45399,11 +45428,9 @@ var ts;
                 }
                 return false;
             }
-            function shouldIndentChildNode(parent, child) {
-                if (nodeContentIsAlwaysIndented(parent)) {
-                    return true;
-                }
-                switch (parent) {
+            function nodeWillIndentChild(parent, child, indentByDefault) {
+                var childKind = child ? child.kind : 0 /* Unknown */;
+                switch (parent.kind) {
                     case 199 /* DoStatement */:
                     case 200 /* WhileStatement */:
                     case 202 /* ForInStatement */:
@@ -45417,10 +45444,17 @@ var ts;
                     case 144 /* Constructor */:
                     case 145 /* GetAccessor */:
                     case 146 /* SetAccessor */:
-                        return child !== 194 /* Block */;
-                    default:
-                        return false;
+                        return childKind !== 194 /* Block */;
                 }
+                // No explicit rule for given nodes so the result will follow the default value argument
+                return indentByDefault;
+            }
+            SmartIndenter.nodeWillIndentChild = nodeWillIndentChild;
+            /*
+            Function returns true when the parent node should indent the given child by an explicit rule
+            */
+            function shouldIndentChildNode(parent, child) {
+                return nodeContentIsAlwaysIndented(parent.kind) || nodeWillIndentChild(parent, child, false);
             }
             SmartIndenter.shouldIndentChildNode = shouldIndentChildNode;
         })(SmartIndenter = formatting.SmartIndenter || (formatting.SmartIndenter = {}));

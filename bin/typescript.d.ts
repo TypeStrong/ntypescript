@@ -1301,6 +1301,7 @@ declare namespace ts {
         getReferencedValueDeclaration(reference: Identifier): Declaration;
         getTypeReferenceSerializationKind(typeName: EntityName): TypeReferenceSerializationKind;
         isOptionalParameter(node: ParameterDeclaration): boolean;
+        moduleExportsSomeValue(moduleReferenceExpression: Expression): boolean;
         isArgumentsLocalBinding(node: Identifier): boolean;
         getExternalModuleFileFromDeclaration(declaration: ImportEqualsDeclaration | ImportDeclaration | ExportDeclaration): SourceFile;
     }
@@ -1397,6 +1398,7 @@ declare namespace ts {
         exportsChecked?: boolean;
         isNestedRedeclaration?: boolean;
         bindingElement?: BindingElement;
+        exportsSomeValue?: boolean;
     }
     interface TransientSymbol extends Symbol, SymbolLinks {
     }
@@ -6677,6 +6679,7 @@ declare namespace ts.formatting {
         SpaceAfterCertainTypeScriptKeywords: Rule;
         SpaceBeforeCertainTypeScriptKeywords: Rule;
         SpaceAfterModuleName: Rule;
+        SpaceBeforeArrow: Rule;
         SpaceAfterArrow: Rule;
         NoSpaceAfterEllipsis: Rule;
         NoSpaceAfterOptionalParameters: Rule;
@@ -6900,7 +6903,8 @@ declare namespace ts.formatting {
             character: number;
         };
         function findFirstNonWhitespaceColumn(startPos: number, endPos: number, sourceFile: SourceFile, options: EditorOptions): number;
-        function shouldIndentChildNode(parent: SyntaxKind, child: SyntaxKind): boolean;
+        function nodeWillIndentChild(parent: TextRangeWithKind, child: TextRangeWithKind, indentByDefault: boolean): boolean;
+        function shouldIndentChildNode(parent: TextRangeWithKind, child?: TextRangeWithKind): boolean;
     }
 }
 declare namespace ts {
