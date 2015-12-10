@@ -549,6 +549,9 @@ declare namespace ts {
     interface TypeNode extends Node {
         _typeNodeBrand: any;
     }
+    interface ThisTypeNode extends TypeNode {
+        _thisTypeNodeBrand: any;
+    }
     interface FunctionOrConstructorTypeNode extends TypeNode, SignatureDeclaration {
         _functionOrConstructorTypeNodeBrand: any;
     }
@@ -561,7 +564,7 @@ declare namespace ts {
         typeArguments?: NodeArray<TypeNode>;
     }
     interface TypePredicateNode extends TypeNode {
-        parameterName: Identifier;
+        parameterName: Identifier | ThisTypeNode;
         type: TypeNode;
     }
     interface TypeQueryNode extends TypeNode {
@@ -1250,10 +1253,20 @@ declare namespace ts {
         NotAccessible = 1,
         CannotBeNamed = 2,
     }
+    const enum TypePredicateKind {
+        This = 0,
+        Identifier = 1,
+    }
     interface TypePredicate {
+        kind: TypePredicateKind;
+        type: Type;
+    }
+    interface ThisTypePredicate extends TypePredicate {
+        _thisTypePredicateBrand: any;
+    }
+    interface IdentifierTypePredicate extends TypePredicate {
         parameterName: string;
         parameterIndex: number;
-        type: Type;
     }
     type AnyImportSyntax = ImportDeclaration | ImportEqualsDeclaration;
     interface SymbolVisibilityResult {
@@ -1469,6 +1482,7 @@ declare namespace ts {
         ESSymbol = 16777216,
         ThisType = 33554432,
         ObjectLiteralPatternWithComputedProperties = 67108864,
+        PredicateType = 134217728,
         Intrinsic = 16777343,
         Primitive = 16777726,
         StringLike = 258,
@@ -1476,7 +1490,7 @@ declare namespace ts {
         ObjectType = 80896,
         UnionOrIntersection = 49152,
         StructuredType = 130048,
-        RequiresWidening = 6291456,
+        RequiresWidening = 140509184,
         PropagatingFlags = 14680064,
     }
     type DestructuringPattern = BindingPattern | ObjectLiteralExpression | ArrayLiteralExpression;
@@ -1488,6 +1502,9 @@ declare namespace ts {
     }
     interface IntrinsicType extends Type {
         intrinsicName: string;
+    }
+    interface PredicateType extends Type {
+        predicate: ThisTypePredicate | IdentifierTypePredicate;
     }
     interface StringLiteralType extends Type {
         text: string;
@@ -1561,7 +1578,6 @@ declare namespace ts {
         declaration: SignatureDeclaration;
         typeParameters: TypeParameter[];
         parameters: Symbol[];
-        typePredicate?: TypePredicate;
         resolvedReturnType: Type;
         minArgumentCount: number;
         hasRestParameter: boolean;
@@ -2151,6 +2167,7 @@ declare namespace ts {
     function isIterationStatement(node: Node, lookInLabeledStatements: boolean): boolean;
     function isFunctionBlock(node: Node): boolean;
     function isObjectLiteralMethod(node: Node): node is MethodDeclaration;
+    function isIdentifierTypePredicate(predicate: TypePredicate): predicate is IdentifierTypePredicate;
     function getContainingFunction(node: Node): FunctionLikeDeclaration;
     function getContainingClass(node: Node): ClassLikeDeclaration;
     function getThisContainer(node: Node, includeArrowFunctions: boolean): Node;
@@ -4845,6 +4862,18 @@ declare namespace ts {
             message: string;
         };
         Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        A_this_based_type_guard_is_not_compatible_with_a_parameter_based_type_guard: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        A_this_based_type_predicate_is_only_allowed_within_a_class_or_interface_s_members_get_accessors_or_return_type_positions_for_functions_and_methods: {
             code: number;
             category: DiagnosticCategory;
             key: string;
