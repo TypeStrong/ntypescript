@@ -4855,7 +4855,7 @@ var ts;
         Type_0_recursively_references_itself_as_a_base_type: { code: 2310, category: ts.DiagnosticCategory.Error, key: "Type_0_recursively_references_itself_as_a_base_type_2310", message: "Type '{0}' recursively references itself as a base type." },
         A_class_may_only_extend_another_class: { code: 2311, category: ts.DiagnosticCategory.Error, key: "A_class_may_only_extend_another_class_2311", message: "A class may only extend another class." },
         An_interface_may_only_extend_a_class_or_another_interface: { code: 2312, category: ts.DiagnosticCategory.Error, key: "An_interface_may_only_extend_a_class_or_another_interface_2312", message: "An interface may only extend a class or another interface." },
-        Constraint_of_a_type_parameter_cannot_reference_any_type_parameter_from_the_same_type_parameter_list: { code: 2313, category: ts.DiagnosticCategory.Error, key: "Constraint_of_a_type_parameter_cannot_reference_any_type_parameter_from_the_same_type_parameter_list_2313", message: "Constraint of a type parameter cannot reference any type parameter from the same type parameter list." },
+        Type_parameter_0_has_a_circular_constraint: { code: 2313, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_has_a_circular_constraint_2313", message: "Type parameter '{0}' has a circular constraint." },
         Generic_type_0_requires_1_type_argument_s: { code: 2314, category: ts.DiagnosticCategory.Error, key: "Generic_type_0_requires_1_type_argument_s_2314", message: "Generic type '{0}' requires {1} type argument(s)." },
         Type_0_is_not_generic: { code: 2315, category: ts.DiagnosticCategory.Error, key: "Type_0_is_not_generic_2315", message: "Type '{0}' is not generic." },
         Global_type_0_must_be_a_class_or_interface_type: { code: 2316, category: ts.DiagnosticCategory.Error, key: "Global_type_0_must_be_a_class_or_interface_type_2316", message: "Global type '{0}' must be a class or interface type." },
@@ -17929,17 +17929,38 @@ var ts;
                 ? declaration.type ? getTypeFromTypeNode(declaration.type) : anyType
                 : undefined;
         }
-        function getConstraintOfTypeParameter(type) {
-            if (!type.constraint) {
-                if (type.target) {
-                    var targetConstraint = getConstraintOfTypeParameter(type.target);
-                    type.constraint = targetConstraint ? instantiateType(targetConstraint, type.mapper) : noConstraintType;
+        function getConstraintDeclaration(type) {
+            return ts.getDeclarationOfKind(type.symbol, 137 /* TypeParameter */).constraint;
+        }
+        function hasConstraintReferenceTo(type, target) {
+            var checked;
+            while (type && type.flags & 512 /* TypeParameter */ && !ts.contains(checked, type)) {
+                if (type === target) {
+                    return true;
+                }
+                (checked || (checked = [])).push(type);
+                var constraintDeclaration = getConstraintDeclaration(type);
+                type = constraintDeclaration && getTypeFromTypeNode(constraintDeclaration);
+            }
+            return false;
+        }
+        function getConstraintOfTypeParameter(typeParameter) {
+            if (!typeParameter.constraint) {
+                if (typeParameter.target) {
+                    var targetConstraint = getConstraintOfTypeParameter(typeParameter.target);
+                    typeParameter.constraint = targetConstraint ? instantiateType(targetConstraint, typeParameter.mapper) : noConstraintType;
                 }
                 else {
-                    type.constraint = getTypeFromTypeNode(ts.getDeclarationOfKind(type.symbol, 137 /* TypeParameter */).constraint);
+                    var constraintDeclaration = getConstraintDeclaration(typeParameter);
+                    var constraint = getTypeFromTypeNode(constraintDeclaration);
+                    if (hasConstraintReferenceTo(constraint, typeParameter)) {
+                        error(constraintDeclaration, ts.Diagnostics.Type_parameter_0_has_a_circular_constraint, typeToString(typeParameter));
+                        constraint = unknownType;
+                    }
+                    typeParameter.constraint = constraint;
                 }
             }
-            return type.constraint === noConstraintType ? undefined : type.constraint;
+            return typeParameter.constraint === noConstraintType ? undefined : typeParameter.constraint;
         }
         function getParentSymbolOfTypeParameter(typeParameter) {
             return getSymbolOfNode(ts.getDeclarationOfKind(typeParameter.symbol, 137 /* TypeParameter */).parent);
@@ -17987,50 +18008,6 @@ var ts;
             }
             return type;
         }
-        function isTypeParameterReferenceIllegalInConstraint(typeReferenceNode, typeParameterSymbol) {
-            var links = getNodeLinks(typeReferenceNode);
-            if (links.isIllegalTypeReferenceInConstraint !== undefined) {
-                return links.isIllegalTypeReferenceInConstraint;
-            }
-            // bubble up to the declaration
-            var currentNode = typeReferenceNode;
-            // forEach === exists
-            while (!ts.forEach(typeParameterSymbol.declarations, function (d) { return d.parent === currentNode.parent; })) {
-                currentNode = currentNode.parent;
-            }
-            // if last step was made from the type parameter this means that path has started somewhere in constraint which is illegal
-            links.isIllegalTypeReferenceInConstraint = currentNode.kind === 137 /* TypeParameter */;
-            return links.isIllegalTypeReferenceInConstraint;
-        }
-        function checkTypeParameterHasIllegalReferencesInConstraint(typeParameter) {
-            var typeParameterSymbol;
-            function check(n) {
-                if (n.kind === 151 /* TypeReference */ && n.typeName.kind === 69 /* Identifier */) {
-                    var links = getNodeLinks(n);
-                    if (links.isIllegalTypeReferenceInConstraint === undefined) {
-                        var symbol = resolveName(typeParameter, n.typeName.text, 793056 /* Type */, /*nameNotFoundMessage*/ undefined, /*nameArg*/ undefined);
-                        if (symbol && (symbol.flags & 262144 /* TypeParameter */)) {
-                            // TypeScript 1.0 spec (April 2014): 3.4.1
-                            // Type parameters declared in a particular type parameter list
-                            // may not be referenced in constraints in that type parameter list
-                            // symbol.declaration.parent === typeParameter.parent
-                            // -> typeParameter and symbol.declaration originate from the same type parameter list
-                            // -> illegal for all declarations in symbol
-                            // forEach === exists
-                            links.isIllegalTypeReferenceInConstraint = ts.forEach(symbol.declarations, function (d) { return d.parent === typeParameter.parent; });
-                        }
-                    }
-                    if (links.isIllegalTypeReferenceInConstraint) {
-                        error(typeParameter, ts.Diagnostics.Constraint_of_a_type_parameter_cannot_reference_any_type_parameter_from_the_same_type_parameter_list);
-                    }
-                }
-                ts.forEachChild(n, check);
-            }
-            if (typeParameter.constraint) {
-                typeParameterSymbol = getSymbolOfNode(typeParameter);
-                check(typeParameter.constraint);
-            }
-        }
         // Get type from reference to class or interface
         function getTypeFromClassOrInterfaceReference(node, symbol) {
             var type = getDeclaredTypeOfSymbol(symbol);
@@ -18075,13 +18052,6 @@ var ts;
         }
         // Get type from reference to named type that cannot be generic (enum or type parameter)
         function getTypeFromNonGenericTypeReference(node, symbol) {
-            if (symbol.flags & 262144 /* TypeParameter */ && isTypeParameterReferenceIllegalInConstraint(node, symbol)) {
-                // TypeScript 1.0 spec (April 2014): 3.4.1
-                // Type parameters declared in a particular type parameter list
-                // may not be referenced in constraints in that type parameter list
-                // Implementation: such type references are resolved to 'unknown' type that usually denotes error
-                return unknownType;
-            }
             if (node.typeArguments) {
                 error(node, ts.Diagnostics.Type_0_is_not_generic, symbolToString(symbol));
                 return unknownType;
@@ -18505,18 +18475,22 @@ var ts;
                 return t;
             };
         }
-        function createInferenceMapper(context) {
-            var mapper = function (t) {
-                for (var i = 0; i < context.typeParameters.length; i++) {
-                    if (t === context.typeParameters[i]) {
-                        context.inferences[i].isFixed = true;
-                        return getInferredType(context, i);
+        function getInferenceMapper(context) {
+            if (!context.mapper) {
+                var mapper = function (t) {
+                    var typeParameters = context.typeParameters;
+                    for (var i = 0; i < typeParameters.length; i++) {
+                        if (t === typeParameters[i]) {
+                            context.inferences[i].isFixed = true;
+                            return getInferredType(context, i);
+                        }
                     }
-                }
-                return t;
-            };
-            mapper.context = context;
-            return mapper;
+                    return t;
+                };
+                mapper.context = context;
+                context.mapper = mapper;
+            }
+            return context.mapper;
         }
         function identityMapper(type) {
             return type;
@@ -18524,16 +18498,10 @@ var ts;
         function combineTypeMappers(mapper1, mapper2) {
             return function (t) { return instantiateType(mapper1(t), mapper2); };
         }
-        function instantiateTypeParameter(typeParameter, mapper) {
+        function cloneTypeParameter(typeParameter) {
             var result = createType(512 /* TypeParameter */);
             result.symbol = typeParameter.symbol;
-            if (typeParameter.constraint) {
-                result.constraint = instantiateType(typeParameter.constraint, mapper);
-            }
-            else {
-                result.target = typeParameter;
-                result.mapper = mapper;
-            }
+            result.target = typeParameter;
             return result;
         }
         function cloneTypePredicate(predicate, mapper) {
@@ -18555,8 +18523,15 @@ var ts;
         function instantiateSignature(signature, mapper, eraseTypeParameters) {
             var freshTypeParameters;
             if (signature.typeParameters && !eraseTypeParameters) {
-                freshTypeParameters = instantiateList(signature.typeParameters, mapper, instantiateTypeParameter);
+                // First create a fresh set of type parameters, then include a mapping from the old to the
+                // new type parameters in the mapper function. Finally store this mapper in the new type
+                // parameters such that we can use it when instantiating constraints.
+                freshTypeParameters = ts.map(signature.typeParameters, cloneTypeParameter);
                 mapper = combineTypeMappers(createTypeMapper(signature.typeParameters, freshTypeParameters), mapper);
+                for (var _i = 0, freshTypeParameters_1 = freshTypeParameters; _i < freshTypeParameters_1.length; _i++) {
+                    var tp = freshTypeParameters_1[_i];
+                    tp.mapper = mapper;
+                }
             }
             var result = createSignature(signature.declaration, freshTypeParameters, instantiateList(signature.parameters, mapper, instantiateSymbol), instantiateType(signature.resolvedReturnType, mapper), signature.minArgumentCount, signature.hasRestParameter, signature.hasStringLiterals);
             result.target = signature;
@@ -19016,8 +18991,9 @@ var ts;
                 if (sources.length !== targets.length && relation === identityRelation) {
                     return 0 /* False */;
                 }
+                var length = sources.length <= targets.length ? sources.length : targets.length;
                 var result = -1 /* True */;
-                for (var i = 0; i < targets.length; i++) {
+                for (var i = 0; i < length; i++) {
                     var related = isRelatedTo(sources[i], targets[i], reportErrors);
                     if (!related) {
                         return 0 /* False */;
@@ -19031,11 +19007,11 @@ var ts;
             // Third, check if both types are part of deeply nested chains of generic type instantiations and if so assume the types are
             // equal and infinitely expanding. Fourth, if we have reached a depth of 100 nested comparisons, assume we have runaway recursion
             // and issue an error. Otherwise, actually compare the structure of the two types.
-            function objectTypeRelatedTo(apparentSource, originalSource, target, reportErrors) {
+            function objectTypeRelatedTo(source, originalSource, target, reportErrors) {
                 if (overflow) {
                     return 0 /* False */;
                 }
-                var id = relation !== identityRelation || apparentSource.id < target.id ? apparentSource.id + "," + target.id : target.id + "," + apparentSource.id;
+                var id = relation !== identityRelation || source.id < target.id ? source.id + "," + target.id : target.id + "," + source.id;
                 var related = relation[id];
                 if (related !== undefined) {
                     if (elaborateErrors && related === 2 /* Failed */) {
@@ -19065,13 +19041,13 @@ var ts;
                     maybeStack = [];
                     expandingFlags = 0;
                 }
-                sourceStack[depth] = apparentSource;
+                sourceStack[depth] = source;
                 targetStack[depth] = target;
                 maybeStack[depth] = {};
                 maybeStack[depth][id] = 1 /* Succeeded */;
                 depth++;
                 var saveExpandingFlags = expandingFlags;
-                if (!(expandingFlags & 1) && isDeeplyNestedGeneric(apparentSource, sourceStack, depth))
+                if (!(expandingFlags & 1) && isDeeplyNestedGeneric(source, sourceStack, depth))
                     expandingFlags |= 1;
                 if (!(expandingFlags & 2) && isDeeplyNestedGeneric(target, targetStack, depth))
                     expandingFlags |= 2;
@@ -19080,15 +19056,15 @@ var ts;
                     result = 1 /* Maybe */;
                 }
                 else {
-                    result = propertiesRelatedTo(apparentSource, target, reportErrors);
+                    result = propertiesRelatedTo(source, target, reportErrors);
                     if (result) {
-                        result &= signaturesRelatedTo(apparentSource, target, 0 /* Call */, reportErrors);
+                        result &= signaturesRelatedTo(source, target, 0 /* Call */, reportErrors);
                         if (result) {
-                            result &= signaturesRelatedTo(apparentSource, target, 1 /* Construct */, reportErrors);
+                            result &= signaturesRelatedTo(source, target, 1 /* Construct */, reportErrors);
                             if (result) {
-                                result &= stringIndexTypesRelatedTo(apparentSource, originalSource, target, reportErrors);
+                                result &= stringIndexTypesRelatedTo(source, originalSource, target, reportErrors);
                                 if (result) {
-                                    result &= numberIndexTypesRelatedTo(apparentSource, originalSource, target, reportErrors);
+                                    result &= numberIndexTypesRelatedTo(source, originalSource, target, reportErrors);
                                 }
                             }
                         }
@@ -20044,10 +20020,16 @@ var ts;
                     inferredType = emptyObjectType;
                     inferenceSucceeded = true;
                 }
+                context.inferredTypes[index] = inferredType;
                 // Only do the constraint check if inference succeeded (to prevent cascading errors)
                 if (inferenceSucceeded) {
                     var constraint = getConstraintOfTypeParameter(context.typeParameters[index]);
-                    inferredType = constraint && !isTypeAssignableTo(inferredType, constraint) ? constraint : inferredType;
+                    if (constraint) {
+                        var instantiatedConstraint = instantiateType(constraint, getInferenceMapper(context));
+                        if (!isTypeAssignableTo(inferredType, getTypeWithThisArgument(instantiatedConstraint, inferredType))) {
+                            context.inferredTypes[index] = inferredType = instantiatedConstraint;
+                        }
+                    }
                 }
                 else if (context.failedTypeParameterIndex === undefined || context.failedTypeParameterIndex > index) {
                     // If inference failed, it is necessary to record the index of the failed type parameter (the one we are on).
@@ -20055,7 +20037,6 @@ var ts;
                     // So if this failure is on preceding type parameter, this type parameter is the new failure index.
                     context.failedTypeParameterIndex = index;
                 }
-                context.inferredTypes[index] = inferredType;
             }
             return inferredType;
         }
@@ -22231,7 +22212,7 @@ var ts;
         }
         function inferTypeArguments(node, signature, args, excludeArgument, context) {
             var typeParameters = signature.typeParameters;
-            var inferenceMapper = createInferenceMapper(context);
+            var inferenceMapper = getInferenceMapper(context);
             // Clear out all the inference results from the last time inferTypeArguments was called on this context
             for (var i = 0; i < typeParameters.length; i++) {
                 // As an optimization, we don't have to clear (and later recompute) inferred types
@@ -22289,14 +22270,11 @@ var ts;
             }
             getInferredTypes(context);
         }
-        function checkTypeArguments(signature, typeArguments, typeArgumentResultTypes, reportErrors, headMessage) {
+        function checkTypeArguments(signature, typeArgumentNodes, typeArgumentTypes, reportErrors, headMessage) {
             var typeParameters = signature.typeParameters;
             var typeArgumentsAreAssignable = true;
+            var mapper;
             for (var i = 0; i < typeParameters.length; i++) {
-                var typeArgNode = typeArguments[i];
-                var typeArgument = getTypeFromTypeNode(typeArgNode);
-                // Do not push on this array! It has a preallocated length
-                typeArgumentResultTypes[i] = typeArgument;
                 if (typeArgumentsAreAssignable /* so far */) {
                     var constraint = getConstraintOfTypeParameter(typeParameters[i]);
                     if (constraint) {
@@ -22306,7 +22284,11 @@ var ts;
                             errorInfo = ts.chainDiagnosticMessages(errorInfo, typeArgumentHeadMessage);
                             typeArgumentHeadMessage = headMessage;
                         }
-                        typeArgumentsAreAssignable = checkTypeAssignableTo(typeArgument, constraint, reportErrors ? typeArgNode : undefined, typeArgumentHeadMessage, errorInfo);
+                        if (!mapper) {
+                            mapper = createTypeMapper(typeParameters, typeArgumentTypes);
+                        }
+                        var typeArgument = typeArgumentTypes[i];
+                        typeArgumentsAreAssignable = checkTypeAssignableTo(typeArgument, getTypeWithThisArgument(instantiateType(constraint, mapper), typeArgument), reportErrors ? typeArgumentNodes[i] : undefined, typeArgumentHeadMessage, errorInfo);
                     }
                 }
             }
@@ -22716,7 +22698,8 @@ var ts;
             }
             else if (candidateForTypeArgumentError) {
                 if (!isTaggedTemplate && !isDecorator && typeArguments) {
-                    checkTypeArguments(candidateForTypeArgumentError, node.typeArguments, [], /*reportErrors*/ true, headMessage);
+                    var typeArguments_1 = node.typeArguments;
+                    checkTypeArguments(candidateForTypeArgumentError, typeArguments_1, ts.map(typeArguments_1, getTypeFromTypeNode), /*reportErrors*/ true, headMessage);
                 }
                 else {
                     ts.Debug.assert(resultOfFailedInference.failedTypeParameterIndex >= 0);
@@ -22774,7 +22757,7 @@ var ts;
                         if (candidate.typeParameters) {
                             var typeArgumentTypes = void 0;
                             if (typeArguments) {
-                                typeArgumentTypes = new Array(candidate.typeParameters.length);
+                                typeArgumentTypes = ts.map(typeArguments, getTypeFromTypeNode);
                                 typeArgumentsAreValid = checkTypeArguments(candidate, typeArguments, typeArgumentTypes, /*reportErrors*/ false);
                             }
                             else {
@@ -24153,11 +24136,10 @@ var ts;
                 grammarErrorOnFirstToken(node.expression, ts.Diagnostics.Type_expected);
             }
             checkSourceElement(node.constraint);
+            getConstraintOfTypeParameter(getDeclaredTypeOfTypeParameter(getSymbolOfNode(node)));
             if (produceDiagnostics) {
-                checkTypeParameterHasIllegalReferencesInConstraint(node);
                 checkTypeNameIsReserved(node.name, ts.Diagnostics.Type_parameter_name_cannot_be_0);
             }
-            // TODO: Check multiple declarations are identical
         }
         function checkParameter(node) {
             // Grammar checking
@@ -24527,13 +24509,19 @@ var ts;
         function checkMissingDeclaration(node) {
             checkDecorators(node);
         }
-        function checkTypeArgumentConstraints(typeParameters, typeArguments) {
+        function checkTypeArgumentConstraints(typeParameters, typeArgumentNodes) {
+            var typeArguments;
+            var mapper;
             var result = true;
             for (var i = 0; i < typeParameters.length; i++) {
                 var constraint = getConstraintOfTypeParameter(typeParameters[i]);
                 if (constraint) {
+                    if (!typeArguments) {
+                        typeArguments = ts.map(typeArgumentNodes, getTypeFromTypeNode);
+                        mapper = createTypeMapper(typeParameters, typeArguments);
+                    }
                     var typeArgument = typeArguments[i];
-                    result = result && checkTypeAssignableTo(getTypeFromTypeNode(typeArgument), constraint, typeArgument, ts.Diagnostics.Type_0_does_not_satisfy_the_constraint_1);
+                    result = result && checkTypeAssignableTo(typeArgument, getTypeWithThisArgument(instantiateType(constraint, mapper), typeArgument), typeArgumentNodes[i], ts.Diagnostics.Type_0_does_not_satisfy_the_constraint_1);
                 }
             }
             return result;
@@ -30904,6 +30892,8 @@ var ts;
             emitSignatureDeclaration(node);
         }
         function emitSignatureDeclaration(node) {
+            var prevEnclosingDeclaration = enclosingDeclaration;
+            enclosingDeclaration = node;
             // Construct signature or constructor type write new Signature
             if (node.kind === 148 /* ConstructSignature */ || node.kind === 153 /* ConstructorType */) {
                 write("new ");
@@ -30915,8 +30905,6 @@ var ts;
             else {
                 write("(");
             }
-            var prevEnclosingDeclaration = enclosingDeclaration;
-            enclosingDeclaration = node;
             // Parameters
             emitCommaList(node.parameters, emitParameterDeclaration);
             if (node.kind === 149 /* IndexSignature */) {

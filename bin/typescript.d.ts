@@ -1444,7 +1444,6 @@ declare namespace ts {
         resolvedSymbol?: Symbol;
         flags?: NodeCheckFlags;
         enumMemberValue?: number;
-        isIllegalTypeReferenceInConstraint?: boolean;
         isVisible?: boolean;
         generatedName?: string;
         generatedNames?: Map<string>;
@@ -1607,6 +1606,7 @@ declare namespace ts {
         inferUnionTypes: boolean;
         inferences: TypeInferences[];
         inferredTypes: Type[];
+        mapper?: TypeMapper;
         failedTypeParameterIndex?: number;
     }
     interface DiagnosticMessage {
@@ -3697,7 +3697,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Constraint_of_a_type_parameter_cannot_reference_any_type_parameter_from_the_same_type_parameter_list: {
+        Type_parameter_0_has_a_circular_constraint: {
             code: number;
             category: DiagnosticCategory;
             key: string;

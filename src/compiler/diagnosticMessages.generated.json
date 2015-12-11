@@ -216,7 +216,7 @@
   "Type_0_recursively_references_itself_as_a_base_type_2310" : "Type '{0}' recursively references itself as a base type.",
   "A_class_may_only_extend_another_class_2311" : "A class may only extend another class.",
   "An_interface_may_only_extend_a_class_or_another_interface_2312" : "An interface may only extend a class or another interface.",
-  "Constraint_of_a_type_parameter_cannot_reference_any_type_parameter_from_the_same_type_parameter_list_2313" : "Constraint of a type parameter cannot reference any type parameter from the same type parameter list.",
+  "Type_parameter_0_has_a_circular_constraint_2313" : "Type parameter '{0}' has a circular constraint.",
   "Generic_type_0_requires_1_type_argument_s_2314" : "Generic type '{0}' requires {1} type argument(s).",
   "Type_0_is_not_generic_2315" : "Type '{0}' is not generic.",
   "Global_type_0_must_be_a_class_or_interface_type_2316" : "Global type '{0}' must be a class or interface type.",
