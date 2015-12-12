@@ -1993,10 +1993,6 @@ var ts;
                     // and is more efficient than `fs.watchFile` (ref: https://github.com/nodejs/node/pull/2649
                     // and https://github.com/Microsoft/TypeScript/issues/4643), therefore
                     // if the current node.js version is newer than 4, use `fs.watch` instead.
-                    if (isNode4OrLater()) {
-                        // Note: in node the callback of fs.watch is given only the relative file name as a parameter
-                        return _fs.watch(fileName, function (eventName, relativeFileName) { return callback(fileName); });
-                    }
                     var watchedFile = watchedFileSet.addFile(fileName, callback);
                     return {
                         close: function () { return watchedFileSet.removeFile(watchedFile); }
@@ -2050,9 +2046,9 @@ var ts;
         }
         function getChakraSystem() {
             return {
-                newLine: "\r\n",
+                newLine: ChakraHost.newLine || "\r\n",
                 args: ChakraHost.args,
-                useCaseSensitiveFileNames: false,
+                useCaseSensitiveFileNames: !!ChakraHost.useCaseSensitiveFileNames,
                 write: ChakraHost.echo,
                 readFile: function (path, encoding) {
                     // encoding is automatically handled by the implementation in ChakraHost
@@ -21808,7 +21804,7 @@ var ts;
                 // - In a static member function or static member accessor
                 //   where this references the constructor function object of a derived class,
                 //   a super property access is permitted and must specify a public static member function of the base class.
-                if (getDeclarationKindFromSymbol(prop) !== 143 /* MethodDeclaration */) {
+                if (languageVersion < 2 /* ES6 */ && getDeclarationKindFromSymbol(prop) !== 143 /* MethodDeclaration */) {
                     // `prop` refers to a *property* declared in the super class
                     // rather than a *method*, so it does not satisfy the above criteria.
                     error(errorNode, ts.Diagnostics.Only_public_and_protected_methods_of_the_base_class_are_accessible_via_the_super_keyword);
@@ -27035,7 +27031,7 @@ var ts;
                     }
                     var _a = exports[id], declarations = _a.declarations, flags = _a.flags;
                     // ECMA262: 15.2.1.1 It is a Syntax Error if the ExportedNames of ModuleItemList contains any duplicate entries. (TS Exceptions: namespaces, function overloads, enums, and interfaces)
-                    if (!(flags & (1536 /* Namespace */ | 64 /* Interface */ | 384 /* Enum */)) && declarations.length > 1) {
+                    if (!(flags & (1536 /* Namespace */ | 64 /* Interface */ | 384 /* Enum */)) && (flags & 524288 /* TypeAlias */ ? declarations.length - 1 : declarations.length) > 1) {
                         var exportedDeclarations = ts.filter(declarations, isNotOverload);
                         if (exportedDeclarations.length > 1) {
                             for (var _i = 0, exportedDeclarations_1 = exportedDeclarations; _i < exportedDeclarations_1.length; _i++) {
