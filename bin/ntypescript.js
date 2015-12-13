@@ -24357,7 +24357,7 @@ var ts;
             // Grammar checking
             checkGrammarMethod(node) || checkGrammarComputedPropertyName(node.name);
             // Grammar checking for modifiers is done inside the function checkGrammarFunctionLikeDeclaration
-            checkFunctionLikeDeclaration(node);
+            checkFunctionOrMethodDeclaration(node);
             // Abstract methods cannot have an implementation.
             // Extra checks are to avoid reporting multiple errors relating to the "abstractness" of the node.
             if (node.flags & 128 /* Abstract */ && node.body) {
@@ -24466,6 +24466,8 @@ var ts;
             if (produceDiagnostics) {
                 // Grammar checking accessors
                 checkGrammarFunctionLikeDeclaration(node) || checkGrammarAccessor(node) || checkGrammarComputedPropertyName(node.name);
+                checkDecorators(node);
+                checkSignatureDeclaration(node);
                 if (node.kind === 145 /* GetAccessor */) {
                     if (!ts.isInAmbientContext(node) && ts.nodeIsPresent(node.body) && (node.flags & 524288 /* HasImplicitReturn */)) {
                         if (node.flags & 1048576 /* HasExplicitReturn */) {
@@ -24477,6 +24479,12 @@ var ts;
                             error(node.name, ts.Diagnostics.A_get_accessor_must_return_a_value);
                         }
                     }
+                }
+                // Do not use hasDynamicName here, because that returns false for well known symbols.
+                // We want to perform checkComputedPropertyName for all computed properties, including
+                // well known symbols.
+                if (node.name.kind === 136 /* ComputedPropertyName */) {
+                    checkComputedPropertyName(node.name);
                 }
                 if (!ts.hasDynamicName(node)) {
                     // TypeScript 1.0 spec (April 2014): 8.4.3
@@ -24500,7 +24508,15 @@ var ts;
                 }
                 getTypeOfAccessors(getSymbolOfNode(node));
             }
-            checkFunctionLikeDeclaration(node);
+            if (node.parent.kind !== 167 /* ObjectLiteralExpression */) {
+                checkSourceElement(node.body);
+            }
+        }
+        function checkObjectLiteralAccessorBody(node) {
+            if (node.body) {
+                checkSourceElement(node.body);
+                checkFunctionAndClassExpressionBodies(node.body);
+            }
         }
         function checkMissingDeclaration(node) {
             checkDecorators(node);
@@ -25250,13 +25266,13 @@ var ts;
         }
         function checkFunctionDeclaration(node) {
             if (produceDiagnostics) {
-                checkFunctionLikeDeclaration(node) || checkGrammarForGenerator(node);
+                checkFunctionOrMethodDeclaration(node) || checkGrammarForGenerator(node);
                 checkCollisionWithCapturedSuperVariable(node, node.name);
                 checkCollisionWithCapturedThisVariable(node, node.name);
                 checkCollisionWithRequireExportsInGeneratedCode(node, node.name);
             }
         }
-        function checkFunctionLikeDeclaration(node) {
+        function checkFunctionOrMethodDeclaration(node) {
             checkDecorators(node);
             checkSignatureDeclaration(node);
             var isAsync = ts.isAsyncFunctionLike(node);
@@ -25297,7 +25313,7 @@ var ts;
                 }
             }
             checkSourceElement(node.body);
-            if (!isAccessor(node.kind) && !node.asteriskToken) {
+            if (!node.asteriskToken) {
                 var returnOrPromisedType = node.type && (isAsync ? checkAsyncFunctionReturnType(node) : getTypeFromTypeNode(node.type));
                 checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnOrPromisedType);
             }
@@ -27214,10 +27230,15 @@ var ts;
                     }
                     break;
                 case 144 /* Constructor */:
-                case 145 /* GetAccessor */:
-                case 146 /* SetAccessor */:
                 case 215 /* FunctionDeclaration */:
                     ts.forEach(node.parameters, checkFunctionAndClassExpressionBodies);
+                    break;
+                case 145 /* GetAccessor */:
+                case 146 /* SetAccessor */:
+                    ts.forEach(node.parameters, checkFunctionAndClassExpressionBodies);
+                    if (node.parent.kind === 167 /* ObjectLiteralExpression */) {
+                        checkObjectLiteralAccessorBody(node);
+                    }
                     break;
                 case 207 /* WithStatement */:
                     checkFunctionAndClassExpressionBodies(node.expression);
