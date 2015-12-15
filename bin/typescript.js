@@ -645,6 +645,19 @@ var ts;
         IndexKind[IndexKind["Number"] = 1] = "Number";
     })(ts.IndexKind || (ts.IndexKind = {}));
     var IndexKind = ts.IndexKind;
+    /* @internal */
+    (function (SpecialPropertyAssignmentKind) {
+        SpecialPropertyAssignmentKind[SpecialPropertyAssignmentKind["None"] = 0] = "None";
+        /// exports.name = expr
+        SpecialPropertyAssignmentKind[SpecialPropertyAssignmentKind["ExportsProperty"] = 1] = "ExportsProperty";
+        /// module.exports = expr
+        SpecialPropertyAssignmentKind[SpecialPropertyAssignmentKind["ModuleExports"] = 2] = "ModuleExports";
+        /// className.prototype.name = expr
+        SpecialPropertyAssignmentKind[SpecialPropertyAssignmentKind["PrototypeProperty"] = 3] = "PrototypeProperty";
+        /// this.name = expr
+        SpecialPropertyAssignmentKind[SpecialPropertyAssignmentKind["ThisProperty"] = 4] = "ThisProperty";
+    })(ts.SpecialPropertyAssignmentKind || (ts.SpecialPropertyAssignmentKind = {}));
+    var SpecialPropertyAssignmentKind = ts.SpecialPropertyAssignmentKind;
     (function (DiagnosticCategory) {
         DiagnosticCategory[DiagnosticCategory["Warning"] = 0] = "Warning";
         DiagnosticCategory[DiagnosticCategory["Error"] = 1] = "Error";
@@ -3080,35 +3093,41 @@ var ts;
             expression.arguments[0].kind === 9 /* StringLiteral */;
     }
     ts.isRequireCall = isRequireCall;
-    /**
-     * Returns true if the node is an assignment to a property on the identifier 'exports'.
-     * This function does not test if the node is in a JavaScript file or not.
-    */
-    function isExportsPropertyAssignment(expression) {
-        // of the form 'exports.name = expr' where 'name' and 'expr' are arbitrary
-        return isInJavaScriptFile(expression) &&
-            (expression.kind === 183 /* BinaryExpression */) &&
-            (expression.operatorToken.kind === 56 /* EqualsToken */) &&
-            (expression.left.kind === 168 /* PropertyAccessExpression */) &&
-            (expression.left.expression.kind === 69 /* Identifier */) &&
-            ((expression.left.expression).text === "exports");
+    /// Given a BinaryExpression, returns SpecialPropertyAssignmentKind for the various kinds of property
+    /// assignments we treat as special in the binder
+    function getSpecialPropertyAssignmentKind(expression) {
+        if (expression.kind !== 183 /* BinaryExpression */) {
+            return 0 /* None */;
+        }
+        var expr = expression;
+        if (expr.operatorToken.kind !== 56 /* EqualsToken */ || expr.left.kind !== 168 /* PropertyAccessExpression */) {
+            return 0 /* None */;
+        }
+        var lhs = expr.left;
+        if (lhs.expression.kind === 69 /* Identifier */) {
+            var lhsId = lhs.expression;
+            if (lhsId.text === "exports") {
+                // exports.name = expr
+                return 1 /* ExportsProperty */;
+            }
+            else if (lhsId.text === "module" && lhs.name.text === "exports") {
+                // module.exports = expr
+                return 2 /* ModuleExports */;
+            }
+        }
+        else if (lhs.expression.kind === 97 /* ThisKeyword */) {
+            return 4 /* ThisProperty */;
+        }
+        else if (lhs.expression.kind === 168 /* PropertyAccessExpression */) {
+            // chained dot, e.g. x.y.z = expr; this var is the 'x.y' part
+            var innerPropertyAccess = lhs.expression;
+            if (innerPropertyAccess.expression.kind === 69 /* Identifier */ && innerPropertyAccess.name.text === "prototype") {
+                return 3 /* PrototypeProperty */;
+            }
+        }
+        return 0 /* None */;
     }
-    ts.isExportsPropertyAssignment = isExportsPropertyAssignment;
-    /**
-     * Returns true if the node is an assignment to the property access expression 'module.exports'.
-     * This function does not test if the node is in a JavaScript file or not.
-    */
-    function isModuleExportsAssignment(expression) {
-        // of the form 'module.exports = expr' where 'expr' is arbitrary
-        return isInJavaScriptFile(expression) &&
-            (expression.kind === 183 /* BinaryExpression */) &&
-            (expression.operatorToken.kind === 56 /* EqualsToken */) &&
-            (expression.left.kind === 168 /* PropertyAccessExpression */) &&
-            (expression.left.expression.kind === 69 /* Identifier */) &&
-            ((expression.left.expression).text === "module") &&
-            (expression.left.name.text === "exports");
-    }
-    ts.isModuleExportsAssignment = isModuleExportsAssignment;
+    ts.getSpecialPropertyAssignmentKind = getSpecialPropertyAssignmentKind;
     function getExternalModuleName(node) {
         if (node.kind === 224 /* ImportDeclaration */) {
             return node.moduleSpecifier;
@@ -12914,8 +12933,20 @@ var ts;
                 case 229 /* ExportAssignment */:
                     return node.isExportEquals ? "export=" : "default";
                 case 183 /* BinaryExpression */:
-                    // Binary expression case is for JS module 'module.exports = expr'
-                    return "export=";
+                    switch (ts.getSpecialPropertyAssignmentKind(node)) {
+                        case 2 /* ModuleExports */:
+                            // module.exports = ...
+                            return "export=";
+                        case 1 /* ExportsProperty */:
+                        case 4 /* ThisProperty */:
+                            // exports.x = ... or this.y = ...
+                            return node.left.name.text;
+                        case 3 /* PrototypeProperty */:
+                            // className.prototype.methodName = ...
+                            return node.left.expression.name.text;
+                    }
+                    ts.Debug.fail("Unknown binary declaration kind");
+                    break;
                 case 215 /* FunctionDeclaration */:
                 case 216 /* ClassDeclaration */:
                     return node.flags & 512 /* Default */ ? "default" : undefined;
@@ -13727,11 +13758,25 @@ var ts;
                     return checkStrictModeIdentifier(node);
                 case 183 /* BinaryExpression */:
                     if (ts.isInJavaScriptFile(node)) {
-                        if (ts.isExportsPropertyAssignment(node)) {
-                            bindExportsPropertyAssignment(node);
-                        }
-                        else if (ts.isModuleExportsAssignment(node)) {
-                            bindModuleExportsAssignment(node);
+                        var specialKind = ts.getSpecialPropertyAssignmentKind(node);
+                        switch (specialKind) {
+                            case 1 /* ExportsProperty */:
+                                bindExportsPropertyAssignment(node);
+                                break;
+                            case 2 /* ModuleExports */:
+                                bindModuleExportsAssignment(node);
+                                break;
+                            case 3 /* PrototypeProperty */:
+                                bindPrototypePropertyAssignment(node);
+                                break;
+                            case 4 /* ThisProperty */:
+                                bindThisPropertyAssignment(node);
+                                break;
+                            case 0 /* None */:
+                                // Nothing to do
+                                break;
+                            default:
+                                ts.Debug.fail("Unknown special property assignment kind");
                         }
                     }
                     return checkStrictModeBinaryExpression(node);
@@ -13897,6 +13942,29 @@ var ts;
             // 'module.exports = expr' assignment
             setCommonJsModuleIndicator(node);
             bindExportAssignment(node);
+        }
+        function bindThisPropertyAssignment(node) {
+            // Declare a 'member' in case it turns out the container was an ES5 class
+            if (container.kind === 175 /* FunctionExpression */ || container.kind === 215 /* FunctionDeclaration */) {
+                container.symbol.members = container.symbol.members || {};
+                declareSymbol(container.symbol.members, container.symbol, node, 4 /* Property */, 107455 /* PropertyExcludes */);
+            }
+        }
+        function bindPrototypePropertyAssignment(node) {
+            // We saw a node of the form 'x.prototype.y = z'. Declare a 'member' y on x if x was a function.
+            // Look up the function in the local scope, since prototype assignments should
+            // follow the function declaration
+            var classId = node.left.expression.expression;
+            var funcSymbol = container.locals[classId.text];
+            if (!funcSymbol || !(funcSymbol.flags & 16 /* Function */)) {
+                return;
+            }
+            // Set up the members collection if it doesn't exist already
+            if (!funcSymbol.members) {
+                funcSymbol.members = {};
+            }
+            // Declare the method/property
+            declareSymbol(funcSymbol.members, funcSymbol, node.left, 4 /* Property */, 107455 /* PropertyExcludes */);
         }
         function bindCallExpression(node) {
             // We're only inspecting call expressions to detect CommonJS modules, so we can skip
@@ -16590,9 +16658,13 @@ var ts;
                 if (declaration.kind === 183 /* BinaryExpression */) {
                     return links.type = checkExpression(declaration.right);
                 }
-                // Handle exports.p = expr
                 if (declaration.kind === 168 /* PropertyAccessExpression */) {
-                    return checkExpressionCached(declaration.parent.right);
+                    // Declarations only exist for property access expressions for certain
+                    // special assignment kinds
+                    if (declaration.parent.kind === 183 /* BinaryExpression */) {
+                        // Handle exports.p = expr or this.p = expr or className.prototype.method = expr
+                        return links.type = checkExpressionCached(declaration.parent.right);
+                    }
                 }
                 // Handle variable, parameter or property
                 if (!pushTypeResolution(symbol, 0 /* Type */)) {
@@ -17407,35 +17479,28 @@ var ts;
         }
         function resolveAnonymousTypeMembers(type) {
             var symbol = type.symbol;
-            var members;
-            var callSignatures;
-            var constructSignatures;
-            var stringIndexType;
-            var numberIndexType;
             if (type.target) {
-                members = createInstantiatedSymbolTable(getPropertiesOfObjectType(type.target), type.mapper, /*mappingThisOnly*/ false);
-                callSignatures = instantiateList(getSignaturesOfType(type.target, 0 /* Call */), type.mapper, instantiateSignature);
-                constructSignatures = instantiateList(getSignaturesOfType(type.target, 1 /* Construct */), type.mapper, instantiateSignature);
-                stringIndexType = instantiateType(getIndexTypeOfType(type.target, 0 /* String */), type.mapper);
-                numberIndexType = instantiateType(getIndexTypeOfType(type.target, 1 /* Number */), type.mapper);
+                var members = createInstantiatedSymbolTable(getPropertiesOfObjectType(type.target), type.mapper, /*mappingThisOnly*/ false);
+                var callSignatures = instantiateList(getSignaturesOfType(type.target, 0 /* Call */), type.mapper, instantiateSignature);
+                var constructSignatures = instantiateList(getSignaturesOfType(type.target, 1 /* Construct */), type.mapper, instantiateSignature);
+                var stringIndexType = instantiateType(getIndexTypeOfType(type.target, 0 /* String */), type.mapper);
+                var numberIndexType = instantiateType(getIndexTypeOfType(type.target, 1 /* Number */), type.mapper);
+                setObjectTypeMembers(type, members, callSignatures, constructSignatures, stringIndexType, numberIndexType);
             }
             else if (symbol.flags & 2048 /* TypeLiteral */) {
-                members = symbol.members;
-                callSignatures = getSignaturesOfSymbol(members["__call"]);
-                constructSignatures = getSignaturesOfSymbol(members["__new"]);
-                stringIndexType = getIndexTypeOfSymbol(symbol, 0 /* String */);
-                numberIndexType = getIndexTypeOfSymbol(symbol, 1 /* Number */);
+                var members = symbol.members;
+                var callSignatures = getSignaturesOfSymbol(members["__call"]);
+                var constructSignatures = getSignaturesOfSymbol(members["__new"]);
+                var stringIndexType = getIndexTypeOfSymbol(symbol, 0 /* String */);
+                var numberIndexType = getIndexTypeOfSymbol(symbol, 1 /* Number */);
+                setObjectTypeMembers(type, members, callSignatures, constructSignatures, stringIndexType, numberIndexType);
             }
             else {
                 // Combinations of function, class, enum and module
-                members = emptySymbols;
-                callSignatures = emptyArray;
-                constructSignatures = emptyArray;
+                var members = emptySymbols;
+                var constructSignatures = emptyArray;
                 if (symbol.flags & 1952 /* HasExports */) {
                     members = getExportsOfSymbol(symbol);
-                }
-                if (symbol.flags & (16 /* Function */ | 8192 /* Method */)) {
-                    callSignatures = getSignaturesOfSymbol(symbol);
                 }
                 if (symbol.flags & 32 /* Class */) {
                     var classType = getDeclaredTypeOfClassOrInterface(symbol);
@@ -17449,10 +17514,16 @@ var ts;
                         addInheritedMembers(members, getPropertiesOfObjectType(baseConstructorType));
                     }
                 }
-                stringIndexType = undefined;
-                numberIndexType = (symbol.flags & 384 /* Enum */) ? stringType : undefined;
+                var numberIndexType = (symbol.flags & 384 /* Enum */) ? stringType : undefined;
+                setObjectTypeMembers(type, members, emptyArray, constructSignatures, undefined, numberIndexType);
+                // We resolve the members before computing the signatures because a signature may use
+                // typeof with a qualified name expression that circularly references the type we are
+                // in the process of resolving (see issue #6072). The temporarily empty signature list
+                // will never be observed because a qualified name can't reference signatures.
+                if (symbol.flags & (16 /* Function */ | 8192 /* Method */)) {
+                    type.callSignatures = getSignaturesOfSymbol(symbol);
+                }
             }
-            setObjectTypeMembers(type, members, callSignatures, constructSignatures, stringIndexType, numberIndexType);
         }
         function resolveStructuredTypeMembers(type) {
             if (!type.members) {
@@ -20580,6 +20651,21 @@ var ts;
                 var symbol = getSymbolOfNode(container.parent);
                 return container.flags & 64 /* Static */ ? getTypeOfSymbol(symbol) : getDeclaredTypeOfSymbol(symbol).thisType;
             }
+            // If this is a function in a JS file, it might be a class method. Check if it's the RHS
+            // of a x.prototype.y = function [name]() { .... }
+            if (ts.isInJavaScriptFile(node) && container.kind === 175 /* FunctionExpression */) {
+                if (ts.getSpecialPropertyAssignmentKind(container.parent) === 3 /* PrototypeProperty */) {
+                    // Get the 'x' of 'x.prototype.y = f' (here, 'f' is 'container')
+                    var className = container.parent // x.protoype.y = f
+                        .left // x.prototype.y
+                        .expression // x.prototype
+                        .expression; // x
+                    var classSymbol = checkExpression(className).symbol;
+                    if (classSymbol && classSymbol.members && (classSymbol.flags & 16 /* Function */)) {
+                        return getInferredClassType(classSymbol);
+                    }
+                }
+            }
             return anyType;
         }
         function isInConstructorArgumentInitializer(node, constructorDecl) {
@@ -22998,6 +23084,13 @@ var ts;
             }
             return links.resolvedSignature;
         }
+        function getInferredClassType(symbol) {
+            var links = getSymbolLinks(symbol);
+            if (!links.inferredClassType) {
+                links.inferredClassType = createAnonymousType(undefined, symbol.members, emptyArray, emptyArray, /*stringIndexType*/ undefined, /*numberIndexType*/ undefined);
+            }
+            return links.inferredClassType;
+        }
         /**
          * Syntactically and semantically checks a call or new expression.
          * @param node The call/new expression to be checked.
@@ -23016,8 +23109,14 @@ var ts;
                     declaration.kind !== 144 /* Constructor */ &&
                     declaration.kind !== 148 /* ConstructSignature */ &&
                     declaration.kind !== 153 /* ConstructorType */) {
-                    // When resolved signature is a call signature (and not a construct signature) the result type is any
-                    if (compilerOptions.noImplicitAny) {
+                    // When resolved signature is a call signature (and not a construct signature) the result type is any, unless
+                    // the declaring function had members created through 'x.prototype.y = expr' or 'this.y = expr' psuedodeclarations
+                    // in a JS file
+                    var funcSymbol = checkExpression(node.expression).symbol;
+                    if (funcSymbol && funcSymbol.members && (funcSymbol.flags & 16 /* Function */)) {
+                        return getInferredClassType(funcSymbol);
+                    }
+                    else if (compilerOptions.noImplicitAny) {
                         error(node, ts.Diagnostics.new_expression_whose_target_lacks_a_construct_signature_implicitly_has_an_any_type);
                     }
                     return anyType;

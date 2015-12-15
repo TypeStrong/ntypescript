@@ -1403,6 +1403,7 @@ declare namespace ts {
         type?: Type;
         declaredType?: Type;
         typeParameters?: TypeParameter[];
+        inferredClassType?: Type;
         instantiations?: Map<Type>;
         mapper?: TypeMapper;
         referenced?: boolean;
@@ -1608,6 +1609,13 @@ declare namespace ts {
         inferredTypes: Type[];
         mapper?: TypeMapper;
         failedTypeParameterIndex?: number;
+    }
+    const enum SpecialPropertyAssignmentKind {
+        None = 0,
+        ExportsProperty = 1,
+        ModuleExports = 2,
+        PrototypeProperty = 3,
+        ThisProperty = 4,
     }
     interface DiagnosticMessage {
         key: string;
@@ -2192,16 +2200,7 @@ declare namespace ts {
      * This function does not test if the node is in a JavaScript file or not.
     */
     function isRequireCall(expression: Node): expression is CallExpression;
-    /**
-     * Returns true if the node is an assignment to a property on the identifier 'exports'.
-     * This function does not test if the node is in a JavaScript file or not.
-    */
-    function isExportsPropertyAssignment(expression: Node): boolean;
-    /**
-     * Returns true if the node is an assignment to the property access expression 'module.exports'.
-     * This function does not test if the node is in a JavaScript file or not.
-    */
-    function isModuleExportsAssignment(expression: Node): boolean;
+    function getSpecialPropertyAssignmentKind(expression: Node): SpecialPropertyAssignmentKind;
     function getExternalModuleName(node: Node): Expression;
     function hasQuestionToken(node: Node): boolean;
     function isJSDocConstructSignature(node: Node): boolean;
