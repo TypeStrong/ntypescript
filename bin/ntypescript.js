@@ -14308,6 +14308,7 @@ var ts;
         var getGlobalPromiseConstructorLikeType;
         var getGlobalThenableType;
         var jsxElementClassType;
+        var deferredNodes;
         var tupleTypes = {};
         var unionTypes = {};
         var intersectionTypes = {};
@@ -23433,6 +23434,7 @@ var ts;
                     }
                     if (!contextChecked) {
                         checkSignatureDeclaration(node);
+                        checkNodeDeferred(node);
                     }
                 }
             }
@@ -23442,7 +23444,7 @@ var ts;
             }
             return type;
         }
-        function checkFunctionExpressionOrObjectLiteralMethodBody(node) {
+        function checkFunctionExpressionOrObjectLiteralMethodDeferred(node) {
             ts.Debug.assert(node.kind !== 143 /* MethodDeclaration */ || ts.isObjectLiteralMethod(node));
             var isAsync = ts.isAsyncFunctionLike(node);
             if (isAsync) {
@@ -23481,7 +23483,6 @@ var ts;
                             checkTypeAssignableTo(exprType, returnOrPromisedType, node.body);
                         }
                     }
-                    checkFunctionAndClassExpressionBodies(node.body);
                 }
             }
         }
@@ -24610,12 +24611,12 @@ var ts;
             if (node.parent.kind !== 167 /* ObjectLiteralExpression */) {
                 checkSourceElement(node.body);
             }
-        }
-        function checkObjectLiteralAccessorBody(node) {
-            if (node.body) {
-                checkSourceElement(node.body);
-                checkFunctionAndClassExpressionBodies(node.body);
+            else {
+                checkNodeDeferred(node);
             }
+        }
+        function checkAccessorDeferred(node) {
+            checkSourceElement(node.body);
         }
         function checkMissingDeclaration(node) {
             checkDecorators(node);
@@ -25436,9 +25437,6 @@ var ts;
                 checkGrammarStatementInAmbientContext(node);
             }
             ts.forEach(node.statements, checkSourceElement);
-            if (ts.isFunctionBlock(node) || node.kind === 221 /* ModuleBlock */) {
-                checkFunctionAndClassExpressionBodies(node);
-            }
         }
         function checkCollisionWithArgumentsInGeneratedCode(node) {
             // no rest parameters \ declaration context \ overload - no codegen impact
@@ -26332,7 +26330,11 @@ var ts;
         }
         function checkClassExpression(node) {
             checkClassLikeDeclaration(node);
+            checkNodeDeferred(node);
             return getTypeOfSymbol(getSymbolOfNode(node));
+        }
+        function checkClassExpressionDeferred(node) {
+            ts.forEach(node.members, checkSourceElement);
         }
         function checkClassDeclaration(node) {
             if (!node.name && !(node.flags & 512 /* Default */)) {
@@ -27309,107 +27311,29 @@ var ts;
         // Here, performing a full type check of the body of the function expression whilst in the process of
         // determining the type of foo would cause foo to be given type any because of the recursive reference.
         // Delaying the type check of the body ensures foo has been assigned a type.
-        function checkFunctionAndClassExpressionBodies(node) {
-            switch (node.kind) {
-                case 175 /* FunctionExpression */:
-                case 176 /* ArrowFunction */:
-                    ts.forEach(node.parameters, checkFunctionAndClassExpressionBodies);
-                    checkFunctionExpressionOrObjectLiteralMethodBody(node);
-                    break;
-                case 188 /* ClassExpression */:
-                    ts.forEach(node.members, checkSourceElement);
-                    ts.forEachChild(node, checkFunctionAndClassExpressionBodies);
-                    break;
-                case 143 /* MethodDeclaration */:
-                case 142 /* MethodSignature */:
-                    ts.forEach(node.decorators, checkFunctionAndClassExpressionBodies);
-                    ts.forEach(node.parameters, checkFunctionAndClassExpressionBodies);
-                    if (ts.isObjectLiteralMethod(node)) {
-                        checkFunctionExpressionOrObjectLiteralMethodBody(node);
-                    }
-                    break;
-                case 144 /* Constructor */:
-                case 215 /* FunctionDeclaration */:
-                    ts.forEach(node.parameters, checkFunctionAndClassExpressionBodies);
-                    break;
-                case 145 /* GetAccessor */:
-                case 146 /* SetAccessor */:
-                    ts.forEach(node.parameters, checkFunctionAndClassExpressionBodies);
-                    if (node.parent.kind === 167 /* ObjectLiteralExpression */) {
-                        checkObjectLiteralAccessorBody(node);
-                    }
-                    break;
-                case 207 /* WithStatement */:
-                    checkFunctionAndClassExpressionBodies(node.expression);
-                    break;
-                case 139 /* Decorator */:
-                case 138 /* Parameter */:
-                case 141 /* PropertyDeclaration */:
-                case 140 /* PropertySignature */:
-                case 163 /* ObjectBindingPattern */:
-                case 164 /* ArrayBindingPattern */:
-                case 165 /* BindingElement */:
-                case 166 /* ArrayLiteralExpression */:
-                case 167 /* ObjectLiteralExpression */:
-                case 247 /* PropertyAssignment */:
-                case 168 /* PropertyAccessExpression */:
-                case 169 /* ElementAccessExpression */:
-                case 170 /* CallExpression */:
-                case 171 /* NewExpression */:
-                case 172 /* TaggedTemplateExpression */:
-                case 185 /* TemplateExpression */:
-                case 192 /* TemplateSpan */:
-                case 173 /* TypeAssertionExpression */:
-                case 191 /* AsExpression */:
-                case 174 /* ParenthesizedExpression */:
-                case 178 /* TypeOfExpression */:
-                case 179 /* VoidExpression */:
-                case 180 /* AwaitExpression */:
-                case 177 /* DeleteExpression */:
-                case 181 /* PrefixUnaryExpression */:
-                case 182 /* PostfixUnaryExpression */:
-                case 183 /* BinaryExpression */:
-                case 184 /* ConditionalExpression */:
-                case 187 /* SpreadElementExpression */:
-                case 186 /* YieldExpression */:
-                case 194 /* Block */:
-                case 221 /* ModuleBlock */:
-                case 195 /* VariableStatement */:
-                case 197 /* ExpressionStatement */:
-                case 198 /* IfStatement */:
-                case 199 /* DoStatement */:
-                case 200 /* WhileStatement */:
-                case 201 /* ForStatement */:
-                case 202 /* ForInStatement */:
-                case 203 /* ForOfStatement */:
-                case 204 /* ContinueStatement */:
-                case 205 /* BreakStatement */:
-                case 206 /* ReturnStatement */:
-                case 208 /* SwitchStatement */:
-                case 222 /* CaseBlock */:
-                case 243 /* CaseClause */:
-                case 244 /* DefaultClause */:
-                case 209 /* LabeledStatement */:
-                case 210 /* ThrowStatement */:
-                case 211 /* TryStatement */:
-                case 246 /* CatchClause */:
-                case 213 /* VariableDeclaration */:
-                case 214 /* VariableDeclarationList */:
-                case 216 /* ClassDeclaration */:
-                case 245 /* HeritageClause */:
-                case 190 /* ExpressionWithTypeArguments */:
-                case 219 /* EnumDeclaration */:
-                case 249 /* EnumMember */:
-                case 229 /* ExportAssignment */:
-                case 250 /* SourceFile */:
-                case 242 /* JsxExpression */:
-                case 235 /* JsxElement */:
-                case 236 /* JsxSelfClosingElement */:
-                case 240 /* JsxAttribute */:
-                case 241 /* JsxSpreadAttribute */:
-                case 237 /* JsxOpeningElement */:
-                    ts.forEachChild(node, checkFunctionAndClassExpressionBodies);
-                    break;
+        function checkNodeDeferred(node) {
+            if (deferredNodes) {
+                deferredNodes.push(node);
+            }
+        }
+        function checkDeferredNodes() {
+            for (var _i = 0, deferredNodes_1 = deferredNodes; _i < deferredNodes_1.length; _i++) {
+                var node = deferredNodes_1[_i];
+                switch (node.kind) {
+                    case 175 /* FunctionExpression */:
+                    case 176 /* ArrowFunction */:
+                    case 143 /* MethodDeclaration */:
+                    case 142 /* MethodSignature */:
+                        checkFunctionExpressionOrObjectLiteralMethodDeferred(node);
+                        break;
+                    case 145 /* GetAccessor */:
+                    case 146 /* SetAccessor */:
+                        checkAccessorDeferred(node);
+                        break;
+                    case 188 /* ClassExpression */:
+                        checkClassExpressionDeferred(node);
+                        break;
+                }
             }
         }
         function checkSourceFile(node) {
@@ -27437,8 +27361,10 @@ var ts;
                 emitParam = false;
                 emitAwaiter = false;
                 potentialThisCollisions.length = 0;
+                deferredNodes = [];
                 ts.forEach(node.statements, checkSourceElement);
-                checkFunctionAndClassExpressionBodies(node);
+                checkDeferredNodes();
+                deferredNodes = undefined;
                 if (ts.isExternalOrCommonJsModule(node)) {
                     checkExternalModuleExports(node);
                 }
