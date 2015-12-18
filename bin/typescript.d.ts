@@ -1177,6 +1177,7 @@ declare namespace ts {
         getReturnTypeOfSignature(signature: Signature): Type;
         getSymbolsInScope(location: Node, meaning: SymbolFlags): Symbol[];
         getSymbolAtLocation(node: Node): Symbol;
+        getSymbolsOfParameterPropertyDeclaration(parameter: ParameterDeclaration, parameterName: string): Symbol[];
         getShorthandAssignmentValueSymbol(location: Node): Symbol;
         getTypeAtLocation(node: Node): Type;
         typeToString(type: Type, enclosingDeclaration?: Node, flags?: TypeFormatFlags): string;
@@ -2179,7 +2180,15 @@ declare namespace ts {
     function getContainingFunction(node: Node): FunctionLikeDeclaration;
     function getContainingClass(node: Node): ClassLikeDeclaration;
     function getThisContainer(node: Node, includeArrowFunctions: boolean): Node;
-    function getSuperContainer(node: Node, includeFunctions: boolean): Node;
+    /**
+      * Given an super call\property node returns a closest node where either
+      * - super call\property is legal in the node and not legal in the parent node the node.
+      *   i.e. super call is legal in constructor but not legal in the class body.
+      * - node is arrow function (so caller might need to call getSuperContainer in case if he needs to climb higher)
+      * - super call\property is definitely illegal in the node (but might be legal in some subnode)
+      *   i.e. super property access is illegal in function declaration but can be legal in the statement list
+      */
+    function getSuperContainer(node: Node, stopOnFunctions: boolean): Node;
     function getEntityNameFromTypeNode(node: TypeNode): EntityName | Expression;
     function getInvokedExpression(node: CallLikeExpression): Expression;
     function nodeCanBeDecorated(node: Node): boolean;
@@ -2391,6 +2400,7 @@ declare namespace ts {
      */
     function collapseTextChangeRangesAcrossMultipleVersions(changes: TextChangeRange[]): TextChangeRange;
     function getTypeParameterOwner(d: Declaration): Declaration;
+    function isParameterPropertyDeclaration(node: ParameterDeclaration): boolean;
 }
 declare namespace ts {
     var Diagnostics: {
@@ -4932,7 +4942,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        JSX_element_attributes_type_0_must_be_an_object_type: {
+        JSX_element_attributes_type_0_may_not_be_a_union_type: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5029,6 +5039,18 @@ declare namespace ts {
             message: string;
         };
         Type_0_provides_no_match_for_the_signature_1: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        super_is_only_allowed_in_members_of_object_literal_expressions_when_option_target_is_ES2015_or_higher: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        super_can_only_be_referenced_in_members_of_derived_classes_or_object_literal_expressions: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6937,7 +6959,7 @@ declare namespace ts.formatting {
 }
 declare namespace ts {
     /** The version of the language service API */
-    let servicesVersion: string;
+    const servicesVersion: string;
     interface Node {
         getSourceFile(): SourceFile;
         getChildCount(sourceFile?: SourceFile): number;
@@ -7010,7 +7032,7 @@ declare namespace ts {
         /** Releases all resources held by this script snapshot */
         dispose?(): void;
     }
-    module ScriptSnapshot {
+    namespace ScriptSnapshot {
         function fromString(text: string): IScriptSnapshot;
     }
     interface PreProcessedFileInfo {
@@ -7133,7 +7155,7 @@ declare namespace ts {
         fileName: string;
         highlightSpans: HighlightSpan[];
     }
-    module HighlightSpanKind {
+    namespace HighlightSpanKind {
         const none: string;
         const definition: string;
         const reference: string;
@@ -7419,7 +7441,7 @@ declare namespace ts {
         releaseDocument(fileName: string, compilationSettings: CompilerOptions): void;
         reportStats(): string;
     }
-    module ScriptElementKind {
+    namespace ScriptElementKind {
         const unknown: string;
         const warning: string;
         const keyword: string;
@@ -7450,7 +7472,7 @@ declare namespace ts {
         const constElement: string;
         const letElement: string;
     }
-    module ScriptElementKindModifier {
+    namespace ScriptElementKindModifier {
         const none: string;
         const publicMemberModifier: string;
         const privateMemberModifier: string;
