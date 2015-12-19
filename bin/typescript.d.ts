@@ -830,7 +830,7 @@ declare namespace ts {
         clauses: NodeArray<CaseOrDefaultClause>;
     }
     interface CaseClause extends Node {
-        expression?: Expression;
+        expression: Expression;
         statements: NodeArray<Statement>;
     }
     interface DefaultClause extends Node {

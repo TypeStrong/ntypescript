@@ -1597,22 +1597,6 @@ var ts;
         return path;
     }
     ts.removeFileExtension = removeFileExtension;
-    var backslashOrDoubleQuote = /[\"\\]/g;
-    var escapedCharsRegExp = /[\u0000-\u001f\t\v\f\b\r\n\u2028\u2029\u0085]/g;
-    var escapedCharsMap = {
-        "\0": "\\0",
-        "\t": "\\t",
-        "\v": "\\v",
-        "\f": "\\f",
-        "\b": "\\b",
-        "\r": "\\r",
-        "\n": "\\n",
-        "\\": "\\\\",
-        "\"": "\\\"",
-        "\u2028": "\\u2028",
-        "\u2029": "\\u2029",
-        "\u0085": "\\u0085" // nextLine
-    };
     function Symbol(flags, name) {
         this.flags = flags;
         this.name = name;
@@ -1824,7 +1808,6 @@ var ts;
             var _fs = require("fs");
             var _path = require("path");
             var _os = require("os");
-            var _tty = require("tty");
             // average async stat takes about 30 microseconds
             // set chunk size to do 30 files in < 1 millisecond
             function createWatchedFileSet(interval, chunkSize) {
@@ -1910,9 +1893,6 @@ var ts;
             // to increase the chunk size or decrease the interval
             // time dynamically to match the large reference set?
             var watchedFileSet = createWatchedFileSet();
-            function isNode4OrLater() {
-                return parseInt(process.version.charAt(1)) >= 4;
-            }
             var platform = _os.platform();
             // win32\win64 are case insensitive platforms, MacOS (darwin) by default is also case insensitive
             var useCaseSensitiveFileNames = platform !== "win32" && platform !== "win64" && platform !== "darwin";
@@ -7540,9 +7520,6 @@ var ts;
         function doInYieldContext(func) {
             return doInsideOfContext(2 /* Yield */, func);
         }
-        function doOutsideOfYieldContext(func) {
-            return doOutsideOfContext(2 /* Yield */, func);
-        }
         function doInDecoratorContext(func) {
             return doInsideOfContext(4 /* Decorator */, func);
         }
@@ -7554,9 +7531,6 @@ var ts;
         }
         function doInYieldAndAwaitContext(func) {
             return doInsideOfContext(2 /* Yield */ | 8 /* Await */, func);
-        }
-        function doOutsideOfYieldAndAwaitContext(func) {
-            return doOutsideOfContext(2 /* Yield */ | 8 /* Await */, func);
         }
         function inContext(flags) {
             return (contextFlags & flags) !== 0;
@@ -7600,9 +7574,6 @@ var ts;
         }
         function nextToken() {
             return token = scanner.scan();
-        }
-        function getTokenPos(pos) {
-            return ts.skipTrivia(sourceText, pos);
         }
         function reScanGreaterToken() {
             return token = scanner.reScanGreaterToken();
@@ -9145,9 +9116,6 @@ var ts;
                 token !== 55 /* AtToken */ &&
                 isStartOfExpression();
         }
-        function allowInAndParseExpression() {
-            return allowInAnd(parseExpression);
-        }
         function parseExpression() {
             // Expression[in]:
             //      AssignmentExpression[in]
@@ -10309,7 +10277,6 @@ var ts;
             }
             var asteriskToken = parseOptionalToken(37 /* AsteriskToken */);
             var tokenIsIdentifier = isIdentifier();
-            var nameToken = token;
             var propertyName = parsePropertyName();
             // Disallowing of optional property assignments happens in the grammar checker.
             var questionToken = parseOptionalToken(53 /* QuestionToken */);
@@ -11309,9 +11276,6 @@ var ts;
             }
             return undefined;
         }
-        function parseHeritageClausesWorker() {
-            return parseList(20 /* HeritageClauses */, parseHeritageClause);
-        }
         function parseHeritageClause() {
             if (token === 83 /* ExtendsKeyword */ || token === 106 /* ImplementsKeyword */) {
                 var node = createNode(245 /* HeritageClause */);
@@ -11439,11 +11403,6 @@ var ts;
         }
         function nextTokenIsSlash() {
             return nextToken() === 39 /* SlashToken */;
-        }
-        function nextTokenIsCommaOrFromKeyword() {
-            nextToken();
-            return token === 24 /* CommaToken */ ||
-                token === 133 /* FromKeyword */;
         }
         function parseImportDeclarationOrImportEqualsDeclaration(fullStart, decorators, modifiers) {
             parseExpected(89 /* ImportKeyword */);
@@ -11881,12 +11840,6 @@ var ts;
                 var parameter = createNode(138 /* Parameter */);
                 parameter.type = parseJSDocType();
                 return finishNode(parameter);
-            }
-            function parseJSDocOptionalType(type) {
-                var result = createNode(262 /* JSDocOptionalType */, type.pos);
-                nextToken();
-                result.type = type;
-                return finishNode(result);
             }
             function parseJSDocTypeReference() {
                 var result = createNode(261 /* JSDocTypeReference */);
@@ -14941,14 +14894,6 @@ var ts;
             var moduleSpecifier = node.parent.parent.moduleSpecifier;
             return resolveESModuleSymbol(resolveExternalModuleName(node, moduleSpecifier), moduleSpecifier);
         }
-        function getMemberOfModuleVariable(moduleSymbol, name) {
-            if (moduleSymbol.flags & 3 /* Variable */) {
-                var typeAnnotation = moduleSymbol.valueDeclaration.type;
-                if (typeAnnotation) {
-                    return getPropertyOfType(getTypeFromTypeNode(typeAnnotation), name);
-                }
-            }
-        }
         // This function creates a synthetic symbol that combines the value side of one symbol with the
         // type/namespace side of another symbol. Consider this example:
         //
@@ -15166,7 +15111,6 @@ var ts;
                 return;
             }
             var moduleReferenceLiteral = moduleReferenceExpression;
-            var searchPath = ts.getDirectoryPath(getSourceFile(location).fileName);
             // Module names are escaped in our symbol table.  However, string literal values aren't.
             // Escape the name in the "require(...)" clause to ensure we find the right symbol.
             var moduleName = ts.escapeIdentifier(moduleReferenceLiteral.text);
@@ -16169,60 +16113,14 @@ var ts;
             });
         }
         function isDeclarationVisible(node) {
-            function getContainingExternalModule(node) {
-                for (; node; node = node.parent) {
-                    if (node.kind === 220 /* ModuleDeclaration */) {
-                        if (node.name.kind === 9 /* StringLiteral */) {
-                            return node;
-                        }
-                    }
-                    else if (node.kind === 250 /* SourceFile */) {
-                        return ts.isExternalOrCommonJsModule(node) ? node : undefined;
-                    }
+            if (node) {
+                var links = getNodeLinks(node);
+                if (links.isVisible === undefined) {
+                    links.isVisible = !!determineIfDeclarationIsVisible();
                 }
-                ts.Debug.fail("getContainingModule cant reach here");
+                return links.isVisible;
             }
-            function isUsedInExportAssignment(node) {
-                // Get source File and see if it is external module and has export assigned symbol
-                var externalModule = getContainingExternalModule(node);
-                var exportAssignmentSymbol;
-                var resolvedExportSymbol;
-                if (externalModule) {
-                    // This is export assigned symbol node
-                    var externalModuleSymbol = getSymbolOfNode(externalModule);
-                    exportAssignmentSymbol = getExportAssignmentSymbol(externalModuleSymbol);
-                    var symbolOfNode = getSymbolOfNode(node);
-                    if (isSymbolUsedInExportAssignment(symbolOfNode)) {
-                        return true;
-                    }
-                    // if symbolOfNode is alias declaration, resolve the symbol declaration and check
-                    if (symbolOfNode.flags & 8388608 /* Alias */) {
-                        return isSymbolUsedInExportAssignment(resolveAlias(symbolOfNode));
-                    }
-                }
-                // Check if the symbol is used in export assignment
-                function isSymbolUsedInExportAssignment(symbol) {
-                    if (exportAssignmentSymbol === symbol) {
-                        return true;
-                    }
-                    if (exportAssignmentSymbol && !!(exportAssignmentSymbol.flags & 8388608 /* Alias */)) {
-                        // if export assigned symbol is alias declaration, resolve the alias
-                        resolvedExportSymbol = resolvedExportSymbol || resolveAlias(exportAssignmentSymbol);
-                        if (resolvedExportSymbol === symbol) {
-                            return true;
-                        }
-                        // Container of resolvedExportSymbol is visible
-                        return ts.forEach(resolvedExportSymbol.declarations, function (current) {
-                            while (current) {
-                                if (current === node) {
-                                    return true;
-                                }
-                                current = current.parent;
-                            }
-                        });
-                    }
-                }
-            }
+            return false;
             function determineIfDeclarationIsVisible() {
                 switch (node.kind) {
                     case 165 /* BindingElement */:
@@ -16293,13 +16191,6 @@ var ts;
                     default:
                         ts.Debug.fail("isDeclarationVisible unknown: SyntaxKind: " + node.kind);
                 }
-            }
-            if (node) {
-                var links = getNodeLinks(node);
-                if (links.isVisible === undefined) {
-                    links.isVisible = !!determineIfDeclarationIsVisible();
-                }
-                return links.isVisible;
             }
         }
         function collectLinkedAliases(node) {
@@ -17271,14 +17162,6 @@ var ts;
                 }
             }
         }
-        function addInheritedSignatures(signatures, baseSignatures) {
-            if (baseSignatures) {
-                for (var _i = 0, baseSignatures_1 = baseSignatures; _i < baseSignatures_1.length; _i++) {
-                    var signature = baseSignatures_1[_i];
-                    signatures.push(signature);
-                }
-            }
-        }
         function resolveDeclaredMembers(type) {
             if (!type.declaredProperties) {
                 var symbol = type.symbol;
@@ -17363,8 +17246,8 @@ var ts;
             var typeArguments = ts.map(baseTypeNode.typeArguments, getTypeFromTypeNode);
             var typeArgCount = typeArguments ? typeArguments.length : 0;
             var result = [];
-            for (var _i = 0, baseSignatures_2 = baseSignatures; _i < baseSignatures_2.length; _i++) {
-                var baseSig = baseSignatures_2[_i];
+            for (var _i = 0, baseSignatures_1 = baseSignatures; _i < baseSignatures_1.length; _i++) {
+                var baseSig = baseSignatures_1[_i];
                 var typeParamCount = baseSig.typeParameters ? baseSig.typeParameters.length : 0;
                 if (typeParamCount === typeArgCount) {
                     var sig = typeParamCount ? getSignatureInstantiation(baseSig, typeArguments) : cloneSignature(baseSig);
@@ -17742,22 +17625,6 @@ var ts;
          */
         function getSignaturesOfType(type, kind) {
             return getSignaturesOfStructuredType(getApparentType(type), kind);
-        }
-        function typeHasConstructSignatures(type) {
-            var apparentType = getApparentType(type);
-            if (apparentType.flags & (80896 /* ObjectType */ | 16384 /* Union */)) {
-                var resolved = resolveStructuredTypeMembers(type);
-                return resolved.constructSignatures.length > 0;
-            }
-            return false;
-        }
-        function typeHasCallOrConstructSignatures(type) {
-            var apparentType = getApparentType(type);
-            if (apparentType.flags & 130048 /* StructuredType */) {
-                var resolved = resolveStructuredTypeMembers(type);
-                return resolved.callSignatures.length > 0 || resolved.constructSignatures.length > 0;
-            }
-            return false;
         }
         function getIndexTypeOfStructuredType(type, kind) {
             if (type.flags & 130048 /* StructuredType */) {
@@ -18219,10 +18086,6 @@ var ts;
         function getGlobalType(name, arity) {
             if (arity === void 0) { arity = 0; }
             return getTypeOfGlobalSymbol(getGlobalTypeSymbol(name), arity);
-        }
-        function tryGetGlobalType(name, arity) {
-            if (arity === void 0) { arity = 0; }
-            return getTypeOfGlobalSymbol(getGlobalSymbol(name, 793056 /* Type */, /*diagnostic*/ undefined), arity);
         }
         /**
          * Returns a type that is inside a namespace at the global scope, e.g.
@@ -19367,24 +19230,19 @@ var ts;
                 }
                 var sourceSignatures = getSignaturesOfType(source, kind);
                 var targetSignatures = getSignaturesOfType(target, kind);
+                if (kind === 1 /* Construct */ && sourceSignatures.length && targetSignatures.length &&
+                    isAbstractConstructorType(source) && !isAbstractConstructorType(target)) {
+                    // An abstract constructor type is not assignable to a non-abstract constructor type
+                    // as it would otherwise be possible to new an abstract class. Note that the assignablity
+                    // check we perform for an extends clause excludes construct signatures from the target,
+                    // so this check never proceeds.
+                    if (reportErrors) {
+                        reportError(ts.Diagnostics.Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type);
+                    }
+                    return 0 /* False */;
+                }
                 var result = -1 /* True */;
                 var saveErrorInfo = errorInfo;
-                if (kind === 1 /* Construct */) {
-                    // Only want to compare the construct signatures for abstractness guarantees.
-                    // Because the "abstractness" of a class is the same across all construct signatures
-                    // (internally we are checking the corresponding declaration), it is enough to perform
-                    // the check and report an error once over all pairs of source and target construct signatures.
-                    //
-                    // sourceSig and targetSig are (possibly) undefined.
-                    //
-                    // Note that in an extends-clause, targetSignatures is stripped, so the check never proceeds.
-                    var sourceSig = sourceSignatures[0];
-                    var targetSig = targetSignatures[0];
-                    result &= abstractSignatureRelatedTo(source, sourceSig, target, targetSig);
-                    if (result !== -1 /* True */) {
-                        return result;
-                    }
-                }
                 outer: for (var _i = 0, targetSignatures_1 = targetSignatures; _i < targetSignatures_1.length; _i++) {
                     var t = targetSignatures_1[_i];
                     if (!t.hasStringLiterals || target.flags & 262144 /* FromSignature */) {
@@ -19411,33 +19269,6 @@ var ts;
                     }
                 }
                 return result;
-                function abstractSignatureRelatedTo(source, sourceSig, target, targetSig) {
-                    if (sourceSig && targetSig) {
-                        var sourceDecl = source.symbol && getClassLikeDeclarationOfSymbol(source.symbol);
-                        var targetDecl = target.symbol && getClassLikeDeclarationOfSymbol(target.symbol);
-                        if (!sourceDecl) {
-                            // If the source object isn't itself a class declaration, it can be freely assigned, regardless
-                            // of whether the constructed object is abstract or not.
-                            return -1 /* True */;
-                        }
-                        var sourceErasedSignature = getErasedSignature(sourceSig);
-                        var targetErasedSignature = getErasedSignature(targetSig);
-                        var sourceReturnType = sourceErasedSignature && getReturnTypeOfSignature(sourceErasedSignature);
-                        var targetReturnType = targetErasedSignature && getReturnTypeOfSignature(targetErasedSignature);
-                        var sourceReturnDecl = sourceReturnType && sourceReturnType.symbol && getClassLikeDeclarationOfSymbol(sourceReturnType.symbol);
-                        var targetReturnDecl = targetReturnType && targetReturnType.symbol && getClassLikeDeclarationOfSymbol(targetReturnType.symbol);
-                        var sourceIsAbstract = sourceReturnDecl && sourceReturnDecl.flags & 128 /* Abstract */;
-                        var targetIsAbstract = targetReturnDecl && targetReturnDecl.flags & 128 /* Abstract */;
-                        if (sourceIsAbstract && !(targetIsAbstract && targetDecl)) {
-                            // if target isn't a class-declaration type, then it can be new'd, so we forbid the assignment.
-                            if (reportErrors) {
-                                reportError(ts.Diagnostics.Cannot_assign_an_abstract_constructor_type_to_a_non_abstract_constructor_type);
-                            }
-                            return 0 /* False */;
-                        }
-                    }
-                    return -1 /* True */;
-                }
             }
             /**
              * See signatureAssignableTo, signatureAssignableTo
@@ -19619,6 +19450,19 @@ var ts;
                 }
                 return -1 /* True */;
             }
+        }
+        // Return true if the given type is the constructor type for an abstract class
+        function isAbstractConstructorType(type) {
+            if (type.flags & 65536 /* Anonymous */) {
+                var symbol = type.symbol;
+                if (symbol && symbol.flags & 32 /* Class */) {
+                    var declaration = getClassLikeDeclarationOfSymbol(symbol);
+                    if (declaration && declaration.flags & 128 /* Abstract */) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
         // Return true if the given type is part of a deeply nested chain of generic instantiations. We consider this to be the case
         // when structural type comparisons have been started for 10 or more instantiations of the same generic type. It is possible,
@@ -19970,18 +19814,19 @@ var ts;
             }
         }
         function createInferenceContext(typeParameters, inferUnionTypes) {
-            var inferences = [];
-            for (var _i = 0, typeParameters_1 = typeParameters; _i < typeParameters_1.length; _i++) {
-                var unused = typeParameters_1[_i];
-                inferences.push({
-                    primary: undefined, secondary: undefined, isFixed: false
-                });
-            }
+            var inferences = ts.map(typeParameters, createTypeInferencesObject);
             return {
                 typeParameters: typeParameters,
                 inferUnionTypes: inferUnionTypes,
                 inferences: inferences,
                 inferredTypes: new Array(typeParameters.length),
+            };
+        }
+        function createTypeInferencesObject() {
+            return {
+                primary: undefined,
+                secondary: undefined,
+                isFixed: false,
             };
         }
         function inferTypes(context, source, target) {
@@ -20244,9 +20089,6 @@ var ts;
                 getInferredType(context, i);
             }
             return context.inferredTypes;
-        }
-        function hasAncestor(node, kind) {
-            return ts.getAncestor(node, kind) !== undefined;
         }
         // EXPRESSION TYPE CHECKING
         function getResolvedSymbol(node) {
@@ -21716,7 +21558,6 @@ var ts;
         /// type or factory function.
         /// Otherwise, returns unknownSymbol.
         function getJsxElementTagSymbol(node) {
-            var flags = 16 /* UnknownElement */;
             var links = getNodeLinks(node);
             if (!links.resolvedSymbol) {
                 if (isJsxIntrinsicIdentifier(node.tagName)) {
@@ -27265,15 +27106,6 @@ var ts;
                 }
             }
         }
-        function getModuleStatements(node) {
-            if (node.kind === 250 /* SourceFile */) {
-                return node.statements;
-            }
-            if (node.kind === 220 /* ModuleDeclaration */ && node.body.kind === 221 /* ModuleBlock */) {
-                return node.body.statements;
-            }
-            return emptyArray;
-        }
         function hasExportedMembers(moduleSymbol) {
             for (var id in moduleSymbol.exports) {
                 if (id !== "export=") {
@@ -28229,17 +28061,6 @@ var ts;
             var symbol = getReferencedValueSymbol(reference);
             return symbol && getExportSymbolOfValueSymbolIfExported(symbol).valueDeclaration;
         }
-        function instantiateSingleCallFunctionType(functionType, typeArguments) {
-            if (functionType === unknownType) {
-                return unknownType;
-            }
-            var signature = getSingleCallSignature(functionType);
-            if (!signature) {
-                return unknownType;
-            }
-            var instantiatedSignature = getSignatureInstantiation(signature, typeArguments);
-            return getOrCreateTypeFromSignature(instantiatedSignature);
-        }
         function createResolver() {
             return {
                 getReferencedExportContainer: getReferencedExportContainer,
@@ -29193,23 +29014,6 @@ var ts;
                 }
             }
         }
-        function isIntegerLiteral(expression) {
-            if (expression.kind === 181 /* PrefixUnaryExpression */) {
-                var unaryExpression = expression;
-                if (unaryExpression.operator === 35 /* PlusToken */ || unaryExpression.operator === 36 /* MinusToken */) {
-                    expression = unaryExpression.operand;
-                }
-            }
-            if (expression.kind === 8 /* NumericLiteral */) {
-                // Allows for scientific notation since literalExpression.text was formed by
-                // coercing a number to a string. Sometimes this coercion can yield a string
-                // in scientific notation.
-                // We also don't need special logic for hex because a hex integer is converted
-                // to decimal when it is coerced.
-                return /^[0-9]+([eE]\+?[0-9]+)?$/.test(expression.text);
-            }
-            return false;
-        }
         function hasParseDiagnostics(sourceFile) {
             return sourceFile.parseDiagnostics.length > 0;
         }
@@ -29233,10 +29037,6 @@ var ts;
                 diagnostics.add(ts.createDiagnosticForNode(node, message, arg0, arg1, arg2));
                 return true;
             }
-        }
-        function isEvalOrArgumentsIdentifier(node) {
-            return node.kind === 69 /* Identifier */ &&
-                (node.text === "eval" || node.text === "arguments");
         }
         function checkGrammarConstructorTypeParameters(node) {
             if (node.typeParameters) {
@@ -31286,14 +31086,6 @@ var ts;
                 }
             }
             function emitBindingElement(bindingElement) {
-                function getBindingElementTypeVisibilityError(symbolAccesibilityResult) {
-                    var diagnosticMessage = getParameterDeclarationTypeVisibilityDiagnosticMessage(symbolAccesibilityResult);
-                    return diagnosticMessage !== undefined ? {
-                        diagnosticMessage: diagnosticMessage,
-                        errorNode: bindingElement,
-                        typeName: bindingElement.name
-                    } : undefined;
-                }
                 if (bindingElement.kind === 189 /* OmittedExpression */) {
                     // If bindingElement is an omittedExpression (i.e. containing elision),
                     // we will emit blank space (although this may differ from users' original code,
@@ -31443,7 +31235,6 @@ var ts;
 /* @internal */
 var ts;
 (function (ts) {
-    var nop = Function.prototype;
     var nullSourceMapWriter;
     function getNullSourceMapWriter() {
         if (nullSourceMapWriter === undefined) {
@@ -32334,11 +32125,6 @@ var ts;
                 emit(node);
                 if (parenthesized) {
                     write(")");
-                }
-            }
-            function emitTrailingCommaIfPresent(nodeList) {
-                if (nodeList.hasTrailingComma) {
-                    write(",");
                 }
             }
             function emitLinePreservingList(parent, nodes, allowTrailingComma, spacesBetweenBraces) {
@@ -33819,7 +33605,8 @@ var ts;
                 return isSourceFileLevelDeclarationInSystemJsModule(targetDeclaration, /*isExported*/ true);
             }
             function emitPrefixUnaryExpression(node) {
-                var exportChanged = isNameOfExportedSourceLevelDeclarationInSystemExternalModule(node.operand);
+                var exportChanged = (node.operator === 41 /* PlusPlusToken */ || node.operator === 42 /* MinusMinusToken */) &&
+                    isNameOfExportedSourceLevelDeclarationInSystemExternalModule(node.operand);
                 if (exportChanged) {
                     // emit
                     // ++x
@@ -34523,9 +34310,6 @@ var ts;
                 else {
                     emitNormalLoopBody(node, /*emitAsEmbeddedStatement*/ true);
                 }
-            }
-            function emitDownLevelForOfStatement(node) {
-                emitLoop(node, emitDownLevelForOfStatementWorker);
             }
             function emitDownLevelForOfStatementWorker(node, loop) {
                 // The following ES6 code:
@@ -47867,7 +47651,6 @@ var ts;
         }
         function getCompletionData(fileName, position) {
             var typeChecker = program.getTypeChecker();
-            var syntacticStart = new Date().getTime();
             var sourceFile = getValidSourceFile(fileName);
             var isJavaScriptFile = ts.isSourceFileJavaScript(sourceFile);
             var isJsDocTagName = false;
@@ -50613,9 +50396,6 @@ var ts;
             synchronizeHostData();
             return ts.NavigateTo.getNavigateToItems(program, cancellationToken, searchValue, maxResultCount);
         }
-        function containErrors(diagnostics) {
-            return ts.forEach(diagnostics, function (diagnostic) { return diagnostic.category === ts.DiagnosticCategory.Error; });
-        }
         function getEmitOutput(fileName) {
             synchronizeHostData();
             var sourceFile = getValidSourceFile(fileName);
@@ -51365,7 +51145,6 @@ var ts;
          * be performed.
          */
         function getDocCommentTemplateAtPosition(fileName, position) {
-            var start = new Date().getTime();
             var sourceFile = syntaxTreeCache.getCurrentSourceFile(fileName);
             // Check if in a context where we don't want to perform any insertion
             if (ts.isInString(sourceFile, position) || ts.isInComment(sourceFile, position) || ts.hasDocComment(sourceFile, position)) {
@@ -51612,12 +51391,17 @@ var ts;
                     if (declarations && declarations.length > 0) {
                         // Disallow rename for elements that are defined in the standard TypeScript library.
                         var defaultLibFileName = host.getDefaultLibFileName(host.getCompilationSettings());
+                        var canonicalDefaultLibName = getCanonicalFileName(ts.normalizePath(defaultLibFileName));
                         if (defaultLibFileName) {
                             for (var _i = 0, declarations_10 = declarations; _i < declarations_10.length; _i++) {
                                 var current = declarations_10[_i];
                                 var sourceFile_3 = current.getSourceFile();
+                                // TODO (drosen): When is there no source file?
+                                if (!sourceFile_3) {
+                                    continue;
+                                }
                                 var canonicalName = getCanonicalFileName(ts.normalizePath(sourceFile_3.fileName));
-                                if (sourceFile_3 && getCanonicalFileName(ts.normalizePath(sourceFile_3.fileName)) === getCanonicalFileName(ts.normalizePath(defaultLibFileName))) {
+                                if (canonicalName === canonicalDefaultLibName) {
                                     return getRenameInfoError(ts.getLocaleSpecificMessage(ts.Diagnostics.You_cannot_rename_elements_that_are_defined_in_the_standard_TypeScript_library));
                                 }
                             }
