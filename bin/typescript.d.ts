@@ -3598,6 +3598,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        A_decorator_can_only_decorate_a_method_implementation_not_an_overload: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         with_statements_are_not_allowed_in_an_async_function_block: {
             code: number;
             category: DiagnosticCategory;

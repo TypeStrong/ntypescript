@@ -4833,6 +4833,7 @@ var ts;
         An_interface_property_cannot_have_an_initializer: { code: 1246, category: ts.DiagnosticCategory.Error, key: "An_interface_property_cannot_have_an_initializer_1246", message: "An interface property cannot have an initializer." },
         A_type_literal_property_cannot_have_an_initializer: { code: 1247, category: ts.DiagnosticCategory.Error, key: "A_type_literal_property_cannot_have_an_initializer_1247", message: "A type literal property cannot have an initializer." },
         A_class_member_cannot_have_the_0_keyword: { code: 1248, category: ts.DiagnosticCategory.Error, key: "A_class_member_cannot_have_the_0_keyword_1248", message: "A class member cannot have the '{0}' keyword." },
+        A_decorator_can_only_decorate_a_method_implementation_not_an_overload: { code: 1249, category: ts.DiagnosticCategory.Error, key: "A_decorator_can_only_decorate_a_method_implementation_not_an_overload_1249", message: "A decorator can only decorate a method implementation, not an overload." },
         with_statements_are_not_allowed_in_an_async_function_block: { code: 1300, category: ts.DiagnosticCategory.Error, key: "with_statements_are_not_allowed_in_an_async_function_block_1300", message: "'with' statements are not allowed in an async function block." },
         await_expression_is_only_allowed_within_an_async_function: { code: 1308, category: ts.DiagnosticCategory.Error, key: "await_expression_is_only_allowed_within_an_async_function_1308", message: "'await' expression is only allowed within an async function." },
         Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: { code: 1311, category: ts.DiagnosticCategory.Error, key: "Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher_1311", message: "Async functions are only available when targeting ECMAScript 6 and higher." },
@@ -28181,7 +28182,12 @@ var ts;
                 return false;
             }
             if (!ts.nodeCanBeDecorated(node)) {
-                return grammarErrorOnFirstToken(node, ts.Diagnostics.Decorators_are_not_valid_here);
+                if (node.kind === 143 /* MethodDeclaration */ && !ts.nodeIsPresent(node.body)) {
+                    return grammarErrorOnFirstToken(node, ts.Diagnostics.A_decorator_can_only_decorate_a_method_implementation_not_an_overload);
+                }
+                else {
+                    return grammarErrorOnFirstToken(node, ts.Diagnostics.Decorators_are_not_valid_here);
+                }
             }
             else if (node.kind === 145 /* GetAccessor */ || node.kind === 146 /* SetAccessor */) {
                 var accessors = ts.getAllAccessorDeclarations(node.parent.members, node);
@@ -35238,20 +35244,29 @@ var ts;
                 }
                 // TODO (yuisu) : we should not have special cases to condition emitting comments
                 // but have one place to fix check for these conditions.
-                if (node.kind !== 143 /* MethodDeclaration */ && node.kind !== 142 /* MethodSignature */ &&
-                    node.parent && node.parent.kind !== 247 /* PropertyAssignment */ &&
-                    node.parent.kind !== 170 /* CallExpression */) {
-                    // 1. Methods will emit the comments as part of emitting method declaration
+                var kind = node.kind, parent = node.parent;
+                if (kind !== 143 /* MethodDeclaration */ &&
+                    kind !== 142 /* MethodSignature */ &&
+                    parent &&
+                    parent.kind !== 247 /* PropertyAssignment */ &&
+                    parent.kind !== 170 /* CallExpression */ &&
+                    parent.kind !== 166 /* ArrayLiteralExpression */) {
+                    // 1. Methods will emit comments at their assignment declaration sites.
+                    //
                     // 2. If the function is a property of object literal, emitting leading-comments
-                    // is done by emitNodeWithoutSourceMap which then call this function.
-                    // In particular, we would like to avoid emit comments twice in following case:
-                    //      For example:
+                    //    is done by emitNodeWithoutSourceMap which then call this function.
+                    //    In particular, we would like to avoid emit comments twice in following case:
+                    //
                     //          var obj = {
                     //              id:
                     //                  /*comment*/ () => void
                     //          }
+                    //
                     // 3. If the function is an argument in call expression, emitting of comments will be
-                    // taken care of in emit list of arguments inside of emitCallexpression
+                    //    taken care of in emit list of arguments inside of 'emitCallExpression'.
+                    //
+                    // 4. If the function is in an array literal, 'emitLinePreservingList' will take care
+                    //    of leading comments.
                     emitLeadingComments(node);
                 }
                 emitStart(node);
@@ -35274,11 +35289,11 @@ var ts;
                     emitDeclarationName(node);
                 }
                 emitSignatureAndBody(node);
-                if (modulekind !== 5 /* ES6 */ && node.kind === 215 /* FunctionDeclaration */ && node.parent === currentSourceFile && node.name) {
+                if (modulekind !== 5 /* ES6 */ && kind === 215 /* FunctionDeclaration */ && parent === currentSourceFile && node.name) {
                     emitExportMemberAssignments(node.name);
                 }
                 emitEnd(node);
-                if (node.kind !== 143 /* MethodDeclaration */ && node.kind !== 142 /* MethodSignature */) {
+                if (kind !== 143 /* MethodDeclaration */ && kind !== 142 /* MethodSignature */) {
                     emitTrailingComments(node);
                 }
             }
