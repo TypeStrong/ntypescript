@@ -38953,8 +38953,11 @@ var ts;
             // If the noEmitOnError flag is set, then check if we have any errors so far.  If so,
             // immediately bail out.  Note that we pass 'undefined' for 'sourceFile' so that we
             // get any preEmit diagnostics, not just the ones
-            if (options.noEmitOnError && getPreEmitDiagnostics(program, /*sourceFile:*/ undefined, cancellationToken).length > 0) {
-                return { diagnostics: [], sourceMaps: undefined, emitSkipped: true };
+            if (options.noEmitOnError) {
+                var preEmitDiagnostics = getPreEmitDiagnostics(program, /*sourceFile:*/ undefined, cancellationToken);
+                if (preEmitDiagnostics.length > 0) {
+                    return { diagnostics: preEmitDiagnostics, sourceMaps: undefined, emitSkipped: true };
+                }
             }
             // Create the emit resolver outside of the "emitTime" tracking code below.  That way
             // any cost associated with it (like type checking) are appropriate associated with
