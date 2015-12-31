@@ -40499,7 +40499,7 @@ var ts;
                         containers.unshift(text);
                     }
                     else if (declaration.name.kind === 136 /* ComputedPropertyName */) {
-                        return tryAddComputedPropertyName(declaration.name.expression, containers, /*includeLastPortion:*/ true);
+                        return tryAddComputedPropertyName(declaration.name.expression, containers, /*includeLastPortion*/ true);
                     }
                     else {
                         // Don't know how to add this.
@@ -40524,7 +40524,7 @@ var ts;
                     if (includeLastPortion) {
                         containers.unshift(propertyAccess.name.text);
                     }
-                    return tryAddComputedPropertyName(propertyAccess.expression, containers, /*includeLastPortion:*/ true);
+                    return tryAddComputedPropertyName(propertyAccess.expression, containers, /*includeLastPortion*/ true);
                 }
                 return false;
             }
@@ -40533,7 +40533,7 @@ var ts;
                 // First, if we started with a computed property name, then add all but the last
                 // portion into the container array.
                 if (declaration.name.kind === 136 /* ComputedPropertyName */) {
-                    if (!tryAddComputedPropertyName(declaration.name.expression, containers, /*includeLastPortion:*/ false)) {
+                    if (!tryAddComputedPropertyName(declaration.name.expression, containers, /*includeLastPortion*/ false)) {
                         return undefined;
                     }
                 }
@@ -41028,12 +41028,11 @@ var ts;
     }
     function createPatternMatcher(pattern) {
         // We'll often see the same candidate string many times when searching (For example, when
-        // we see the name of a module that is used everywhere, or the name of an overload).  As 
-        // such, we cache the information we compute about the candidate for the life of this 
+        // we see the name of a module that is used everywhere, or the name of an overload).  As
+        // such, we cache the information we compute about the candidate for the life of this
         // pattern matcher so we don't have to compute it multiple times.
         var stringToWordSpans = {};
         pattern = pattern.trim();
-        var fullPatternSegment = createSegment(pattern);
         var dotSeparatedSegments = pattern.split(".").map(function (p) { return createSegment(p.trim()); });
         var invalidPattern = dotSeparatedSegments.length === 0 || ts.forEach(dotSeparatedSegments, segmentIsInvalid);
         return {
@@ -41112,7 +41111,7 @@ var ts;
                 if (index > 0) {
                     // c) If the part is entirely lowercase, then check if it is contained anywhere in the
                     //    candidate in a case insensitive manner.  If so, return that there was a substring
-                    //    match. 
+                    //    match.
                     //
                     //    Note: We only have a substring match if the lowercase part is prefix match of some
                     //    word part. That way we don't match something like 'Class' when the user types 'a'.
@@ -41152,8 +41151,8 @@ var ts;
             if (isLowercase) {
                 // f) Is the pattern a substring of the candidate starting on one of the candidate's word boundaries?
                 // We could check every character boundary start of the candidate for the pattern. However, that's
-                // an m * n operation in the wost case. Instead, find the first instance of the pattern 
-                // substring, and see if it starts on a capital letter. It seems unlikely that the user will try to 
+                // an m * n operation in the wost case. Instead, find the first instance of the pattern
+                // substring, and see if it starts on a capital letter. It seems unlikely that the user will try to
                 // filter the list based on a substring that starts on a capital letter and also with a lowercase one.
                 // (Pattern: fogbar, Candidate: quuxfogbarFogBar).
                 if (chunk.text.length < candidate.length) {
@@ -41205,7 +41204,7 @@ var ts;
             //
             //   c) If the word is entirely lowercase, then check if it is contained anywhere in the
             //      candidate in a case insensitive manner.  If so, return that there was a substring
-            //      match. 
+            //      match.
             //
             //      Note: We only have a substring match if the lowercase part is prefix match of
             //      some word part. That way we don't match something like 'Class' when the user
@@ -41219,7 +41218,7 @@ var ts;
             //   e) If the word was not entirely lowercase, then attempt a camel cased match as
             //      well.
             //
-            //   f) The word is all lower case. Is it a case insensitive substring of the candidate starting 
+            //   f) The word is all lower case. Is it a case insensitive substring of the candidate starting
             //      on a part boundary of the candidate?
             //
             // Only if all words have some sort of match is the pattern considered matched.
@@ -41269,7 +41268,7 @@ var ts;
             // Note: we may have more pattern parts than candidate parts.  This is because multiple
             // pattern parts may match a candidate part.  For example "SiUI" against "SimpleUI".
             // We'll have 3 pattern parts Si/U/I against two candidate parts Simple/UI.  However, U
-            // and I will both match in UI. 
+            // and I will both match in UI.
             var currentCandidate = 0;
             var currentChunkSpan = 0;
             var firstMatch = undefined;
@@ -41298,13 +41297,13 @@ var ts;
                 // Consider the case of matching SiUI against SimpleUIElement. The candidate parts
                 // will be Simple/UI/Element, and the pattern parts will be Si/U/I.  We'll match 'Si'
                 // against 'Simple' first.  Then we'll match 'U' against 'UI'. However, we want to
-                // still keep matching pattern parts against that candidate part. 
+                // still keep matching pattern parts against that candidate part.
                 for (; currentChunkSpan < chunkCharacterSpans.length; currentChunkSpan++) {
                     var chunkCharacterSpan = chunkCharacterSpans[currentChunkSpan];
                     if (gotOneMatchThisCandidate) {
                         // We've already gotten one pattern part match in this candidate.  We will
                         // only continue trying to consumer pattern parts if the last part and this
-                        // part are both upper case.  
+                        // part are both upper case.
                         if (!isUpperCaseLetter(chunk.text.charCodeAt(chunkCharacterSpans[currentChunkSpan - 1].start)) ||
                             !isUpperCaseLetter(chunk.text.charCodeAt(chunkCharacterSpans[currentChunkSpan].start))) {
                             break;
@@ -41334,42 +41333,6 @@ var ts;
         }
     }
     ts.createPatternMatcher = createPatternMatcher;
-    // Helper function to compare two matches to determine which is better.  Matches are first
-    // ordered by kind (so all prefix matches always beat all substring matches).  Then, if the
-    // match is a camel case match, the relative weights of the match are used to determine 
-    // which is better (with a greater weight being better).  Then if the match is of the same 
-    // type, then a case sensitive match is considered better than an insensitive one. 
-    function patternMatchCompareTo(match1, match2) {
-        return compareType(match1, match2) ||
-            compareCamelCase(match1, match2) ||
-            compareCase(match1, match2) ||
-            comparePunctuation(match1, match2);
-    }
-    function comparePunctuation(result1, result2) {
-        // Consider a match to be better if it was successful without stripping punctuation
-        // versus a match that had to strip punctuation to succeed.
-        if (result1.punctuationStripped !== result2.punctuationStripped) {
-            return result1.punctuationStripped ? 1 : -1;
-        }
-        return 0;
-    }
-    function compareCase(result1, result2) {
-        if (result1.isCaseSensitive !== result2.isCaseSensitive) {
-            return result1.isCaseSensitive ? -1 : 1;
-        }
-        return 0;
-    }
-    function compareType(result1, result2) {
-        return result1.kind - result2.kind;
-    }
-    function compareCamelCase(result1, result2) {
-        if (result1.kind === PatternMatchKind.camelCase && result2.kind === PatternMatchKind.camelCase) {
-            // Swap the values here.  If result1 has a higher weight, then we want it to come
-            // first.
-            return result2.camelCaseWeight - result1.camelCaseWeight;
-        }
-        return 0;
-    }
     function createSegment(text) {
         return {
             totalTextChunk: createTextChunk(text),
@@ -41388,7 +41351,7 @@ var ts;
         if (ch < 127 /* maxAsciiCharacter */ || !ts.isUnicodeIdentifierStart(ch, 2 /* Latest */)) {
             return false;
         }
-        // TODO: find a way to determine this for any unicode characters in a 
+        // TODO: find a way to determine this for any unicode characters in a
         // non-allocating manner.
         var str = String.fromCharCode(ch);
         return str === str.toUpperCase();
@@ -41401,18 +41364,10 @@ var ts;
         if (ch < 127 /* maxAsciiCharacter */ || !ts.isUnicodeIdentifierStart(ch, 2 /* Latest */)) {
             return false;
         }
-        // TODO: find a way to determine this for any unicode characters in a 
+        // TODO: find a way to determine this for any unicode characters in a
         // non-allocating manner.
         var str = String.fromCharCode(ch);
         return str === str.toLowerCase();
-    }
-    function containsUpperCaseLetter(string) {
-        for (var i = 0, n = string.length; i < n; i++) {
-            if (isUpperCaseLetter(string.charCodeAt(i))) {
-                return true;
-            }
-        }
-        return false;
     }
     function startsWith(string, search) {
         for (var i = 0, n = search.length; i < n; i++) {
@@ -41450,7 +41405,7 @@ var ts;
         if (ch < 127 /* maxAsciiCharacter */) {
             return ch;
         }
-        // TODO: find a way to compute this for any unicode characters in a 
+        // TODO: find a way to compute this for any unicode characters in a
         // non-allocating manner.
         return String.fromCharCode(ch).toLowerCase().charCodeAt(0);
     }
@@ -41601,7 +41556,7 @@ var ts;
         var currentIsUpper = isUpperCaseLetter(identifier.charCodeAt(index));
         // See if the casing indicates we're starting a new word. Note: if we're breaking on
         // words, then just seeing an upper case character isn't enough.  Instead, it has to
-        // be uppercase and the previous character can't be uppercase. 
+        // be uppercase and the previous character can't be uppercase.
         //
         // For example, breaking "AddMetadata" on words would make: Add Metadata
         //
@@ -44548,7 +44503,8 @@ var ts;
               * to inherited indentation from its predecessors.
               */
             function tryComputeIndentationForListItem(startPos, endPos, parentStartLine, range, inheritedIndentation) {
-                if (ts.rangeOverlapsWithStartEnd(range, startPos, endPos)) {
+                if (ts.rangeOverlapsWithStartEnd(range, startPos, endPos) ||
+                    ts.rangeContainsStartEnd(range, startPos, endPos) /* Not to miss zero-range nodes e.g. JsxText */) {
                     if (inheritedIndentation !== -1 /* Unknown */) {
                         return inheritedIndentation;
                     }
@@ -45551,8 +45507,9 @@ var ts;
                     case 184 /* ConditionalExpression */:
                     case 164 /* ArrayBindingPattern */:
                     case 163 /* ObjectBindingPattern */:
-                    case 235 /* JsxElement */:
+                    case 237 /* JsxOpeningElement */:
                     case 236 /* JsxSelfClosingElement */:
+                    case 242 /* JsxExpression */:
                     case 142 /* MethodSignature */:
                     case 147 /* CallSignature */:
                     case 148 /* ConstructSignature */:
@@ -45567,6 +45524,7 @@ var ts;
                 }
                 return false;
             }
+            /* @internal */
             function nodeWillIndentChild(parent, child, indentByDefault) {
                 var childKind = child ? child.kind : 0 /* Unknown */;
                 switch (parent.kind) {
@@ -45584,6 +45542,8 @@ var ts;
                     case 145 /* GetAccessor */:
                     case 146 /* SetAccessor */:
                         return childKind !== 194 /* Block */;
+                    case 235 /* JsxElement */:
+                        return childKind !== 239 /* JsxClosingElement */;
                 }
                 // No explicit rule for given nodes so the result will follow the default value argument
                 return indentByDefault;

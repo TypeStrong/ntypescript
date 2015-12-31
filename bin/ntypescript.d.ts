@@ -6458,10 +6458,8 @@ declare namespace ts {
     }
     function executeCommandLine(args: string[]): void;
 }
-declare namespace ts {
-    module OutliningElementsCollector {
-        function collectElements(sourceFile: SourceFile): OutliningSpan[];
-    }
+declare namespace ts.OutliningElementsCollector {
+    function collectElements(sourceFile: SourceFile): OutliningSpan[];
 }
 declare namespace ts.NavigateTo {
     function getNavigateToItems(program: Program, cancellationToken: CancellationToken, searchValue: string, maxResultCount: number): NavigateToItem[];
