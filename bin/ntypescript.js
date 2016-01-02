@@ -37893,7 +37893,9 @@ var ts;
                     // Replace entities like &nbsp;
                     result = result.replace(/&(\w+);/g, function (s, m) {
                         if (entities[m] !== undefined) {
-                            return String.fromCharCode(entities[m]);
+                            var ch = String.fromCharCode(entities[m]);
+                            // &quot; needs to be escaped
+                            return ch === "\"" ? "\\\"" : ch;
                         }
                         else {
                             return s;
