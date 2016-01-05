@@ -1078,9 +1078,11 @@ var ts;
             var count = array.length;
             if (count > 0) {
                 var pos = 0;
-                var result = arguments.length <= 2 ? array[pos++] : initial;
+                var result = arguments.length <= 2 ? array[pos] : initial;
+                pos++;
                 while (pos < count) {
-                    result = f(result, array[pos++]);
+                    result = f(result, array[pos]);
+                    pos++;
                 }
                 return result;
             }
@@ -1092,9 +1094,11 @@ var ts;
         if (array) {
             var pos = array.length - 1;
             if (pos >= 0) {
-                var result = arguments.length <= 2 ? array[pos--] : initial;
+                var result = arguments.length <= 2 ? array[pos] : initial;
+                pos--;
                 while (pos >= 0) {
-                    result = f(result, array[pos--]);
+                    result = f(result, array[pos]);
+                    pos--;
                 }
                 return result;
             }
@@ -2141,7 +2145,7 @@ var ts;
         if (array1.length !== array2.length) {
             return false;
         }
-        for (var i = 0; i < array1.length; ++i) {
+        for (var i = 0; i < array1.length; i++) {
             var equals = equaler ? equaler(array1[i], array2[i]) : array1[i] === array2[i];
             if (!equals) {
                 return false;
@@ -3827,8 +3831,8 @@ var ts;
             writeTextOfNode: writeTextOfNode,
             writeLiteral: writeLiteral,
             writeLine: writeLine,
-            increaseIndent: function () { return indent++; },
-            decreaseIndent: function () { return indent--; },
+            increaseIndent: function () { indent++; },
+            decreaseIndent: function () { indent--; },
             getIndent: function () { return indent; },
             getTextPos: function () { return output.length; },
             getLine: function () { return lineCount + 1; },
@@ -5519,7 +5523,8 @@ var ts;
         var pos = 0;
         var lineStart = 0;
         while (pos < text.length) {
-            var ch = text.charCodeAt(pos++);
+            var ch = text.charCodeAt(pos);
+            pos++;
             switch (ch) {
                 case 13 /* carriageReturn */:
                     if (text.charCodeAt(pos) === 10 /* lineFeed */) {
@@ -6016,7 +6021,8 @@ var ts;
             return value;
         }
         function scanString() {
-            var quote = text.charCodeAt(pos++);
+            var quote = text.charCodeAt(pos);
+            pos++;
             var result = "";
             var start = pos;
             while (true) {
@@ -6112,7 +6118,8 @@ var ts;
                 error(ts.Diagnostics.Unexpected_end_of_text);
                 return "";
             }
-            var ch = text.charCodeAt(pos++);
+            var ch = text.charCodeAt(pos);
+            pos++;
             switch (ch) {
                 case 48 /* _0 */:
                     return "\0";
@@ -6339,7 +6346,8 @@ var ts;
                             }
                             return pos += 2, token = 31 /* ExclamationEqualsToken */;
                         }
-                        return pos++, token = 49 /* ExclamationToken */;
+                        pos++;
+                        return token = 49 /* ExclamationToken */;
                     case 34 /* doubleQuote */:
                     case 39 /* singleQuote */:
                         tokenValue = scanString();
@@ -6350,7 +6358,8 @@ var ts;
                         if (text.charCodeAt(pos + 1) === 61 /* equals */) {
                             return pos += 2, token = 62 /* PercentEqualsToken */;
                         }
-                        return pos++, token = 40 /* PercentToken */;
+                        pos++;
+                        return token = 40 /* PercentToken */;
                     case 38 /* ampersand */:
                         if (text.charCodeAt(pos + 1) === 38 /* ampersand */) {
                             return pos += 2, token = 51 /* AmpersandAmpersandToken */;
@@ -6358,11 +6367,14 @@ var ts;
                         if (text.charCodeAt(pos + 1) === 61 /* equals */) {
                             return pos += 2, token = 66 /* AmpersandEqualsToken */;
                         }
-                        return pos++, token = 46 /* AmpersandToken */;
+                        pos++;
+                        return token = 46 /* AmpersandToken */;
                     case 40 /* openParen */:
-                        return pos++, token = 17 /* OpenParenToken */;
+                        pos++;
+                        return token = 17 /* OpenParenToken */;
                     case 41 /* closeParen */:
-                        return pos++, token = 18 /* CloseParenToken */;
+                        pos++;
+                        return token = 18 /* CloseParenToken */;
                     case 42 /* asterisk */:
                         if (text.charCodeAt(pos + 1) === 61 /* equals */) {
                             return pos += 2, token = 59 /* AsteriskEqualsToken */;
@@ -6373,7 +6385,8 @@ var ts;
                             }
                             return pos += 2, token = 38 /* AsteriskAsteriskToken */;
                         }
-                        return pos++, token = 37 /* AsteriskToken */;
+                        pos++;
+                        return token = 37 /* AsteriskToken */;
                     case 43 /* plus */:
                         if (text.charCodeAt(pos + 1) === 43 /* plus */) {
                             return pos += 2, token = 41 /* PlusPlusToken */;
@@ -6381,9 +6394,11 @@ var ts;
                         if (text.charCodeAt(pos + 1) === 61 /* equals */) {
                             return pos += 2, token = 57 /* PlusEqualsToken */;
                         }
-                        return pos++, token = 35 /* PlusToken */;
+                        pos++;
+                        return token = 35 /* PlusToken */;
                     case 44 /* comma */:
-                        return pos++, token = 24 /* CommaToken */;
+                        pos++;
+                        return token = 24 /* CommaToken */;
                     case 45 /* minus */:
                         if (text.charCodeAt(pos + 1) === 45 /* minus */) {
                             return pos += 2, token = 42 /* MinusMinusToken */;
@@ -6391,7 +6406,8 @@ var ts;
                         if (text.charCodeAt(pos + 1) === 61 /* equals */) {
                             return pos += 2, token = 58 /* MinusEqualsToken */;
                         }
-                        return pos++, token = 36 /* MinusToken */;
+                        pos++;
+                        return token = 36 /* MinusToken */;
                     case 46 /* dot */:
                         if (isDigit(text.charCodeAt(pos + 1))) {
                             tokenValue = scanNumber();
@@ -6400,7 +6416,8 @@ var ts;
                         if (text.charCodeAt(pos + 1) === 46 /* dot */ && text.charCodeAt(pos + 2) === 46 /* dot */) {
                             return pos += 3, token = 22 /* DotDotDotToken */;
                         }
-                        return pos++, token = 21 /* DotToken */;
+                        pos++;
+                        return token = 21 /* DotToken */;
                     case 47 /* slash */:
                         // Single-line comment
                         if (text.charCodeAt(pos + 1) === 47 /* slash */) {
@@ -6448,7 +6465,8 @@ var ts;
                         if (text.charCodeAt(pos + 1) === 61 /* equals */) {
                             return pos += 2, token = 61 /* SlashEqualsToken */;
                         }
-                        return pos++, token = 39 /* SlashToken */;
+                        pos++;
+                        return token = 39 /* SlashToken */;
                     case 48 /* _0 */:
                         if (pos + 2 < end && (text.charCodeAt(pos + 1) === 88 /* X */ || text.charCodeAt(pos + 1) === 120 /* x */)) {
                             pos += 2;
@@ -6500,9 +6518,11 @@ var ts;
                         tokenValue = scanNumber();
                         return token = 8 /* NumericLiteral */;
                     case 58 /* colon */:
-                        return pos++, token = 54 /* ColonToken */;
+                        pos++;
+                        return token = 54 /* ColonToken */;
                     case 59 /* semicolon */:
-                        return pos++, token = 23 /* SemicolonToken */;
+                        pos++;
+                        return token = 23 /* SemicolonToken */;
                     case 60 /* lessThan */:
                         if (isConflictMarkerTrivia(text, pos)) {
                             pos = scanConflictMarkerTrivia(text, pos, error);
@@ -6527,7 +6547,8 @@ var ts;
                             text.charCodeAt(pos + 2) !== 42 /* asterisk */) {
                             return pos += 2, token = 26 /* LessThanSlashToken */;
                         }
-                        return pos++, token = 25 /* LessThanToken */;
+                        pos++;
+                        return token = 25 /* LessThanToken */;
                     case 61 /* equals */:
                         if (isConflictMarkerTrivia(text, pos)) {
                             pos = scanConflictMarkerTrivia(text, pos, error);
@@ -6547,7 +6568,8 @@ var ts;
                         if (text.charCodeAt(pos + 1) === 62 /* greaterThan */) {
                             return pos += 2, token = 34 /* EqualsGreaterThanToken */;
                         }
-                        return pos++, token = 56 /* EqualsToken */;
+                        pos++;
+                        return token = 56 /* EqualsToken */;
                     case 62 /* greaterThan */:
                         if (isConflictMarkerTrivia(text, pos)) {
                             pos = scanConflictMarkerTrivia(text, pos, error);
@@ -6558,20 +6580,26 @@ var ts;
                                 return token = 7 /* ConflictMarkerTrivia */;
                             }
                         }
-                        return pos++, token = 27 /* GreaterThanToken */;
+                        pos++;
+                        return token = 27 /* GreaterThanToken */;
                     case 63 /* question */:
-                        return pos++, token = 53 /* QuestionToken */;
+                        pos++;
+                        return token = 53 /* QuestionToken */;
                     case 91 /* openBracket */:
-                        return pos++, token = 19 /* OpenBracketToken */;
+                        pos++;
+                        return token = 19 /* OpenBracketToken */;
                     case 93 /* closeBracket */:
-                        return pos++, token = 20 /* CloseBracketToken */;
+                        pos++;
+                        return token = 20 /* CloseBracketToken */;
                     case 94 /* caret */:
                         if (text.charCodeAt(pos + 1) === 61 /* equals */) {
                             return pos += 2, token = 68 /* CaretEqualsToken */;
                         }
-                        return pos++, token = 48 /* CaretToken */;
+                        pos++;
+                        return token = 48 /* CaretToken */;
                     case 123 /* openBrace */:
-                        return pos++, token = 15 /* OpenBraceToken */;
+                        pos++;
+                        return token = 15 /* OpenBraceToken */;
                     case 124 /* bar */:
                         if (text.charCodeAt(pos + 1) === 124 /* bar */) {
                             return pos += 2, token = 52 /* BarBarToken */;
@@ -6579,13 +6607,17 @@ var ts;
                         if (text.charCodeAt(pos + 1) === 61 /* equals */) {
                             return pos += 2, token = 67 /* BarEqualsToken */;
                         }
-                        return pos++, token = 47 /* BarToken */;
+                        pos++;
+                        return token = 47 /* BarToken */;
                     case 125 /* closeBrace */:
-                        return pos++, token = 16 /* CloseBraceToken */;
+                        pos++;
+                        return token = 16 /* CloseBraceToken */;
                     case 126 /* tilde */:
-                        return pos++, token = 50 /* TildeToken */;
+                        pos++;
+                        return token = 50 /* TildeToken */;
                     case 64 /* at */:
-                        return pos++, token = 55 /* AtToken */;
+                        pos++;
+                        return token = 55 /* AtToken */;
                     case 92 /* backslash */:
                         var cookedChar = peekUnicodeEscape();
                         if (cookedChar >= 0 && isIdentifierStart(cookedChar, languageVersion)) {
@@ -6594,7 +6626,8 @@ var ts;
                             return token = getIdentifierToken();
                         }
                         error(ts.Diagnostics.Invalid_character);
-                        return pos++, token = 0 /* Unknown */;
+                        pos++;
+                        return token = 0 /* Unknown */;
                     default:
                         if (isIdentifierStart(ch, languageVersion)) {
                             pos++;
@@ -6616,7 +6649,8 @@ var ts;
                             continue;
                         }
                         error(ts.Diagnostics.Invalid_character);
-                        return pos++, token = 0 /* Unknown */;
+                        pos++;
+                        return token = 0 /* Unknown */;
                 }
             }
         }
@@ -6632,10 +6666,12 @@ var ts;
                     if (text.charCodeAt(pos + 1) === 61 /* equals */) {
                         return pos += 2, token = 64 /* GreaterThanGreaterThanEqualsToken */;
                     }
-                    return pos++, token = 44 /* GreaterThanGreaterThanToken */;
+                    pos++;
+                    return token = 44 /* GreaterThanGreaterThanToken */;
                 }
                 if (text.charCodeAt(pos) === 61 /* equals */) {
-                    return pos++, token = 29 /* GreaterThanEqualsToken */;
+                    pos++;
+                    return token = 29 /* GreaterThanEqualsToken */;
                 }
             }
             return token;
@@ -14132,15 +14168,18 @@ var ts;
     var nextNodeId = 1;
     var nextMergeId = 1;
     function getNodeId(node) {
-        if (!node.id)
-            node.id = nextNodeId++;
+        if (!node.id) {
+            node.id = nextNodeId;
+            nextNodeId++;
+        }
         return node.id;
     }
     ts.getNodeId = getNodeId;
     ts.checkTime = 0;
     function getSymbolId(symbol) {
         if (!symbol.id) {
-            symbol.id = nextSymbolId++;
+            symbol.id = nextSymbolId;
+            nextSymbolId++;
         }
         return symbol.id;
     }
@@ -14388,8 +14427,10 @@ var ts;
             return result;
         }
         function recordMergedSymbol(target, source) {
-            if (!source.mergeId)
-                source.mergeId = nextMergeId++;
+            if (!source.mergeId) {
+                source.mergeId = nextMergeId;
+                nextMergeId++;
+            }
             mergedSymbols[source.mergeId] = target;
         }
         function cloneSymbol(symbol) {
@@ -15269,7 +15310,8 @@ var ts;
         }
         function createType(flags) {
             var result = new Type(checker, flags);
-            result.id = typeCount++;
+            result.id = typeCount;
+            typeCount++;
             return result;
         }
         function createIntrinsicType(kind, intrinsicName) {
@@ -15763,11 +15805,13 @@ var ts;
                     }
                     if (pos < end) {
                         writePunctuation(writer, 25 /* LessThanToken */);
-                        writeType(typeArguments[pos++], 0 /* None */);
+                        writeType(typeArguments[pos], 0 /* None */);
+                        pos++;
                         while (pos < end) {
                             writePunctuation(writer, 24 /* CommaToken */);
                             writeSpace(writer);
-                            writeType(typeArguments[pos++], 0 /* None */);
+                            writeType(typeArguments[pos], 0 /* None */);
+                            pos++;
                         }
                         writePunctuation(writer, 27 /* GreaterThanToken */);
                     }
@@ -19346,7 +19390,7 @@ var ts;
                     return 0 /* False */;
                 }
                 var result = -1 /* True */;
-                for (var i = 0, len = sourceSignatures.length; i < len; ++i) {
+                for (var i = 0, len = sourceSignatures.length; i < len; i++) {
                     var related = compareSignaturesIdentical(sourceSignatures[i], targetSignatures[i], /*partialMatch*/ false, /*ignoreReturnTypes*/ false, isRelatedTo);
                     if (!related) {
                         return 0 /* False */;
@@ -20890,6 +20934,11 @@ var ts;
                 }
                 return type;
             }
+            else if (operator === 51 /* AmpersandAmpersandToken */ || operator === 24 /* CommaToken */) {
+                if (node === binaryExpression.right) {
+                    return getContextualType(binaryExpression);
+                }
+            }
             return undefined;
         }
         // Apply a mapping function to a contextual type and return the resulting type. If the contextual type
@@ -20989,22 +21038,20 @@ var ts;
             var conditional = node.parent;
             return node === conditional.whenTrue || node === conditional.whenFalse ? getContextualType(conditional) : undefined;
         }
-        function getContextualTypeForJsxExpression(expr) {
-            // Contextual type only applies to JSX expressions that are in attribute assignments (not in 'Children' positions)
-            if (expr.parent.kind === 240 /* JsxAttribute */) {
-                var attrib = expr.parent;
-                var attrsType = getJsxElementAttributesType(attrib.parent);
+        function getContextualTypeForJsxAttribute(attribute) {
+            var kind = attribute.kind;
+            var jsxElement = attribute.parent;
+            var attrsType = getJsxElementAttributesType(jsxElement);
+            if (attribute.kind === 240 /* JsxAttribute */) {
                 if (!attrsType || isTypeAny(attrsType)) {
                     return undefined;
                 }
-                else {
-                    return getTypeOfPropertyOfType(attrsType, attrib.name.text);
-                }
+                return getTypeOfPropertyOfType(attrsType, attribute.name.text);
             }
-            if (expr.kind === 241 /* JsxSpreadAttribute */) {
-                return getJsxElementAttributesType(expr.parent);
+            else if (attribute.kind === 241 /* JsxSpreadAttribute */) {
+                return attrsType;
             }
-            return undefined;
+            ts.Debug.fail("Expected JsxAttribute or JsxSpreadAttribute, got ts.SyntaxKind[" + kind + "]");
         }
         // Return the contextual type for a given expression node. During overload resolution, a contextual type may temporarily
         // be "pushed" onto a node using the contextualType property.
@@ -21070,8 +21117,10 @@ var ts;
                 case 174 /* ParenthesizedExpression */:
                     return getContextualType(parent);
                 case 242 /* JsxExpression */:
+                    return getContextualType(parent);
+                case 240 /* JsxAttribute */:
                 case 241 /* JsxSpreadAttribute */:
-                    return getContextualTypeForJsxExpression(parent);
+                    return getContextualTypeForJsxAttribute(parent);
             }
             return undefined;
         }
@@ -21807,14 +21856,12 @@ var ts;
         function checkJsxOpeningLikeElement(node) {
             checkGrammarJsxElement(node);
             checkJsxPreconditions(node);
-            // If we're compiling under --jsx react, the symbol 'React' should
-            // be marked as 'used' so we don't incorrectly elide its import. And if there
-            // is no 'React' symbol in scope, we should issue an error.
-            if (compilerOptions.jsx === 2 /* React */) {
-                var reactSym = resolveName(node.tagName, "React", 107455 /* Value */, ts.Diagnostics.Cannot_find_name_0, "React");
-                if (reactSym) {
-                    getSymbolLinks(reactSym).referenced = true;
-                }
+            // The symbol 'React' should be marked as 'used' so we don't incorrectly elide its import. And if there
+            // is no 'React' symbol in scope when targeting React emit, we should issue an error.
+            var reactRefErr = compilerOptions.jsx === 2 /* React */ ? ts.Diagnostics.Cannot_find_name_0 : undefined;
+            var reactSym = resolveName(node.tagName, "React", 107455 /* Value */, reactRefErr, "React");
+            if (reactSym) {
+                getSymbolLinks(reactSym).referenced = true;
             }
             var targetAttributesType = getJsxElementAttributesType(node);
             var nameTable = {};
@@ -26645,7 +26692,8 @@ var ts;
                         error(member.name, ts.Diagnostics.Enum_member_must_have_initializer);
                     }
                     if (autoValue !== undefined) {
-                        getNodeLinks(member).enumMemberValue = autoValue++;
+                        getNodeLinks(member).enumMemberValue = autoValue;
+                        autoValue++;
                     }
                 }
                 nodeLinks.flags |= 8192 /* EnumValuesComputed */;
@@ -29489,7 +29537,8 @@ var ts;
         function parseStrings(args) {
             var i = 0;
             while (i < args.length) {
-                var s = args[i++];
+                var s = args[i];
+                i++;
                 if (s.charCodeAt(0) === 64 /* at */) {
                     parseResponseFile(s.slice(1));
                 }
@@ -29507,18 +29556,21 @@ var ts;
                         }
                         switch (opt.type) {
                             case "number":
-                                options[opt.name] = parseInt(args[i++]);
+                                options[opt.name] = parseInt(args[i]);
+                                i++;
                                 break;
                             case "boolean":
                                 options[opt.name] = true;
                                 break;
                             case "string":
-                                options[opt.name] = args[i++] || "";
+                                options[opt.name] = args[i] || "";
+                                i++;
                                 break;
                             // If not a primitive, the possible types are specified in what is effectively a map of options.
                             default:
                                 var map_1 = opt.type;
-                                var key = (args[i++] || "").toLowerCase();
+                                var key = (args[i] || "").toLowerCase();
+                                i++;
                                 if (ts.hasProperty(map_1, key)) {
                                     options[opt.name] = map_1[key];
                                 }
@@ -30150,7 +30202,8 @@ var ts;
             }
             var count = 0;
             while (true) {
-                var name_18 = baseName + "_" + (++count);
+                count++;
+                var name_18 = baseName + "_" + count;
                 if (!ts.hasProperty(currentIdentifiers, name_18)) {
                     return name_18;
                 }
@@ -36322,7 +36375,7 @@ var ts;
                             });
                             leadingComma = true;
                         }
-                        ++parameterIndex;
+                        parameterIndex++;
                     }
                 }
                 return argumentsWritten;
@@ -37248,7 +37301,7 @@ var ts;
                 increaseIndent();
                 var started = false;
                 if (exportedDeclarations) {
-                    for (var i = 0; i < exportedDeclarations.length; ++i) {
+                    for (var i = 0; i < exportedDeclarations.length; i++) {
                         // write name of exported declaration, i.e 'export var x...'
                         writeExportedName(exportedDeclarations[i]);
                     }
@@ -37350,7 +37403,7 @@ var ts;
                     writeLine();
                     write("var ");
                     var seen = {};
-                    for (var i = 0; i < hoistedVars.length; ++i) {
+                    for (var i = 0; i < hoistedVars.length; i++) {
                         var local = hoistedVars[i];
                         var name_26 = local.kind === 69 /* Identifier */
                             ? local
@@ -37535,7 +37588,7 @@ var ts;
             }
             function emitSetters(exportStarFunction, dependencyGroups) {
                 write("setters:[");
-                for (var i = 0; i < dependencyGroups.length; ++i) {
+                for (var i = 0; i < dependencyGroups.length; i++) {
                     if (i !== 0) {
                         write(",");
                     }
@@ -37577,7 +37630,7 @@ var ts;
                                     write(exportFunctionForFile + "({");
                                     writeLine();
                                     increaseIndent();
-                                    for (var i_2 = 0, len = entry.exportClause.elements.length; i_2 < len; ++i_2) {
+                                    for (var i_2 = 0, len = entry.exportClause.elements.length; i_2 < len; i_2++) {
                                         if (i_2 !== 0) {
                                             write(",");
                                             writeLine();
@@ -37616,7 +37669,7 @@ var ts;
                 write("execute: function() {");
                 increaseIndent();
                 writeLine();
-                for (var i = startIndex; i < node.statements.length; ++i) {
+                for (var i = startIndex; i < node.statements.length; i++) {
                     var statement = node.statements[i];
                     switch (statement.kind) {
                         // - function declarations are not emitted because they were already hoisted
@@ -37675,7 +37728,7 @@ var ts;
                 write("[");
                 var groupIndices = {};
                 var dependencyGroups = [];
-                for (var i = 0; i < externalImports.length; ++i) {
+                for (var i = 0; i < externalImports.length; i++) {
                     var text = getExternalModuleNameText(externalImports[i], emitRelativePathAsModuleName);
                     if (ts.hasProperty(groupIndices, text)) {
                         // deduplicate/group entries in dependency list by the dependency name
@@ -37692,7 +37745,7 @@ var ts;
                     }
                     write(text);
                 }
-                write("], function(" + exportFunctionForFile + ") {");
+                write("], function(" + exportFunctionForFile + ", __moduleName) {");
                 writeLine();
                 increaseIndent();
                 var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ true);
@@ -37960,7 +38013,7 @@ var ts;
             }
             function emitDirectivePrologues(statements, startWithNewLine, ensureUseStrict) {
                 var foundUseStrict = false;
-                for (var i = 0; i < statements.length; ++i) {
+                for (var i = 0; i < statements.length; i++) {
                     if (ts.isPrologueDirective(statements[i])) {
                         if (isUseStrictPrologue(statements[i])) {
                             foundUseStrict = true;
@@ -37981,7 +38034,7 @@ var ts;
             }
             function writeLines(text) {
                 var lines = text.split(/\r\n|\r|\n/g);
-                for (var i = 0; i < lines.length; ++i) {
+                for (var i = 0; i < lines.length; i++) {
                     var line = lines[i];
                     if (line.length) {
                         writeLine();
@@ -38888,7 +38941,7 @@ var ts;
                         var moduleNames = ts.map(newSourceFile.imports, function (name) { return name.text; });
                         var resolutions = resolveModuleNamesWorker(moduleNames, ts.getNormalizedAbsolutePath(newSourceFile.fileName, currentDirectory));
                         // ensure that module resolution results are still correct
-                        for (var i = 0; i < moduleNames.length; ++i) {
+                        for (var i = 0; i < moduleNames.length; i++) {
                             var newResolution = resolutions[i];
                             var oldResolution = ts.getResolvedModule(oldSourceFile, moduleNames[i]);
                             var resolutionChanged = oldResolution
@@ -38913,7 +38966,7 @@ var ts;
                 newSourceFiles.push(newSourceFile);
             }
             // update fileName -> file mapping
-            for (var i = 0, len = newSourceFiles.length; i < len; ++i) {
+            for (var i = 0, len = newSourceFiles.length; i < len; i++) {
                 filesByName.set(filePaths[i], newSourceFiles[i]);
             }
             files = newSourceFiles;
@@ -39388,7 +39441,7 @@ var ts;
                 file.resolvedModules = {};
                 var moduleNames = ts.map(file.imports, function (name) { return name.text; });
                 var resolutions = resolveModuleNamesWorker(moduleNames, ts.getNormalizedAbsolutePath(file.fileName, currentDirectory));
-                for (var i = 0; i < file.imports.length; ++i) {
+                for (var i = 0; i < file.imports.length; i++) {
                     var resolution = resolutions[i];
                     ts.setResolvedModule(file, moduleNames[i], resolution);
                     if (resolution && !options.noResolve) {
@@ -41074,7 +41127,7 @@ var ts;
             // So far so good.  Now break up the container for the candidate and check if all
             // the dotted parts match up correctly.
             var totalMatch = candidateMatch;
-            for (var i = dotSeparatedSegments.length - 2, j = candidateContainers.length - 1; i >= 0; i--, j--) {
+            for (var i = dotSeparatedSegments.length - 2, j = candidateContainers.length - 1; i >= 0; i -= 1, j -= 1) {
                 var segment = dotSeparatedSegments[i];
                 var containerName = candidateContainers[j];
                 var containerMatch = matchSegment(containerName, segment);
@@ -41425,9 +41478,10 @@ var ts;
         for (var i = 0; i < pattern.length; i++) {
             var ch = pattern.charCodeAt(i);
             if (isWordChar(ch)) {
-                if (wordLength++ === 0) {
+                if (wordLength === 0) {
                     wordStart = i;
                 }
+                wordLength++;
             }
             else {
                 if (wordLength > 0) {
@@ -45885,7 +45939,8 @@ var ts;
             }
             function pushDocCommentLineText(docComments, text, blankLineCount) {
                 // Add the empty lines in between texts
-                while (blankLineCount--) {
+                while (blankLineCount) {
+                    blankLineCount--;
                     docComments.push(ts.textPart(""));
                 }
                 docComments.push(ts.textPart(text));
