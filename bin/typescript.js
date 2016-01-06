@@ -5284,6 +5284,7 @@ var ts;
         A_constructor_cannot_contain_a_super_call_when_its_class_extends_null: { code: 17005, category: ts.DiagnosticCategory.Error, key: "A_constructor_cannot_contain_a_super_call_when_its_class_extends_null_17005", message: "A constructor cannot contain a 'super' call when its class extends 'null'" },
         An_unary_expression_with_the_0_operator_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_expression_Consider_enclosing_the_expression_in_parentheses: { code: 17006, category: ts.DiagnosticCategory.Error, key: "An_unary_expression_with_the_0_operator_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_ex_17006", message: "An unary expression with the '{0}' operator is not allowed in the left-hand side of an exponentiation expression. Consider enclosing the expression in parentheses." },
         A_type_assertion_expression_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_expression_Consider_enclosing_the_expression_in_parentheses: { code: 17007, category: ts.DiagnosticCategory.Error, key: "A_type_assertion_expression_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_expression_Con_17007", message: "A type assertion expression is not allowed in the left-hand side of an exponentiation expression. Consider enclosing the expression in parentheses." },
+        JSX_element_0_has_no_corresponding_closing_tag: { code: 17008, category: ts.DiagnosticCategory.Error, key: "JSX_element_0_has_no_corresponding_closing_tag_17008", message: "JSX element '{0}' has no corresponding closing tag." },
     };
 })(ts || (ts = {}));
 /// <reference path="core.ts"/>
@@ -9920,6 +9921,16 @@ var ts;
             node.name = parseRightSideOfDot(/*allowIdentifierNames*/ true);
             return finishNode(node);
         }
+        function tagNamesAreEquivalent(lhs, rhs) {
+            if (lhs.kind !== rhs.kind) {
+                return false;
+            }
+            if (lhs.kind === 69 /* Identifier */) {
+                return lhs.text === rhs.text;
+            }
+            return lhs.right.text === rhs.right.text &&
+                tagNamesAreEquivalent(lhs.left, rhs.left);
+        }
         function parseJsxElementOrSelfClosingElement(inExpressionContext) {
             var opening = parseJsxOpeningOrSelfClosingElement(inExpressionContext);
             var result;
@@ -9928,6 +9939,9 @@ var ts;
                 node.openingElement = opening;
                 node.children = parseJsxChildren(node.openingElement.tagName);
                 node.closingElement = parseJsxClosingElement(inExpressionContext);
+                if (!tagNamesAreEquivalent(node.openingElement.tagName, node.closingElement.tagName)) {
+                    parseErrorAtPosition(node.closingElement.pos, node.closingElement.end - node.closingElement.pos, ts.Diagnostics.Expected_corresponding_JSX_closing_tag_for_0, ts.getTextOfNodeFromSourceText(sourceText, node.openingElement.tagName));
+                }
                 result = finishNode(node);
             }
             else {
@@ -9981,10 +9995,13 @@ var ts;
             while (true) {
                 token = scanner.reScanJsxToken();
                 if (token === 26 /* LessThanSlashToken */) {
+                    // Closing tag
                     break;
                 }
                 else if (token === 1 /* EndOfFileToken */) {
-                    parseErrorAtCurrentToken(ts.Diagnostics.Expected_corresponding_JSX_closing_tag_for_0, ts.getTextOfNodeFromSourceText(sourceText, openingTagName));
+                    // If we hit EOF, issue the error at the tag that lacks the closing element
+                    // rather than at the end of the file (which is useless)
+                    parseErrorAtPosition(openingTagName.pos, openingTagName.end - openingTagName.pos, ts.Diagnostics.JSX_element_0_has_no_corresponding_closing_tag, ts.getTextOfNodeFromSourceText(sourceText, openingTagName));
                     break;
                 }
                 result.push(parseJsxChild());
@@ -21482,27 +21499,11 @@ var ts;
             checkJsxOpeningLikeElement(node);
             return jsxElementType || anyType;
         }
-        function tagNamesAreEquivalent(lhs, rhs) {
-            if (lhs.kind !== rhs.kind) {
-                return false;
-            }
-            if (lhs.kind === 69 /* Identifier */) {
-                return lhs.text === rhs.text;
-            }
-            return lhs.right.text === rhs.right.text &&
-                tagNamesAreEquivalent(lhs.left, rhs.left);
-        }
         function checkJsxElement(node) {
             // Check attributes
             checkJsxOpeningLikeElement(node.openingElement);
-            // Check that the closing tag matches
-            if (!tagNamesAreEquivalent(node.openingElement.tagName, node.closingElement.tagName)) {
-                error(node.closingElement, ts.Diagnostics.Expected_corresponding_JSX_closing_tag_for_0, ts.getTextOfNode(node.openingElement.tagName));
-            }
-            else {
-                // Perform resolution on the closing tag so that rename/go to definition/etc work
-                getJsxElementTagSymbol(node.closingElement);
-            }
+            // Perform resolution on the closing tag so that rename/go to definition/etc work
+            getJsxElementTagSymbol(node.closingElement);
             // Check children
             for (var _i = 0, _a = node.children; _i < _a.length; _i++) {
                 var child = _a[_i];
@@ -37745,7 +37746,7 @@ var ts;
                     }
                     write(text);
                 }
-                write("], function(" + exportFunctionForFile + ", __moduleName) {");
+                write("], function(" + exportFunctionForFile + ") {");
                 writeLine();
                 increaseIndent();
                 var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ true);

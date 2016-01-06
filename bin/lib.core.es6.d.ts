@@ -3847,7 +3847,7 @@ interface Symbol {
     /** Returns the primitive value of the specified object. */
     valueOf(): Object;
 
-    [Symbol.toStringTag]: string;
+    [Symbol.toStringTag]: "Symbol";
 }
 
 interface SymbolConstructor {
@@ -4405,7 +4405,7 @@ interface IterableIterator<T> extends Iterator<T> {
 }
 
 interface GeneratorFunction extends Function {
-
+    [Symbol.toStringTag]: "GeneratorFunction";
 }
 
 interface GeneratorFunctionConstructor {
@@ -4530,7 +4530,7 @@ interface Math {
       */
     cbrt(x: number): number;
 
-    [Symbol.toStringTag]: string;
+    [Symbol.toStringTag]: "Math";
 }
 
 interface Date {
@@ -4647,7 +4647,7 @@ interface Map<K, V> {
     size: number;
     values(): IterableIterator<V>;
     [Symbol.iterator]():IterableIterator<[K,V]>;
-    [Symbol.toStringTag]: string;
+    [Symbol.toStringTag]: "Map";
 }
 
 interface MapConstructor {
@@ -4664,7 +4664,7 @@ interface WeakMap<K, V> {
     get(key: K): V;
     has(key: K): boolean;
     set(key: K, value?: V): WeakMap<K, V>;
-    [Symbol.toStringTag]: string;
+    [Symbol.toStringTag]: "WeakMap";
 }
 
 interface WeakMapConstructor {
@@ -4686,7 +4686,7 @@ interface Set<T> {
     size: number;
     values(): IterableIterator<T>;
     [Symbol.iterator]():IterableIterator<T>;
-    [Symbol.toStringTag]: string;
+    [Symbol.toStringTag]: "Set";
 }
 
 interface SetConstructor {
@@ -4702,7 +4702,7 @@ interface WeakSet<T> {
     clear(): void;
     delete(value: T): boolean;
     has(value: T): boolean;
-    [Symbol.toStringTag]: string;
+    [Symbol.toStringTag]: "WeakSet";
 }
 
 interface WeakSetConstructor {
@@ -4714,7 +4714,7 @@ interface WeakSetConstructor {
 declare var WeakSet: WeakSetConstructor;
 
 interface JSON {
-    [Symbol.toStringTag]: string;
+    [Symbol.toStringTag]: "JSON";
 }
 
 /**
@@ -4724,11 +4724,11 @@ interface JSON {
   * buffer as needed. 
   */
 interface ArrayBuffer {
-    [Symbol.toStringTag]: string;
+    [Symbol.toStringTag]: "ArrayBuffer";
 }
 
 interface DataView {
-    [Symbol.toStringTag]: string;
+    [Symbol.toStringTag]: "DataView";
 }
 
 /**
@@ -4749,6 +4749,7 @@ interface Int8Array {
       */
     values(): IterableIterator<number>;
     [Symbol.iterator](): IterableIterator<number>;
+    [Symbol.toStringTag]: "Int8Array";
 }
 
 interface Int8ArrayConstructor {
@@ -4781,6 +4782,7 @@ interface Uint8Array {
       */
     values(): IterableIterator<number>;
     [Symbol.iterator](): IterableIterator<number>;
+    [Symbol.toStringTag]: "UInt8Array";
 }
 
 interface Uint8ArrayConstructor {
@@ -4816,6 +4818,7 @@ interface Uint8ClampedArray {
     values(): IterableIterator<number>;
 
     [Symbol.iterator](): IterableIterator<number>;
+    [Symbol.toStringTag]: "Uint8ClampedArray";
 }
 
 interface Uint8ClampedArrayConstructor {
@@ -4853,6 +4856,7 @@ interface Int16Array {
 
 
     [Symbol.iterator](): IterableIterator<number>;
+    [Symbol.toStringTag]: "Int16Array";
 }
 
 interface Int16ArrayConstructor {
@@ -4885,6 +4889,7 @@ interface Uint16Array {
       */
     values(): IterableIterator<number>;
     [Symbol.iterator](): IterableIterator<number>;
+    [Symbol.toStringTag]: "Uint16Array";
 }
 
 interface Uint16ArrayConstructor {
@@ -4917,6 +4922,7 @@ interface Int32Array {
       */
     values(): IterableIterator<number>;
     [Symbol.iterator](): IterableIterator<number>;
+    [Symbol.toStringTag]: "Int32Array";
 }
 
 interface Int32ArrayConstructor {
@@ -4949,6 +4955,7 @@ interface Uint32Array {
       */
     values(): IterableIterator<number>;
     [Symbol.iterator](): IterableIterator<number>;
+    [Symbol.toStringTag]: "Uint32Array";
 }
 
 interface Uint32ArrayConstructor {
@@ -4981,6 +4988,7 @@ interface Float32Array {
       */
     values(): IterableIterator<number>;
     [Symbol.iterator](): IterableIterator<number>;
+    [Symbol.toStringTag]: "Float32Array";
 }
 
 interface Float32ArrayConstructor {
@@ -5013,6 +5021,7 @@ interface Float64Array {
       */
     values(): IterableIterator<number>;
     [Symbol.iterator](): IterableIterator<number>;
+    [Symbol.toStringTag]: "Float64Array";
 }
 
 interface Float64ArrayConstructor {
@@ -5089,7 +5098,7 @@ interface Promise<T> {
     catch(onrejected?: (reason: any) => T | PromiseLike<T>): Promise<T>;
     catch(onrejected?: (reason: any) => void): Promise<T>;
 
-    [Symbol.toStringTag]: string;
+    [Symbol.toStringTag]: "Promise";
 }
 
 interface PromiseConstructor {

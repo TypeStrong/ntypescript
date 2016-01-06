@@ -6280,6 +6280,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        JSX_element_0_has_no_corresponding_closing_tag: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
     };
 }
 declare namespace ts {
