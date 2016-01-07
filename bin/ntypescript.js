@@ -38566,11 +38566,11 @@ var ts;
         if (ts.getRootLength(moduleName) !== 0 || nameStartsWithDotSlashOrDotDotSlash(moduleName)) {
             var failedLookupLocations = [];
             var candidate = ts.normalizePath(ts.combinePaths(containingDirectory, moduleName));
-            var resolvedFileName = loadNodeModuleFromFile(supportedExtensions, candidate, failedLookupLocations, host);
+            var resolvedFileName = loadNodeModuleFromFile(supportedExtensions, candidate, failedLookupLocations, /*onlyRecordFailures*/ false, host);
             if (resolvedFileName) {
                 return { resolvedModule: { resolvedFileName: resolvedFileName }, failedLookupLocations: failedLookupLocations };
             }
-            resolvedFileName = loadNodeModuleFromDirectory(supportedExtensions, candidate, failedLookupLocations, host);
+            resolvedFileName = loadNodeModuleFromDirectory(supportedExtensions, candidate, failedLookupLocations, /*onlyRecordFailures*/ false, host);
             return resolvedFileName
                 ? { resolvedModule: { resolvedFileName: resolvedFileName }, failedLookupLocations: failedLookupLocations }
                 : { resolvedModule: undefined, failedLookupLocations: failedLookupLocations };
@@ -38580,11 +38580,21 @@ var ts;
         }
     }
     ts.nodeModuleNameResolver = nodeModuleNameResolver;
-    function loadNodeModuleFromFile(extensions, candidate, failedLookupLocation, host) {
+    /* @internal */
+    function directoryProbablyExists(directoryName, host) {
+        // if host does not support 'directoryExists' assume that directory will exist
+        return !host.directoryExists || host.directoryExists(directoryName);
+    }
+    ts.directoryProbablyExists = directoryProbablyExists;
+    /**
+     * @param {boolean} onlyRecordFailures - if true then function won't try to actually load files but instead record all attempts as failures. This flag is necessary
+     * in cases when we know upfront that all load attempts will fail (because containing folder does not exists) however we still need to record all failed lookup locations.
+     */
+    function loadNodeModuleFromFile(extensions, candidate, failedLookupLocation, onlyRecordFailures, host) {
         return ts.forEach(extensions, tryLoad);
         function tryLoad(ext) {
             var fileName = ts.fileExtensionIs(candidate, ext) ? candidate : candidate + ext;
-            if (host.fileExists(fileName)) {
+            if (!onlyRecordFailures && host.fileExists(fileName)) {
                 return fileName;
             }
             else {
@@ -38593,9 +38603,10 @@ var ts;
             }
         }
     }
-    function loadNodeModuleFromDirectory(extensions, candidate, failedLookupLocation, host) {
+    function loadNodeModuleFromDirectory(extensions, candidate, failedLookupLocation, onlyRecordFailures, host) {
         var packageJsonPath = ts.combinePaths(candidate, "package.json");
-        if (host.fileExists(packageJsonPath)) {
+        var directoryExists = !onlyRecordFailures && directoryProbablyExists(candidate, host);
+        if (directoryExists && host.fileExists(packageJsonPath)) {
             var jsonContent;
             try {
                 var jsonText = host.readFile(packageJsonPath);
@@ -38606,7 +38617,8 @@ var ts;
                 jsonContent = { typings: undefined };
             }
             if (typeof jsonContent.typings === "string") {
-                var result = loadNodeModuleFromFile(extensions, ts.normalizePath(ts.combinePaths(candidate, jsonContent.typings)), failedLookupLocation, host);
+                var path = ts.normalizePath(ts.combinePaths(candidate, jsonContent.typings));
+                var result = loadNodeModuleFromFile(extensions, path, failedLookupLocation, !directoryProbablyExists(ts.getDirectoryPath(path), host), host);
                 if (result) {
                     return result;
                 }
@@ -38616,7 +38628,7 @@ var ts;
             // record package json as one of failed lookup locations - in the future if this file will appear it will invalidate resolution results
             failedLookupLocation.push(packageJsonPath);
         }
-        return loadNodeModuleFromFile(extensions, ts.combinePaths(candidate, "index"), failedLookupLocation, host);
+        return loadNodeModuleFromFile(extensions, ts.combinePaths(candidate, "index"), failedLookupLocation, !directoryExists, host);
     }
     function loadModuleFromNodeModules(moduleName, directory, host) {
         var failedLookupLocations = [];
@@ -38625,13 +38637,14 @@ var ts;
             var baseName = ts.getBaseFileName(directory);
             if (baseName !== "node_modules") {
                 var nodeModulesFolder = ts.combinePaths(directory, "node_modules");
+                var nodeModulesFolderExists = directoryProbablyExists(nodeModulesFolder, host);
                 var candidate = ts.normalizePath(ts.combinePaths(nodeModulesFolder, moduleName));
                 // Load only typescript files irrespective of allowJs option if loading from node modules
-                var result = loadNodeModuleFromFile(ts.supportedTypeScriptExtensions, candidate, failedLookupLocations, host);
+                var result = loadNodeModuleFromFile(ts.supportedTypeScriptExtensions, candidate, failedLookupLocations, !nodeModulesFolderExists, host);
                 if (result) {
                     return { resolvedModule: { resolvedFileName: result, isExternalLibraryImport: true }, failedLookupLocations: failedLookupLocations };
                 }
-                result = loadNodeModuleFromDirectory(ts.supportedTypeScriptExtensions, candidate, failedLookupLocations, host);
+                result = loadNodeModuleFromDirectory(ts.supportedTypeScriptExtensions, candidate, failedLookupLocations, !nodeModulesFolderExists, host);
                 if (result) {
                     return { resolvedModule: { resolvedFileName: result, isExternalLibraryImport: true }, failedLookupLocations: failedLookupLocations };
                 }
@@ -38761,7 +38774,8 @@ var ts;
             getCanonicalFileName: getCanonicalFileName,
             getNewLine: function () { return newLine; },
             fileExists: function (fileName) { return ts.sys.fileExists(fileName); },
-            readFile: function (fileName) { return ts.sys.readFile(fileName); }
+            readFile: function (fileName) { return ts.sys.readFile(fileName); },
+            directoryExists: function (directoryName) { return ts.sys.directoryExists(directoryName); }
         };
     }
     ts.createCompilerHost = createCompilerHost;
@@ -46741,7 +46755,8 @@ var ts;
             getCurrentDirectory: function () { return ""; },
             getNewLine: function () { return newLine; },
             fileExists: function (fileName) { return fileName === inputFileName; },
-            readFile: function (fileName) { return ""; }
+            readFile: function (fileName) { return ""; },
+            directoryExists: function (directoryExists) { return true; }
         };
         var program = ts.createProgram([inputFileName], options, compilerHost);
         var diagnostics;
@@ -47503,6 +47518,10 @@ var ts;
                     // stub missing host functionality
                     var entry = hostCache.getOrCreateEntry(fileName);
                     return entry && entry.scriptSnapshot.getText(0, entry.scriptSnapshot.getLength());
+                },
+                directoryExists: function (directoryName) {
+                    ts.Debug.assert(!host.resolveModuleNames);
+                    return ts.directoryProbablyExists(directoryName, host);
                 }
             };
             if (host.resolveModuleNames) {
@@ -52517,6 +52536,9 @@ var ts;
                     });
                 };
             }
+            if ("directoryExists" in this.shimHost) {
+                this.directoryExists = function (directoryName) { return _this.shimHost.directoryExists(directoryName); };
+            }
         }
         LanguageServiceShimHostAdapter.prototype.log = function (s) {
             if (this.loggingEnabled) {
@@ -52621,7 +52643,11 @@ var ts;
     })();
     var CoreServicesShimHostAdapter = (function () {
         function CoreServicesShimHostAdapter(shimHost) {
+            var _this = this;
             this.shimHost = shimHost;
+            if ("directoryExists" in this.shimHost) {
+                this.directoryExists = function (directoryName) { return _this.shimHost.directoryExists(directoryName); };
+            }
         }
         CoreServicesShimHostAdapter.prototype.readDirectory = function (rootDir, extension, exclude) {
             // Wrap the API changes for 1.5 release. This try/catch

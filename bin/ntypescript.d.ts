@@ -1894,6 +1894,7 @@ declare namespace ts {
     interface ModuleResolutionHost {
         fileExists(fileName: string): boolean;
         readFile(fileName: string): string;
+        directoryExists?(directoryName: string): boolean;
     }
     interface ResolvedModule {
         resolvedFileName: string;
@@ -6451,6 +6452,9 @@ declare namespace ts {
     function resolveTripleslashReference(moduleName: string, containingFile: string): string;
     function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
     function nodeModuleNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
+    function directoryProbablyExists(directoryName: string, host: {
+        directoryExists?: (directoryName: string) => boolean;
+    }): boolean;
     function classicNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
     const defaultInitCompilerOptions: CompilerOptions;
     function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
@@ -7070,6 +7074,7 @@ declare namespace ts {
         error?(s: string): void;
         useCaseSensitiveFileNames?(): boolean;
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
+        directoryExists?(directoryName: string): boolean;
     }
     interface LanguageService {
         cleanupSemanticCache(): void;
@@ -7617,6 +7622,7 @@ declare namespace ts {
         getProjectVersion?(): string;
         useCaseSensitiveFileNames?(): boolean;
         getModuleResolutionsForFile?(fileName: string): string;
+        directoryExists(directoryName: string): boolean;
     }
     /** Public interface of the the of a config service shim instance.*/
     interface CoreServicesShimHost extends Logger, ModuleResolutionHost {
@@ -7749,6 +7755,7 @@ declare namespace ts {
         private loggingEnabled;
         private tracingEnabled;
         resolveModuleNames: (moduleName: string[], containingFile: string) => ResolvedModule[];
+        directoryExists: (directoryName: string) => boolean;
         constructor(shimHost: LanguageServiceShimHost);
         log(s: string): void;
         trace(s: string): void;
@@ -7764,8 +7771,9 @@ declare namespace ts {
         getCurrentDirectory(): string;
         getDefaultLibFileName(options: CompilerOptions): string;
     }
-    class CoreServicesShimHostAdapter implements ParseConfigHost {
+    class CoreServicesShimHostAdapter implements ParseConfigHost, ModuleResolutionHost {
         private shimHost;
+        directoryExists: (directoryName: string) => boolean;
         constructor(shimHost: CoreServicesShimHost);
         readDirectory(rootDir: string, extension: string, exclude: string[]): string[];
         fileExists(fileName: string): boolean;
