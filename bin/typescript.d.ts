@@ -1664,6 +1664,7 @@ declare namespace ts {
         inlineSourceMap?: boolean;
         inlineSources?: boolean;
         jsx?: JsxEmit;
+        reactNamespace?: string;
         listFiles?: boolean;
         locale?: string;
         mapRoot?: string;
@@ -5591,6 +5592,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Invalide_value_for_reactNamespace_0_is_not_a_valid_identifier: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Concatenate_and_emit_output_to_single_file: {
             code: number;
             category: DiagnosticCategory;
@@ -5993,6 +6000,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Specifies_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Variable_0_implicitly_has_an_1_type: {
             code: number;
             category: DiagnosticCategory;
@@ -6347,6 +6360,7 @@ declare namespace ts {
     function getShebang(text: string): string;
     function isIdentifierStart(ch: number, languageVersion: ScriptTarget): boolean;
     function isIdentifierPart(ch: number, languageVersion: ScriptTarget): boolean;
+    function isIdentifier(name: string, languageVersion: ScriptTarget): boolean;
     function createScanner(languageVersion: ScriptTarget, skipTrivia: boolean, languageVariant?: LanguageVariant, text?: string, onError?: ErrorCallback, start?: number, length?: number): Scanner;
 }
 declare namespace ts {
@@ -6593,6 +6607,7 @@ declare namespace ts.formatting {
         advance(): void;
         isOnToken(): boolean;
         readTokenInfo(n: Node): TokenInfo;
+        getCurrentLeadingTrivia(): TextRangeWithKind[];
         lastTrailingTriviaWasNewLine(): boolean;
         close(): void;
     }
@@ -6796,9 +6811,11 @@ declare namespace ts.formatting {
         SpaceBetweenYieldOrYieldStarAndOperand: Rule;
         SpaceBetweenAsyncAndOpenParen: Rule;
         SpaceBetweenAsyncAndFunctionKeyword: Rule;
-        SpaceBetweenTagAndTemplateString: Rule;
+        NoSpaceBetweenTagAndTemplateString: Rule;
         NoSpaceAfterTemplateHeadAndMiddle: Rule;
+        SpaceAfterTemplateHeadAndMiddle: Rule;
         NoSpaceBeforeTemplateMiddleAndTail: Rule;
+        SpaceBeforeTemplateMiddleAndTail: Rule;
         constructor();
         static IsForContext(context: FormattingContext): boolean;
         static IsNotForContext(context: FormattingContext): boolean;
@@ -7212,6 +7229,7 @@ declare namespace ts {
         InsertSpaceAfterFunctionKeywordForAnonymousFunctions: boolean;
         InsertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis: boolean;
         InsertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets: boolean;
+        InsertSpaceAfterOpeningAndBeforeClosingTemplateStringBraces: boolean;
         PlaceOpenBraceOnNewLineForFunctions: boolean;
         PlaceOpenBraceOnNewLineForControlBlocks: boolean;
         [s: string]: boolean | number | string;

@@ -5169,6 +5169,7 @@ var ts;
         Cannot_write_file_0_because_it_would_be_overwritten_by_multiple_input_files: { code: 5056, category: ts.DiagnosticCategory.Error, key: "Cannot_write_file_0_because_it_would_be_overwritten_by_multiple_input_files_5056", message: "Cannot write file '{0}' because it would be overwritten by multiple input files." },
         Cannot_find_a_tsconfig_json_file_at_the_specified_directory_Colon_0: { code: 5057, category: ts.DiagnosticCategory.Error, key: "Cannot_find_a_tsconfig_json_file_at_the_specified_directory_Colon_0_5057", message: "Cannot find a tsconfig.json file at the specified directory: '{0}'" },
         The_specified_path_does_not_exist_Colon_0: { code: 5058, category: ts.DiagnosticCategory.Error, key: "The_specified_path_does_not_exist_Colon_0_5058", message: "The specified path does not exist: '{0}'" },
+        Invalide_value_for_reactNamespace_0_is_not_a_valid_identifier: { code: 5059, category: ts.DiagnosticCategory.Error, key: "Invalide_value_for_reactNamespace_0_is_not_a_valid_identifier_5059", message: "Invalide value for '--reactNamespace'. '{0}' is not a valid identifier." },
         Concatenate_and_emit_output_to_single_file: { code: 6001, category: ts.DiagnosticCategory.Message, key: "Concatenate_and_emit_output_to_single_file_6001", message: "Concatenate and emit output to single file." },
         Generates_corresponding_d_ts_file: { code: 6002, category: ts.DiagnosticCategory.Message, key: "Generates_corresponding_d_ts_file_6002", message: "Generates corresponding '.d.ts' file." },
         Specifies_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations: { code: 6003, category: ts.DiagnosticCategory.Message, key: "Specifies_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations_6003", message: "Specifies the location where debugger should locate map files instead of generated locations." },
@@ -5236,6 +5237,7 @@ var ts;
         Argument_for_jsx_must_be_preserve_or_react: { code: 6081, category: ts.DiagnosticCategory.Message, key: "Argument_for_jsx_must_be_preserve_or_react_6081", message: "Argument for '--jsx' must be 'preserve' or 'react'." },
         Only_amd_and_system_modules_are_supported_alongside_0: { code: 6082, category: ts.DiagnosticCategory.Error, key: "Only_amd_and_system_modules_are_supported_alongside_0_6082", message: "Only 'amd' and 'system' modules are supported alongside --{0}." },
         Allow_javascript_files_to_be_compiled: { code: 6083, category: ts.DiagnosticCategory.Message, key: "Allow_javascript_files_to_be_compiled_6083", message: "Allow javascript files to be compiled." },
+        Specifies_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit: { code: 6084, category: ts.DiagnosticCategory.Message, key: "Specifies_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit_6084", message: "Specifies the object invoked for createElement and __spread when targeting 'react' JSX emit" },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter_0_implicitly_has_an_1_type_7006", message: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member_0_implicitly_has_an_1_type_7008", message: "Member '{0}' implicitly has an '{1}' type." },
@@ -5900,6 +5902,19 @@ var ts;
             ch > 127 /* maxAsciiCharacter */ && isUnicodeIdentifierPart(ch, languageVersion);
     }
     ts.isIdentifierPart = isIdentifierPart;
+    /* @internal */
+    function isIdentifier(name, languageVersion) {
+        if (!isIdentifierStart(name.charCodeAt(0), languageVersion)) {
+            return false;
+        }
+        for (var i = 1, n = name.length; i < n; i++) {
+            if (!isIdentifierPart(name.charCodeAt(i), languageVersion)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    ts.isIdentifier = isIdentifier;
     // Creates a scanner over a (possibly unspecified) range of a piece of text.
     function createScanner(languageVersion, skipTrivia, languageVariant, text, onError, start, length) {
         if (languageVariant === void 0) { languageVariant = 0 /* Standard */; }
@@ -21857,10 +21872,11 @@ var ts;
         function checkJsxOpeningLikeElement(node) {
             checkGrammarJsxElement(node);
             checkJsxPreconditions(node);
-            // The symbol 'React' should be marked as 'used' so we don't incorrectly elide its import. And if there
-            // is no 'React' symbol in scope when targeting React emit, we should issue an error.
+            // The reactNamespace symbol should be marked as 'used' so we don't incorrectly elide its import. And if there
+            // is no reactNamespace symbol in scope when targeting React emit, we should issue an error.
             var reactRefErr = compilerOptions.jsx === 2 /* React */ ? ts.Diagnostics.Cannot_find_name_0 : undefined;
-            var reactSym = resolveName(node.tagName, "React", 107455 /* Value */, reactRefErr, "React");
+            var reactNamespace = compilerOptions.reactNamespace ? compilerOptions.reactNamespace : "React";
+            var reactSym = resolveName(node.tagName, reactNamespace, 107455 /* Value */, reactRefErr, reactNamespace);
             if (reactSym) {
                 getSymbolLinks(reactSym).referenced = true;
             }
@@ -29270,6 +29286,11 @@ var ts;
             error: ts.Diagnostics.Argument_for_jsx_must_be_preserve_or_react
         },
         {
+            name: "reactNamespace",
+            type: "string",
+            description: ts.Diagnostics.Specifies_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit
+        },
+        {
             name: "listFiles",
             type: "boolean",
         },
@@ -32542,7 +32563,7 @@ var ts;
                 }
                 function emitJsxElement(openingNode, children) {
                     var syntheticReactRef = ts.createSynthesizedNode(69 /* Identifier */);
-                    syntheticReactRef.text = "React";
+                    syntheticReactRef.text = compilerOptions.reactNamespace ? compilerOptions.reactNamespace : "React";
                     syntheticReactRef.parent = openingNode;
                     // Call React.createElement(tag, ...
                     emitLeadingComments(openingNode);
@@ -39640,6 +39661,9 @@ var ts;
                 !options.experimentalDecorators) {
                 programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "emitDecoratorMetadata", "experimentalDecorators"));
             }
+            if (options.reactNamespace && !ts.isIdentifier(options.reactNamespace, languageVersion)) {
+                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Invalide_value_for_reactNamespace_0_is_not_a_valid_identifier, options.reactNamespace));
+            }
             // If the emit is enabled make sure that every output file is unique and not overwriting any of the input files
             if (!options.noEmit) {
                 var emitHost = getEmitHost();
@@ -43001,6 +43025,7 @@ var ts;
                 advance: advance,
                 readTokenInfo: readTokenInfo,
                 isOnToken: isOnToken,
+                getCurrentLeadingTrivia: function () { return leadingTrivia; },
                 lastTrailingTriviaWasNewLine: function () { return wasNewLine; },
                 close: function () {
                     ts.Debug.assert(scanner !== undefined);
@@ -43569,9 +43594,7 @@ var ts;
                 this.SpaceBetweenAsyncAndOpenParen = new formatting.Rule(formatting.RuleDescriptor.create1(118 /* AsyncKeyword */, 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsArrowFunctionContext, Rules.IsSameLineTokenContext), 2 /* Space */));
                 this.SpaceBetweenAsyncAndFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(118 /* AsyncKeyword */, 87 /* FunctionKeyword */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 // template string
-                this.SpaceBetweenTagAndTemplateString = new formatting.Rule(formatting.RuleDescriptor.create3(69 /* Identifier */, formatting.Shared.TokenRange.FromTokens([11 /* NoSubstitutionTemplateLiteral */, 12 /* TemplateHead */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
-                this.NoSpaceAfterTemplateHeadAndMiddle = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([12 /* TemplateHead */, 13 /* TemplateMiddle */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
-                this.NoSpaceBeforeTemplateMiddleAndTail = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([13 /* TemplateMiddle */, 14 /* TemplateTail */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                this.NoSpaceBetweenTagAndTemplateString = new formatting.Rule(formatting.RuleDescriptor.create3(69 /* Identifier */, formatting.Shared.TokenRange.FromTokens([11 /* NoSubstitutionTemplateLiteral */, 12 /* TemplateHead */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 // These rules are higher in priority than user-configurable rules.
                 this.HighPriorityCommonRules = [
                     this.IgnoreBeforeComment, this.IgnoreAfterLineComment,
@@ -43598,7 +43621,7 @@ var ts;
                     this.SpaceBeforeBinaryKeywordOperator, this.SpaceAfterBinaryKeywordOperator,
                     this.SpaceAfterVoidOperator,
                     this.SpaceBetweenAsyncAndOpenParen, this.SpaceBetweenAsyncAndFunctionKeyword,
-                    this.SpaceBetweenTagAndTemplateString, this.NoSpaceAfterTemplateHeadAndMiddle, this.NoSpaceBeforeTemplateMiddleAndTail,
+                    this.NoSpaceBetweenTagAndTemplateString,
                     // TypeScript-specific rules
                     this.NoSpaceAfterConstructor, this.NoSpaceAfterModuleImport,
                     this.SpaceAfterCertainTypeScriptKeywords, this.SpaceBeforeCertainTypeScriptKeywords,
@@ -43664,6 +43687,11 @@ var ts;
                 this.NoSpaceBetweenBrackets = new formatting.Rule(formatting.RuleDescriptor.create1(19 /* OpenBracketToken */, 20 /* CloseBracketToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 this.NoSpaceAfterOpenBracket = new formatting.Rule(formatting.RuleDescriptor.create3(19 /* OpenBracketToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 this.NoSpaceBeforeCloseBracket = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 20 /* CloseBracketToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                // Insert space after opening and before closing template string braces
+                this.NoSpaceAfterTemplateHeadAndMiddle = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([12 /* TemplateHead */, 13 /* TemplateMiddle */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                this.SpaceAfterTemplateHeadAndMiddle = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([12 /* TemplateHead */, 13 /* TemplateMiddle */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.NoSpaceBeforeTemplateMiddleAndTail = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([13 /* TemplateMiddle */, 14 /* TemplateTail */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
+                this.SpaceBeforeTemplateMiddleAndTail = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([13 /* TemplateMiddle */, 14 /* TemplateTail */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
                 // Insert space after function keyword for anonymous functions
                 this.SpaceAfterAnonymousFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(87 /* FunctionKeyword */, 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext), 2 /* Space */));
                 this.NoSpaceAfterAnonymousFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(87 /* FunctionKeyword */, 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext), 8 /* Delete */));
@@ -44289,6 +44317,14 @@ var ts;
                     rules.push(this.globalRules.NoSpaceBeforeCloseBracket);
                     rules.push(this.globalRules.NoSpaceBetweenBrackets);
                 }
+                if (options.InsertSpaceAfterOpeningAndBeforeClosingTemplateStringBraces) {
+                    rules.push(this.globalRules.SpaceAfterTemplateHeadAndMiddle);
+                    rules.push(this.globalRules.SpaceBeforeTemplateMiddleAndTail);
+                }
+                else {
+                    rules.push(this.globalRules.NoSpaceAfterTemplateHeadAndMiddle);
+                    rules.push(this.globalRules.NoSpaceBeforeTemplateMiddleAndTail);
+                }
                 if (options.InsertSpaceAfterSemicolonInForStatements) {
                     rules.push(this.globalRules.SpaceAfterSemicolonInFor);
                 }
@@ -44562,6 +44598,13 @@ var ts;
                 }
                 var delta = getOwnOrInheritedDelta(enclosingNode, options, sourceFile);
                 processNode(enclosingNode, enclosingNode, startLine, undecoratedStartLine, initialIndentation, delta);
+            }
+            if (!formattingScanner.isOnToken()) {
+                var leadingTrivia = formattingScanner.getCurrentLeadingTrivia();
+                if (leadingTrivia) {
+                    processTrivia(leadingTrivia, enclosingNode, enclosingNode, undefined);
+                    trimTrailingWhitespacesForRemainingRange();
+                }
             }
             formattingScanner.close();
             return edits;
@@ -44950,9 +44993,7 @@ var ts;
                         }
                     }
                     // We need to trim trailing whitespace between the tokens if they were on different lines, and no rule was applied to put them on the same line
-                    trimTrailingWhitespaces =
-                        (rule.Operation.Action & (4 /* NewLine */ | 2 /* Space */)) &&
-                            rule.Flag !== 1 /* CanDeleteNewLines */;
+                    trimTrailingWhitespaces = !(rule.Operation.Action & 8 /* Delete */) && rule.Flag !== 1 /* CanDeleteNewLines */;
                 }
                 else {
                     trimTrailingWhitespaces = true;
@@ -45035,15 +45076,35 @@ var ts;
                     if (range && (ts.isComment(range.kind) || ts.isStringOrRegularExpressionOrTemplateLiteral(range.kind)) && range.pos <= lineEndPosition && range.end > lineEndPosition) {
                         continue;
                     }
-                    var pos = lineEndPosition;
-                    while (pos >= lineStartPosition && ts.isWhiteSpace(sourceFile.text.charCodeAt(pos))) {
-                        pos--;
-                    }
-                    if (pos !== lineEndPosition) {
-                        ts.Debug.assert(pos === lineStartPosition || !ts.isWhiteSpace(sourceFile.text.charCodeAt(pos)));
-                        recordDelete(pos + 1, lineEndPosition - pos);
+                    var whitespaceStart = getTrailingWhitespaceStartPosition(lineStartPosition, lineEndPosition);
+                    if (whitespaceStart !== -1) {
+                        ts.Debug.assert(whitespaceStart === lineStartPosition || !ts.isWhiteSpace(sourceFile.text.charCodeAt(whitespaceStart - 1)));
+                        recordDelete(whitespaceStart, lineEndPosition + 1 - whitespaceStart);
                     }
                 }
+            }
+            /**
+             * @param start The position of the first character in range
+             * @param end The position of the last character in range
+             */
+            function getTrailingWhitespaceStartPosition(start, end) {
+                var pos = end;
+                while (pos >= start && ts.isWhiteSpace(sourceFile.text.charCodeAt(pos))) {
+                    pos--;
+                }
+                if (pos !== end) {
+                    return pos + 1;
+                }
+                return -1;
+            }
+            /**
+             * Trimming will be done for lines after the previous range
+             */
+            function trimTrailingWhitespacesForRemainingRange() {
+                var startPosition = previousRange ? previousRange.end : originalRange.pos;
+                var startLine = sourceFile.getLineAndCharacterOfPosition(startPosition).line;
+                var endLine = sourceFile.getLineAndCharacterOfPosition(originalRange.end).line;
+                trimTrailingWhitespacesForLines(startLine, endLine + 1, previousRange);
             }
             function newTextChange(start, len, newText) {
                 return { span: ts.createTextSpan(start, len), newText: newText };
@@ -47693,13 +47754,8 @@ var ts;
             // e.g "b a" is valid quoted name but when we strip off the quotes, it is invalid.
             // We, thus, need to check if whatever was inside the quotes is actually a valid identifier name.
             if (performCharacterChecks) {
-                if (!ts.isIdentifierStart(name.charCodeAt(0), target)) {
+                if (!ts.isIdentifier(name, target)) {
                     return undefined;
-                }
-                for (var i = 1, n = name.length; i < n; i++) {
-                    if (!ts.isIdentifierPart(name.charCodeAt(i), target)) {
-                        return undefined;
-                    }
                 }
             }
             return name;
@@ -52576,11 +52632,6 @@ var ts;
             return this.files = JSON.parse(encoded);
         };
         LanguageServiceShimHostAdapter.prototype.getScriptSnapshot = function (fileName) {
-            // Shim the API changes for 1.5 release. This should be removed once
-            // TypeScript 1.5 has shipped.
-            if (this.files && this.files.indexOf(fileName) < 0) {
-                return undefined;
-            }
             var scriptSnapshot = this.shimHost.getScriptSnapshot(fileName);
             return scriptSnapshot && new ScriptSnapshotShimAdapter(scriptSnapshot);
         };
@@ -52608,14 +52659,7 @@ var ts;
             return this.shimHost.getCurrentDirectory();
         };
         LanguageServiceShimHostAdapter.prototype.getDefaultLibFileName = function (options) {
-            // Wrap the API changes for 1.5 release. This try/catch
-            // should be removed once TypeScript 1.5 has shipped.
-            try {
-                return this.shimHost.getDefaultLibFileName(JSON.stringify(options));
-            }
-            catch (e) {
-                return "";
-            }
+            return this.shimHost.getDefaultLibFileName(JSON.stringify(options));
         };
         return LanguageServiceShimHostAdapter;
     })();
@@ -52650,17 +52694,7 @@ var ts;
             }
         }
         CoreServicesShimHostAdapter.prototype.readDirectory = function (rootDir, extension, exclude) {
-            // Wrap the API changes for 1.5 release. This try/catch
-            // should be removed once TypeScript 1.5 has shipped.
-            // Also consider removing the optional designation for
-            // the exclude param at this time.
-            var encoded;
-            try {
-                encoded = this.shimHost.readDirectory(rootDir, extension, JSON.stringify(exclude));
-            }
-            catch (e) {
-                encoded = this.shimHost.readDirectory(rootDir, extension);
-            }
+            var encoded = this.shimHost.readDirectory(rootDir, extension, JSON.stringify(exclude));
             return JSON.parse(encoded);
         };
         CoreServicesShimHostAdapter.prototype.fileExists = function (fileName) {
@@ -52673,15 +52707,16 @@ var ts;
     })();
     ts.CoreServicesShimHostAdapter = CoreServicesShimHostAdapter;
     function simpleForwardCall(logger, actionDescription, action, logPerformance) {
+        var start;
         if (logPerformance) {
             logger.log(actionDescription);
-            var start = Date.now();
+            start = Date.now();
         }
         var result = action();
         if (logPerformance) {
             var end = Date.now();
             logger.log(actionDescription + " completed in " + (end - start) + " msec");
-            if (typeof (result) === "string") {
+            if (typeof result === "string") {
                 var str = result;
                 if (str.length > 128) {
                     str = str.substring(0, 128) + "...";
@@ -52763,9 +52798,7 @@ var ts;
          * Update the list of scripts known to the compiler
          */
         LanguageServiceShimObject.prototype.refresh = function (throwOnError) {
-            this.forwardJSONCall("refresh(" + throwOnError + ")", function () {
-                return null;
-            });
+            this.forwardJSONCall("refresh(" + throwOnError + ")", function () { return null; });
         };
         LanguageServiceShimObject.prototype.cleanupSemanticCache = function () {
             var _this = this;
@@ -52780,33 +52813,25 @@ var ts;
         };
         LanguageServiceShimObject.prototype.getSyntacticClassifications = function (fileName, start, length) {
             var _this = this;
-            return this.forwardJSONCall("getSyntacticClassifications('" + fileName + "', " + start + ", " + length + ")", function () {
-                var classifications = _this.languageService.getSyntacticClassifications(fileName, ts.createTextSpan(start, length));
-                return classifications;
-            });
+            return this.forwardJSONCall("getSyntacticClassifications('" + fileName + "', " + start + ", " + length + ")", function () { return _this.languageService.getSyntacticClassifications(fileName, ts.createTextSpan(start, length)); });
         };
         LanguageServiceShimObject.prototype.getSemanticClassifications = function (fileName, start, length) {
             var _this = this;
-            return this.forwardJSONCall("getSemanticClassifications('" + fileName + "', " + start + ", " + length + ")", function () {
-                var classifications = _this.languageService.getSemanticClassifications(fileName, ts.createTextSpan(start, length));
-                return classifications;
-            });
+            return this.forwardJSONCall("getSemanticClassifications('" + fileName + "', " + start + ", " + length + ")", function () { return _this.languageService.getSemanticClassifications(fileName, ts.createTextSpan(start, length)); });
         };
         LanguageServiceShimObject.prototype.getEncodedSyntacticClassifications = function (fileName, start, length) {
             var _this = this;
-            return this.forwardJSONCall("getEncodedSyntacticClassifications('" + fileName + "', " + start + ", " + length + ")", function () {
-                // directly serialize the spans out to a string.  This is much faster to decode
-                // on the managed side versus a full JSON array.
-                return convertClassifications(_this.languageService.getEncodedSyntacticClassifications(fileName, ts.createTextSpan(start, length)));
-            });
+            return this.forwardJSONCall("getEncodedSyntacticClassifications('" + fileName + "', " + start + ", " + length + ")", 
+            // directly serialize the spans out to a string.  This is much faster to decode
+            // on the managed side versus a full JSON array.
+            function () { return convertClassifications(_this.languageService.getEncodedSyntacticClassifications(fileName, ts.createTextSpan(start, length))); });
         };
         LanguageServiceShimObject.prototype.getEncodedSemanticClassifications = function (fileName, start, length) {
             var _this = this;
-            return this.forwardJSONCall("getEncodedSemanticClassifications('" + fileName + "', " + start + ", " + length + ")", function () {
-                // directly serialize the spans out to a string.  This is much faster to decode
-                // on the managed side versus a full JSON array.
-                return convertClassifications(_this.languageService.getEncodedSemanticClassifications(fileName, ts.createTextSpan(start, length)));
-            });
+            return this.forwardJSONCall("getEncodedSemanticClassifications('" + fileName + "', " + start + ", " + length + ")", 
+            // directly serialize the spans out to a string.  This is much faster to decode
+            // on the managed side versus a full JSON array.
+            function () { return convertClassifications(_this.languageService.getEncodedSemanticClassifications(fileName, ts.createTextSpan(start, length))); });
         };
         LanguageServiceShimObject.prototype.getSyntacticDiagnostics = function (fileName) {
             var _this = this;
@@ -52836,10 +52861,7 @@ var ts;
          */
         LanguageServiceShimObject.prototype.getQuickInfoAtPosition = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("getQuickInfoAtPosition('" + fileName + "', " + position + ")", function () {
-                var quickInfo = _this.languageService.getQuickInfoAtPosition(fileName, position);
-                return quickInfo;
-            });
+            return this.forwardJSONCall("getQuickInfoAtPosition('" + fileName + "', " + position + ")", function () { return _this.languageService.getQuickInfoAtPosition(fileName, position); });
         };
         /// NAMEORDOTTEDNAMESPAN
         /**
@@ -52848,10 +52870,7 @@ var ts;
          */
         LanguageServiceShimObject.prototype.getNameOrDottedNameSpan = function (fileName, startPos, endPos) {
             var _this = this;
-            return this.forwardJSONCall("getNameOrDottedNameSpan('" + fileName + "', " + startPos + ", " + endPos + ")", function () {
-                var spanInfo = _this.languageService.getNameOrDottedNameSpan(fileName, startPos, endPos);
-                return spanInfo;
-            });
+            return this.forwardJSONCall("getNameOrDottedNameSpan('" + fileName + "', " + startPos + ", " + endPos + ")", function () { return _this.languageService.getNameOrDottedNameSpan(fileName, startPos, endPos); });
         };
         /**
          * STATEMENTSPAN
@@ -52859,18 +52878,12 @@ var ts;
          */
         LanguageServiceShimObject.prototype.getBreakpointStatementAtPosition = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("getBreakpointStatementAtPosition('" + fileName + "', " + position + ")", function () {
-                var spanInfo = _this.languageService.getBreakpointStatementAtPosition(fileName, position);
-                return spanInfo;
-            });
+            return this.forwardJSONCall("getBreakpointStatementAtPosition('" + fileName + "', " + position + ")", function () { return _this.languageService.getBreakpointStatementAtPosition(fileName, position); });
         };
         /// SIGNATUREHELP
         LanguageServiceShimObject.prototype.getSignatureHelpItems = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("getSignatureHelpItems('" + fileName + "', " + position + ")", function () {
-                var signatureInfo = _this.languageService.getSignatureHelpItems(fileName, position);
-                return signatureInfo;
-            });
+            return this.forwardJSONCall("getSignatureHelpItems('" + fileName + "', " + position + ")", function () { return _this.languageService.getSignatureHelpItems(fileName, position); });
         };
         /// GOTO DEFINITION
         /**
@@ -52879,9 +52892,7 @@ var ts;
          */
         LanguageServiceShimObject.prototype.getDefinitionAtPosition = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("getDefinitionAtPosition('" + fileName + "', " + position + ")", function () {
-                return _this.languageService.getDefinitionAtPosition(fileName, position);
-            });
+            return this.forwardJSONCall("getDefinitionAtPosition('" + fileName + "', " + position + ")", function () { return _this.languageService.getDefinitionAtPosition(fileName, position); });
         };
         /// GOTO Type
         /**
@@ -52890,29 +52901,20 @@ var ts;
          */
         LanguageServiceShimObject.prototype.getTypeDefinitionAtPosition = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("getTypeDefinitionAtPosition('" + fileName + "', " + position + ")", function () {
-                return _this.languageService.getTypeDefinitionAtPosition(fileName, position);
-            });
+            return this.forwardJSONCall("getTypeDefinitionAtPosition('" + fileName + "', " + position + ")", function () { return _this.languageService.getTypeDefinitionAtPosition(fileName, position); });
         };
         LanguageServiceShimObject.prototype.getRenameInfo = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("getRenameInfo('" + fileName + "', " + position + ")", function () {
-                return _this.languageService.getRenameInfo(fileName, position);
-            });
+            return this.forwardJSONCall("getRenameInfo('" + fileName + "', " + position + ")", function () { return _this.languageService.getRenameInfo(fileName, position); });
         };
         LanguageServiceShimObject.prototype.findRenameLocations = function (fileName, position, findInStrings, findInComments) {
             var _this = this;
-            return this.forwardJSONCall("findRenameLocations('" + fileName + "', " + position + ", " + findInStrings + ", " + findInComments + ")", function () {
-                return _this.languageService.findRenameLocations(fileName, position, findInStrings, findInComments);
-            });
+            return this.forwardJSONCall("findRenameLocations('" + fileName + "', " + position + ", " + findInStrings + ", " + findInComments + ")", function () { return _this.languageService.findRenameLocations(fileName, position, findInStrings, findInComments); });
         };
         /// GET BRACE MATCHING
         LanguageServiceShimObject.prototype.getBraceMatchingAtPosition = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("getBraceMatchingAtPosition('" + fileName + "', " + position + ")", function () {
-                var textRanges = _this.languageService.getBraceMatchingAtPosition(fileName, position);
-                return textRanges;
-            });
+            return this.forwardJSONCall("getBraceMatchingAtPosition('" + fileName + "', " + position + ")", function () { return _this.languageService.getBraceMatchingAtPosition(fileName, position); });
         };
         /// GET SMART INDENT
         LanguageServiceShimObject.prototype.getIndentationAtPosition = function (fileName, position, options /*Services.EditorOptions*/) {
@@ -52925,21 +52927,15 @@ var ts;
         /// GET REFERENCES
         LanguageServiceShimObject.prototype.getReferencesAtPosition = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("getReferencesAtPosition('" + fileName + "', " + position + ")", function () {
-                return _this.languageService.getReferencesAtPosition(fileName, position);
-            });
+            return this.forwardJSONCall("getReferencesAtPosition('" + fileName + "', " + position + ")", function () { return _this.languageService.getReferencesAtPosition(fileName, position); });
         };
         LanguageServiceShimObject.prototype.findReferences = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("findReferences('" + fileName + "', " + position + ")", function () {
-                return _this.languageService.findReferences(fileName, position);
-            });
+            return this.forwardJSONCall("findReferences('" + fileName + "', " + position + ")", function () { return _this.languageService.findReferences(fileName, position); });
         };
         LanguageServiceShimObject.prototype.getOccurrencesAtPosition = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("getOccurrencesAtPosition('" + fileName + "', " + position + ")", function () {
-                return _this.languageService.getOccurrencesAtPosition(fileName, position);
-            });
+            return this.forwardJSONCall("getOccurrencesAtPosition('" + fileName + "', " + position + ")", function () { return _this.languageService.getOccurrencesAtPosition(fileName, position); });
         };
         LanguageServiceShimObject.prototype.getDocumentHighlights = function (fileName, position, filesToSearch) {
             var _this = this;
@@ -52958,41 +52954,32 @@ var ts;
          */
         LanguageServiceShimObject.prototype.getCompletionsAtPosition = function (fileName, position) {
             var _this = this;
-            return this.forwardJSONCall("getCompletionsAtPosition('" + fileName + "', " + position + ")", function () {
-                var completion = _this.languageService.getCompletionsAtPosition(fileName, position);
-                return completion;
-            });
+            return this.forwardJSONCall("getCompletionsAtPosition('" + fileName + "', " + position + ")", function () { return _this.languageService.getCompletionsAtPosition(fileName, position); });
         };
         /** Get a string based representation of a completion list entry details */
         LanguageServiceShimObject.prototype.getCompletionEntryDetails = function (fileName, position, entryName) {
             var _this = this;
-            return this.forwardJSONCall("getCompletionEntryDetails('" + fileName + "', " + position + ", " + entryName + ")", function () {
-                var details = _this.languageService.getCompletionEntryDetails(fileName, position, entryName);
-                return details;
-            });
+            return this.forwardJSONCall("getCompletionEntryDetails('" + fileName + "', " + position + ", '" + entryName + "')", function () { return _this.languageService.getCompletionEntryDetails(fileName, position, entryName); });
         };
         LanguageServiceShimObject.prototype.getFormattingEditsForRange = function (fileName, start, end, options /*Services.FormatCodeOptions*/) {
             var _this = this;
             return this.forwardJSONCall("getFormattingEditsForRange('" + fileName + "', " + start + ", " + end + ")", function () {
                 var localOptions = JSON.parse(options);
-                var edits = _this.languageService.getFormattingEditsForRange(fileName, start, end, localOptions);
-                return edits;
+                return _this.languageService.getFormattingEditsForRange(fileName, start, end, localOptions);
             });
         };
         LanguageServiceShimObject.prototype.getFormattingEditsForDocument = function (fileName, options /*Services.FormatCodeOptions*/) {
             var _this = this;
             return this.forwardJSONCall("getFormattingEditsForDocument('" + fileName + "')", function () {
                 var localOptions = JSON.parse(options);
-                var edits = _this.languageService.getFormattingEditsForDocument(fileName, localOptions);
-                return edits;
+                return _this.languageService.getFormattingEditsForDocument(fileName, localOptions);
             });
         };
         LanguageServiceShimObject.prototype.getFormattingEditsAfterKeystroke = function (fileName, position, key, options /*Services.FormatCodeOptions*/) {
             var _this = this;
             return this.forwardJSONCall("getFormattingEditsAfterKeystroke('" + fileName + "', " + position + ", '" + key + "')", function () {
                 var localOptions = JSON.parse(options);
-                var edits = _this.languageService.getFormattingEditsAfterKeystroke(fileName, position, key, localOptions);
-                return edits;
+                return _this.languageService.getFormattingEditsAfterKeystroke(fileName, position, key, localOptions);
             });
         };
         LanguageServiceShimObject.prototype.getDocCommentTemplateAtPosition = function (fileName, position) {
@@ -53003,42 +52990,24 @@ var ts;
         /** Return a list of symbols that are interesting to navigate to */
         LanguageServiceShimObject.prototype.getNavigateToItems = function (searchValue, maxResultCount) {
             var _this = this;
-            return this.forwardJSONCall("getNavigateToItems('" + searchValue + "', " + maxResultCount + ")", function () {
-                var items = _this.languageService.getNavigateToItems(searchValue, maxResultCount);
-                return items;
-            });
+            return this.forwardJSONCall("getNavigateToItems('" + searchValue + "', " + maxResultCount + ")", function () { return _this.languageService.getNavigateToItems(searchValue, maxResultCount); });
         };
         LanguageServiceShimObject.prototype.getNavigationBarItems = function (fileName) {
             var _this = this;
-            return this.forwardJSONCall("getNavigationBarItems('" + fileName + "')", function () {
-                var items = _this.languageService.getNavigationBarItems(fileName);
-                return items;
-            });
+            return this.forwardJSONCall("getNavigationBarItems('" + fileName + "')", function () { return _this.languageService.getNavigationBarItems(fileName); });
         };
         LanguageServiceShimObject.prototype.getOutliningSpans = function (fileName) {
             var _this = this;
-            return this.forwardJSONCall("getOutliningSpans('" + fileName + "')", function () {
-                var items = _this.languageService.getOutliningSpans(fileName);
-                return items;
-            });
+            return this.forwardJSONCall("getOutliningSpans('" + fileName + "')", function () { return _this.languageService.getOutliningSpans(fileName); });
         };
         LanguageServiceShimObject.prototype.getTodoComments = function (fileName, descriptors) {
             var _this = this;
-            return this.forwardJSONCall("getTodoComments('" + fileName + "')", function () {
-                var items = _this.languageService.getTodoComments(fileName, JSON.parse(descriptors));
-                return items;
-            });
+            return this.forwardJSONCall("getTodoComments('" + fileName + "')", function () { return _this.languageService.getTodoComments(fileName, JSON.parse(descriptors)); });
         };
         /// Emit
         LanguageServiceShimObject.prototype.getEmitOutput = function (fileName) {
             var _this = this;
-            return this.forwardJSONCall("getEmitOutput('" + fileName + "')", function () {
-                var output = _this.languageService.getEmitOutput(fileName);
-                // Shim the API changes for 1.5 release. This should be removed once
-                // TypeScript 1.5 has shipped.
-                output.emitOutputStatus = output.emitSkipped ? 1 : 0;
-                return output;
-            });
+            return this.forwardJSONCall("getEmitOutput('" + fileName + "')", function () { return _this.languageService.getEmitOutput(fileName); });
         };
         return LanguageServiceShimObject;
     })(ShimBase);
@@ -53060,11 +53029,11 @@ var ts;
         /// COLORIZATION
         ClassifierShimObject.prototype.getClassificationsForLine = function (text, lexState, classifyKeywordsInGenerics) {
             var classification = this.classifier.getClassificationsForLine(text, lexState, classifyKeywordsInGenerics);
-            var items = classification.entries;
             var result = "";
-            for (var i = 0; i < items.length; i++) {
-                result += items[i].length + "\n";
-                result += items[i].classification + "\n";
+            for (var _i = 0, _a = classification.entries; _i < _a.length; _i++) {
+                var item = _a[_i];
+                result += item.length + "\n";
+                result += item.classification + "\n";
             }
             result += classification.finalLexState;
             return result;
@@ -53141,9 +53110,7 @@ var ts;
             });
         };
         CoreServicesShimObject.prototype.getDefaultCompilationSettings = function () {
-            return this.forwardJSONCall("getDefaultCompilationSettings()", function () {
-                return ts.getDefaultCompilerOptions();
-            });
+            return this.forwardJSONCall("getDefaultCompilationSettings()", function () { return ts.getDefaultCompilerOptions(); });
         };
         return CoreServicesShimObject;
     })(ShimBase);
