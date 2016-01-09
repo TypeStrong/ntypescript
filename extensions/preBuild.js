@@ -1,3 +1,4 @@
+"use strict";
 var fs = require('fs');
 var EOL = require('os').EOL;
 function readFile(filePath) {

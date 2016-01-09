@@ -417,7 +417,7 @@ var ts;
         function OperationCanceledException() {
         }
         return OperationCanceledException;
-    })();
+    }());
     ts.OperationCanceledException = OperationCanceledException;
     /** Return code used by getEmitOutput function to indicate status of the function */
     (function (ExitStatus) {
@@ -5245,6 +5245,7 @@ var ts;
         _0_which_lacks_return_type_annotation_implicitly_has_an_1_return_type: { code: 7010, category: ts.DiagnosticCategory.Error, key: "_0_which_lacks_return_type_annotation_implicitly_has_an_1_return_type_7010", message: "'{0}', which lacks return-type annotation, implicitly has an '{1}' return type." },
         Function_expression_which_lacks_return_type_annotation_implicitly_has_an_0_return_type: { code: 7011, category: ts.DiagnosticCategory.Error, key: "Function_expression_which_lacks_return_type_annotation_implicitly_has_an_0_return_type_7011", message: "Function expression, which lacks return-type annotation, implicitly has an '{0}' return type." },
         Construct_signature_which_lacks_return_type_annotation_implicitly_has_an_any_return_type: { code: 7013, category: ts.DiagnosticCategory.Error, key: "Construct_signature_which_lacks_return_type_annotation_implicitly_has_an_any_return_type_7013", message: "Construct signature, which lacks return-type annotation, implicitly has an 'any' return type." },
+        Element_implicitly_has_an_any_type_because_index_expression_is_not_of_type_number: { code: 7015, category: ts.DiagnosticCategory.Error, key: "Element_implicitly_has_an_any_type_because_index_expression_is_not_of_type_number_7015", message: "Element implicitly has an 'any' type because index expression is not of type 'number'." },
         Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_type_annotation: { code: 7016, category: ts.DiagnosticCategory.Error, key: "Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_type_annotation_7016", message: "Property '{0}' implicitly has type 'any', because its 'set' accessor lacks a type annotation." },
         Index_signature_of_object_type_implicitly_has_an_any_type: { code: 7017, category: ts.DiagnosticCategory.Error, key: "Index_signature_of_object_type_implicitly_has_an_any_type_7017", message: "Index signature of object type implicitly has an 'any' type." },
         Object_literal_s_property_0_implicitly_has_an_1_type: { code: 7018, category: ts.DiagnosticCategory.Error, key: "Object_literal_s_property_0_implicitly_has_an_1_type_7018", message: "Object literal's property '{0}' implicitly has an '{1}' type." },
@@ -16474,9 +16475,9 @@ var ts;
         }
         // Return the inferred type for a variable, parameter, or property declaration
         function getTypeForVariableLikeDeclaration(declaration) {
-            // A variable declared in a for..in statement is always of type any
+            // A variable declared in a for..in statement is always of type string
             if (declaration.parent.parent.kind === 202 /* ForInStatement */) {
-                return anyType;
+                return stringType;
             }
             if (declaration.parent.parent.kind === 203 /* ForOfStatement */) {
                 // checkRightHandSideOfForOf will return undefined if the for-of expression type was
@@ -22047,6 +22048,53 @@ var ts;
             }
             return true;
         }
+        /**
+         * Return the symbol of the for-in variable declared or referenced by the given for-in statement.
+         */
+        function getForInVariableSymbol(node) {
+            var initializer = node.initializer;
+            if (initializer.kind === 214 /* VariableDeclarationList */) {
+                var variable = initializer.declarations[0];
+                if (variable && !ts.isBindingPattern(variable.name)) {
+                    return getSymbolOfNode(variable);
+                }
+            }
+            else if (initializer.kind === 69 /* Identifier */) {
+                return getResolvedSymbol(initializer);
+            }
+            return undefined;
+        }
+        /**
+         * Return true if the given type is considered to have numeric property names.
+         */
+        function hasNumericPropertyNames(type) {
+            return getIndexTypeOfType(type, 1 /* Number */) && !getIndexTypeOfType(type, 0 /* String */);
+        }
+        /**
+         * Return true if given node is an expression consisting of an identifier (possibly parenthesized)
+         * that references a for-in variable for an object with numeric property names.
+         */
+        function isForInVariableForNumericPropertyNames(expr) {
+            var e = skipParenthesizedNodes(expr);
+            if (e.kind === 69 /* Identifier */) {
+                var symbol = getResolvedSymbol(e);
+                if (symbol.flags & 3 /* Variable */) {
+                    var child = expr;
+                    var node = expr.parent;
+                    while (node) {
+                        if (node.kind === 202 /* ForInStatement */ &&
+                            child === node.statement &&
+                            getForInVariableSymbol(node) === symbol &&
+                            hasNumericPropertyNames(checkExpression(node.expression))) {
+                            return true;
+                        }
+                        child = node;
+                        node = node.parent;
+                    }
+                }
+            }
+            return false;
+        }
         function checkIndexedAccess(node) {
             // Grammar checking
             if (!node.argumentExpression) {
@@ -22100,7 +22148,7 @@ var ts;
             // Check for compatible indexer types.
             if (isTypeAnyOrAllConstituentTypesHaveKind(indexType, 258 /* StringLike */ | 132 /* NumberLike */ | 16777216 /* ESSymbol */)) {
                 // Try to use a number indexer.
-                if (isTypeAnyOrAllConstituentTypesHaveKind(indexType, 132 /* NumberLike */)) {
+                if (isTypeAnyOrAllConstituentTypesHaveKind(indexType, 132 /* NumberLike */) || isForInVariableForNumericPropertyNames(node.argumentExpression)) {
                     var numberIndexType = getIndexTypeOfType(objectType, 1 /* Number */);
                     if (numberIndexType) {
                         return numberIndexType;
@@ -22113,7 +22161,9 @@ var ts;
                 }
                 // Fall back to any.
                 if (compilerOptions.noImplicitAny && !compilerOptions.suppressImplicitAnyIndexErrors && !isTypeAny(objectType)) {
-                    error(node, ts.Diagnostics.Index_signature_of_object_type_implicitly_has_an_any_type);
+                    error(node, getIndexTypeOfType(objectType, 1 /* Number */) ?
+                        ts.Diagnostics.Element_implicitly_has_an_any_type_because_index_expression_is_not_of_type_number :
+                        ts.Diagnostics.Index_signature_of_object_type_implicitly_has_an_any_type);
                 }
                 return anyType;
             }
@@ -25712,7 +25762,8 @@ var ts;
             }
             // For a binding pattern, validate the initializer and exit
             if (ts.isBindingPattern(node.name)) {
-                if (node.initializer) {
+                // Don't validate for-in initializer as it is already an error
+                if (node.initializer && node.parent.parent.kind !== 202 /* ForInStatement */) {
                     checkTypeAssignableTo(checkExpressionCached(node.initializer), getWidenedTypeForVariableLikeDeclaration(node), node, /*headMessage*/ undefined);
                     checkParameterInitializer(node);
                 }
@@ -25722,7 +25773,8 @@ var ts;
             var type = getTypeOfVariableOrParameterOrProperty(symbol);
             if (node === symbol.valueDeclaration) {
                 // Node is the primary declaration of the symbol, just validate the initializer
-                if (node.initializer) {
+                // Don't validate for-in initializer as it is already an error
+                if (node.initializer && node.parent.parent.kind !== 202 /* ForInStatement */) {
                     checkTypeAssignableTo(checkExpressionCached(node.initializer), type, node, /*headMessage*/ undefined);
                     checkParameterInitializer(node);
                 }
@@ -43301,7 +43353,7 @@ var ts;
                 return false;
             };
             return FormattingContext;
-        })();
+        }());
         formatting.FormattingContext = FormattingContext;
     })(formatting = ts.formatting || (ts.formatting = {}));
 })(ts || (ts = {}));
@@ -43340,7 +43392,7 @@ var ts;
                     "flag=" + this.Flag + "]";
             };
             return Rule;
-        })();
+        }());
         formatting.Rule = Rule;
     })(formatting = ts.formatting || (ts.formatting = {}));
 })(ts || (ts = {}));
@@ -43387,7 +43439,7 @@ var ts;
                 return new RuleDescriptor(left, right);
             };
             return RuleDescriptor;
-        })();
+        }());
         formatting.RuleDescriptor = RuleDescriptor;
     })(formatting = ts.formatting || (ts.formatting = {}));
 })(ts || (ts = {}));
@@ -43429,7 +43481,7 @@ var ts;
                 return result;
             };
             return RuleOperation;
-        })();
+        }());
         formatting.RuleOperation = RuleOperation;
     })(formatting = ts.formatting || (ts.formatting = {}));
 })(ts || (ts = {}));
@@ -43464,7 +43516,7 @@ var ts;
             };
             RuleOperationContext.Any = new RuleOperationContext();
             return RuleOperationContext;
-        })();
+        }());
         formatting.RuleOperationContext = RuleOperationContext;
     })(formatting = ts.formatting || (ts.formatting = {}));
 })(ts || (ts = {}));
@@ -43655,7 +43707,7 @@ var ts;
                 /// Rules controlled by user options
                 ///
                 // Insert space after comma delimiter
-                this.SpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 2 /* Space */));
+                this.SpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsNextTokenNotCloseBracket), 2 /* Space */));
                 this.NoSpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext), 8 /* Delete */));
                 // Insert space before and after binary operators
                 this.SpaceBeforeBinaryOperator = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.BinaryOperators), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsSameLineTokenContext, Rules.IsBinaryOpContext), 2 /* Space */));
@@ -43888,6 +43940,9 @@ var ts;
             Rules.IsPreviousTokenNotComma = function (context) {
                 return context.currentTokenSpan.kind !== 24 /* CommaToken */;
             };
+            Rules.IsNextTokenNotCloseBracket = function (context) {
+                return context.nextTokenSpan.kind !== 20 /* CloseBracketToken */;
+            };
             Rules.IsArrowFunctionContext = function (context) {
                 return context.contextNode.kind === 176 /* ArrowFunction */;
             };
@@ -43961,7 +44016,7 @@ var ts;
                 return context.contextNode.kind === 186 /* YieldExpression */ && context.contextNode.expression !== undefined;
             };
             return Rules;
-        })();
+        }());
         formatting.Rules = Rules;
     })(formatting = ts.formatting || (ts.formatting = {}));
 })(ts || (ts = {}));
@@ -44029,7 +44084,7 @@ var ts;
                 return null;
             };
             return RulesMap;
-        })();
+        }());
         formatting.RulesMap = RulesMap;
         var MaskBitSize = 5;
         var Mask = 0x1f;
@@ -44081,7 +44136,7 @@ var ts;
                 this.rulesInsertionIndexBitmap = temp;
             };
             return RulesBucketConstructionState;
-        })();
+        }());
         formatting.RulesBucketConstructionState = RulesBucketConstructionState;
         var RulesBucket = (function () {
             function RulesBucket() {
@@ -44116,7 +44171,7 @@ var ts;
                 state.IncreaseInsertionIndex(position);
             };
             return RulesBucket;
-        })();
+        }());
         formatting.RulesBucket = RulesBucket;
     })(formatting = ts.formatting || (ts.formatting = {}));
 })(ts || (ts = {}));
@@ -44144,7 +44199,7 @@ var ts;
                     return this.tokens.indexOf(token) >= 0;
                 };
                 return TokenRangeAccess;
-            })();
+            }());
             Shared.TokenRangeAccess = TokenRangeAccess;
             var TokenValuesAccess = (function () {
                 function TokenValuesAccess(tks) {
@@ -44157,7 +44212,7 @@ var ts;
                     return this.tokens.indexOf(token) >= 0;
                 };
                 return TokenValuesAccess;
-            })();
+            }());
             Shared.TokenValuesAccess = TokenValuesAccess;
             var TokenSingleValueAccess = (function () {
                 function TokenSingleValueAccess(token) {
@@ -44170,7 +44225,7 @@ var ts;
                     return tokenValue === this.token;
                 };
                 return TokenSingleValueAccess;
-            })();
+            }());
             Shared.TokenSingleValueAccess = TokenSingleValueAccess;
             var TokenAllAccess = (function () {
                 function TokenAllAccess() {
@@ -44189,7 +44244,7 @@ var ts;
                     return "[allTokens]";
                 };
                 return TokenAllAccess;
-            })();
+            }());
             Shared.TokenAllAccess = TokenAllAccess;
             var TokenRange = (function () {
                 function TokenRange(tokenAccess) {
@@ -44231,7 +44286,7 @@ var ts;
                 TokenRange.Comments = TokenRange.FromTokens([2 /* SingleLineCommentTrivia */, 3 /* MultiLineCommentTrivia */]);
                 TokenRange.TypeNames = TokenRange.FromTokens([69 /* Identifier */, 128 /* NumberKeyword */, 130 /* StringKeyword */, 120 /* BooleanKeyword */, 131 /* SymbolKeyword */, 103 /* VoidKeyword */, 117 /* AnyKeyword */]);
                 return TokenRange;
-            })();
+            }());
             Shared.TokenRange = TokenRange;
         })(Shared = formatting.Shared || (formatting.Shared = {}));
     })(formatting = ts.formatting || (ts.formatting = {}));
@@ -44350,7 +44405,7 @@ var ts;
                 return rules;
             };
             return RulesProvider;
-        })();
+        }());
         formatting.RulesProvider = RulesProvider;
     })(formatting = ts.formatting || (ts.formatting = {}));
 })(ts || (ts = {}));
@@ -45728,7 +45783,7 @@ var ts;
                 return undefined;
             };
             return StringScriptSnapshot;
-        })();
+        }());
         function fromString(text) {
             return new StringScriptSnapshot(text);
         }
@@ -45904,7 +45959,7 @@ var ts;
             return child.kind < 135 /* FirstNode */ ? child : child.getLastToken(sourceFile);
         };
         return NodeObject;
-    })();
+    }());
     var SymbolObject = (function () {
         function SymbolObject(flags, name) {
             this.flags = flags;
@@ -45926,7 +45981,7 @@ var ts;
             return this.documentationComment;
         };
         return SymbolObject;
-    })();
+    }());
     function getJsDocCommentsFromDeclarations(declarations, name, canUseParsedParamTagComments) {
         var documentationComment = [];
         var docComments = getJsDocCommentsSeparatedByNewLines();
@@ -46242,7 +46297,7 @@ var ts;
                 : undefined;
         };
         return TypeObject;
-    })();
+    }());
     var SignatureObject = (function () {
         function SignatureObject(checker) {
             this.checker = checker;
@@ -46268,7 +46323,7 @@ var ts;
             return this.documentationComment;
         };
         return SignatureObject;
-    })();
+    }());
     var SourceFileObject = (function (_super) {
         __extends(SourceFileObject, _super);
         function SourceFileObject(kind, pos, end) {
@@ -46434,12 +46489,12 @@ var ts;
             }
         };
         return SourceFileObject;
-    })(NodeObject);
+    }(NodeObject));
     var TextChange = (function () {
         function TextChange() {
         }
         return TextChange;
-    })();
+    }());
     ts.TextChange = TextChange;
     var HighlightSpanKind;
     (function (HighlightSpanKind) {
@@ -46598,7 +46653,7 @@ var ts;
         ClassificationTypeNames.jsxCloseTagName = "jsx close tag name";
         ClassificationTypeNames.jsxSelfClosingTagName = "jsx self closing tag name";
         return ClassificationTypeNames;
-    })();
+    }());
     ts.ClassificationTypeNames = ClassificationTypeNames;
     (function (ClassificationType) {
         ClassificationType[ClassificationType["comment"] = 1] = "comment";
@@ -46622,6 +46677,7 @@ var ts;
         ClassificationType[ClassificationType["jsxOpenTagName"] = 19] = "jsxOpenTagName";
         ClassificationType[ClassificationType["jsxCloseTagName"] = 20] = "jsxCloseTagName";
         ClassificationType[ClassificationType["jsxSelfClosingTagName"] = 21] = "jsxSelfClosingTagName";
+        ClassificationType[ClassificationType["jsxAttribute"] = 22] = "jsxAttribute";
     })(ts.ClassificationType || (ts.ClassificationType = {}));
     var ClassificationType = ts.ClassificationType;
     function displayPartsToString(displayParts) {
@@ -46729,7 +46785,7 @@ var ts;
             return file && file.scriptSnapshot;
         };
         return HostCache;
-    })();
+    }());
     var SyntaxTreeCache = (function () {
         function SyntaxTreeCache(host) {
             this.host = host;
@@ -46761,7 +46817,7 @@ var ts;
             return this.currentSourceFile;
         };
         return SyntaxTreeCache;
-    })();
+    }());
     function setSourceFileFields(sourceFile, scriptSnapshot, version) {
         sourceFile.version = version;
         sourceFile.scriptSnapshot = scriptSnapshot;
@@ -47495,7 +47551,7 @@ var ts;
             }
         };
         return CancellationTokenObject;
-    })();
+    }());
     function createLanguageService(host, documentRegistry) {
         if (documentRegistry === void 0) { documentRegistry = createDocumentRegistry(host.useCaseSensitiveFileNames && host.useCaseSensitiveFileNames(), host.getCurrentDirectory()); }
         var syntaxTreeCache = new SyntaxTreeCache(host);
@@ -48767,16 +48823,16 @@ var ts;
                                 case ScriptElementKind.parameterElement:
                                 case ScriptElementKind.localVariableElement:
                                     // If it is call or construct signature of lambda's write type name
-                                    displayParts.push(ts.punctuationPart(ts.SyntaxKind.ColonToken));
+                                    displayParts.push(ts.punctuationPart(54 /* ColonToken */));
                                     displayParts.push(ts.spacePart());
                                     if (useConstructSignatures) {
-                                        displayParts.push(ts.keywordPart(ts.SyntaxKind.NewKeyword));
+                                        displayParts.push(ts.keywordPart(92 /* NewKeyword */));
                                         displayParts.push(ts.spacePart());
                                     }
-                                    if (!(type.flags & ts.TypeFlags.Anonymous)) {
-                                        ts.addRange(displayParts, ts.symbolToDisplayParts(typeChecker, type.symbol, enclosingDeclaration, /*meaning*/ undefined, ts.SymbolFormatFlags.WriteTypeParametersOrArguments));
+                                    if (!(type.flags & 65536 /* Anonymous */)) {
+                                        ts.addRange(displayParts, ts.symbolToDisplayParts(typeChecker, type.symbol, enclosingDeclaration, /*meaning*/ undefined, 1 /* WriteTypeParametersOrArguments */));
                                     }
-                                    addSignatureDisplayParts(signature, allSignatures, ts.TypeFormatFlags.WriteArrowStyleSignature);
+                                    addSignatureDisplayParts(signature, allSignatures, 8 /* WriteArrowStyleSignature */);
                                     break;
                                 default:
                                     // Just signature
@@ -51132,6 +51188,10 @@ var ts;
                                     return 21 /* jsxSelfClosingTagName */;
                                 }
                                 return;
+                            case 240 /* JsxAttribute */:
+                                if (token.parent.name === token) {
+                                    return 22 /* jsxAttribute */;
+                                }
                         }
                     }
                     return 2 /* identifier */;
@@ -52537,6 +52597,9 @@ var ts;
 /// <reference path='services.ts' />
 /* @internal */
 var debugObjectHost = this;
+// We need to use 'null' to interface with the managed side.
+/* tslint:disable:no-null */
+/* tslint:disable:no-in-operator */
 /* @internal */
 var ts;
 (function (ts) {
@@ -52548,7 +52611,6 @@ var ts;
     var ScriptSnapshotShimAdapter = (function () {
         function ScriptSnapshotShimAdapter(scriptSnapshotShim) {
             this.scriptSnapshotShim = scriptSnapshotShim;
-            this.lineStartPositions = null;
         }
         ScriptSnapshotShimAdapter.prototype.getText = function (start, end) {
             return this.scriptSnapshotShim.getText(start, end);
@@ -52574,7 +52636,7 @@ var ts;
             }
         };
         return ScriptSnapshotShimAdapter;
-    })();
+    }());
     var LanguageServiceShimHostAdapter = (function () {
         function LanguageServiceShimHostAdapter(shimHost) {
             var _this = this;
@@ -52662,7 +52724,7 @@ var ts;
             return this.shimHost.getDefaultLibFileName(JSON.stringify(options));
         };
         return LanguageServiceShimHostAdapter;
-    })();
+    }());
     ts.LanguageServiceShimHostAdapter = LanguageServiceShimHostAdapter;
     /** A cancellation that throttles calls to the host */
     var ThrottledCancellationToken = (function () {
@@ -52684,7 +52746,7 @@ var ts;
             return false;
         };
         return ThrottledCancellationToken;
-    })();
+    }());
     var CoreServicesShimHostAdapter = (function () {
         function CoreServicesShimHostAdapter(shimHost) {
             var _this = this;
@@ -52704,7 +52766,7 @@ var ts;
             return this.shimHost.readFile(fileName);
         };
         return CoreServicesShimHostAdapter;
-    })();
+    }());
     ts.CoreServicesShimHostAdapter = CoreServicesShimHostAdapter;
     function simpleForwardCall(logger, actionDescription, action, logPerformance) {
         var start;
@@ -52749,7 +52811,7 @@ var ts;
             this.factory.unregisterShim(this);
         };
         return ShimBase;
-    })();
+    }());
     function realizeDiagnostics(diagnostics, newLine) {
         return diagnostics.map(function (d) { return realizeDiagnostic(d, newLine); });
     }
@@ -53010,7 +53072,7 @@ var ts;
             return this.forwardJSONCall("getEmitOutput('" + fileName + "')", function () { return _this.languageService.getEmitOutput(fileName); });
         };
         return LanguageServiceShimObject;
-    })(ShimBase);
+    }(ShimBase));
     function convertClassifications(classifications) {
         return { spans: classifications.spans.join(","), endOfLineState: classifications.endOfLineState };
     }
@@ -53039,7 +53101,7 @@ var ts;
             return result;
         };
         return ClassifierShimObject;
-    })(ShimBase);
+    }(ShimBase));
     var CoreServicesShimObject = (function (_super) {
         __extends(CoreServicesShimObject, _super);
         function CoreServicesShimObject(factory, logger, host) {
@@ -53098,14 +53160,14 @@ var ts;
                     return {
                         options: {},
                         files: [],
-                        errors: [realizeDiagnostic(result.error, '\r\n')]
+                        errors: [realizeDiagnostic(result.error, "\r\n")]
                     };
                 }
                 var configFile = ts.parseJsonConfigFileContent(result.config, _this.host, ts.getDirectoryPath(ts.normalizeSlashes(fileName)));
                 return {
                     options: configFile.options,
                     files: configFile.fileNames,
-                    errors: realizeDiagnostics(configFile.errors, '\r\n')
+                    errors: realizeDiagnostics(configFile.errors, "\r\n")
                 };
             });
         };
@@ -53113,7 +53175,7 @@ var ts;
             return this.forwardJSONCall("getDefaultCompilationSettings()", function () { return ts.getDefaultCompilerOptions(); });
         };
         return CoreServicesShimObject;
-    })(ShimBase);
+    }(ShimBase));
     var TypeScriptServicesFactory = (function () {
         function TypeScriptServicesFactory() {
             this._shims = [];
@@ -53175,12 +53237,14 @@ var ts;
             throw new Error("Invalid operation");
         };
         return TypeScriptServicesFactory;
-    })();
+    }());
     ts.TypeScriptServicesFactory = TypeScriptServicesFactory;
     if (typeof module !== "undefined" && module.exports) {
         module.exports = ts;
     }
 })(ts || (ts = {}));
+/* tslint:enable:no-in-operator */
+/* tslint:enable:no-null */
 /// TODO: this is used by VS, clean this up on both sides of the interface
 /* @internal */
 var TypeScript;
@@ -53190,8 +53254,12 @@ var TypeScript;
         Services.TypeScriptServicesFactory = ts.TypeScriptServicesFactory;
     })(Services = TypeScript.Services || (TypeScript.Services = {}));
 })(TypeScript || (TypeScript = {}));
+/* tslint:disable:no-unused-variable */
+// 'toolsVersion' gets consumed by the managed side, so it's not unused.
+// TODO: it should be moved into a namespace though.
 /* @internal */
-var toolsVersion = "1.6";
+var toolsVersion = "1.8";
+/* tslint:enable:no-unused-variable */ 
 /**
  * Sample: add a new utility function
  */

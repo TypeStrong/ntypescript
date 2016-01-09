@@ -6048,6 +6048,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Element_implicitly_has_an_any_type_because_index_expression_is_not_of_type_number: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_type_annotation: {
             code: number;
             category: DiagnosticCategory;
@@ -6840,6 +6846,7 @@ declare namespace ts.formatting {
         static IsNewContext(context: FormattingContext): boolean;
         static IsFunctionCallOrNewContext(context: FormattingContext): boolean;
         static IsPreviousTokenNotComma(context: FormattingContext): boolean;
+        static IsNextTokenNotCloseBracket(context: FormattingContext): boolean;
         static IsArrowFunctionContext(context: FormattingContext): boolean;
         static IsSameLineTokenContext(context: FormattingContext): boolean;
         static IsNotBeforeBlockInFunctionDeclarationContext(context: FormattingContext): boolean;
@@ -7559,6 +7566,7 @@ declare namespace ts {
         jsxOpenTagName = 19,
         jsxCloseTagName = 20,
         jsxSelfClosingTagName = 21,
+        jsxAttribute = 22,
     }
     interface DisplayPartsSymbolWriter extends SymbolWriter {
         displayParts(): SymbolDisplayPart[];
@@ -7603,7 +7611,7 @@ declare namespace ts.BreakpointResolver {
      */
     function spanInSourceFileAtLocation(sourceFile: SourceFile, position: number): TextSpan;
 }
-declare var debugObjectHost: any;
+declare let debugObjectHost: any;
 declare namespace ts {
     interface ScriptSnapshotShim {
         /** Gets a portion of the script snapshot specified by [start, end). */
@@ -7816,8 +7824,8 @@ declare namespace ts {
         unregisterShim(shim: Shim): void;
     }
 }
-declare module TypeScript.Services {
-    var TypeScriptServicesFactory: typeof ts.TypeScriptServicesFactory;
+declare namespace TypeScript.Services {
+    const TypeScriptServicesFactory: typeof ts.TypeScriptServicesFactory;
 }
 declare const toolsVersion: string;
 /**
