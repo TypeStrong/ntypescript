@@ -14250,6 +14250,7 @@ var ts;
             getTypeCount: function () { return typeCount; },
             isUndefinedSymbol: function (symbol) { return symbol === undefinedSymbol; },
             isArgumentsSymbol: function (symbol) { return symbol === argumentsSymbol; },
+            isUnknownSymbol: function (symbol) { return symbol === unknownSymbol; },
             getDiagnostics: getDiagnostics,
             getGlobalDiagnostics: getGlobalDiagnostics,
             // The language service will always care about the narrowed type of a symbol, because that is
@@ -21658,6 +21659,7 @@ var ts;
                     if (compilerOptions.noImplicitAny) {
                         error(node, ts.Diagnostics.JSX_element_implicitly_has_type_any_because_no_interface_JSX_0_exists, JsxNames.IntrinsicElements);
                     }
+                    return unknownSymbol;
                 }
             }
             function lookupClassTag(node) {
@@ -47914,6 +47916,7 @@ var ts;
                     }
                     else if (kind === 39 /* SlashToken */ && contextToken.parent.kind === 239 /* JsxClosingElement */) {
                         isStartingCloseTag = true;
+                        location = contextToken;
                     }
                 }
             }
@@ -47937,7 +47940,10 @@ var ts;
             }
             else if (isStartingCloseTag) {
                 var tagName = contextToken.parent.parent.openingElement.tagName;
-                symbols = [typeChecker.getSymbolAtLocation(tagName)];
+                var tagSymbol = typeChecker.getSymbolAtLocation(tagName);
+                if (!typeChecker.isUnknownSymbol(tagSymbol)) {
+                    symbols = [tagSymbol];
+                }
                 isMemberCompletion = true;
                 isNewIdentifierLocation = false;
             }
@@ -48543,7 +48549,23 @@ var ts;
             }
             else {
                 if (!symbols || symbols.length === 0) {
-                    return undefined;
+                    if (sourceFile.languageVariant === 1 /* JSX */ &&
+                        location.parent && location.parent.kind === 239 /* JsxClosingElement */) {
+                        // In the TypeScript JSX element, if such element is not defined. When users query for completion at closing tag,
+                        // instead of simply giving unknown value, the completion will return the tag-name of an associated opening-element.
+                        // For example:
+                        //     var x = <div> </ /*1*/>  completion list at "1" will contain "div" with type any
+                        var tagName = location.parent.parent.openingElement.tagName;
+                        entries.push({
+                            name: tagName.text,
+                            kind: undefined,
+                            kindModifiers: undefined,
+                            sortText: "0",
+                        });
+                    }
+                    else {
+                        return undefined;
+                    }
                 }
                 getCompletionEntriesFromSymbols(symbols, entries);
             }
@@ -49110,7 +49132,7 @@ var ts;
             }
             var typeChecker = program.getTypeChecker();
             var symbol = typeChecker.getSymbolAtLocation(node);
-            if (!symbol) {
+            if (!symbol || typeChecker.isUnknownSymbol(symbol)) {
                 // Try getting just type at this position and show
                 switch (node.kind) {
                     case 69 /* Identifier */:
