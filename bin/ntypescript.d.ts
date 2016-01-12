@@ -5065,6 +5065,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Cannot_re_export_name_that_is_not_defined_in_the_module: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;
@@ -6449,7 +6455,8 @@ declare namespace ts {
         setSourceFile(sourceFile: SourceFile): void;
         emitPos(pos: number): void;
         emitStart(range: TextRange): void;
-        emitEnd(range: TextRange): void;
+        emitEnd(range: TextRange, stopOverridingSpan?: boolean): void;
+        changeEmitSourcePos(): void;
         getText(): string;
         getSourceMappingURL(): string;
         initialize(filePath: string, sourceMapFilePath: string, sourceFiles: SourceFile[], isBundledEmit: boolean): void;
@@ -6580,6 +6587,7 @@ declare namespace ts {
     function isInsideTemplateLiteral(node: LiteralExpression, position: number): boolean;
     function isAccessibilityModifier(kind: SyntaxKind): boolean;
     function compareDataObjects(dst: any, src: any): boolean;
+    function isArrayLiteralOrObjectLiteralDestructuringPattern(node: Node): boolean;
 }
 declare namespace ts {
     function isFirstDeclarationOfSymbolParameter(symbol: Symbol): boolean;
@@ -7544,6 +7552,9 @@ declare namespace ts {
         static jsxOpenTagName: string;
         static jsxCloseTagName: string;
         static jsxSelfClosingTagName: string;
+        static jsxAttribute: string;
+        static jsxText: string;
+        static jsxAttributeStringLiteralValue: string;
     }
     enum ClassificationType {
         comment = 1,
@@ -7568,6 +7579,8 @@ declare namespace ts {
         jsxCloseTagName = 20,
         jsxSelfClosingTagName = 21,
         jsxAttribute = 22,
+        jsxText = 23,
+        jsxAttributeStringLiteralValue = 24,
     }
     interface DisplayPartsSymbolWriter extends SymbolWriter {
         displayParts(): SymbolDisplayPart[];

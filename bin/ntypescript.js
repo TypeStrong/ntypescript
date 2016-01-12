@@ -5081,6 +5081,7 @@ var ts;
         Type_0_provides_no_match_for_the_signature_1: { code: 2658, category: ts.DiagnosticCategory.Error, key: "Type_0_provides_no_match_for_the_signature_1_2658", message: "Type '{0}' provides no match for the signature '{1}'" },
         super_is_only_allowed_in_members_of_object_literal_expressions_when_option_target_is_ES2015_or_higher: { code: 2659, category: ts.DiagnosticCategory.Error, key: "super_is_only_allowed_in_members_of_object_literal_expressions_when_option_target_is_ES2015_or_highe_2659", message: "'super' is only allowed in members of object literal expressions when option 'target' is 'ES2015' or higher." },
         super_can_only_be_referenced_in_members_of_derived_classes_or_object_literal_expressions: { code: 2660, category: ts.DiagnosticCategory.Error, key: "super_can_only_be_referenced_in_members_of_derived_classes_or_object_literal_expressions_2660", message: "'super' can only be referenced in members of derived classes or object literal expressions." },
+        Cannot_re_export_name_that_is_not_defined_in_the_module: { code: 2661, category: ts.DiagnosticCategory.Error, key: "Cannot_re_export_name_that_is_not_defined_in_the_module_2661", message: "Cannot re-export name that is not defined in the module." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -27191,7 +27192,16 @@ var ts;
         function checkExportSpecifier(node) {
             checkAliasSymbol(node);
             if (!node.parent.parent.moduleSpecifier) {
-                markExportAsReferenced(node);
+                var exportedName = node.propertyName || node.name;
+                // find immediate value referenced by exported name (SymbolFlags.Alias is set so we don't chase down aliases)
+                var symbol = resolveName(exportedName, exportedName.text, 107455 /* Value */ | 793056 /* Type */ | 1536 /* Namespace */ | 8388608 /* Alias */, 
+                /*nameNotFoundMessage*/ undefined, /*nameArg*/ undefined);
+                if (symbol && isGlobalSourceFile(getDeclarationContainer(symbol.declarations[0]))) {
+                    error(exportedName, ts.Diagnostics.Cannot_re_export_name_that_is_not_defined_in_the_module);
+                }
+                else {
+                    markExportAsReferenced(node);
+                }
             }
         }
         function checkExportAssignment(node) {
@@ -31377,8 +31387,9 @@ var ts;
                 getSourceMapData: function () { return undefined; },
                 setSourceFile: function (sourceFile) { },
                 emitStart: function (range) { },
-                emitEnd: function (range) { },
+                emitEnd: function (range, stopOverridingSpan) { },
                 emitPos: function (pos) { },
+                changeEmitSourcePos: function () { },
                 getText: function () { return undefined; },
                 getSourceMappingURL: function () { return undefined; },
                 initialize: function (filePath, sourceMapFilePath, sourceFiles, isBundledEmit) { },
@@ -31392,6 +31403,8 @@ var ts;
         var compilerOptions = host.getCompilerOptions();
         var currentSourceFile;
         var sourceMapDir; // The directory in which sourcemap will be
+        var stopOverridingSpan = false;
+        var modifyLastSourcePos = false;
         // Current source map file and its index in the sources list
         var sourceMapSourceIndex;
         // Last recorded and encoded spans
@@ -31406,6 +31419,7 @@ var ts;
             emitPos: emitPos,
             emitStart: emitStart,
             emitEnd: emitEnd,
+            changeEmitSourcePos: changeEmitSourcePos,
             getText: getText,
             getSourceMappingURL: getSourceMappingURL,
             initialize: initialize,
@@ -31480,6 +31494,39 @@ var ts;
             lastEncodedNameIndex = undefined;
             sourceMapData = undefined;
         }
+        function updateLastEncodedAndRecordedSpans() {
+            if (modifyLastSourcePos) {
+                // Reset the source pos
+                modifyLastSourcePos = false;
+                // Change Last recorded Map with last encoded emit line and character
+                lastRecordedSourceMapSpan.emittedLine = lastEncodedSourceMapSpan.emittedLine;
+                lastRecordedSourceMapSpan.emittedColumn = lastEncodedSourceMapSpan.emittedColumn;
+                // Pop sourceMapDecodedMappings to remove last entry
+                sourceMapData.sourceMapDecodedMappings.pop();
+                // Change the last encoded source map
+                lastEncodedSourceMapSpan = sourceMapData.sourceMapDecodedMappings.length ?
+                    sourceMapData.sourceMapDecodedMappings[sourceMapData.sourceMapDecodedMappings.length - 1] :
+                    undefined;
+                // TODO: Update lastEncodedNameIndex 
+                // Since we dont support this any more, lets not worry about it right now.
+                // When we start supporting nameIndex, we will get back to this
+                // Change the encoded source map
+                var sourceMapMappings = sourceMapData.sourceMapMappings;
+                var lenthToSet = sourceMapMappings.length - 1;
+                for (; lenthToSet >= 0; lenthToSet--) {
+                    var currentChar = sourceMapMappings.charAt(lenthToSet);
+                    if (currentChar === ",") {
+                        // Separator for the entry found
+                        break;
+                    }
+                    if (currentChar === ";" && lenthToSet !== 0 && sourceMapMappings.charAt(lenthToSet - 1) !== ";") {
+                        // Last line separator found
+                        break;
+                    }
+                }
+                sourceMapData.sourceMapMappings = sourceMapMappings.substr(0, Math.max(0, lenthToSet));
+            }
+        }
         // Encoding for sourcemap span
         function encodeLastRecordedSourceMapSpan() {
             if (!lastRecordedSourceMapSpan || lastRecordedSourceMapSpan === lastEncodedSourceMapSpan) {
@@ -31510,6 +31557,7 @@ var ts;
             sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.sourceColumn - lastEncodedSourceMapSpan.sourceColumn);
             // 5. Relative namePosition 0 based
             if (lastRecordedSourceMapSpan.nameIndex >= 0) {
+                ts.Debug.assert(false, "We do not support name index right now, Make sure to update updateLastEncodedAndRecordedSpans when we start using this");
                 sourceMapData.sourceMapMappings += base64VLQFormatEncode(lastRecordedSourceMapSpan.nameIndex - lastEncodedNameIndex);
                 lastEncodedNameIndex = lastRecordedSourceMapSpan.nameIndex;
             }
@@ -31543,20 +31591,30 @@ var ts;
                     sourceColumn: sourceLinePos.character,
                     sourceIndex: sourceMapSourceIndex
                 };
+                stopOverridingSpan = false;
             }
-            else {
+            else if (!stopOverridingSpan) {
                 // Take the new pos instead since there is no change in emittedLine and column since last location
                 lastRecordedSourceMapSpan.sourceLine = sourceLinePos.line;
                 lastRecordedSourceMapSpan.sourceColumn = sourceLinePos.character;
                 lastRecordedSourceMapSpan.sourceIndex = sourceMapSourceIndex;
             }
+            updateLastEncodedAndRecordedSpans();
+        }
+        function getStartPos(range) {
+            var rangeHasDecorators = !!range.decorators;
+            return range.pos !== -1 ? ts.skipTrivia(currentSourceFile.text, rangeHasDecorators ? range.decorators.end : range.pos) : -1;
         }
         function emitStart(range) {
-            var rangeHasDecorators = !!range.decorators;
-            emitPos(range.pos !== -1 ? ts.skipTrivia(currentSourceFile.text, rangeHasDecorators ? range.decorators.end : range.pos) : -1);
+            emitPos(getStartPos(range));
         }
-        function emitEnd(range) {
+        function emitEnd(range, stopOverridingEnd) {
             emitPos(range.end);
+            stopOverridingSpan = stopOverridingEnd;
+        }
+        function changeEmitSourcePos() {
+            ts.Debug.assert(!modifyLastSourcePos);
+            modifyLastSourcePos = true;
         }
         function setSourceFile(sourceFile) {
             currentSourceFile = sourceFile;
@@ -32028,6 +32086,7 @@ var ts;
             var isOwnFileEmit;
             /** If removeComments is true, no leading-comments needed to be emitted **/
             var emitLeadingCommentsOfPosition = compilerOptions.removeComments ? function (pos) { } : emitLeadingCommentsOfPositionWorker;
+            var setSourceMapWriterEmit = compilerOptions.sourceMap || compilerOptions.inlineSourceMap ? changeSourceMapEmit : function (writer) { };
             var moduleEmitDelegates = (_a = {},
                 _a[5 /* ES6 */] = emitES6Module,
                 _a[2 /* AMD */] = emitAMDModule,
@@ -33850,7 +33909,7 @@ var ts;
                             leftHandSideExpression.argumentExpression.kind !== 9 /* StringLiteral */) {
                             var tempArgumentExpression = createAndRecordTempVariable(268435456 /* _i */);
                             synthesizedLHS.argumentExpression = tempArgumentExpression;
-                            emitAssignment(tempArgumentExpression, leftHandSideExpression.argumentExpression, /*shouldEmitCommaBeforeAssignment*/ true);
+                            emitAssignment(tempArgumentExpression, leftHandSideExpression.argumentExpression, /*shouldEmitCommaBeforeAssignment*/ true, leftHandSideExpression.expression);
                         }
                         else {
                             synthesizedLHS.argumentExpression = leftHandSideExpression.argumentExpression;
@@ -34055,7 +34114,7 @@ var ts;
              * Returns false if nothing was written - this can happen for source file level variable declarations
              *     in system modules where such variable declarations are hoisted.
              */
-            function tryEmitStartOfVariableDeclarationList(decl, startPos) {
+            function tryEmitStartOfVariableDeclarationList(decl) {
                 if (shouldHoistVariable(decl, /*checkIfSourceFileLevelDecl*/ true)) {
                     // variables in variable declaration list were already hoisted
                     return false;
@@ -34069,32 +34128,23 @@ var ts;
                     }
                     return false;
                 }
-                var tokenKind = 102 /* VarKeyword */;
+                emitStart(decl);
                 if (decl && languageVersion >= 2 /* ES6 */) {
                     if (ts.isLet(decl)) {
-                        tokenKind = 108 /* LetKeyword */;
+                        write("let ");
                     }
                     else if (ts.isConst(decl)) {
-                        tokenKind = 74 /* ConstKeyword */;
+                        write("const ");
                     }
-                }
-                if (startPos !== undefined) {
-                    emitToken(tokenKind, startPos);
-                    write(" ");
+                    else {
+                        write("var ");
+                    }
                 }
                 else {
-                    switch (tokenKind) {
-                        case 102 /* VarKeyword */:
-                            write("var ");
-                            break;
-                        case 108 /* LetKeyword */:
-                            write("let ");
-                            break;
-                        case 74 /* ConstKeyword */:
-                            write("const ");
-                            break;
-                    }
+                    write("var ");
                 }
+                // Note here we specifically dont emit end so that if we are going to emit binding pattern
+                // we can alter the source map correctly
                 return true;
             }
             function emitVariableDeclarationListSkippingUninitializedEntries(list) {
@@ -34386,7 +34436,7 @@ var ts;
                 endPos = emitToken(17 /* OpenParenToken */, endPos);
                 if (node.initializer && node.initializer.kind === 214 /* VariableDeclarationList */) {
                     var variableDeclarationList = node.initializer;
-                    var startIsEmitted = tryEmitStartOfVariableDeclarationList(variableDeclarationList, endPos);
+                    var startIsEmitted = tryEmitStartOfVariableDeclarationList(variableDeclarationList);
                     if (startIsEmitted) {
                         emitCommaList(variableDeclarationList.declarations);
                     }
@@ -34424,7 +34474,7 @@ var ts;
                 if (node.initializer.kind === 214 /* VariableDeclarationList */) {
                     var variableDeclarationList = node.initializer;
                     if (variableDeclarationList.declarations.length >= 1) {
-                        tryEmitStartOfVariableDeclarationList(variableDeclarationList, endPos);
+                        tryEmitStartOfVariableDeclarationList(variableDeclarationList);
                         emit(variableDeclarationList.declarations[0]);
                     }
                 }
@@ -34500,18 +34550,18 @@ var ts;
                 emitEnd(node.expression);
                 write("; ");
                 // _i < _a.length;
-                emitStart(node.initializer);
+                emitStart(node.expression);
                 emitNodeWithoutSourceMap(counter);
                 write(" < ");
                 emitNodeWithCommentsAndWithoutSourcemap(rhsReference);
                 write(".length");
-                emitEnd(node.initializer);
+                emitEnd(node.expression);
                 write("; ");
                 // _i++)
-                emitStart(node.initializer);
+                emitStart(node.expression);
                 emitNodeWithoutSourceMap(counter);
                 write("++");
-                emitEnd(node.initializer);
+                emitEnd(node.expression);
                 emitToken(18 /* CloseParenToken */, node.expression.end);
                 // Body
                 write(" {");
@@ -34870,7 +34920,7 @@ var ts;
              * @param value an expression as a right-hand-side operand of the assignment
              * @param shouldEmitCommaBeforeAssignment a boolean indicating whether to prefix an assignment with comma
              */
-            function emitAssignment(name, value, shouldEmitCommaBeforeAssignment) {
+            function emitAssignment(name, value, shouldEmitCommaBeforeAssignment, nodeForSourceMap) {
                 if (shouldEmitCommaBeforeAssignment) {
                     write(", ");
                 }
@@ -34881,14 +34931,20 @@ var ts;
                     write("\", ");
                 }
                 var isVariableDeclarationOrBindingElement = name.parent && (name.parent.kind === 213 /* VariableDeclaration */ || name.parent.kind === 165 /* BindingElement */);
-                if (isVariableDeclarationOrBindingElement) {
-                    emitModuleMemberName(name.parent);
-                }
-                else {
-                    emit(name);
-                }
-                write(" = ");
-                emit(value);
+                // If this is first var declaration, we need to start at var/let/const keyword instead
+                // otherwise use nodeForSourceMap as the start position
+                emitStart(isFirstVariableDeclaration(nodeForSourceMap) ? nodeForSourceMap.parent : nodeForSourceMap);
+                withTemporaryNoSourceMap(function () {
+                    if (isVariableDeclarationOrBindingElement) {
+                        emitModuleMemberName(name.parent);
+                    }
+                    else {
+                        emit(name);
+                    }
+                    write(" = ");
+                    emit(value);
+                });
+                emitEnd(nodeForSourceMap, /*stopOverridingSpan*/ true);
                 if (exportChanged) {
                     write(")");
                 }
@@ -34899,13 +34955,18 @@ var ts;
              * @param canDefineTempVariablesInPlace a boolean indicating whether you can define the temporary variable at an assignment location
              * @param shouldEmitCommaBeforeAssignment a boolean indicating whether an assignment should prefix with comma
              */
-            function emitTempVariableAssignment(expression, canDefineTempVariablesInPlace, shouldEmitCommaBeforeAssignment) {
+            function emitTempVariableAssignment(expression, canDefineTempVariablesInPlace, shouldEmitCommaBeforeAssignment, sourceMapNode) {
                 var identifier = createTempVariable(0 /* Auto */);
                 if (!canDefineTempVariablesInPlace) {
                     recordTempDeclaration(identifier);
                 }
-                emitAssignment(identifier, expression, shouldEmitCommaBeforeAssignment);
+                emitAssignment(identifier, expression, shouldEmitCommaBeforeAssignment, sourceMapNode || expression.parent);
                 return identifier;
+            }
+            function isFirstVariableDeclaration(root) {
+                return root.kind === 213 /* VariableDeclaration */ &&
+                    root.parent.kind === 214 /* VariableDeclarationList */ &&
+                    root.parent.declarations[0] === root;
             }
             function emitDestructuring(root, isAssignmentExpressionStatement, value) {
                 var emitCount = 0;
@@ -34927,6 +34988,11 @@ var ts;
                 }
                 else {
                     ts.Debug.assert(!isAssignmentExpressionStatement);
+                    // If first variable declaration of variable statement correct the start location
+                    if (isFirstVariableDeclaration(root)) {
+                        // Use emit location of "var " as next emit start entry
+                        sourceMap.changeEmitSourcePos();
+                    }
                     emitBindingElement(root, value);
                 }
                 /**
@@ -34938,18 +35004,19 @@ var ts;
                  * @param reuseIdentifierExpressions true if identifier expressions can simply be returned;
                  *                                   false if it is necessary to always emit an identifier.
                  */
-                function ensureIdentifier(expr, reuseIdentifierExpressions) {
+                function ensureIdentifier(expr, reuseIdentifierExpressions, sourceMapNode) {
                     if (expr.kind === 69 /* Identifier */ && reuseIdentifierExpressions) {
                         return expr;
                     }
-                    var identifier = emitTempVariableAssignment(expr, canDefineTempVariablesInPlace, emitCount > 0);
+                    var identifier = emitTempVariableAssignment(expr, canDefineTempVariablesInPlace, emitCount > 0, sourceMapNode);
                     emitCount++;
                     return identifier;
                 }
-                function createDefaultValueCheck(value, defaultValue) {
+                function createDefaultValueCheck(value, defaultValue, sourceMapNode) {
                     // The value expression will be evaluated twice, so for anything but a simple identifier
                     // we need to generate a temporary variable
-                    value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true);
+                    // If the temporary variable needs to be emitted use the source Map node for assignment of that statement
+                    value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true, sourceMapNode);
                     // Return the expression 'value === void 0 ? defaultValue : value'
                     var equals = ts.createSynthesizedNode(183 /* BinaryExpression */);
                     equals.left = value;
@@ -34975,7 +35042,8 @@ var ts;
                     var index;
                     var nameIsComputed = propName.kind === 136 /* ComputedPropertyName */;
                     if (nameIsComputed) {
-                        index = ensureIdentifier(propName.expression, /*reuseIdentifierExpressions*/ false);
+                        // TODO to handle when we look into sourcemaps for computed properties, for now use propName
+                        index = ensureIdentifier(propName.expression, /*reuseIdentifierExpressions*/ false, propName);
                     }
                     else {
                         // We create a synthetic copy of the identifier in order to avoid the rewriting that might
@@ -34996,60 +35064,65 @@ var ts;
                     call.arguments[0] = createNumericLiteral(sliceIndex);
                     return call;
                 }
-                function emitObjectLiteralAssignment(target, value) {
+                function emitObjectLiteralAssignment(target, value, sourceMapNode) {
                     var properties = target.properties;
                     if (properties.length !== 1) {
                         // For anything but a single element destructuring we need to generate a temporary
                         // to ensure value is evaluated exactly once.
-                        value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true);
+                        // When doing so we want to hightlight the passed in source map node since thats the one needing this temp assignment
+                        value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true, sourceMapNode);
                     }
                     for (var _a = 0, properties_5 = properties; _a < properties_5.length; _a++) {
                         var p = properties_5[_a];
                         if (p.kind === 247 /* PropertyAssignment */ || p.kind === 248 /* ShorthandPropertyAssignment */) {
                             var propName = p.name;
                             var target_1 = p.kind === 248 /* ShorthandPropertyAssignment */ ? p : p.initializer || propName;
-                            emitDestructuringAssignment(target_1, createPropertyAccessForDestructuringProperty(value, propName));
+                            // Assignment for target = value.propName should highligh whole property, hence use p as source map node
+                            emitDestructuringAssignment(target_1, createPropertyAccessForDestructuringProperty(value, propName), p);
                         }
                     }
                 }
-                function emitArrayLiteralAssignment(target, value) {
+                function emitArrayLiteralAssignment(target, value, sourceMapNode) {
                     var elements = target.elements;
                     if (elements.length !== 1) {
                         // For anything but a single element destructuring we need to generate a temporary
                         // to ensure value is evaluated exactly once.
-                        value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true);
+                        // When doing so we want to hightlight the passed in source map node since thats the one needing this temp assignment
+                        value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true, sourceMapNode);
                     }
                     for (var i = 0; i < elements.length; i++) {
                         var e = elements[i];
                         if (e.kind !== 189 /* OmittedExpression */) {
+                            // Assignment for target = value.propName should highligh whole property, hence use e as source map node
                             if (e.kind !== 187 /* SpreadElementExpression */) {
-                                emitDestructuringAssignment(e, createElementAccessExpression(value, createNumericLiteral(i)));
+                                emitDestructuringAssignment(e, createElementAccessExpression(value, createNumericLiteral(i)), e);
                             }
                             else if (i === elements.length - 1) {
-                                emitDestructuringAssignment(e.expression, createSliceCall(value, i));
+                                emitDestructuringAssignment(e.expression, createSliceCall(value, i), e);
                             }
                         }
                     }
                 }
-                function emitDestructuringAssignment(target, value) {
+                function emitDestructuringAssignment(target, value, sourceMapNode) {
+                    // When emitting target = value use source map node to highlight, including any temporary assignments needed for this
                     if (target.kind === 248 /* ShorthandPropertyAssignment */) {
                         if (target.objectAssignmentInitializer) {
-                            value = createDefaultValueCheck(value, target.objectAssignmentInitializer);
+                            value = createDefaultValueCheck(value, target.objectAssignmentInitializer, sourceMapNode);
                         }
                         target = target.name;
                     }
                     else if (target.kind === 183 /* BinaryExpression */ && target.operatorToken.kind === 56 /* EqualsToken */) {
-                        value = createDefaultValueCheck(value, target.right);
+                        value = createDefaultValueCheck(value, target.right, sourceMapNode);
                         target = target.left;
                     }
                     if (target.kind === 167 /* ObjectLiteralExpression */) {
-                        emitObjectLiteralAssignment(target, value);
+                        emitObjectLiteralAssignment(target, value, sourceMapNode);
                     }
                     else if (target.kind === 166 /* ArrayLiteralExpression */) {
-                        emitArrayLiteralAssignment(target, value);
+                        emitArrayLiteralAssignment(target, value, sourceMapNode);
                     }
                     else {
-                        emitAssignment(target, value, /*shouldEmitCommaBeforeAssignment*/ emitCount > 0);
+                        emitAssignment(target, value, /*shouldEmitCommaBeforeAssignment*/ emitCount > 0, sourceMapNode);
                         emitCount++;
                     }
                 }
@@ -35060,14 +35133,20 @@ var ts;
                         emit(value);
                     }
                     else if (isAssignmentExpressionStatement) {
-                        emitDestructuringAssignment(target, value);
+                        // Source map node for root.left = root.right is root
+                        // but if root is synthetic, which could be in below case, use the target which is { a }
+                        // for ({a} of {a: string}) {
+                        // }
+                        emitDestructuringAssignment(target, value, ts.nodeIsSynthesized(root) ? target : root);
                     }
                     else {
                         if (root.parent.kind !== 174 /* ParenthesizedExpression */) {
                             write("(");
                         }
-                        value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true);
-                        emitDestructuringAssignment(target, value);
+                        // Temporary assignment needed to emit root should highlight whole binary expression
+                        value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true, root);
+                        // Source map node for root.left = root.right is root
+                        emitDestructuringAssignment(target, value, root);
                         write(", ");
                         emit(value);
                         if (root.parent.kind !== 174 /* ParenthesizedExpression */) {
@@ -35076,9 +35155,10 @@ var ts;
                     }
                 }
                 function emitBindingElement(target, value) {
+                    // Any temporary assignments needed to emit target = value should point to target
                     if (target.initializer) {
                         // Combine value and initializer
-                        value = value ? createDefaultValueCheck(value, target.initializer) : target.initializer;
+                        value = value ? createDefaultValueCheck(value, target.initializer, target) : target.initializer;
                     }
                     else if (!value) {
                         // Use 'void 0' in absence of value and initializer
@@ -35093,7 +35173,7 @@ var ts;
                             // to ensure value is evaluated exactly once. Additionally, if we have zero elements
                             // we need to emit *something* to ensure that in case a 'var' keyword was already emitted,
                             // so in that case, we'll intentionally create that temporary.
-                            value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ numElements !== 0);
+                            value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ numElements !== 0, target);
                         }
                         for (var i = 0; i < numElements; i++) {
                             var element = elements[i];
@@ -35114,7 +35194,7 @@ var ts;
                         }
                     }
                     else {
-                        emitAssignment(target.name, value, /*shouldEmitCommaBeforeAssignment*/ emitCount > 0);
+                        emitAssignment(target.name, value, /*shouldEmitCommaBeforeAssignment*/ emitCount > 0, target);
                         emitCount++;
                     }
                 }
@@ -38208,6 +38288,19 @@ var ts;
                 if (node) {
                     emitJavaScriptWorker(node);
                 }
+            }
+            function changeSourceMapEmit(writer) {
+                sourceMap = writer;
+                emitStart = writer.emitStart;
+                emitEnd = writer.emitEnd;
+                emitPos = writer.emitPos;
+                setSourceFile = writer.setSourceFile;
+            }
+            function withTemporaryNoSourceMap(callback) {
+                var prevSourceMap = sourceMap;
+                setSourceMapWriterEmit(ts.getNullSourceMapWriter());
+                callback();
+                setSourceMapWriterEmit(prevSourceMap);
             }
             function isSpecializedCommentHandling(node) {
                 switch (node.kind) {
@@ -42828,6 +42921,33 @@ var ts;
         return true;
     }
     ts.compareDataObjects = compareDataObjects;
+    function isArrayLiteralOrObjectLiteralDestructuringPattern(node) {
+        if (node.kind === 166 /* ArrayLiteralExpression */ ||
+            node.kind === 167 /* ObjectLiteralExpression */) {
+            // [a,b,c] from:
+            // [a, b, c] = someExpression;
+            if (node.parent.kind === 183 /* BinaryExpression */ &&
+                node.parent.left === node &&
+                node.parent.operatorToken.kind === 56 /* EqualsToken */) {
+                return true;
+            }
+            // [a, b, c] from:
+            // for([a, b, c] of expression)
+            if (node.parent.kind === 203 /* ForOfStatement */ &&
+                node.parent.initializer === node) {
+                return true;
+            }
+            // [a, b, c] of
+            // [x, [a, b, c] ] = someExpression
+            // or 
+            // {x, a: {a, b, c} } = someExpression
+            if (isArrayLiteralOrObjectLiteralDestructuringPattern(node.parent.kind === 247 /* PropertyAssignment */ ? node.parent.parent : node.parent)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    ts.isArrayLiteralOrObjectLiteralDestructuringPattern = isArrayLiteralOrObjectLiteralDestructuringPattern;
 })(ts || (ts = {}));
 // Display-part writer helpers
 /* @internal */
@@ -46654,6 +46774,9 @@ var ts;
         ClassificationTypeNames.jsxOpenTagName = "jsx open tag name";
         ClassificationTypeNames.jsxCloseTagName = "jsx close tag name";
         ClassificationTypeNames.jsxSelfClosingTagName = "jsx self closing tag name";
+        ClassificationTypeNames.jsxAttribute = "jsx attribute";
+        ClassificationTypeNames.jsxText = "jsx text";
+        ClassificationTypeNames.jsxAttributeStringLiteralValue = "jsx attribute string literal value";
         return ClassificationTypeNames;
     }());
     ts.ClassificationTypeNames = ClassificationTypeNames;
@@ -46680,6 +46803,8 @@ var ts;
         ClassificationType[ClassificationType["jsxCloseTagName"] = 20] = "jsxCloseTagName";
         ClassificationType[ClassificationType["jsxSelfClosingTagName"] = 21] = "jsxSelfClosingTagName";
         ClassificationType[ClassificationType["jsxAttribute"] = 22] = "jsxAttribute";
+        ClassificationType[ClassificationType["jsxText"] = 23] = "jsxText";
+        ClassificationType[ClassificationType["jsxAttributeStringLiteralValue"] = 24] = "jsxAttributeStringLiteralValue";
     })(ts.ClassificationType || (ts.ClassificationType = {}));
     var ClassificationType = ts.ClassificationType;
     function displayPartsToString(displayParts) {
@@ -50926,6 +51051,9 @@ var ts;
                 case 19 /* jsxOpenTagName */: return ClassificationTypeNames.jsxOpenTagName;
                 case 20 /* jsxCloseTagName */: return ClassificationTypeNames.jsxCloseTagName;
                 case 21 /* jsxSelfClosingTagName */: return ClassificationTypeNames.jsxSelfClosingTagName;
+                case 22 /* jsxAttribute */: return ClassificationTypeNames.jsxAttribute;
+                case 23 /* jsxText */: return ClassificationTypeNames.jsxText;
+                case 24 /* jsxAttributeStringLiteralValue */: return ClassificationTypeNames.jsxAttributeStringLiteralValue;
             }
         }
         function convertClassifications(classifications) {
@@ -51099,11 +51227,11 @@ var ts;
                     pushClassification(start, end - start, type);
                 }
             }
-            function classifyToken(token) {
+            function classifyTokenOrJsxText(token) {
                 if (ts.nodeIsMissing(token)) {
                     return;
                 }
-                var tokenStart = classifyLeadingTriviaAndGetTokenStart(token);
+                var tokenStart = token.kind === 238 /* JsxText */ ? token.pos : classifyLeadingTriviaAndGetTokenStart(token);
                 var tokenWidth = token.end - tokenStart;
                 ts.Debug.assert(tokenWidth >= 0);
                 if (tokenWidth > 0) {
@@ -51135,7 +51263,8 @@ var ts;
                             // the '=' in a variable declaration is special cased here.
                             if (token.parent.kind === 213 /* VariableDeclaration */ ||
                                 token.parent.kind === 141 /* PropertyDeclaration */ ||
-                                token.parent.kind === 138 /* Parameter */) {
+                                token.parent.kind === 138 /* Parameter */ ||
+                                token.parent.kind === 240 /* JsxAttribute */) {
                                 return 5 /* operator */;
                             }
                         }
@@ -51152,7 +51281,7 @@ var ts;
                     return 4 /* numericLiteral */;
                 }
                 else if (tokenKind === 9 /* StringLiteral */ || tokenKind === 162 /* StringLiteralType */) {
-                    return 6 /* stringLiteral */;
+                    return token.parent.kind === 240 /* JsxAttribute */ ? 24 /* jsxAttributeStringLiteralValue */ : 6 /* stringLiteral */;
                 }
                 else if (tokenKind === 10 /* RegularExpressionLiteral */) {
                     // TODO: we should get another classification type for these literals.
@@ -51161,6 +51290,9 @@ var ts;
                 else if (ts.isTemplateLiteralKind(tokenKind)) {
                     // TODO (drosen): we should *also* get another classification type for these literals.
                     return 6 /* stringLiteral */;
+                }
+                else if (tokenKind === 238 /* JsxText */) {
+                    return 23 /* jsxText */;
                 }
                 else if (tokenKind === 69 /* Identifier */) {
                     if (token) {
@@ -51229,8 +51361,8 @@ var ts;
                     var children = element.getChildren(sourceFile);
                     for (var i = 0, n = children.length; i < n; i++) {
                         var child = children[i];
-                        if (ts.isToken(child)) {
-                            classifyToken(child);
+                        if (ts.isToken(child) || child.kind === 238 /* JsxText */) {
+                            classifyTokenOrJsxText(child);
                         }
                         else {
                             // Recurse into our child nodes.
@@ -52194,6 +52326,9 @@ var ts;
                     startNode.getStart(sourceFile);
                 return ts.createTextSpanFromBounds(start, (endNode || startNode).getEnd());
             }
+            function textSpanEndingAtNextToken(startNode, previousTokenToFindNextEndToken) {
+                return textSpan(startNode, ts.findNextToken(previousTokenToFindNextEndToken, previousTokenToFindNextEndToken.parent));
+            }
             function spanInNodeIfStartsOnSameLine(node, otherwiseOnNode) {
                 if (node && lineOfPosition === sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line) {
                     return spanInNode(node);
@@ -52211,28 +52346,6 @@ var ts;
             }
             function spanInNode(node) {
                 if (node) {
-                    if (ts.isExpression(node)) {
-                        if (node.parent.kind === 199 /* DoStatement */) {
-                            // Set span as if on while keyword
-                            return spanInPreviousNode(node);
-                        }
-                        if (node.parent.kind === 139 /* Decorator */) {
-                            // Set breakpoint on the decorator emit
-                            return spanInNode(node.parent);
-                        }
-                        if (node.parent.kind === 201 /* ForStatement */) {
-                            // For now lets set the span on this expression, fix it later
-                            return textSpan(node);
-                        }
-                        if (node.parent.kind === 183 /* BinaryExpression */ && node.parent.operatorToken.kind === 24 /* CommaToken */) {
-                            // if this is comma expression, the breakpoint is possible in this expression
-                            return textSpan(node);
-                        }
-                        if (node.parent.kind === 176 /* ArrowFunction */ && node.parent.body === node) {
-                            // If this is body of arrow function, it is allowed to have the breakpoint
-                            return textSpan(node);
-                        }
-                    }
                     switch (node.kind) {
                         case 195 /* VariableStatement */:
                             // Span on first variable declaration
@@ -52269,7 +52382,7 @@ var ts;
                             return textSpan(node.getChildAt(0), node.expression);
                         case 200 /* WhileStatement */:
                             // Span on while(...)
-                            return textSpan(node, ts.findNextToken(node.expression, node));
+                            return textSpanEndingAtNextToken(node, node.expression);
                         case 199 /* DoStatement */:
                             // span in statement of the do statement
                             return spanInNode(node.statement);
@@ -52278,7 +52391,7 @@ var ts;
                             return textSpan(node.getChildAt(0));
                         case 198 /* IfStatement */:
                             // set on if(..) span
-                            return textSpan(node, ts.findNextToken(node.expression, node));
+                            return textSpanEndingAtNextToken(node, node.expression);
                         case 209 /* LabeledStatement */:
                             // span in statement
                             return spanInNode(node.statement);
@@ -52289,12 +52402,14 @@ var ts;
                         case 201 /* ForStatement */:
                             return spanInForStatement(node);
                         case 202 /* ForInStatement */:
+                            // span of for (a in ...)
+                            return textSpanEndingAtNextToken(node, node.expression);
                         case 203 /* ForOfStatement */:
-                            // span on for (a in ...)
-                            return textSpan(node, ts.findNextToken(node.expression, node));
+                            // span in initializer
+                            return spanInInitializerOfForLike(node);
                         case 208 /* SwitchStatement */:
                             // span on switch(...)
-                            return textSpan(node, ts.findNextToken(node.expression, node));
+                            return textSpanEndingAtNextToken(node, node.expression);
                         case 243 /* CaseClause */:
                         case 244 /* DefaultClause */:
                             // span in first statement of the clause
@@ -52325,8 +52440,7 @@ var ts;
                         case 216 /* ClassDeclaration */:
                         case 219 /* EnumDeclaration */:
                         case 249 /* EnumMember */:
-                        case 170 /* CallExpression */:
-                        case 171 /* NewExpression */:
+                        case 165 /* BindingElement */:
                             // span on complete node
                             return textSpan(node);
                         case 207 /* WithStatement */:
@@ -52334,6 +52448,9 @@ var ts;
                             return spanInNode(node.statement);
                         case 139 /* Decorator */:
                             return spanInNodeArray(node.parent.decorators);
+                        case 163 /* ObjectBindingPattern */:
+                        case 164 /* ArrayBindingPattern */:
+                            return spanInBindingPattern(node);
                         // No breakpoint in interface, type alias
                         case 217 /* InterfaceDeclaration */:
                         case 218 /* TypeAliasDeclaration */:
@@ -52348,6 +52465,8 @@ var ts;
                             return spanInOpenBraceToken(node);
                         case 16 /* CloseBraceToken */:
                             return spanInCloseBraceToken(node);
+                        case 20 /* CloseBracketToken */:
+                            return spanInCloseBracketToken(node);
                         case 17 /* OpenParenToken */:
                             return spanInOpenParenToken(node);
                         case 18 /* CloseParenToken */:
@@ -52364,58 +52483,142 @@ var ts;
                         case 72 /* CatchKeyword */:
                         case 85 /* FinallyKeyword */:
                             return spanInNextNode(node);
+                        case 134 /* OfKeyword */:
+                            return spanInOfKeyword(node);
                         default:
+                            // Destructuring pattern in destructuring assignment
+                            // [a, b, c] of
+                            // [a, b, c] = expression
+                            if (ts.isArrayLiteralOrObjectLiteralDestructuringPattern(node)) {
+                                return spanInArrayLiteralOrObjectLiteralDestructuringPattern(node);
+                            }
+                            // Set breakpoint on identifier element of destructuring pattern
+                            // a or ...c  or d: x from 
+                            // [a, b, ...c] or { a, b } or { d: x } from destructuring pattern
+                            if ((node.kind === 69 /* Identifier */ ||
+                                node.kind == 187 /* SpreadElementExpression */ ||
+                                node.kind === 247 /* PropertyAssignment */ ||
+                                node.kind === 248 /* ShorthandPropertyAssignment */) &&
+                                ts.isArrayLiteralOrObjectLiteralDestructuringPattern(node.parent)) {
+                                return textSpan(node);
+                            }
+                            if (node.kind === 183 /* BinaryExpression */) {
+                                var binaryExpression = node;
+                                // Set breakpoint in destructuring pattern if its destructuring assignment
+                                // [a, b, c] or {a, b, c} of
+                                // [a, b, c] = expression or 
+                                // {a, b, c} = expression
+                                if (ts.isArrayLiteralOrObjectLiteralDestructuringPattern(binaryExpression.left)) {
+                                    return spanInArrayLiteralOrObjectLiteralDestructuringPattern(binaryExpression.left);
+                                }
+                                if (binaryExpression.operatorToken.kind === 56 /* EqualsToken */ &&
+                                    ts.isArrayLiteralOrObjectLiteralDestructuringPattern(binaryExpression.parent)) {
+                                    // Set breakpoint on assignment expression element of destructuring pattern
+                                    // a = expression of 
+                                    // [a = expression, b, c] = someExpression or 
+                                    // { a = expression, b, c } = someExpression
+                                    return textSpan(node);
+                                }
+                                if (binaryExpression.operatorToken.kind === 24 /* CommaToken */) {
+                                    return spanInNode(binaryExpression.left);
+                                }
+                            }
+                            if (ts.isExpression(node)) {
+                                switch (node.parent.kind) {
+                                    case 199 /* DoStatement */:
+                                        // Set span as if on while keyword
+                                        return spanInPreviousNode(node);
+                                    case 139 /* Decorator */:
+                                        // Set breakpoint on the decorator emit
+                                        return spanInNode(node.parent);
+                                    case 201 /* ForStatement */:
+                                    case 203 /* ForOfStatement */:
+                                        return textSpan(node);
+                                    case 183 /* BinaryExpression */:
+                                        if (node.parent.operatorToken.kind === 24 /* CommaToken */) {
+                                            // if this is comma expression, the breakpoint is possible in this expression
+                                            return textSpan(node);
+                                        }
+                                        break;
+                                    case 176 /* ArrowFunction */:
+                                        if (node.parent.body === node) {
+                                            // If this is body of arrow function, it is allowed to have the breakpoint
+                                            return textSpan(node);
+                                        }
+                                        break;
+                                }
+                            }
                             // If this is name of property assignment, set breakpoint in the initializer
-                            if (node.parent.kind === 247 /* PropertyAssignment */ && node.parent.name === node) {
+                            if (node.parent.kind === 247 /* PropertyAssignment */ &&
+                                node.parent.name === node &&
+                                !ts.isArrayLiteralOrObjectLiteralDestructuringPattern(node.parent.parent)) {
                                 return spanInNode(node.parent.initializer);
                             }
                             // Breakpoint in type assertion goes to its operand
                             if (node.parent.kind === 173 /* TypeAssertionExpression */ && node.parent.type === node) {
-                                return spanInNode(node.parent.expression);
+                                return spanInNextNode(node.parent.type);
                             }
                             // return type of function go to previous token
                             if (ts.isFunctionLike(node.parent) && node.parent.type === node) {
                                 return spanInPreviousNode(node);
                             }
+                            // initializer of variable/parameter declaration go to previous node
+                            if ((node.parent.kind === 213 /* VariableDeclaration */ ||
+                                node.parent.kind === 138 /* Parameter */)) {
+                                var paramOrVarDecl = node.parent;
+                                if (paramOrVarDecl.initializer === node ||
+                                    paramOrVarDecl.type === node ||
+                                    ts.isAssignmentOperator(node.kind)) {
+                                    return spanInPreviousNode(node);
+                                }
+                            }
+                            if (node.parent.kind === 183 /* BinaryExpression */) {
+                                var binaryExpression = node.parent;
+                                if (ts.isArrayLiteralOrObjectLiteralDestructuringPattern(binaryExpression.left) &&
+                                    (binaryExpression.right === node ||
+                                        binaryExpression.operatorToken === node)) {
+                                    // If initializer of destructuring assignment move to previous token
+                                    return spanInPreviousNode(node);
+                                }
+                            }
                             // Default go to parent to set the breakpoint
                             return spanInNode(node.parent);
                     }
                 }
+                function textSpanFromVariableDeclaration(variableDeclaration) {
+                    var declarations = variableDeclaration.parent.declarations;
+                    if (declarations && declarations[0] === variableDeclaration) {
+                        // First declaration - include let keyword
+                        return textSpan(ts.findPrecedingToken(variableDeclaration.pos, sourceFile, variableDeclaration.parent), variableDeclaration);
+                    }
+                    else {
+                        // Span only on this declaration
+                        return textSpan(variableDeclaration);
+                    }
+                }
                 function spanInVariableDeclaration(variableDeclaration) {
                     // If declaration of for in statement, just set the span in parent
-                    if (variableDeclaration.parent.parent.kind === 202 /* ForInStatement */ ||
-                        variableDeclaration.parent.parent.kind === 203 /* ForOfStatement */) {
+                    if (variableDeclaration.parent.parent.kind === 202 /* ForInStatement */) {
                         return spanInNode(variableDeclaration.parent.parent);
                     }
-                    var isParentVariableStatement = variableDeclaration.parent.parent.kind === 195 /* VariableStatement */;
-                    var isDeclarationOfForStatement = variableDeclaration.parent.parent.kind === 201 /* ForStatement */ && ts.contains(variableDeclaration.parent.parent.initializer.declarations, variableDeclaration);
-                    var declarations = isParentVariableStatement
-                        ? variableDeclaration.parent.parent.declarationList.declarations
-                        : isDeclarationOfForStatement
-                            ? variableDeclaration.parent.parent.initializer.declarations
-                            : undefined;
-                    // Breakpoint is possible in variableDeclaration only if there is initialization
-                    if (variableDeclaration.initializer || (variableDeclaration.flags & 2 /* Export */)) {
-                        if (declarations && declarations[0] === variableDeclaration) {
-                            if (isParentVariableStatement) {
-                                // First declaration - include let keyword
-                                return textSpan(variableDeclaration.parent, variableDeclaration);
-                            }
-                            else {
-                                ts.Debug.assert(isDeclarationOfForStatement);
-                                // Include let keyword from for statement declarations in the span
-                                return textSpan(ts.findPrecedingToken(variableDeclaration.pos, sourceFile, variableDeclaration.parent), variableDeclaration);
-                            }
-                        }
-                        else {
-                            // Span only on this declaration
-                            return textSpan(variableDeclaration);
-                        }
+                    // If this is a destructuring pattern set breakpoint in binding pattern
+                    if (ts.isBindingPattern(variableDeclaration.name)) {
+                        return spanInBindingPattern(variableDeclaration.name);
                     }
-                    else if (declarations && declarations[0] !== variableDeclaration) {
+                    // Breakpoint is possible in variableDeclaration only if there is initialization
+                    // or its declaration from 'for of'
+                    if (variableDeclaration.initializer ||
+                        (variableDeclaration.flags & 2 /* Export */) ||
+                        variableDeclaration.parent.parent.kind === 203 /* ForOfStatement */) {
+                        return textSpanFromVariableDeclaration(variableDeclaration);
+                    }
+                    var declarations = variableDeclaration.parent.declarations;
+                    if (declarations && declarations[0] !== variableDeclaration) {
                         // If we cant set breakpoint on this declaration, set it on previous one
-                        var indexOfCurrentDeclaration = ts.indexOf(declarations, variableDeclaration);
-                        return spanInVariableDeclaration(declarations[indexOfCurrentDeclaration - 1]);
+                        // Because the variable declaration may be binding pattern and 
+                        // we would like to set breakpoint in last binding element if thats the case,
+                        // use preceding token instead
+                        return spanInNode(ts.findPrecedingToken(variableDeclaration.pos, sourceFile, variableDeclaration.parent));
                     }
                 }
                 function canHaveSpanInParameterDeclaration(parameter) {
@@ -52424,7 +52627,11 @@ var ts;
                         !!(parameter.flags & 8 /* Public */) || !!(parameter.flags & 16 /* Private */);
                 }
                 function spanInParameterDeclaration(parameter) {
-                    if (canHaveSpanInParameterDeclaration(parameter)) {
+                    if (ts.isBindingPattern(parameter.name)) {
+                        // set breakpoint in binding pattern
+                        return spanInBindingPattern(parameter.name);
+                    }
+                    else if (canHaveSpanInParameterDeclaration(parameter)) {
                         return textSpan(parameter);
                     }
                     else {
@@ -52473,26 +52680,31 @@ var ts;
                         case 200 /* WhileStatement */:
                         case 198 /* IfStatement */:
                         case 202 /* ForInStatement */:
-                        case 203 /* ForOfStatement */:
                             return spanInNodeIfStartsOnSameLine(block.parent, block.statements[0]);
                         // Set span on previous token if it starts on same line otherwise on the first statement of the block
                         case 201 /* ForStatement */:
+                        case 203 /* ForOfStatement */:
                             return spanInNodeIfStartsOnSameLine(ts.findPrecedingToken(block.pos, sourceFile, block.parent), block.statements[0]);
                     }
                     // Default action is to set on first statement
                     return spanInNode(block.statements[0]);
                 }
+                function spanInInitializerOfForLike(forLikeStaement) {
+                    if (forLikeStaement.initializer.kind === 214 /* VariableDeclarationList */) {
+                        // declaration list, set breakpoint in first declaration
+                        var variableDeclarationList = forLikeStaement.initializer;
+                        if (variableDeclarationList.declarations.length > 0) {
+                            return spanInNode(variableDeclarationList.declarations[0]);
+                        }
+                    }
+                    else {
+                        // Expression - set breakpoint in it
+                        return spanInNode(forLikeStaement.initializer);
+                    }
+                }
                 function spanInForStatement(forStatement) {
                     if (forStatement.initializer) {
-                        if (forStatement.initializer.kind === 214 /* VariableDeclarationList */) {
-                            var variableDeclarationList = forStatement.initializer;
-                            if (variableDeclarationList.declarations.length > 0) {
-                                return spanInNode(variableDeclarationList.declarations[0]);
-                            }
-                        }
-                        else {
-                            return spanInNode(forStatement.initializer);
-                        }
+                        return spanInInitializerOfForLike(forStatement);
                     }
                     if (forStatement.condition) {
                         return textSpan(forStatement.condition);
@@ -52500,6 +52712,34 @@ var ts;
                     if (forStatement.incrementor) {
                         return textSpan(forStatement.incrementor);
                     }
+                }
+                function spanInBindingPattern(bindingPattern) {
+                    // Set breakpoint in first binding element
+                    var firstBindingElement = ts.forEach(bindingPattern.elements, function (element) { return element.kind !== 189 /* OmittedExpression */ ? element : undefined; });
+                    if (firstBindingElement) {
+                        return spanInNode(firstBindingElement);
+                    }
+                    // Empty binding pattern of binding element, set breakpoint on binding element
+                    if (bindingPattern.parent.kind === 165 /* BindingElement */) {
+                        return textSpan(bindingPattern.parent);
+                    }
+                    // Variable declaration is used as the span
+                    return textSpanFromVariableDeclaration(bindingPattern.parent);
+                }
+                function spanInArrayLiteralOrObjectLiteralDestructuringPattern(node) {
+                    ts.Debug.assert(node.kind !== 164 /* ArrayBindingPattern */ && node.kind !== 163 /* ObjectBindingPattern */);
+                    var elements = node.kind === 166 /* ArrayLiteralExpression */ ?
+                        node.elements :
+                        node.properties;
+                    var firstBindingElement = ts.forEach(elements, function (element) { return element.kind !== 189 /* OmittedExpression */ ? element : undefined; });
+                    if (firstBindingElement) {
+                        return spanInNode(firstBindingElement);
+                    }
+                    // Could be ArrayLiteral from destructuring assignment or 
+                    // just nested element in another destructuring assignment
+                    // set breakpoint on assignment when parent is destructuring assignment
+                    // Otherwise set breakpoint for this element
+                    return textSpan(node.parent.kind === 183 /* BinaryExpression */ ? node.parent : node);
                 }
                 // Tokens:
                 function spanInOpenBraceToken(node) {
@@ -52543,15 +52783,44 @@ var ts;
                                 return spanInNode(ts.lastOrUndefined(lastClause.statements));
                             }
                             return undefined;
+                        case 163 /* ObjectBindingPattern */:
+                            // Breakpoint in last binding element or binding pattern if it contains no elements
+                            var bindingPattern = node.parent;
+                            return spanInNode(ts.lastOrUndefined(bindingPattern.elements) || bindingPattern);
                         // Default to parent node
                         default:
+                            if (ts.isArrayLiteralOrObjectLiteralDestructuringPattern(node.parent)) {
+                                // Breakpoint in last binding element or binding pattern if it contains no elements
+                                var objectLiteral = node.parent;
+                                return textSpan(ts.lastOrUndefined(objectLiteral.properties) || objectLiteral);
+                            }
+                            return spanInNode(node.parent);
+                    }
+                }
+                function spanInCloseBracketToken(node) {
+                    switch (node.parent.kind) {
+                        case 164 /* ArrayBindingPattern */:
+                            // Breakpoint in last binding element or binding pattern if it contains no elements
+                            var bindingPattern = node.parent;
+                            return textSpan(ts.lastOrUndefined(bindingPattern.elements) || bindingPattern);
+                        default:
+                            if (ts.isArrayLiteralOrObjectLiteralDestructuringPattern(node.parent)) {
+                                // Breakpoint in last binding element or binding pattern if it contains no elements
+                                var arrayLiteral = node.parent;
+                                return textSpan(ts.lastOrUndefined(arrayLiteral.elements) || arrayLiteral);
+                            }
+                            // Default to parent node
                             return spanInNode(node.parent);
                     }
                 }
                 function spanInOpenParenToken(node) {
-                    if (node.parent.kind === 199 /* DoStatement */) {
-                        // Go to while keyword and do action instead
+                    if (node.parent.kind === 199 /* DoStatement */ ||
+                        node.parent.kind === 170 /* CallExpression */ ||
+                        node.parent.kind === 171 /* NewExpression */) {
                         return spanInPreviousNode(node);
+                    }
+                    if (node.parent.kind === 174 /* ParenthesizedExpression */) {
+                        return spanInNextNode(node);
                     }
                     // Default to parent node
                     return spanInNode(node.parent);
@@ -52570,6 +52839,10 @@ var ts;
                         case 200 /* WhileStatement */:
                         case 199 /* DoStatement */:
                         case 201 /* ForStatement */:
+                        case 203 /* ForOfStatement */:
+                        case 170 /* CallExpression */:
+                        case 171 /* NewExpression */:
+                        case 174 /* ParenthesizedExpression */:
                             return spanInPreviousNode(node);
                         // Default to parent node
                         default:
@@ -52578,21 +52851,31 @@ var ts;
                 }
                 function spanInColonToken(node) {
                     // Is this : specifying return annotation of the function declaration
-                    if (ts.isFunctionLike(node.parent) || node.parent.kind === 247 /* PropertyAssignment */) {
+                    if (ts.isFunctionLike(node.parent) ||
+                        node.parent.kind === 247 /* PropertyAssignment */ ||
+                        node.parent.kind === 138 /* Parameter */) {
                         return spanInPreviousNode(node);
                     }
                     return spanInNode(node.parent);
                 }
                 function spanInGreaterThanOrLessThanToken(node) {
                     if (node.parent.kind === 173 /* TypeAssertionExpression */) {
-                        return spanInNode(node.parent.expression);
+                        return spanInNextNode(node);
                     }
                     return spanInNode(node.parent);
                 }
                 function spanInWhileKeyword(node) {
                     if (node.parent.kind === 199 /* DoStatement */) {
                         // Set span on while expression
-                        return textSpan(node, ts.findNextToken(node.parent.expression, node.parent));
+                        return textSpanEndingAtNextToken(node, node.parent.expression);
+                    }
+                    // Default to parent node
+                    return spanInNode(node.parent);
+                }
+                function spanInOfKeyword(node) {
+                    if (node.parent.kind === 203 /* ForOfStatement */) {
+                        // set using next token
+                        return spanInNextNode(node);
                     }
                     // Default to parent node
                     return spanInNode(node.parent);
