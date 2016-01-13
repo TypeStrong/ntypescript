@@ -13,6 +13,7 @@ See the Apache Version 2.0 License for specific language governing permissions
 and limitations under the License.
 ***************************************************************************** */
 
+/// <reference no-default-lib="true"/>
 declare type PropertyKey = string | number | symbol;
 
 interface Symbol {
@@ -1346,8 +1347,6 @@ interface PromiseConstructor {
 }
 
 declare var Promise: PromiseConstructor;
-/// <reference no-default-lib="true"/>
-
 /////////////////////////////
 /// ECMAScript APIs
 /////////////////////////////
