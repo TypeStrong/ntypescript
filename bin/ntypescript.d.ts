@@ -1179,6 +1179,7 @@ declare namespace ts {
         getSymbolAtLocation(node: Node): Symbol;
         getSymbolsOfParameterPropertyDeclaration(parameter: ParameterDeclaration, parameterName: string): Symbol[];
         getShorthandAssignmentValueSymbol(location: Node): Symbol;
+        getExportSpecifierLocalTargetSymbol(location: ExportSpecifier): Symbol;
         getTypeAtLocation(node: Node): Type;
         typeToString(type: Type, enclosingDeclaration?: Node, flags?: TypeFormatFlags): string;
         symbolToString(symbol: Symbol, enclosingDeclaration?: Node, meaning?: SymbolFlags): string;
@@ -2187,7 +2188,7 @@ declare namespace ts {
       * Given an super call\property node returns a closest node where either
       * - super call\property is legal in the node and not legal in the parent node the node.
       *   i.e. super call is legal in constructor but not legal in the class body.
-      * - node is arrow function (so caller might need to call getSuperContainer in case if he needs to climb higher)
+      * - node is arrow function (so caller might need to call getSuperContainer in case it needs to climb higher)
       * - super call\property is definitely illegal in the node (but might be legal in some subnode)
       *   i.e. super property access is illegal in function declaration but can be legal in the statement list
       */
@@ -3470,12 +3471,6 @@ declare namespace ts {
             message: string;
         };
         Parameter_0_is_not_in_the_same_position_as_parameter_1: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
-        A_type_predicate_is_only_allowed_in_return_type_position_for_functions_and_methods: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4886,12 +4881,6 @@ declare namespace ts {
             message: string;
         };
         A_this_based_type_guard_is_not_compatible_with_a_parameter_based_type_guard: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
-        A_this_based_type_predicate_is_only_allowed_within_a_class_or_interface_s_members_get_accessors_or_return_type_positions_for_functions_and_methods: {
             code: number;
             category: DiagnosticCategory;
             key: string;
