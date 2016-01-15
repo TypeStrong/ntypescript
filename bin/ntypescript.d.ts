@@ -2037,6 +2037,7 @@ declare namespace ts {
     function getRootLength(path: string): number;
     let directorySeparator: string;
     function normalizePath(path: string): string;
+    function getDirectoryPath(path: Path): Path;
     function getDirectoryPath(path: string): string;
     function isUrl(path: string): boolean;
     function isRootedDiskPath(path: string): boolean;
@@ -2075,8 +2076,11 @@ declare namespace ts {
         function fail(message?: string): void;
     }
     function copyListRemovingItem<T>(item: T, list: T[]): T[];
+    function createGetCanonicalFileName(useCaseSensitivefileNames: boolean): (fileName: string) => string;
 }
 declare namespace ts {
+    type FileWatcherCallback = (path: string, removed?: boolean) => void;
+    type DirectoryWatcherCallback = (path: string) => void;
     interface System {
         args: string[];
         newLine: string;
@@ -2084,8 +2088,8 @@ declare namespace ts {
         write(s: string): void;
         readFile(path: string, encoding?: string): string;
         writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
-        watchFile?(path: string, callback: (path: string, removed?: boolean) => void): FileWatcher;
-        watchDirectory?(path: string, callback: (path: string) => void, recursive?: boolean): FileWatcher;
+        watchFile?(path: Path, callback: FileWatcherCallback): FileWatcher;
+        watchDirectory?(path: string, callback: DirectoryWatcherCallback, recursive?: boolean): FileWatcher;
         resolvePath(path: string): string;
         fileExists(path: string): boolean;
         directoryExists(path: string): boolean;
@@ -2098,6 +2102,10 @@ declare namespace ts {
     }
     interface FileWatcher {
         close(): void;
+    }
+    interface DirectoryWatcher extends FileWatcher {
+        directoryPath: Path;
+        referenceCount: number;
     }
     var sys: System;
 }
@@ -5060,6 +5068,18 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Cannot_find_name_0_Did_you_mean_the_static_member_1_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Cannot_find_name_0_Did_you_mean_the_instance_member_this_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;
@@ -7593,7 +7613,6 @@ declare namespace ts {
     function createLanguageServiceSourceFile(fileName: string, scriptSnapshot: IScriptSnapshot, scriptTarget: ScriptTarget, version: string, setNodeParents: boolean): SourceFile;
     let disableIncrementalParsing: boolean;
     function updateLanguageServiceSourceFile(sourceFile: SourceFile, scriptSnapshot: IScriptSnapshot, version: string, textChangeRange: TextChangeRange, aggressiveChecks?: boolean): SourceFile;
-    function createGetCanonicalFileName(useCaseSensitivefileNames: boolean): (fileName: string) => string;
     function createDocumentRegistry(useCaseSensitiveFileNames?: boolean, currentDirectory?: string): DocumentRegistry;
     function preProcessFile(sourceText: string, readImportFiles?: boolean, detectJavaScriptImports?: boolean): PreProcessedFileInfo;
     function getContainerNode(node: Node): Declaration;

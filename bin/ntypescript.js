@@ -1666,6 +1666,12 @@ var ts;
         return copiedList;
     }
     ts.copyListRemovingItem = copyListRemovingItem;
+    function createGetCanonicalFileName(useCaseSensitivefileNames) {
+        return useCaseSensitivefileNames
+            ? (function (fileName) { return fileName; })
+            : (function (fileName) { return fileName.toLowerCase(); });
+    }
+    ts.createGetCanonicalFileName = createGetCanonicalFileName;
 })(ts || (ts = {}));
 /// <reference path="core.ts"/>
 var ts;
@@ -1814,7 +1820,7 @@ var ts;
             var _os = require("os");
             // average async stat takes about 30 microseconds
             // set chunk size to do 30 files in < 1 millisecond
-            function createWatchedFileSet(interval, chunkSize) {
+            function createPollingWatchedFileSet(interval, chunkSize) {
                 if (interval === void 0) { interval = 2500; }
                 if (chunkSize === void 0) { chunkSize = 30; }
                 var watchedFiles = [];
@@ -1828,13 +1834,13 @@ var ts;
                     if (!watchedFile) {
                         return;
                     }
-                    _fs.stat(watchedFile.fileName, function (err, stats) {
+                    _fs.stat(watchedFile.filePath, function (err, stats) {
                         if (err) {
-                            watchedFile.callback(watchedFile.fileName);
+                            watchedFile.callback(watchedFile.filePath);
                         }
                         else if (watchedFile.mtime.getTime() !== stats.mtime.getTime()) {
-                            watchedFile.mtime = getModifiedTime(watchedFile.fileName);
-                            watchedFile.callback(watchedFile.fileName, watchedFile.mtime.getTime() === 0);
+                            watchedFile.mtime = getModifiedTime(watchedFile.filePath);
+                            watchedFile.callback(watchedFile.filePath, watchedFile.mtime.getTime() === 0);
                         }
                     });
                 }
@@ -1860,11 +1866,11 @@ var ts;
                         nextFileToCheck = nextToCheck;
                     }, interval);
                 }
-                function addFile(fileName, callback) {
+                function addFile(filePath, callback) {
                     var file = {
-                        fileName: fileName,
+                        filePath: filePath,
                         callback: callback,
-                        mtime: getModifiedTime(fileName)
+                        mtime: getModifiedTime(filePath)
                     };
                     watchedFiles.push(file);
                     if (watchedFiles.length === 1) {
@@ -1883,6 +1889,75 @@ var ts;
                     removeFile: removeFile
                 };
             }
+            function createWatchedFileSet() {
+                var dirWatchers = ts.createFileMap();
+                // One file can have multiple watchers
+                var fileWatcherCallbacks = ts.createFileMap();
+                return { addFile: addFile, removeFile: removeFile };
+                function reduceDirWatcherRefCountForFile(filePath) {
+                    var dirPath = ts.getDirectoryPath(filePath);
+                    if (dirWatchers.contains(dirPath)) {
+                        var watcher = dirWatchers.get(dirPath);
+                        watcher.referenceCount -= 1;
+                        if (watcher.referenceCount <= 0) {
+                            watcher.close();
+                            dirWatchers.remove(dirPath);
+                        }
+                    }
+                }
+                function addDirWatcher(dirPath) {
+                    if (dirWatchers.contains(dirPath)) {
+                        var watcher_1 = dirWatchers.get(dirPath);
+                        watcher_1.referenceCount += 1;
+                        return;
+                    }
+                    var watcher = _fs.watch(dirPath, { persistent: true }, function (eventName, relativeFileName) { return fileEventHandler(eventName, relativeFileName, dirPath); });
+                    watcher.referenceCount = 1;
+                    dirWatchers.set(dirPath, watcher);
+                    return;
+                }
+                function addFileWatcherCallback(filePath, callback) {
+                    if (fileWatcherCallbacks.contains(filePath)) {
+                        fileWatcherCallbacks.get(filePath).push(callback);
+                    }
+                    else {
+                        fileWatcherCallbacks.set(filePath, [callback]);
+                    }
+                }
+                function addFile(filePath, callback) {
+                    addFileWatcherCallback(filePath, callback);
+                    addDirWatcher(ts.getDirectoryPath(filePath));
+                    return { filePath: filePath, callback: callback };
+                }
+                function removeFile(watchedFile) {
+                    removeFileWatcherCallback(watchedFile.filePath, watchedFile.callback);
+                    reduceDirWatcherRefCountForFile(watchedFile.filePath);
+                }
+                function removeFileWatcherCallback(filePath, callback) {
+                    if (fileWatcherCallbacks.contains(filePath)) {
+                        var newCallbacks = ts.copyListRemovingItem(callback, fileWatcherCallbacks.get(filePath));
+                        if (newCallbacks.length === 0) {
+                            fileWatcherCallbacks.remove(filePath);
+                        }
+                        else {
+                            fileWatcherCallbacks.set(filePath, newCallbacks);
+                        }
+                    }
+                }
+                /**
+                 * @param watcherPath is the path from which the watcher is triggered.
+                 */
+                function fileEventHandler(eventName, relativefileName, baseDirPath) {
+                    // When files are deleted from disk, the triggered "rename" event would have a relativefileName of "undefined"
+                    var filePath = relativefileName === undefined ? undefined : ts.toPath(relativefileName, baseDirPath, getCanonicalPath);
+                    if (eventName === "change" && fileWatcherCallbacks.contains(filePath)) {
+                        for (var _i = 0, _a = fileWatcherCallbacks.get(filePath); _i < _a.length; _i++) {
+                            var fileCallback = _a[_i];
+                            fileCallback(filePath);
+                        }
+                    }
+                }
+            }
             // REVIEW: for now this implementation uses polling.
             // The advantage of polling is that it works reliably
             // on all os and with network mounted files.
@@ -1896,7 +1971,11 @@ var ts;
             // changes for large reference sets? If so, do we want
             // to increase the chunk size or decrease the interval
             // time dynamically to match the large reference set?
+            var pollingWatchedFileSet = createPollingWatchedFileSet();
             var watchedFileSet = createWatchedFileSet();
+            function isNode4OrLater() {
+                return parseInt(process.version.charAt(1)) >= 4;
+            }
             var platform = _os.platform();
             // win32\win64 are case insensitive platforms, MacOS (darwin) by default is also case insensitive
             var useCaseSensitiveFileNames = platform !== "win32" && platform !== "win64" && platform !== "darwin";
@@ -1985,20 +2064,28 @@ var ts;
                 },
                 readFile: readFile,
                 writeFile: writeFile,
-                watchFile: function (fileName, callback) {
+                watchFile: function (filePath, callback) {
                     // Node 4.0 stablized the `fs.watch` function on Windows which avoids polling
                     // and is more efficient than `fs.watchFile` (ref: https://github.com/nodejs/node/pull/2649
                     // and https://github.com/Microsoft/TypeScript/issues/4643), therefore
                     // if the current node.js version is newer than 4, use `fs.watch` instead.
-                    var watchedFile = watchedFileSet.addFile(fileName, callback);
+                    var watchSet = isNode4OrLater() ? watchedFileSet : pollingWatchedFileSet;
+                    var watchedFile = watchSet.addFile(filePath, callback);
                     return {
-                        close: function () { return watchedFileSet.removeFile(watchedFile); }
+                        close: function () { return watchSet.removeFile(watchedFile); }
                     };
                 },
                 watchDirectory: function (path, callback, recursive) {
                     // Node 4.0 `fs.watch` function supports the "recursive" option on both OSX and Windows
                     // (ref: https://github.com/nodejs/node/pull/2649 and https://github.com/Microsoft/TypeScript/issues/4643)
-                    return _fs.watch(path, { persistent: true, recursive: !!recursive }, function (eventName, relativeFileName) {
+                    var options;
+                    if (isNode4OrLater() && (process.platform === "win32" || process.platform === "darwin")) {
+                        options = { persistent: true, recursive: !!recursive };
+                    }
+                    else {
+                        options = { persistent: true };
+                    }
+                    return _fs.watch(path, options, function (eventName, relativeFileName) {
                         // In watchDirectory we only care about adding and removing files (when event name is
                         // "rename"); changes made within files are handled by corresponding fileWatchers (when
                         // event name is "change")
@@ -5080,6 +5167,8 @@ var ts;
         super_is_only_allowed_in_members_of_object_literal_expressions_when_option_target_is_ES2015_or_higher: { code: 2659, category: ts.DiagnosticCategory.Error, key: "super_is_only_allowed_in_members_of_object_literal_expressions_when_option_target_is_ES2015_or_highe_2659", message: "'super' is only allowed in members of object literal expressions when option 'target' is 'ES2015' or higher." },
         super_can_only_be_referenced_in_members_of_derived_classes_or_object_literal_expressions: { code: 2660, category: ts.DiagnosticCategory.Error, key: "super_can_only_be_referenced_in_members_of_derived_classes_or_object_literal_expressions_2660", message: "'super' can only be referenced in members of derived classes or object literal expressions." },
         Cannot_re_export_name_that_is_not_defined_in_the_module: { code: 2661, category: ts.DiagnosticCategory.Error, key: "Cannot_re_export_name_that_is_not_defined_in_the_module_2661", message: "Cannot re-export name that is not defined in the module." },
+        Cannot_find_name_0_Did_you_mean_the_static_member_1_0: { code: 2662, category: ts.DiagnosticCategory.Error, key: "Cannot_find_name_0_Did_you_mean_the_static_member_1_0_2662", message: "Cannot find name '{0}'. Did you mean the static member '{1}.{0}'?" },
+        Cannot_find_name_0_Did_you_mean_the_instance_member_this_0: { code: 2663, category: ts.DiagnosticCategory.Error, key: "Cannot_find_name_0_Did_you_mean_the_instance_member_this_0_2663", message: "Cannot find name '{0}'. Did you mean the instance member 'this.{0}'?" },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -14895,7 +14984,9 @@ var ts;
             }
             if (!result) {
                 if (nameNotFoundMessage) {
-                    error(errorLocation, nameNotFoundMessage, typeof nameArg === "string" ? nameArg : ts.declarationNameToString(nameArg));
+                    if (!checkAndReportErrorForMissingPrefix(errorLocation, name, nameArg)) {
+                        error(errorLocation, nameNotFoundMessage, typeof nameArg === "string" ? nameArg : ts.declarationNameToString(nameArg));
+                    }
                 }
                 return undefined;
             }
@@ -14927,6 +15018,38 @@ var ts;
                 }
             }
             return result;
+        }
+        function checkAndReportErrorForMissingPrefix(errorLocation, name, nameArg) {
+            if (!errorLocation || (errorLocation.kind === 69 /* Identifier */ && (isTypeReferenceIdentifier(errorLocation)) || isInTypeQuery(errorLocation))) {
+                return false;
+            }
+            var container = ts.getThisContainer(errorLocation, /* includeArrowFunctions */ true);
+            var location = container;
+            while (location) {
+                if (ts.isClassLike(location.parent)) {
+                    var classSymbol = getSymbolOfNode(location.parent);
+                    if (!classSymbol) {
+                        break;
+                    }
+                    // Check to see if a static member exists.
+                    var constructorType = getTypeOfSymbol(classSymbol);
+                    if (getPropertyOfType(constructorType, name)) {
+                        error(errorLocation, ts.Diagnostics.Cannot_find_name_0_Did_you_mean_the_static_member_1_0, typeof nameArg === "string" ? nameArg : ts.declarationNameToString(nameArg), symbolToString(classSymbol));
+                        return true;
+                    }
+                    // No static member is present.
+                    // Check if we're in an instance method and look for a relevant instance member. 
+                    if (location === container && !(location.flags & 64 /* Static */)) {
+                        var instanceType = getDeclaredTypeOfSymbol(classSymbol).thisType;
+                        if (getPropertyOfType(instanceType, name)) {
+                            error(errorLocation, ts.Diagnostics.Cannot_find_name_0_Did_you_mean_the_instance_member_this_0, typeof nameArg === "string" ? nameArg : ts.declarationNameToString(nameArg));
+                            return true;
+                        }
+                    }
+                }
+                location = location.parent;
+            }
+            return false;
         }
         function checkResolvedBlockScopedVariable(result, errorLocation) {
             ts.Debug.assert((result.flags & 2 /* BlockScopedVariable */) !== 0);
@@ -20389,10 +20512,6 @@ var ts;
                 if (typeInfo && typeInfo.type === undefinedType) {
                     return type;
                 }
-                // If the type to be narrowed is any and we're checking a primitive with assumeTrue=true, return the primitive
-                if (!!(type.flags & 1 /* Any */) && typeInfo && assumeTrue) {
-                    return typeInfo.type;
-                }
                 var flags;
                 if (typeInfo) {
                     flags = typeInfo.flags;
@@ -20403,6 +20522,10 @@ var ts;
                 }
                 // At this point we can bail if it's not a union
                 if (!(type.flags & 16384 /* Union */)) {
+                    // If we're on the true branch and the type is a subtype, we should return the primitive type
+                    if (assumeTrue && typeInfo && isTypeSubtypeOf(typeInfo.type, type)) {
+                        return typeInfo.type;
+                    }
                     // If the active non-union type would be removed from a union by this type guard, return an empty union
                     return filterUnion(type) ? type : emptyUnionType;
                 }
@@ -40133,7 +40256,8 @@ var ts;
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
             if (configFileName) {
-                configFileWatcher = ts.sys.watchFile(configFileName, configFileChanged);
+                var configFilePath = ts.toPath(configFileName, ts.sys.getCurrentDirectory(), ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames));
+                configFileWatcher = ts.sys.watchFile(configFilePath, configFileChanged);
             }
             if (ts.sys.watchDirectory && configFileName) {
                 var directory = ts.getDirectoryPath(configFileName);
@@ -40227,7 +40351,8 @@ var ts;
             var sourceFile = hostGetSourceFile(fileName, languageVersion, onError);
             if (sourceFile && compilerOptions.watch) {
                 // Attach a file watcher
-                sourceFile.fileWatcher = ts.sys.watchFile(sourceFile.fileName, function (fileName, removed) { return sourceFileChanged(sourceFile, removed); });
+                var filePath = ts.toPath(sourceFile.fileName, ts.sys.getCurrentDirectory(), ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames));
+                sourceFile.fileWatcher = ts.sys.watchFile(filePath, function (fileName, removed) { return sourceFileChanged(sourceFile, removed); });
             }
             return sourceFile;
         }
@@ -47092,18 +47217,12 @@ var ts;
         return createLanguageServiceSourceFile(sourceFile.fileName, scriptSnapshot, sourceFile.languageVersion, version, /*setNodeParents*/ true);
     }
     ts.updateLanguageServiceSourceFile = updateLanguageServiceSourceFile;
-    function createGetCanonicalFileName(useCaseSensitivefileNames) {
-        return useCaseSensitivefileNames
-            ? (function (fileName) { return fileName; })
-            : (function (fileName) { return fileName.toLowerCase(); });
-    }
-    ts.createGetCanonicalFileName = createGetCanonicalFileName;
     function createDocumentRegistry(useCaseSensitiveFileNames, currentDirectory) {
         if (currentDirectory === void 0) { currentDirectory = ""; }
         // Maps from compiler setting target (ES3, ES5, etc.) to all the cached documents we have
         // for those settings.
         var buckets = {};
-        var getCanonicalFileName = createGetCanonicalFileName(!!useCaseSensitiveFileNames);
+        var getCanonicalFileName = ts.createGetCanonicalFileName(!!useCaseSensitiveFileNames);
         function getKeyFromCompilationSettings(settings) {
             return "_" + settings.target + "|" + settings.module + "|" + settings.noResolve + "|" + settings.jsx + +"|" + settings.allowJs;
         }
@@ -47704,7 +47823,7 @@ var ts;
                 host.log(message);
             }
         }
-        var getCanonicalFileName = createGetCanonicalFileName(useCaseSensitivefileNames);
+        var getCanonicalFileName = ts.createGetCanonicalFileName(useCaseSensitivefileNames);
         function getValidSourceFile(fileName) {
             var sourceFile = program.getSourceFile(fileName);
             if (!sourceFile) {
