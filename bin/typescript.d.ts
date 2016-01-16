@@ -152,161 +152,162 @@ declare namespace ts {
         SymbolKeyword = 131,
         TypeKeyword = 132,
         FromKeyword = 133,
-        OfKeyword = 134,
-        QualifiedName = 135,
-        ComputedPropertyName = 136,
-        TypeParameter = 137,
-        Parameter = 138,
-        Decorator = 139,
-        PropertySignature = 140,
-        PropertyDeclaration = 141,
-        MethodSignature = 142,
-        MethodDeclaration = 143,
-        Constructor = 144,
-        GetAccessor = 145,
-        SetAccessor = 146,
-        CallSignature = 147,
-        ConstructSignature = 148,
-        IndexSignature = 149,
-        TypePredicate = 150,
-        TypeReference = 151,
-        FunctionType = 152,
-        ConstructorType = 153,
-        TypeQuery = 154,
-        TypeLiteral = 155,
-        ArrayType = 156,
-        TupleType = 157,
-        UnionType = 158,
-        IntersectionType = 159,
-        ParenthesizedType = 160,
-        ThisType = 161,
-        StringLiteralType = 162,
-        ObjectBindingPattern = 163,
-        ArrayBindingPattern = 164,
-        BindingElement = 165,
-        ArrayLiteralExpression = 166,
-        ObjectLiteralExpression = 167,
-        PropertyAccessExpression = 168,
-        ElementAccessExpression = 169,
-        CallExpression = 170,
-        NewExpression = 171,
-        TaggedTemplateExpression = 172,
-        TypeAssertionExpression = 173,
-        ParenthesizedExpression = 174,
-        FunctionExpression = 175,
-        ArrowFunction = 176,
-        DeleteExpression = 177,
-        TypeOfExpression = 178,
-        VoidExpression = 179,
-        AwaitExpression = 180,
-        PrefixUnaryExpression = 181,
-        PostfixUnaryExpression = 182,
-        BinaryExpression = 183,
-        ConditionalExpression = 184,
-        TemplateExpression = 185,
-        YieldExpression = 186,
-        SpreadElementExpression = 187,
-        ClassExpression = 188,
-        OmittedExpression = 189,
-        ExpressionWithTypeArguments = 190,
-        AsExpression = 191,
-        TemplateSpan = 192,
-        SemicolonClassElement = 193,
-        Block = 194,
-        VariableStatement = 195,
-        EmptyStatement = 196,
-        ExpressionStatement = 197,
-        IfStatement = 198,
-        DoStatement = 199,
-        WhileStatement = 200,
-        ForStatement = 201,
-        ForInStatement = 202,
-        ForOfStatement = 203,
-        ContinueStatement = 204,
-        BreakStatement = 205,
-        ReturnStatement = 206,
-        WithStatement = 207,
-        SwitchStatement = 208,
-        LabeledStatement = 209,
-        ThrowStatement = 210,
-        TryStatement = 211,
-        DebuggerStatement = 212,
-        VariableDeclaration = 213,
-        VariableDeclarationList = 214,
-        FunctionDeclaration = 215,
-        ClassDeclaration = 216,
-        InterfaceDeclaration = 217,
-        TypeAliasDeclaration = 218,
-        EnumDeclaration = 219,
-        ModuleDeclaration = 220,
-        ModuleBlock = 221,
-        CaseBlock = 222,
-        ImportEqualsDeclaration = 223,
-        ImportDeclaration = 224,
-        ImportClause = 225,
-        NamespaceImport = 226,
-        NamedImports = 227,
-        ImportSpecifier = 228,
-        ExportAssignment = 229,
-        ExportDeclaration = 230,
-        NamedExports = 231,
-        ExportSpecifier = 232,
-        MissingDeclaration = 233,
-        ExternalModuleReference = 234,
-        JsxElement = 235,
-        JsxSelfClosingElement = 236,
-        JsxOpeningElement = 237,
-        JsxText = 238,
-        JsxClosingElement = 239,
-        JsxAttribute = 240,
-        JsxSpreadAttribute = 241,
-        JsxExpression = 242,
-        CaseClause = 243,
-        DefaultClause = 244,
-        HeritageClause = 245,
-        CatchClause = 246,
-        PropertyAssignment = 247,
-        ShorthandPropertyAssignment = 248,
-        EnumMember = 249,
-        SourceFile = 250,
-        JSDocTypeExpression = 251,
-        JSDocAllType = 252,
-        JSDocUnknownType = 253,
-        JSDocArrayType = 254,
-        JSDocUnionType = 255,
-        JSDocTupleType = 256,
-        JSDocNullableType = 257,
-        JSDocNonNullableType = 258,
-        JSDocRecordType = 259,
-        JSDocRecordMember = 260,
-        JSDocTypeReference = 261,
-        JSDocOptionalType = 262,
-        JSDocFunctionType = 263,
-        JSDocVariadicType = 264,
-        JSDocConstructorType = 265,
-        JSDocThisType = 266,
-        JSDocComment = 267,
-        JSDocTag = 268,
-        JSDocParameterTag = 269,
-        JSDocReturnTag = 270,
-        JSDocTypeTag = 271,
-        JSDocTemplateTag = 272,
-        SyntaxList = 273,
-        Count = 274,
+        GlobalKeyword = 134,
+        OfKeyword = 135,
+        QualifiedName = 136,
+        ComputedPropertyName = 137,
+        TypeParameter = 138,
+        Parameter = 139,
+        Decorator = 140,
+        PropertySignature = 141,
+        PropertyDeclaration = 142,
+        MethodSignature = 143,
+        MethodDeclaration = 144,
+        Constructor = 145,
+        GetAccessor = 146,
+        SetAccessor = 147,
+        CallSignature = 148,
+        ConstructSignature = 149,
+        IndexSignature = 150,
+        TypePredicate = 151,
+        TypeReference = 152,
+        FunctionType = 153,
+        ConstructorType = 154,
+        TypeQuery = 155,
+        TypeLiteral = 156,
+        ArrayType = 157,
+        TupleType = 158,
+        UnionType = 159,
+        IntersectionType = 160,
+        ParenthesizedType = 161,
+        ThisType = 162,
+        StringLiteralType = 163,
+        ObjectBindingPattern = 164,
+        ArrayBindingPattern = 165,
+        BindingElement = 166,
+        ArrayLiteralExpression = 167,
+        ObjectLiteralExpression = 168,
+        PropertyAccessExpression = 169,
+        ElementAccessExpression = 170,
+        CallExpression = 171,
+        NewExpression = 172,
+        TaggedTemplateExpression = 173,
+        TypeAssertionExpression = 174,
+        ParenthesizedExpression = 175,
+        FunctionExpression = 176,
+        ArrowFunction = 177,
+        DeleteExpression = 178,
+        TypeOfExpression = 179,
+        VoidExpression = 180,
+        AwaitExpression = 181,
+        PrefixUnaryExpression = 182,
+        PostfixUnaryExpression = 183,
+        BinaryExpression = 184,
+        ConditionalExpression = 185,
+        TemplateExpression = 186,
+        YieldExpression = 187,
+        SpreadElementExpression = 188,
+        ClassExpression = 189,
+        OmittedExpression = 190,
+        ExpressionWithTypeArguments = 191,
+        AsExpression = 192,
+        TemplateSpan = 193,
+        SemicolonClassElement = 194,
+        Block = 195,
+        VariableStatement = 196,
+        EmptyStatement = 197,
+        ExpressionStatement = 198,
+        IfStatement = 199,
+        DoStatement = 200,
+        WhileStatement = 201,
+        ForStatement = 202,
+        ForInStatement = 203,
+        ForOfStatement = 204,
+        ContinueStatement = 205,
+        BreakStatement = 206,
+        ReturnStatement = 207,
+        WithStatement = 208,
+        SwitchStatement = 209,
+        LabeledStatement = 210,
+        ThrowStatement = 211,
+        TryStatement = 212,
+        DebuggerStatement = 213,
+        VariableDeclaration = 214,
+        VariableDeclarationList = 215,
+        FunctionDeclaration = 216,
+        ClassDeclaration = 217,
+        InterfaceDeclaration = 218,
+        TypeAliasDeclaration = 219,
+        EnumDeclaration = 220,
+        ModuleDeclaration = 221,
+        ModuleBlock = 222,
+        CaseBlock = 223,
+        ImportEqualsDeclaration = 224,
+        ImportDeclaration = 225,
+        ImportClause = 226,
+        NamespaceImport = 227,
+        NamedImports = 228,
+        ImportSpecifier = 229,
+        ExportAssignment = 230,
+        ExportDeclaration = 231,
+        NamedExports = 232,
+        ExportSpecifier = 233,
+        MissingDeclaration = 234,
+        ExternalModuleReference = 235,
+        JsxElement = 236,
+        JsxSelfClosingElement = 237,
+        JsxOpeningElement = 238,
+        JsxText = 239,
+        JsxClosingElement = 240,
+        JsxAttribute = 241,
+        JsxSpreadAttribute = 242,
+        JsxExpression = 243,
+        CaseClause = 244,
+        DefaultClause = 245,
+        HeritageClause = 246,
+        CatchClause = 247,
+        PropertyAssignment = 248,
+        ShorthandPropertyAssignment = 249,
+        EnumMember = 250,
+        SourceFile = 251,
+        JSDocTypeExpression = 252,
+        JSDocAllType = 253,
+        JSDocUnknownType = 254,
+        JSDocArrayType = 255,
+        JSDocUnionType = 256,
+        JSDocTupleType = 257,
+        JSDocNullableType = 258,
+        JSDocNonNullableType = 259,
+        JSDocRecordType = 260,
+        JSDocRecordMember = 261,
+        JSDocTypeReference = 262,
+        JSDocOptionalType = 263,
+        JSDocFunctionType = 264,
+        JSDocVariadicType = 265,
+        JSDocConstructorType = 266,
+        JSDocThisType = 267,
+        JSDocComment = 268,
+        JSDocTag = 269,
+        JSDocParameterTag = 270,
+        JSDocReturnTag = 271,
+        JSDocTypeTag = 272,
+        JSDocTemplateTag = 273,
+        SyntaxList = 274,
+        Count = 275,
         FirstAssignment = 56,
         LastAssignment = 68,
         FirstReservedWord = 70,
         LastReservedWord = 105,
         FirstKeyword = 70,
-        LastKeyword = 134,
+        LastKeyword = 135,
         FirstFutureReservedWord = 106,
         LastFutureReservedWord = 114,
-        FirstTypeNode = 150,
-        LastTypeNode = 162,
+        FirstTypeNode = 151,
+        LastTypeNode = 163,
         FirstPunctuation = 15,
         LastPunctuation = 68,
         FirstToken = 0,
-        LastToken = 134,
+        LastToken = 135,
         FirstTriviaToken = 2,
         LastTriviaToken = 7,
         FirstLiteralToken = 8,
@@ -315,7 +316,7 @@ declare namespace ts {
         LastTemplateToken = 14,
         FirstBinaryOperator = 25,
         LastBinaryOperator = 68,
-        FirstNode = 135,
+        FirstNode = 136,
     }
     const enum NodeFlags {
         None = 0,
@@ -339,6 +340,7 @@ declare namespace ts {
         ContainsThis = 262144,
         HasImplicitReturn = 524288,
         HasExplicitReturn = 1048576,
+        GlobalAugmentation = 2097152,
         Modifier = 1022,
         AccessibilityModifier = 56,
         BlockScoped = 24576,
@@ -1066,6 +1068,7 @@ declare namespace ts {
         classifiableNames?: Map<string>;
         resolvedModules: Map<ResolvedModule>;
         imports: LiteralExpression[];
+        moduleAugmentations: LiteralExpression[];
     }
     interface ScriptReferenceHost {
         getCompilerOptions(): CompilerOptions;
@@ -1319,7 +1322,7 @@ declare namespace ts {
         isOptionalParameter(node: ParameterDeclaration): boolean;
         moduleExportsSomeValue(moduleReferenceExpression: Expression): boolean;
         isArgumentsLocalBinding(node: Identifier): boolean;
-        getExternalModuleFileFromDeclaration(declaration: ImportEqualsDeclaration | ImportDeclaration | ExportDeclaration): SourceFile;
+        getExternalModuleFileFromDeclaration(declaration: ImportEqualsDeclaration | ImportDeclaration | ExportDeclaration | ModuleDeclaration): SourceFile;
     }
     const enum SymbolFlags {
         None = 0,
@@ -2155,6 +2158,9 @@ declare namespace ts {
     function unescapeIdentifier(identifier: string): string;
     function makeIdentifierFromModuleName(moduleName: string): string;
     function isBlockOrCatchScoped(declaration: Declaration): boolean;
+    function isAmbientModule(node: Node): boolean;
+    function isGlobalScopeAugmentation(module: ModuleDeclaration): boolean;
+    function isExternalModuleAugmentation(node: Node): boolean;
     function getEnclosingBlockScopeContainer(node: Node): Node;
     function isCatchClauseVariableDeclaration(declaration: Declaration): boolean;
     function declarationNameToString(name: DeclarationName): string;
@@ -5075,6 +5081,48 @@ declare namespace ts {
             message: string;
         };
         Cannot_find_name_0_Did_you_mean_the_instance_member_this_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Invalid_module_name_in_augmentation_module_0_cannot_be_found: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Module_augmentation_cannot_introduce_new_names_in_the_top_level_scope: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Exports_and_export_assignments_are_not_permitted_in_module_augmentations: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Imports_are_not_permitted_in_module_augmentations_Consider_moving_them_to_the_enclosing_external_module: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        export_modifier_cannot_be_applied_to_ambient_modules_and_module_augmentations_since_they_are_always_visible: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Augmentations_for_the_global_scope_can_only_be_directly_nested_in_external_modules_or_ambient_module_declarations: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Augmentations_for_the_global_scope_should_have_declare_modifier_unless_they_appear_in_already_ambient_context: {
             code: number;
             category: DiagnosticCategory;
             key: string;
