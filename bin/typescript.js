@@ -1519,7 +1519,8 @@ var ts;
             directoryComponents.length--;
         }
         // Find the component that differs
-        for (var joinStartIndex = 0; joinStartIndex < pathComponents.length && joinStartIndex < directoryComponents.length; joinStartIndex++) {
+        var joinStartIndex;
+        for (joinStartIndex = 0; joinStartIndex < pathComponents.length && joinStartIndex < directoryComponents.length; joinStartIndex++) {
             if (getCanonicalFileName(directoryComponents[joinStartIndex]) !== getCanonicalFileName(pathComponents[joinStartIndex])) {
                 break;
             }
@@ -14771,13 +14772,6 @@ var ts;
         function isGlobalSourceFile(node) {
             return node.kind === 251 /* SourceFile */ && !ts.isExternalOrCommonJsModule(node);
         }
-        /** Is this type one of the apparent types created from the primitive types. */
-        function isPrimitiveApparentType(type) {
-            return type === globalStringType ||
-                type === globalNumberType ||
-                type === globalBooleanType ||
-                type === globalESSymbolType;
-        }
         function getSymbol(symbols, name, meaning) {
             if (meaning && ts.hasProperty(symbols, name)) {
                 var symbol = symbols[name];
@@ -18938,6 +18932,9 @@ var ts;
         function compareTypesIdentical(source, target) {
             return checkTypeRelatedTo(source, target, identityRelation, /*errorNode*/ undefined) ? -1 /* True */ : 0 /* False */;
         }
+        function compareTypesAssignable(source, target) {
+            return checkTypeRelatedTo(source, target, assignableRelation, /*errorNode*/ undefined) ? -1 /* True */ : 0 /* False */;
+        }
         function isTypeSubtypeOf(source, target) {
             return checkTypeSubtypeOf(source, target, /*errorNode*/ undefined);
         }
@@ -18950,47 +18947,60 @@ var ts;
         function checkTypeAssignableTo(source, target, errorNode, headMessage, containingMessageChain) {
             return checkTypeRelatedTo(source, target, assignableRelation, errorNode, headMessage, containingMessageChain);
         }
+        function isSignatureAssignableTo(source, target, ignoreReturnTypes) {
+            return compareSignaturesRelated(source, target, ignoreReturnTypes, /*reportErrors*/ false, /*errorReporter*/ undefined, compareTypesAssignable) !== 0 /* False */;
+        }
         /**
          * See signatureRelatedTo, compareSignaturesIdentical
          */
-        function isSignatureAssignableTo(source, target, ignoreReturnTypes) {
+        function compareSignaturesRelated(source, target, ignoreReturnTypes, reportErrors, errorReporter, compareTypes) {
             // TODO (drosen): De-duplicate code between related functions.
             if (source === target) {
-                return true;
+                return -1 /* True */;
             }
             if (!target.hasRestParameter && source.minArgumentCount > target.parameters.length) {
-                return false;
+                return 0 /* False */;
             }
             // Spec 1.0 Section 3.8.3 & 3.8.4:
             // M and N (the signatures) are instantiated using type Any as the type argument for all type parameters declared by M and N
             source = getErasedSignature(source);
             target = getErasedSignature(target);
+            var result = -1 /* True */;
             var sourceMax = getNumNonRestParameters(source);
             var targetMax = getNumNonRestParameters(target);
             var checkCount = getNumParametersToCheckForSignatureRelatability(source, sourceMax, target, targetMax);
+            var sourceParams = source.parameters;
+            var targetParams = target.parameters;
             for (var i = 0; i < checkCount; i++) {
-                var s = i < sourceMax ? getTypeOfSymbol(source.parameters[i]) : getRestTypeOfSignature(source);
-                var t = i < targetMax ? getTypeOfSymbol(target.parameters[i]) : getRestTypeOfSignature(target);
-                var related = isTypeAssignableTo(t, s) || isTypeAssignableTo(s, t);
+                var s = i < sourceMax ? getTypeOfSymbol(sourceParams[i]) : getRestTypeOfSignature(source);
+                var t = i < targetMax ? getTypeOfSymbol(targetParams[i]) : getRestTypeOfSignature(target);
+                var related = compareTypes(t, s, /*reportErrors*/ false) || compareTypes(s, t, reportErrors);
                 if (!related) {
-                    return false;
+                    if (reportErrors) {
+                        errorReporter(ts.Diagnostics.Types_of_parameters_0_and_1_are_incompatible, sourceParams[i < sourceMax ? i : sourceMax].name, targetParams[i < targetMax ? i : targetMax].name);
+                    }
+                    return 0 /* False */;
                 }
+                result &= related;
             }
             if (!ignoreReturnTypes) {
                 var targetReturnType = getReturnTypeOfSignature(target);
                 if (targetReturnType === voidType) {
-                    return true;
+                    return result;
                 }
                 var sourceReturnType = getReturnTypeOfSignature(source);
                 // The following block preserves behavior forbidding boolean returning functions from being assignable to type guard returning functions
                 if (targetReturnType.flags & 134217728 /* PredicateType */ && targetReturnType.predicate.kind === 1 /* Identifier */) {
                     if (!(sourceReturnType.flags & 134217728 /* PredicateType */)) {
-                        return false;
+                        if (reportErrors) {
+                            errorReporter(ts.Diagnostics.Signature_0_must_have_a_type_predicate, signatureToString(source));
+                        }
+                        return 0 /* False */;
                     }
                 }
-                return isTypeAssignableTo(sourceReturnType, targetReturnType);
+                result &= compareTypes(sourceReturnType, targetReturnType, reportErrors);
             }
-            return true;
+            return result;
         }
         function isImplementationCompatibleWithOverload(implementation, overload) {
             var erasedSource = getErasedSignature(implementation);
@@ -19047,22 +19057,12 @@ var ts;
             var expandingFlags;
             var depth = 0;
             var overflow = false;
-            var elaborateErrors = false;
             ts.Debug.assert(relation !== identityRelation || !errorNode, "no error reporting in identity checking");
-            var result = isRelatedTo(source, target, errorNode !== undefined, headMessage);
+            var result = isRelatedTo(source, target, /*reportErrors*/ !!errorNode, headMessage);
             if (overflow) {
                 error(errorNode, ts.Diagnostics.Excessive_stack_depth_comparing_types_0_and_1, typeToString(source), typeToString(target));
             }
             else if (errorInfo) {
-                // If we already computed this relation, but in a context where we didn't want to report errors (e.g. overload resolution),
-                // then we'll only have a top-level error (e.g. 'Class X does not implement interface Y') without any details. If this happened,
-                // request a recompuation to get a complete error message. This will be skipped if we've already done this computation in a context
-                // where errors were being reported.
-                if (errorInfo.next === undefined) {
-                    errorInfo = undefined;
-                    elaborateErrors = true;
-                    isRelatedTo(source, target, errorNode !== undefined, headMessage);
-                }
                 if (containingMessageChain) {
                     errorInfo = ts.concatenateDiagnosticMessageChains(containingMessageChain, errorInfo);
                 }
@@ -19070,6 +19070,7 @@ var ts;
             }
             return result !== 0 /* False */;
             function reportError(message, arg0, arg1, arg2) {
+                ts.Debug.assert(!!errorNode);
                 errorInfo = ts.chainDiagnosticMessages(errorInfo, message, arg0, arg1, arg2);
             }
             function reportRelationError(message, source, target) {
@@ -19208,14 +19209,14 @@ var ts;
                     }
                     // Even if relationship doesn't hold for unions, intersections, or generic type references,
                     // it may hold in a structural comparison.
-                    var apparentType = getApparentType(source);
+                    var apparentSource = getApparentType(source);
                     // In a check of the form X = A & B, we will have previously checked if A relates to X or B relates
                     // to X. Failing both of those we want to check if the aggregation of A and B's members structurally
                     // relates to X. Thus, we include intersection types on the source side here.
-                    if (apparentType.flags & (80896 /* ObjectType */ | 32768 /* Intersection */) && target.flags & 80896 /* ObjectType */) {
+                    if (apparentSource.flags & (80896 /* ObjectType */ | 32768 /* Intersection */) && target.flags & 80896 /* ObjectType */) {
                         // Report structural errors only if we haven't reported any errors yet
-                        var reportStructuralErrors = reportErrors && errorInfo === saveErrorInfo;
-                        if (result = objectTypeRelatedTo(apparentType, source, target, reportStructuralErrors)) {
+                        var reportStructuralErrors = reportErrors && errorInfo === saveErrorInfo && !(source.flags & 16777726 /* Primitive */);
+                        if (result = objectTypeRelatedTo(apparentSource, source, target, reportStructuralErrors)) {
                             errorInfo = saveErrorInfo;
                             return result;
                         }
@@ -19278,6 +19279,7 @@ var ts;
                                 // We know *exactly* where things went wrong when comparing the types.
                                 // Use this property as the error node as this will be more helpful in
                                 // reasoning about what went wrong.
+                                ts.Debug.assert(!!errorNode);
                                 errorNode = prop.valueDeclaration;
                                 reportError(ts.Diagnostics.Object_literal_may_only_specify_known_properties_and_0_does_not_exist_in_type_1, symbolToString(prop), typeToString(target));
                             }
@@ -19375,7 +19377,7 @@ var ts;
                 var id = relation !== identityRelation || source.id < target.id ? source.id + "," + target.id : target.id + "," + source.id;
                 var related = relation[id];
                 if (related !== undefined) {
-                    if (elaborateErrors && related === 2 /* Failed */) {
+                    if (reportErrors && related === 2 /* Failed */) {
                         // We are elaborating errors and the cached result is an unreported failure. Record the result as a reported
                         // failure and continue computing the relation such that errors get reported.
                         relation[id] = 3 /* FailedAndReported */;
@@ -19589,7 +19591,7 @@ var ts;
                         }
                         // don't elaborate the primitive apparent types (like Number)
                         // because the actual primitives will have already been reported.
-                        if (shouldElaborateErrors && !isPrimitiveApparentType(source)) {
+                        if (shouldElaborateErrors) {
                             reportError(ts.Diagnostics.Type_0_provides_no_match_for_the_signature_1, typeToString(source), signatureToString(t, /*enclosingDeclaration*/ undefined, /*flags*/ undefined, kind));
                         }
                         return 0 /* False */;
@@ -19598,72 +19600,10 @@ var ts;
                 return result;
             }
             /**
-             * See signatureAssignableTo, signatureAssignableTo
+             * See signatureAssignableTo, compareSignaturesIdentical
              */
             function signatureRelatedTo(source, target, reportErrors) {
-                // TODO (drosen): De-duplicate code between related functions.
-                if (source === target) {
-                    return -1 /* True */;
-                }
-                if (!target.hasRestParameter && source.minArgumentCount > target.parameters.length) {
-                    return 0 /* False */;
-                }
-                var sourceMax = source.parameters.length;
-                var targetMax = target.parameters.length;
-                var checkCount;
-                if (source.hasRestParameter && target.hasRestParameter) {
-                    checkCount = sourceMax > targetMax ? sourceMax : targetMax;
-                    sourceMax--;
-                    targetMax--;
-                }
-                else if (source.hasRestParameter) {
-                    sourceMax--;
-                    checkCount = targetMax;
-                }
-                else if (target.hasRestParameter) {
-                    targetMax--;
-                    checkCount = sourceMax;
-                }
-                else {
-                    checkCount = sourceMax < targetMax ? sourceMax : targetMax;
-                }
-                // Spec 1.0 Section 3.8.3 & 3.8.4:
-                // M and N (the signatures) are instantiated using type Any as the type argument for all type parameters declared by M and N
-                source = getErasedSignature(source);
-                target = getErasedSignature(target);
-                var result = -1 /* True */;
-                for (var i = 0; i < checkCount; i++) {
-                    var s = i < sourceMax ? getTypeOfSymbol(source.parameters[i]) : getRestTypeOfSignature(source);
-                    var t = i < targetMax ? getTypeOfSymbol(target.parameters[i]) : getRestTypeOfSignature(target);
-                    var saveErrorInfo = errorInfo;
-                    var related = isRelatedTo(s, t, reportErrors);
-                    if (!related) {
-                        related = isRelatedTo(t, s, /*reportErrors*/ false);
-                        if (!related) {
-                            if (reportErrors) {
-                                reportError(ts.Diagnostics.Types_of_parameters_0_and_1_are_incompatible, source.parameters[i < sourceMax ? i : sourceMax].name, target.parameters[i < targetMax ? i : targetMax].name);
-                            }
-                            return 0 /* False */;
-                        }
-                        errorInfo = saveErrorInfo;
-                    }
-                    result &= related;
-                }
-                var targetReturnType = getReturnTypeOfSignature(target);
-                if (targetReturnType === voidType) {
-                    return result;
-                }
-                var sourceReturnType = getReturnTypeOfSignature(source);
-                // The following block preserves behavior forbidding boolean returning functions from being assignable to type guard returning functions
-                if (targetReturnType.flags & 134217728 /* PredicateType */ && targetReturnType.predicate.kind === 1 /* Identifier */) {
-                    if (!(sourceReturnType.flags & 134217728 /* PredicateType */)) {
-                        if (reportErrors) {
-                            reportError(ts.Diagnostics.Signature_0_must_have_a_type_predicate, signatureToString(source));
-                        }
-                        return 0 /* False */;
-                    }
-                }
-                return result & isRelatedTo(sourceReturnType, targetReturnType, reportErrors);
+                return compareSignaturesRelated(source, target, /*ignoreReturnTypes*/ false, reportErrors, reportError, isRelatedTo);
             }
             function signaturesIdenticalTo(source, target, kind) {
                 var sourceSignatures = getSignaturesOfType(source, kind);
@@ -33076,34 +33016,34 @@ var ts;
                             emitExpressionIdentifier(syntheticReactRef);
                             write(".__spread(");
                             var haveOpenedObjectLiteral = false;
-                            for (var i_1 = 0; i_1 < attrs.length; i_1++) {
-                                if (attrs[i_1].kind === 242 /* JsxSpreadAttribute */) {
+                            for (var i = 0; i < attrs.length; i++) {
+                                if (attrs[i].kind === 242 /* JsxSpreadAttribute */) {
                                     // If this is the first argument, we need to emit a {} as the first argument
-                                    if (i_1 === 0) {
+                                    if (i === 0) {
                                         write("{}, ");
                                     }
                                     if (haveOpenedObjectLiteral) {
                                         write("}");
                                         haveOpenedObjectLiteral = false;
                                     }
-                                    if (i_1 > 0) {
+                                    if (i > 0) {
                                         write(", ");
                                     }
-                                    emit(attrs[i_1].expression);
+                                    emit(attrs[i].expression);
                                 }
                                 else {
-                                    ts.Debug.assert(attrs[i_1].kind === 241 /* JsxAttribute */);
+                                    ts.Debug.assert(attrs[i].kind === 241 /* JsxAttribute */);
                                     if (haveOpenedObjectLiteral) {
                                         write(", ");
                                     }
                                     else {
                                         haveOpenedObjectLiteral = true;
-                                        if (i_1 > 0) {
+                                        if (i > 0) {
                                             write(", ");
                                         }
                                         write("{");
                                     }
-                                    emitJsxAttribute(attrs[i_1]);
+                                    emitJsxAttribute(attrs[i]);
                                 }
                             }
                             if (haveOpenedObjectLiteral)
@@ -33113,7 +33053,7 @@ var ts;
                         else {
                             // One object literal with all the attributes in them
                             write("{");
-                            for (var i = 0; i < attrs.length; i++) {
+                            for (var i = 0, n = attrs.length; i < n; i++) {
                                 if (i > 0) {
                                     write(", ");
                                 }
@@ -38166,12 +38106,12 @@ var ts;
                                     write(exportFunctionForFile + "({");
                                     writeLine();
                                     increaseIndent();
-                                    for (var i_2 = 0, len = entry.exportClause.elements.length; i_2 < len; i_2++) {
-                                        if (i_2 !== 0) {
+                                    for (var i_1 = 0, len = entry.exportClause.elements.length; i_1 < len; i_1++) {
+                                        if (i_1 !== 0) {
                                             write(",");
                                             writeLine();
                                         }
-                                        var e = entry.exportClause.elements[i_2];
+                                        var e = entry.exportClause.elements[i_1];
                                         write("\"");
                                         emitNodeWithCommentsAndWithoutSourcemap(e.name);
                                         write("\": " + parameterName + "[\"");
@@ -51672,7 +51612,8 @@ var ts;
             function classifyDisabledMergeCode(text, start, end) {
                 // Classify the line that the ======= marker is on as a comment.  Then just lex
                 // all further tokens and add them to the result.
-                for (var i = start; i < end; i++) {
+                var i;
+                for (i = start; i < end; i++) {
                     if (ts.isLineBreak(text.charCodeAt(i))) {
                         break;
                     }
