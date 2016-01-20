@@ -4,8 +4,7 @@
   "description": "A nicer version of microsoft/typescript packaged and released for API developers",
   "main": "./bin/ntypescript.js",
   "bin": {
-    "ntsc": "./bin/tsc",
-    "ntse": "./bin/tse"
+    "ntsc": "./bin/tsc"
   },
   "typescript": {
     "definition": "./bin/ntypescript.d.ts"
