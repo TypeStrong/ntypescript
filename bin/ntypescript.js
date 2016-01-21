@@ -359,10 +359,15 @@ var ts;
         NodeFlags[NodeFlags["HasImplicitReturn"] = 524288] = "HasImplicitReturn";
         NodeFlags[NodeFlags["HasExplicitReturn"] = 1048576] = "HasExplicitReturn";
         NodeFlags[NodeFlags["GlobalAugmentation"] = 2097152] = "GlobalAugmentation";
+        NodeFlags[NodeFlags["HasClassExtends"] = 4194304] = "HasClassExtends";
+        NodeFlags[NodeFlags["HasDecorators"] = 8388608] = "HasDecorators";
+        NodeFlags[NodeFlags["HasParamDecorators"] = 16777216] = "HasParamDecorators";
+        NodeFlags[NodeFlags["HasAsyncFunctions"] = 33554432] = "HasAsyncFunctions";
         NodeFlags[NodeFlags["Modifier"] = 1022] = "Modifier";
         NodeFlags[NodeFlags["AccessibilityModifier"] = 56] = "AccessibilityModifier";
         NodeFlags[NodeFlags["BlockScoped"] = 24576] = "BlockScoped";
         NodeFlags[NodeFlags["ReachabilityCheckFlags"] = 1572864] = "ReachabilityCheckFlags";
+        NodeFlags[NodeFlags["EmitHelperFlags"] = 62914560] = "EmitHelperFlags";
     })(ts.NodeFlags || (ts.NodeFlags = {}));
     var NodeFlags = ts.NodeFlags;
     /* @internal */
@@ -571,11 +576,6 @@ var ts;
         NodeCheckFlags[NodeCheckFlags["TypeChecked"] = 1] = "TypeChecked";
         NodeCheckFlags[NodeCheckFlags["LexicalThis"] = 2] = "LexicalThis";
         NodeCheckFlags[NodeCheckFlags["CaptureThis"] = 4] = "CaptureThis";
-        NodeCheckFlags[NodeCheckFlags["EmitExtends"] = 8] = "EmitExtends";
-        NodeCheckFlags[NodeCheckFlags["EmitDecorate"] = 16] = "EmitDecorate";
-        NodeCheckFlags[NodeCheckFlags["EmitParam"] = 32] = "EmitParam";
-        NodeCheckFlags[NodeCheckFlags["EmitAwaiter"] = 64] = "EmitAwaiter";
-        NodeCheckFlags[NodeCheckFlags["EmitGenerator"] = 128] = "EmitGenerator";
         NodeCheckFlags[NodeCheckFlags["SuperInstance"] = 256] = "SuperInstance";
         NodeCheckFlags[NodeCheckFlags["SuperStatic"] = 512] = "SuperStatic";
         NodeCheckFlags[NodeCheckFlags["ContextChecked"] = 1024] = "ContextChecked";
@@ -2995,44 +2995,26 @@ var ts;
             case 142 /* PropertyDeclaration */:
                 // property declarations are valid if their parent is a class declaration.
                 return node.parent.kind === 217 /* ClassDeclaration */;
-            case 139 /* Parameter */:
-                // if the parameter's parent has a body and its grandparent is a class declaration, this is a valid target;
-                return node.parent.body && node.parent.parent.kind === 217 /* ClassDeclaration */;
             case 146 /* GetAccessor */:
             case 147 /* SetAccessor */:
             case 144 /* MethodDeclaration */:
                 // if this method has a body and its parent is a class declaration, this is a valid target.
-                return node.body && node.parent.kind === 217 /* ClassDeclaration */;
+                return node.body !== undefined
+                    && node.parent.kind === 217 /* ClassDeclaration */;
+            case 139 /* Parameter */:
+                // if the parameter's parent has a body and its grandparent is a class declaration, this is a valid target;
+                return node.parent.body !== undefined
+                    && (node.parent.kind === 145 /* Constructor */
+                        || node.parent.kind === 144 /* MethodDeclaration */
+                        || node.parent.kind === 147 /* SetAccessor */)
+                    && node.parent.parent.kind === 217 /* ClassDeclaration */;
         }
         return false;
     }
     ts.nodeCanBeDecorated = nodeCanBeDecorated;
     function nodeIsDecorated(node) {
-        switch (node.kind) {
-            case 217 /* ClassDeclaration */:
-                if (node.decorators) {
-                    return true;
-                }
-                return false;
-            case 142 /* PropertyDeclaration */:
-            case 139 /* Parameter */:
-                if (node.decorators) {
-                    return true;
-                }
-                return false;
-            case 146 /* GetAccessor */:
-                if (node.body && node.decorators) {
-                    return true;
-                }
-                return false;
-            case 144 /* MethodDeclaration */:
-            case 147 /* SetAccessor */:
-                if (node.body && node.decorators) {
-                    return true;
-                }
-                return false;
-        }
-        return false;
+        return node.decorators !== undefined
+            && nodeCanBeDecorated(node);
     }
     ts.nodeIsDecorated = nodeIsDecorated;
     function isPropertyAccessExpression(node) {
@@ -13033,6 +13015,11 @@ var ts;
         var labelStack;
         var labelIndexMap;
         var implicitLabels;
+        // state used for emit helpers
+        var hasClassExtends;
+        var hasAsyncFunctions;
+        var hasDecorators;
+        var hasParameterDecorators;
         // If this file is an external module, then it is automatically in strict-mode according to
         // ES6.  If it is not an external module, then we'll determine if it is in strict mode or
         // not depending on if we see "use strict" in certain places (or if we hit a class/namespace).
@@ -13062,6 +13049,10 @@ var ts;
             labelStack = undefined;
             labelIndexMap = undefined;
             implicitLabels = undefined;
+            hasClassExtends = false;
+            hasAsyncFunctions = false;
+            hasDecorators = false;
+            hasParameterDecorators = false;
         }
         return bindSourceFile;
         function createSymbol(flags, name) {
@@ -13236,8 +13227,8 @@ var ts;
                 //      but return the export symbol (by calling getExportSymbolOfValueSymbolIfExported). That way
                 //      when the emitter comes back to it, it knows not to qualify the name if it was found in a containing scope.
                 // NOTE: Nested ambient modules always should go to to 'locals' table to prevent their automatic merge
-                //       during global merging in the checker. Why? The only case when ambient module is permitted inside another module is module augmentation 
-                //       and this case is specially handled. Module augmentations should only be merged with original module definition 
+                //       during global merging in the checker. Why? The only case when ambient module is permitted inside another module is module augmentation
+                //       and this case is specially handled. Module augmentations should only be merged with original module definition
                 //       and should never be merged directly with other augmentation, and the latter case would be possible if automatic merge is allowed.
                 if (!ts.isAmbientModule(node) && (hasExportModifier || container.flags & 131072 /* ExportContext */)) {
                     var exportKind = (symbolFlags & 107455 /* Value */ ? 1048576 /* ExportValue */ : 0) |
@@ -13303,6 +13294,8 @@ var ts;
             var flags = node.flags;
             // reset all reachability check related flags on node (for incremental scenarios)
             flags &= ~1572864 /* ReachabilityCheckFlags */;
+            // reset all emit helper flags on node (for incremental scenarios)
+            flags &= ~62914560 /* EmitHelperFlags */;
             if (kind === 218 /* InterfaceDeclaration */) {
                 seenThisKeyword = false;
             }
@@ -13326,6 +13319,20 @@ var ts;
             }
             if (kind === 218 /* InterfaceDeclaration */) {
                 flags = seenThisKeyword ? flags | 262144 /* ContainsThis */ : flags & ~262144 /* ContainsThis */;
+            }
+            if (kind === 251 /* SourceFile */) {
+                if (hasClassExtends) {
+                    flags |= 4194304 /* HasClassExtends */;
+                }
+                if (hasDecorators) {
+                    flags |= 8388608 /* HasDecorators */;
+                }
+                if (hasParameterDecorators) {
+                    flags |= 16777216 /* HasParamDecorators */;
+                }
+                if (hasAsyncFunctions) {
+                    flags |= 33554432 /* HasAsyncFunctions */;
+                }
             }
             node.flags = flags;
             if (saveState) {
@@ -14022,8 +14029,7 @@ var ts;
                     // name.
                     return bindPropertyOrMethodOrAccessor(node, 8192 /* Method */ | (node.questionToken ? 536870912 /* Optional */ : 0 /* None */), ts.isObjectLiteralMethod(node) ? 107455 /* PropertyExcludes */ : 99263 /* MethodExcludes */);
                 case 216 /* FunctionDeclaration */:
-                    checkStrictModeFunctionName(node);
-                    return declareSymbolAndAddToSymbolTable(node, 16 /* Function */, 106927 /* FunctionExcludes */);
+                    return bindFunctionDeclaration(node);
                 case 145 /* Constructor */:
                     return declareSymbolAndAddToSymbolTable(node, 16384 /* Constructor */, /*symbolExcludes:*/ 0 /* None */);
                 case 146 /* GetAccessor */:
@@ -14039,9 +14045,7 @@ var ts;
                     return bindObjectLiteralExpression(node);
                 case 176 /* FunctionExpression */:
                 case 177 /* ArrowFunction */:
-                    checkStrictModeFunctionName(node);
-                    var bindingName = node.name ? node.name.text : "__function";
-                    return bindAnonymousDeclaration(node, 16 /* Function */, bindingName);
+                    return bindFunctionExpression(node);
                 case 171 /* CallExpression */:
                     if (ts.isInJavaScriptFile(node)) {
                         bindCallExpression(node);
@@ -14172,6 +14176,14 @@ var ts;
             }
         }
         function bindClassLikeDeclaration(node) {
+            if (!ts.isDeclarationFile(file) && !ts.isInAmbientContext(node)) {
+                if (ts.getClassExtendsHeritageClauseElement(node) !== undefined) {
+                    hasClassExtends = true;
+                }
+                if (ts.nodeIsDecorated(node)) {
+                    hasDecorators = true;
+                }
+            }
             if (node.kind === 217 /* ClassDeclaration */) {
                 bindBlockScopedDeclaration(node, 32 /* Class */, 899519 /* ClassExcludes */);
             }
@@ -14234,6 +14246,12 @@ var ts;
             }
         }
         function bindParameter(node) {
+            if (!ts.isDeclarationFile(file) &&
+                !ts.isInAmbientContext(node) &&
+                ts.nodeIsDecorated(node)) {
+                hasDecorators = true;
+                hasParameterDecorators = true;
+            }
             if (inStrictMode) {
                 // It is a SyntaxError if the identifier eval or arguments appears within a FormalParameterList of a
                 // strict mode FunctionLikeDeclaration or FunctionExpression(13.1)
@@ -14252,7 +14270,34 @@ var ts;
                 declareSymbol(classDeclaration.symbol.members, classDeclaration.symbol, node, 4 /* Property */, 107455 /* PropertyExcludes */);
             }
         }
+        function bindFunctionDeclaration(node) {
+            if (!ts.isDeclarationFile(file) && !ts.isInAmbientContext(node)) {
+                if (ts.isAsyncFunctionLike(node)) {
+                    hasAsyncFunctions = true;
+                }
+            }
+            checkStrictModeFunctionName(node);
+            return declareSymbolAndAddToSymbolTable(node, 16 /* Function */, 106927 /* FunctionExcludes */);
+        }
+        function bindFunctionExpression(node) {
+            if (!ts.isDeclarationFile(file) && !ts.isInAmbientContext(node)) {
+                if (ts.isAsyncFunctionLike(node)) {
+                    hasAsyncFunctions = true;
+                }
+            }
+            checkStrictModeFunctionName(node);
+            var bindingName = node.name ? node.name.text : "__function";
+            return bindAnonymousDeclaration(node, 16 /* Function */, bindingName);
+        }
         function bindPropertyOrMethodOrAccessor(node, symbolFlags, symbolExcludes) {
+            if (!ts.isDeclarationFile(file) && !ts.isInAmbientContext(node)) {
+                if (ts.isAsyncFunctionLike(node)) {
+                    hasAsyncFunctions = true;
+                }
+                if (ts.nodeIsDecorated(node)) {
+                    hasDecorators = true;
+                }
+            }
             return ts.hasDynamicName(node)
                 ? bindAnonymousDeclaration(node, symbolFlags, "__computed")
                 : declareSymbolAndAddToSymbolTable(node, symbolFlags, symbolExcludes);
@@ -14515,11 +14560,6 @@ var ts;
         var unionTypes = {};
         var intersectionTypes = {};
         var stringLiteralTypes = {};
-        var emitExtends = false;
-        var emitDecorate = false;
-        var emitParam = false;
-        var emitAwaiter = false;
-        var emitGenerator = false;
         var resolutionTargets = [];
         var resolutionResults = [];
         var resolutionPropertyNames = [];
@@ -23702,10 +23742,6 @@ var ts;
             if (contextualMapper === identityMapper && isContextSensitive(node)) {
                 return anyFunctionType;
             }
-            var isAsync = ts.isAsyncFunctionLike(node);
-            if (isAsync) {
-                emitAwaiter = true;
-            }
             var links = getNodeLinks(node);
             var type = getTypeOfSymbol(node.symbol);
             var contextSensitive = isContextSensitive(node);
@@ -23748,9 +23784,6 @@ var ts;
         function checkFunctionExpressionOrObjectLiteralMethodDeferred(node) {
             ts.Debug.assert(node.kind !== 144 /* MethodDeclaration */ || ts.isObjectLiteralMethod(node));
             var isAsync = ts.isAsyncFunctionLike(node);
-            if (isAsync) {
-                emitAwaiter = true;
-            }
             var returnOrPromisedType = node.type && (isAsync ? checkAsyncFunctionReturnType(node) : getTypeFromTypeNode(node.type));
             if (!node.asteriskToken) {
                 // return is not necessary in the body of generators
@@ -25652,10 +25685,6 @@ var ts;
                         break;
                 }
             }
-            emitDecorate = true;
-            if (node.kind === 139 /* Parameter */) {
-                emitParam = true;
-            }
             ts.forEach(node.decorators, checkDecorator);
         }
         function checkFunctionDeclaration(node) {
@@ -25670,9 +25699,6 @@ var ts;
             checkDecorators(node);
             checkSignatureDeclaration(node);
             var isAsync = ts.isAsyncFunctionLike(node);
-            if (isAsync) {
-                emitAwaiter = true;
-            }
             // Do not use hasDynamicName here, because that returns false for well known symbols.
             // We want to perform checkComputedPropertyName for all computed properties, including
             // well known symbols.
@@ -26655,7 +26681,6 @@ var ts;
             var staticType = getTypeOfSymbol(symbol);
             var baseTypeNode = ts.getClassExtendsHeritageClauseElement(node);
             if (baseTypeNode) {
-                emitExtends = emitExtends || !ts.isInAmbientContext(node);
                 var baseTypes = getBaseTypes(type);
                 if (baseTypes.length && produceDiagnostics) {
                     var baseType = baseTypes[0];
@@ -27740,10 +27765,6 @@ var ts;
                 }
                 // Grammar checking
                 checkGrammarSourceFile(node);
-                emitExtends = false;
-                emitDecorate = false;
-                emitParam = false;
-                emitAwaiter = false;
                 potentialThisCollisions.length = 0;
                 deferredNodes = [];
                 ts.forEach(node.statements, checkSourceElement);
@@ -27755,21 +27776,6 @@ var ts;
                 if (potentialThisCollisions.length) {
                     ts.forEach(potentialThisCollisions, checkIfThisIsCapturedInEnclosingScope);
                     potentialThisCollisions.length = 0;
-                }
-                if (emitExtends) {
-                    links.flags |= 8 /* EmitExtends */;
-                }
-                if (emitDecorate) {
-                    links.flags |= 16 /* EmitDecorate */;
-                }
-                if (emitParam) {
-                    links.flags |= 32 /* EmitParam */;
-                }
-                if (emitAwaiter) {
-                    links.flags |= 64 /* EmitAwaiter */;
-                }
-                if (emitGenerator || (emitAwaiter && languageVersion < 2 /* ES6 */)) {
-                    links.flags |= 128 /* EmitGenerator */;
                 }
                 links.flags |= 1 /* TypeChecked */;
             }
@@ -38523,22 +38529,22 @@ var ts;
                 if (!compilerOptions.noEmitHelpers) {
                     // Only Emit __extends function when target ES5.
                     // For target ES6 and above, we can emit classDeclaration as is.
-                    if ((languageVersion < 2 /* ES6 */) && (!extendsEmitted && resolver.getNodeCheckFlags(node) & 8 /* EmitExtends */)) {
+                    if ((languageVersion < 2 /* ES6 */) && (!extendsEmitted && node.flags & 4194304 /* HasClassExtends */)) {
                         writeLines(extendsHelper);
                         extendsEmitted = true;
                     }
-                    if (!decorateEmitted && resolver.getNodeCheckFlags(node) & 16 /* EmitDecorate */) {
+                    if (!decorateEmitted && node.flags & 8388608 /* HasDecorators */) {
                         writeLines(decorateHelper);
                         if (compilerOptions.emitDecoratorMetadata) {
                             writeLines(metadataHelper);
                         }
                         decorateEmitted = true;
                     }
-                    if (!paramEmitted && resolver.getNodeCheckFlags(node) & 32 /* EmitParam */) {
+                    if (!paramEmitted && node.flags & 16777216 /* HasParamDecorators */) {
                         writeLines(paramHelper);
                         paramEmitted = true;
                     }
-                    if (!awaiterEmitted && resolver.getNodeCheckFlags(node) & 64 /* EmitAwaiter */) {
+                    if (!awaiterEmitted && node.flags & 33554432 /* HasAsyncFunctions */) {
                         writeLines(awaiterHelper);
                         awaiterEmitted = true;
                     }
