@@ -27504,7 +27504,7 @@ var ts;
                 // find immediate value referenced by exported name (SymbolFlags.Alias is set so we don't chase down aliases)
                 var symbol = resolveName(exportedName, exportedName.text, 107455 /* Value */ | 793056 /* Type */ | 1536 /* Namespace */ | 8388608 /* Alias */, 
                 /*nameNotFoundMessage*/ undefined, /*nameArg*/ undefined);
-                if (symbol && isGlobalSourceFile(getDeclarationContainer(symbol.declarations[0]))) {
+                if (symbol && (symbol === undefinedSymbol || isGlobalSourceFile(getDeclarationContainer(symbol.declarations[0])))) {
                     error(exportedName, ts.Diagnostics.Cannot_re_export_name_that_is_not_defined_in_the_module);
                 }
                 else {
@@ -30069,9 +30069,9 @@ var ts;
       * @param basePath A root directory to resolve relative path entries in the config
       *    file to. e.g. outDir
       */
-    function parseJsonConfigFileContent(json, host, basePath, existingOptions) {
+    function parseJsonConfigFileContent(json, host, basePath, existingOptions, configFileName) {
         if (existingOptions === void 0) { existingOptions = {}; }
-        var _a = convertCompilerOptionsFromJson(json["compilerOptions"], basePath), optionsFromJsonConfigFile = _a.options, errors = _a.errors;
+        var _a = convertCompilerOptionsFromJson(json["compilerOptions"], basePath, configFileName), optionsFromJsonConfigFile = _a.options, errors = _a.errors;
         var options = ts.extend(existingOptions, optionsFromJsonConfigFile);
         return {
             options: options,
@@ -30099,7 +30099,7 @@ var ts;
                     var filesInDirWithExtension = host.readDirectory(basePath, extension, exclude);
                     for (var _a = 0, filesInDirWithExtension_1 = filesInDirWithExtension; _a < filesInDirWithExtension_1.length; _a++) {
                         var fileName = filesInDirWithExtension_1[_a];
-                        // .ts extension would read the .d.ts extension files too but since .d.ts is lower priority extension, 
+                        // .ts extension would read the .d.ts extension files too but since .d.ts is lower priority extension,
                         // lets pick them when its turn comes up
                         if (extension === ".ts" && ts.fileExtensionIs(fileName, ".d.ts")) {
                             continue;
@@ -30121,9 +30121,13 @@ var ts;
         }
     }
     ts.parseJsonConfigFileContent = parseJsonConfigFileContent;
-    function convertCompilerOptionsFromJson(jsonOptions, basePath) {
+    function convertCompilerOptionsFromJson(jsonOptions, basePath, configFileName) {
         var options = {};
         var errors = [];
+        if (configFileName && ts.getBaseFileName(configFileName) === "jsconfig.json") {
+            options.module = 1 /* CommonJS */;
+            options.allowJs = true;
+        }
         if (!jsonOptions) {
             return { options: options, errors: errors };
         }
@@ -40505,7 +40509,7 @@ var ts;
             if (ts.sys.watchDirectory && configFileName) {
                 var directory = ts.getDirectoryPath(configFileName);
                 directoryWatcher = ts.sys.watchDirectory(
-                // When the configFileName is just "tsconfig.json", the watched directory should be 
+                // When the configFileName is just "tsconfig.json", the watched directory should be
                 // the current direcotry; if there is a given "project" parameter, then the configFileName
                 // is an absolute file name.
                 directory == "" ? "." : directory, watchedDirectoryChanged, /*recursive*/ true);
@@ -53880,7 +53884,8 @@ var ts;
                         errors: [realizeDiagnostic(result.error, "\r\n")]
                     };
                 }
-                var configFile = ts.parseJsonConfigFileContent(result.config, _this.host, ts.getDirectoryPath(ts.normalizeSlashes(fileName)));
+                var normalizedFileName = ts.normalizeSlashes(fileName);
+                var configFile = ts.parseJsonConfigFileContent(result.config, _this.host, ts.getDirectoryPath(normalizedFileName), /*existingOptions*/ {}, normalizedFileName);
                 return {
                     options: configFile.options,
                     files: configFile.fileNames,

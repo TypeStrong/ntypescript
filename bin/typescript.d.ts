@@ -6496,8 +6496,8 @@ declare namespace ts {
       * @param basePath A root directory to resolve relative path entries in the config
       *    file to. e.g. outDir
       */
-    function parseJsonConfigFileContent(json: any, host: ParseConfigHost, basePath: string, existingOptions?: CompilerOptions): ParsedCommandLine;
-    function convertCompilerOptionsFromJson(jsonOptions: any, basePath: string): {
+    function parseJsonConfigFileContent(json: any, host: ParseConfigHost, basePath: string, existingOptions?: CompilerOptions, configFileName?: string): ParsedCommandLine;
+    function convertCompilerOptionsFromJson(jsonOptions: any, basePath: string, configFileName?: string): {
         options: CompilerOptions;
         errors: Diagnostic[];
     };
@@ -6777,7 +6777,7 @@ declare namespace ts.formatting {
 }
 declare namespace ts.formatting {
     class Rules {
-        getRuleName(rule: Rule): any;
+        getRuleName(rule: Rule): string;
         [name: string]: any;
         IgnoreBeforeComment: Rule;
         IgnoreAfterLineComment: Rule;
