@@ -281,11 +281,11 @@ var ts;
         SyntaxKind[SyntaxKind["EnumMember"] = 250] = "EnumMember";
         // Top-level nodes
         SyntaxKind[SyntaxKind["SourceFile"] = 251] = "SourceFile";
-        // JSDoc nodes.
+        // JSDoc nodes
         SyntaxKind[SyntaxKind["JSDocTypeExpression"] = 252] = "JSDocTypeExpression";
-        // The * type.
+        // The * type
         SyntaxKind[SyntaxKind["JSDocAllType"] = 253] = "JSDocAllType";
-        // The ? type.
+        // The ? type
         SyntaxKind[SyntaxKind["JSDocUnknownType"] = 254] = "JSDocUnknownType";
         SyntaxKind[SyntaxKind["JSDocArrayType"] = 255] = "JSDocArrayType";
         SyntaxKind[SyntaxKind["JSDocUnionType"] = 256] = "JSDocUnionType";
@@ -3162,7 +3162,7 @@ var ts;
     ts.isInJavaScriptFile = isInJavaScriptFile;
     /**
      * Returns true if the node is a CallExpression to the identifier 'require' with
-     * exactly one string literal argument.
+     * exactly one argument.
      * This function does not test if the node is in a JavaScript file or not.
     */
     function isRequireCall(expression) {
@@ -3170,8 +3170,7 @@ var ts;
         return expression.kind === 171 /* CallExpression */ &&
             expression.expression.kind === 69 /* Identifier */ &&
             expression.expression.text === "require" &&
-            expression.arguments.length === 1 &&
-            expression.arguments[0].kind === 9 /* StringLiteral */;
+            expression.arguments.length === 1;
     }
     ts.isRequireCall = isRequireCall;
     /// Given a BinaryExpression, returns SpecialPropertyAssignmentKind for the various kinds of property
@@ -3249,26 +3248,50 @@ var ts;
             node.parameters[0].type.kind === 266 /* JSDocConstructorType */;
     }
     ts.isJSDocConstructSignature = isJSDocConstructSignature;
-    function getJSDocTag(node, kind) {
-        if (node && node.jsDocComment) {
-            for (var _i = 0, _a = node.jsDocComment.tags; _i < _a.length; _i++) {
-                var tag = _a[_i];
-                if (tag.kind === kind) {
-                    return tag;
-                }
+    function getJSDocTag(node, kind, checkParentVariableStatement) {
+        if (!node) {
+            return undefined;
+        }
+        var jsDocComment = getJSDocComment(node, checkParentVariableStatement);
+        if (!jsDocComment) {
+            return undefined;
+        }
+        for (var _i = 0, _a = jsDocComment.tags; _i < _a.length; _i++) {
+            var tag = _a[_i];
+            if (tag.kind === kind) {
+                return tag;
             }
         }
     }
+    function getJSDocComment(node, checkParentVariableStatement) {
+        if (node.jsDocComment) {
+            return node.jsDocComment;
+        }
+        // Try to recognize this pattern when node is initializer of variable declaration and JSDoc comments are on containing variable statement. 
+        // /** 
+        //   * @param {number} name
+        //   * @returns {number} 
+        //   */
+        // var x = function(name) { return name.length; }
+        if (checkParentVariableStatement) {
+            var isInitializerOfVariableDeclarationInStatement = node.parent.kind === 214 /* VariableDeclaration */ &&
+                node.parent.initializer === node &&
+                node.parent.parent.parent.kind === 196 /* VariableStatement */;
+            var variableStatementNode = isInitializerOfVariableDeclarationInStatement ? node.parent.parent.parent : undefined;
+            return variableStatementNode && variableStatementNode.jsDocComment;
+        }
+        return undefined;
+    }
     function getJSDocTypeTag(node) {
-        return getJSDocTag(node, 272 /* JSDocTypeTag */);
+        return getJSDocTag(node, 272 /* JSDocTypeTag */, /*checkParentVariableStatement*/ false);
     }
     ts.getJSDocTypeTag = getJSDocTypeTag;
     function getJSDocReturnTag(node) {
-        return getJSDocTag(node, 271 /* JSDocReturnTag */);
+        return getJSDocTag(node, 271 /* JSDocReturnTag */, /*checkParentVariableStatement*/ true);
     }
     ts.getJSDocReturnTag = getJSDocReturnTag;
     function getJSDocTemplateTag(node) {
-        return getJSDocTag(node, 273 /* JSDocTemplateTag */);
+        return getJSDocTag(node, 273 /* JSDocTemplateTag */, /*checkParentVariableStatement*/ false);
     }
     ts.getJSDocTemplateTag = getJSDocTemplateTag;
     function getCorrespondingJSDocParameterTag(parameter) {
@@ -3276,19 +3299,21 @@ var ts;
             // If it's a parameter, see if the parent has a jsdoc comment with an @param
             // annotation.
             var parameterName = parameter.name.text;
-            var docComment = parameter.parent.jsDocComment;
-            if (docComment) {
-                return ts.forEach(docComment.tags, function (t) {
-                    if (t.kind === 270 /* JSDocParameterTag */) {
-                        var parameterTag = t;
+            var jsDocComment = getJSDocComment(parameter.parent, /*checkParentVariableStatement*/ true);
+            if (jsDocComment) {
+                for (var _i = 0, _a = jsDocComment.tags; _i < _a.length; _i++) {
+                    var tag = _a[_i];
+                    if (tag.kind === 270 /* JSDocParameterTag */) {
+                        var parameterTag = tag;
                         var name_5 = parameterTag.preParameterName || parameterTag.postParameterName;
                         if (name_5.text === parameterName) {
-                            return t;
+                            return parameterTag;
                         }
                     }
-                });
+                }
             }
         }
+        return undefined;
     }
     ts.getCorrespondingJSDocParameterTag = getCorrespondingJSDocParameterTag;
     function hasRestParameter(s) {
@@ -6063,6 +6088,7 @@ var ts;
             scanJsxIdentifier: scanJsxIdentifier,
             reScanJsxToken: reScanJsxToken,
             scanJsxToken: scanJsxToken,
+            scanJSDocToken: scanJSDocToken,
             scan: scan,
             setText: setText,
             setScriptTarget: setScriptTarget,
@@ -6071,6 +6097,7 @@ var ts;
             setTextPos: setTextPos,
             tryScan: tryScan,
             lookAhead: lookAhead,
+            scanRange: scanRange,
         };
         function error(message, length) {
             if (onError) {
@@ -6912,6 +6939,55 @@ var ts;
             }
             return token;
         }
+        function scanJSDocToken() {
+            if (pos >= end) {
+                return token = 1 /* EndOfFileToken */;
+            }
+            startPos = pos;
+            // Eat leading whitespace
+            var ch = text.charCodeAt(pos);
+            while (pos < end) {
+                ch = text.charCodeAt(pos);
+                if (isWhiteSpace(ch)) {
+                    pos++;
+                }
+                else {
+                    break;
+                }
+            }
+            tokenPos = pos;
+            switch (ch) {
+                case 64 /* at */:
+                    return pos += 1, token = 55 /* AtToken */;
+                case 10 /* lineFeed */:
+                case 13 /* carriageReturn */:
+                    return pos += 1, token = 4 /* NewLineTrivia */;
+                case 42 /* asterisk */:
+                    return pos += 1, token = 37 /* AsteriskToken */;
+                case 123 /* openBrace */:
+                    return pos += 1, token = 15 /* OpenBraceToken */;
+                case 125 /* closeBrace */:
+                    return pos += 1, token = 16 /* CloseBraceToken */;
+                case 91 /* openBracket */:
+                    return pos += 1, token = 19 /* OpenBracketToken */;
+                case 93 /* closeBracket */:
+                    return pos += 1, token = 20 /* CloseBracketToken */;
+                case 61 /* equals */:
+                    return pos += 1, token = 56 /* EqualsToken */;
+                case 44 /* comma */:
+                    return pos += 1, token = 24 /* CommaToken */;
+            }
+            if (isIdentifierStart(ch, 2 /* Latest */)) {
+                pos++;
+                while (isIdentifierPart(text.charCodeAt(pos), 2 /* Latest */) && pos < end) {
+                    pos++;
+                }
+                return token = 69 /* Identifier */;
+            }
+            else {
+                return pos += 1, token = 0 /* Unknown */;
+            }
+        }
         function speculationHelper(callback, isLookahead) {
             var savePos = pos;
             var saveStartPos = startPos;
@@ -6930,6 +7006,29 @@ var ts;
                 tokenValue = saveTokenValue;
                 precedingLineBreak = savePrecedingLineBreak;
             }
+            return result;
+        }
+        function scanRange(start, length, callback) {
+            var saveEnd = end;
+            var savePos = pos;
+            var saveStartPos = startPos;
+            var saveTokenPos = tokenPos;
+            var saveToken = token;
+            var savePrecedingLineBreak = precedingLineBreak;
+            var saveTokenValue = tokenValue;
+            var saveHasExtendedUnicodeEscape = hasExtendedUnicodeEscape;
+            var saveTokenIsUnterminated = tokenIsUnterminated;
+            setText(text, start, length);
+            var result = callback();
+            end = saveEnd;
+            pos = savePos;
+            startPos = saveStartPos;
+            tokenPos = saveTokenPos;
+            token = saveToken;
+            precedingLineBreak = savePrecedingLineBreak;
+            tokenValue = saveTokenValue;
+            hasExtendedUnicodeEscape = saveHasExtendedUnicodeEscape;
+            tokenIsUnterminated = saveTokenIsUnterminated;
             return result;
         }
         function lookAhead(callback) {
@@ -7549,40 +7648,22 @@ var ts;
             if (setParentNodes) {
                 fixupParentReferences(sourceFile);
             }
-            // If this is a javascript file, proactively see if we can get JSDoc comments for
-            // relevant nodes in the file.  We'll use these to provide typing informaion if they're
-            // available.
-            if (ts.isSourceFileJavaScript(sourceFile)) {
-                addJSDocComments();
-            }
             return sourceFile;
         }
-        function addJSDocComments() {
-            forEachChild(sourceFile, visit);
-            return;
-            function visit(node) {
-                // Add additional cases as necessary depending on how we see JSDoc comments used
-                // in the wild.
-                switch (node.kind) {
-                    case 196 /* VariableStatement */:
-                    case 216 /* FunctionDeclaration */:
-                    case 139 /* Parameter */:
-                        addJSDocComment(node);
-                }
-                forEachChild(node, visit);
-            }
-        }
         function addJSDocComment(node) {
-            var comments = ts.getLeadingCommentRangesOfNode(node, sourceFile);
-            if (comments) {
-                for (var _i = 0, comments_1 = comments; _i < comments_1.length; _i++) {
-                    var comment = comments_1[_i];
-                    var jsDocComment = JSDocParser.parseJSDocComment(node, comment.pos, comment.end - comment.pos);
-                    if (jsDocComment) {
-                        node.jsDocComment = jsDocComment;
+            if (contextFlags & 32 /* JavaScriptFile */) {
+                var comments = ts.getLeadingCommentRangesOfNode(node, sourceFile);
+                if (comments) {
+                    for (var _i = 0, comments_1 = comments; _i < comments_1.length; _i++) {
+                        var comment = comments_1[_i];
+                        var jsDocComment = JSDocParser.parseJSDocComment(node, comment.pos, comment.end - comment.pos);
+                        if (jsDocComment) {
+                            node.jsDocComment = jsDocComment;
+                        }
                     }
                 }
             }
+            return node;
         }
         function fixupParentReferences(sourceFile) {
             // normally parent references are set during binding. However, for clients that only need
@@ -8785,7 +8866,7 @@ var ts;
             // contexts. In addition, parameter initializers are semantically disallowed in
             // overload signatures. So parameter initializers are transitively disallowed in
             // ambient contexts.
-            return finishNode(node);
+            return addJSDocComment(finishNode(node));
         }
         function parseBindingElementInitializer(inParameter) {
             return inParameter ? parseParameterInitializer() : parseNonParameterInitializer();
@@ -11170,7 +11251,7 @@ var ts;
             setModifiers(node, modifiers);
             node.declarationList = parseVariableDeclarationList(/*inForStatementInitializer*/ false);
             parseSemicolon();
-            return finishNode(node);
+            return addJSDocComment(finishNode(node));
         }
         function parseFunctionDeclaration(fullStart, decorators, modifiers) {
             var node = createNode(216 /* FunctionDeclaration */, fullStart);
@@ -11183,7 +11264,7 @@ var ts;
             var isAsync = !!(node.flags & 256 /* Async */);
             fillSignature(54 /* ColonToken */, /*yieldContext*/ isGenerator, /*awaitContext*/ isAsync, /*requireCompleteParameterList*/ false, node);
             node.body = parseFunctionBlockOrSemicolon(isGenerator, isAsync, ts.Diagnostics.or_expected);
-            return finishNode(node);
+            return addJSDocComment(finishNode(node));
         }
         function parseConstructorDeclaration(pos, decorators, modifiers) {
             var node = createNode(145 /* Constructor */, pos);
@@ -11923,20 +12004,18 @@ var ts;
             JSDocParser.isJSDocType = isJSDocType;
             function parseJSDocTypeExpressionForTests(content, start, length) {
                 initializeState("file.js", content, 2 /* Latest */, /*isJavaScriptFile*/ true, /*_syntaxCursor:*/ undefined);
-                var jsDocTypeExpression = parseJSDocTypeExpression(start, length);
+                scanner.setText(content, start, length);
+                token = scanner.scan();
+                var jsDocTypeExpression = parseJSDocTypeExpression();
                 var diagnostics = parseDiagnostics;
                 clearState();
                 return jsDocTypeExpression ? { jsDocTypeExpression: jsDocTypeExpression, diagnostics: diagnostics } : undefined;
             }
             JSDocParser.parseJSDocTypeExpressionForTests = parseJSDocTypeExpressionForTests;
-            // Parses out a JSDoc type expression.  The starting position should be right at the open
-            // curly in the type expression.  Returns 'undefined' if it encounters any errors while parsing.
+            // Parses out a JSDoc type expression.
             /* @internal */
-            function parseJSDocTypeExpression(start, length) {
-                scanner.setText(sourceText, start, length);
-                // Prime the first token for us to start processing.
-                token = nextToken();
-                var result = createNode(252 /* JSDocTypeExpression */);
+            function parseJSDocTypeExpression() {
+                var result = createNode(252 /* JSDocTypeExpression */, scanner.getTokenPos());
                 parseExpected(15 /* OpenBraceToken */);
                 result.type = parseJSDocTopLevelType();
                 parseExpected(16 /* CloseBraceToken */);
@@ -12184,18 +12263,24 @@ var ts;
             }
             function parseIsolatedJSDocComment(content, start, length) {
                 initializeState("file.js", content, 2 /* Latest */, /*isJavaScriptFile*/ true, /*_syntaxCursor:*/ undefined);
-                var jsDocComment = parseJSDocComment(/*parent:*/ undefined, start, length);
+                sourceFile = { languageVariant: 0 /* Standard */, text: content };
+                var jsDocComment = parseJSDocCommentWorker(start, length);
                 var diagnostics = parseDiagnostics;
                 clearState();
                 return jsDocComment ? { jsDocComment: jsDocComment, diagnostics: diagnostics } : undefined;
             }
             JSDocParser.parseIsolatedJSDocComment = parseIsolatedJSDocComment;
             function parseJSDocComment(parent, start, length) {
+                var saveToken = token;
+                var saveParseDiagnosticsLength = parseDiagnostics.length;
+                var saveParseErrorBeforeNextFinishedNode = parseErrorBeforeNextFinishedNode;
                 var comment = parseJSDocCommentWorker(start, length);
                 if (comment) {
-                    fixupParentReferences(comment);
                     comment.parent = parent;
                 }
+                token = saveToken;
+                parseDiagnostics.length = saveParseDiagnosticsLength;
+                parseErrorBeforeNextFinishedNode = saveParseErrorBeforeNextFinishedNode;
                 return comment;
             }
             JSDocParser.parseJSDocComment = parseJSDocComment;
@@ -12208,59 +12293,56 @@ var ts;
                 ts.Debug.assert(start <= end);
                 ts.Debug.assert(end <= content.length);
                 var tags;
-                var pos;
-                // NOTE(cyrusn): This is essentially a handwritten scanner for JSDocComments. I
-                // considered using an actual Scanner, but this would complicate things.  The
-                // scanner would need to know it was in a Doc Comment.  Otherwise, it would then
-                // produce comments *inside* the doc comment.  In the end it was just easier to
-                // write a simple scanner rather than go that route.
-                if (length >= "/** */".length) {
-                    if (content.charCodeAt(start) === 47 /* slash */ &&
-                        content.charCodeAt(start + 1) === 42 /* asterisk */ &&
-                        content.charCodeAt(start + 2) === 42 /* asterisk */ &&
-                        content.charCodeAt(start + 3) !== 42 /* asterisk */) {
+                var result;
+                // Check for /** (JSDoc opening part)
+                if (content.charCodeAt(start) === 47 /* slash */ &&
+                    content.charCodeAt(start + 1) === 42 /* asterisk */ &&
+                    content.charCodeAt(start + 2) === 42 /* asterisk */ &&
+                    content.charCodeAt(start + 3) !== 42 /* asterisk */) {
+                    // + 3 for leading /**, - 5 in total for /** */
+                    scanner.scanRange(start + 3, length - 5, function () {
                         // Initially we can parse out a tag.  We also have seen a starting asterisk.
                         // This is so that /** * @type */ doesn't parse.
                         var canParseTag = true;
                         var seenAsterisk = true;
-                        for (pos = start + "/**".length; pos < end;) {
-                            var ch = content.charCodeAt(pos);
-                            pos++;
-                            if (ch === 64 /* at */ && canParseTag) {
-                                parseTag();
-                                // Once we parse out a tag, we cannot keep parsing out tags on this line.
-                                canParseTag = false;
-                                continue;
-                            }
-                            if (ts.isLineBreak(ch)) {
-                                // After a line break, we can parse a tag, and we haven't seen as asterisk
-                                // on the next line yet.
-                                canParseTag = true;
-                                seenAsterisk = false;
-                                continue;
-                            }
-                            if (ts.isWhiteSpace(ch)) {
-                                // Whitespace doesn't affect any of our parsing.
-                                continue;
-                            }
-                            // Ignore the first asterisk on a line.
-                            if (ch === 42 /* asterisk */) {
-                                if (seenAsterisk) {
-                                    // If we've already seen an asterisk, then we can no longer parse a tag
-                                    // on this line.
+                        nextJSDocToken();
+                        while (token !== 1 /* EndOfFileToken */) {
+                            switch (token) {
+                                case 55 /* AtToken */:
+                                    if (canParseTag) {
+                                        parseTag();
+                                    }
+                                    // This will take us to the end of the line, so it's OK to parse a tag on the next pass through the loop
+                                    seenAsterisk = false;
+                                    break;
+                                case 4 /* NewLineTrivia */:
+                                    // After a line break, we can parse a tag, and we haven't seen an asterisk on the next line yet
+                                    canParseTag = true;
+                                    seenAsterisk = false;
+                                    break;
+                                case 37 /* AsteriskToken */:
+                                    if (seenAsterisk) {
+                                        // If we've already seen an asterisk, then we can no longer parse a tag on this line
+                                        canParseTag = false;
+                                    }
+                                    // Ignore the first asterisk on a line
+                                    seenAsterisk = true;
+                                    break;
+                                case 69 /* Identifier */:
+                                    // Anything else is doc comment text.  We can't do anything with it.  Because it
+                                    // wasn't a tag, we can no longer parse a tag on this line until we hit the next
+                                    // line break.
                                     canParseTag = false;
-                                }
-                                seenAsterisk = true;
-                                continue;
+                                    break;
+                                case 1 /* EndOfFileToken */:
+                                    break;
                             }
-                            // Anything else is doc comment text.  We can't do anything with it.  Because it
-                            // wasn't a tag, we can no longer parse a tag on this line until we hit the next
-                            // line break.
-                            canParseTag = false;
+                            nextJSDocToken();
                         }
-                    }
+                        result = createJSDocComment();
+                    });
                 }
-                return createJSDocComment();
+                return result;
                 function createJSDocComment() {
                     if (!tags) {
                         return undefined;
@@ -12270,15 +12352,16 @@ var ts;
                     return finishNode(result, end);
                 }
                 function skipWhitespace() {
-                    while (pos < end && ts.isWhiteSpace(content.charCodeAt(pos))) {
-                        pos++;
+                    while (token === 5 /* WhitespaceTrivia */ || token === 4 /* NewLineTrivia */) {
+                        nextJSDocToken();
                     }
                 }
                 function parseTag() {
-                    ts.Debug.assert(content.charCodeAt(pos - 1) === 64 /* at */);
-                    var atToken = createNode(55 /* AtToken */, pos - 1);
-                    atToken.end = pos;
-                    var tagName = scanIdentifier();
+                    ts.Debug.assert(token === 55 /* AtToken */);
+                    var atToken = createNode(55 /* AtToken */, scanner.getTokenPos());
+                    atToken.end = scanner.getTextPos();
+                    nextJSDocToken();
+                    var tagName = parseJSDocIdentifier();
                     if (!tagName) {
                         return;
                     }
@@ -12305,7 +12388,7 @@ var ts;
                     var result = createNode(269 /* JSDocTag */, atToken.pos);
                     result.atToken = atToken;
                     result.tagName = tagName;
-                    return finishNode(result, pos);
+                    return finishNode(result);
                 }
                 function addTag(tag) {
                     if (tag) {
@@ -12318,12 +12401,10 @@ var ts;
                     }
                 }
                 function tryParseTypeExpression() {
-                    skipWhitespace();
-                    if (content.charCodeAt(pos) !== 123 /* openBrace */) {
+                    if (token !== 15 /* OpenBraceToken */) {
                         return undefined;
                     }
-                    var typeExpression = parseJSDocTypeExpression(pos, end - pos);
-                    pos = typeExpression.end;
+                    var typeExpression = parseJSDocTypeExpression();
                     return typeExpression;
                 }
                 function handleParamTag(atToken, tagName) {
@@ -12331,17 +12412,22 @@ var ts;
                     skipWhitespace();
                     var name;
                     var isBracketed;
-                    if (content.charCodeAt(pos) === 91 /* openBracket */) {
-                        pos++;
-                        skipWhitespace();
-                        name = scanIdentifier();
+                    // Looking for something like '[foo]' or 'foo'
+                    if (parseOptionalToken(19 /* OpenBracketToken */)) {
+                        name = parseJSDocIdentifier();
                         isBracketed = true;
+                        // May have an optional default, e.g. '[foo = 42]'
+                        if (parseOptionalToken(56 /* EqualsToken */)) {
+                            parseExpression();
+                        }
+                        parseExpected(20 /* CloseBracketToken */);
                     }
-                    else {
-                        name = scanIdentifier();
+                    else if (token === 69 /* Identifier */) {
+                        name = parseJSDocIdentifier();
                     }
                     if (!name) {
-                        parseErrorAtPosition(pos, 0, ts.Diagnostics.Identifier_expected);
+                        parseErrorAtPosition(scanner.getStartPos(), 0, ts.Diagnostics.Identifier_expected);
+                        return undefined;
                     }
                     var preName, postName;
                     if (typeExpression) {
@@ -12360,77 +12446,75 @@ var ts;
                     result.typeExpression = typeExpression;
                     result.postParameterName = postName;
                     result.isBracketed = isBracketed;
-                    return finishNode(result, pos);
+                    return finishNode(result);
                 }
                 function handleReturnTag(atToken, tagName) {
                     if (ts.forEach(tags, function (t) { return t.kind === 271 /* JSDocReturnTag */; })) {
-                        parseErrorAtPosition(tagName.pos, pos - tagName.pos, ts.Diagnostics._0_tag_already_specified, tagName.text);
+                        parseErrorAtPosition(tagName.pos, scanner.getTokenPos() - tagName.pos, ts.Diagnostics._0_tag_already_specified, tagName.text);
                     }
                     var result = createNode(271 /* JSDocReturnTag */, atToken.pos);
                     result.atToken = atToken;
                     result.tagName = tagName;
                     result.typeExpression = tryParseTypeExpression();
-                    return finishNode(result, pos);
+                    return finishNode(result);
                 }
                 function handleTypeTag(atToken, tagName) {
                     if (ts.forEach(tags, function (t) { return t.kind === 272 /* JSDocTypeTag */; })) {
-                        parseErrorAtPosition(tagName.pos, pos - tagName.pos, ts.Diagnostics._0_tag_already_specified, tagName.text);
+                        parseErrorAtPosition(tagName.pos, scanner.getTokenPos() - tagName.pos, ts.Diagnostics._0_tag_already_specified, tagName.text);
                     }
                     var result = createNode(272 /* JSDocTypeTag */, atToken.pos);
                     result.atToken = atToken;
                     result.tagName = tagName;
                     result.typeExpression = tryParseTypeExpression();
-                    return finishNode(result, pos);
+                    return finishNode(result);
                 }
                 function handleTemplateTag(atToken, tagName) {
                     if (ts.forEach(tags, function (t) { return t.kind === 273 /* JSDocTemplateTag */; })) {
-                        parseErrorAtPosition(tagName.pos, pos - tagName.pos, ts.Diagnostics._0_tag_already_specified, tagName.text);
+                        parseErrorAtPosition(tagName.pos, scanner.getTokenPos() - tagName.pos, ts.Diagnostics._0_tag_already_specified, tagName.text);
                     }
+                    // Type parameter list looks like '@template T,U,V'
                     var typeParameters = [];
-                    typeParameters.pos = pos;
+                    typeParameters.pos = scanner.getStartPos();
                     while (true) {
-                        skipWhitespace();
-                        var startPos = pos;
-                        var name_8 = scanIdentifier();
+                        var name_8 = parseJSDocIdentifier();
                         if (!name_8) {
-                            parseErrorAtPosition(startPos, 0, ts.Diagnostics.Identifier_expected);
+                            parseErrorAtPosition(scanner.getStartPos(), 0, ts.Diagnostics.Identifier_expected);
                             return undefined;
                         }
                         var typeParameter = createNode(138 /* TypeParameter */, name_8.pos);
                         typeParameter.name = name_8;
-                        finishNode(typeParameter, pos);
+                        finishNode(typeParameter);
                         typeParameters.push(typeParameter);
-                        skipWhitespace();
-                        if (content.charCodeAt(pos) !== 44 /* comma */) {
+                        if (token === 24 /* CommaToken */) {
+                            nextJSDocToken();
+                        }
+                        else {
                             break;
                         }
-                        pos++;
                     }
-                    typeParameters.end = pos;
                     var result = createNode(273 /* JSDocTemplateTag */, atToken.pos);
                     result.atToken = atToken;
                     result.tagName = tagName;
                     result.typeParameters = typeParameters;
-                    return finishNode(result, pos);
+                    finishNode(result);
+                    typeParameters.end = result.end;
+                    return result;
                 }
-                function scanIdentifier() {
-                    var startPos = pos;
-                    for (; pos < end; pos++) {
-                        var ch = content.charCodeAt(pos);
-                        if (pos === startPos && ts.isIdentifierStart(ch, 2 /* Latest */)) {
-                            continue;
-                        }
-                        else if (pos > startPos && ts.isIdentifierPart(ch, 2 /* Latest */)) {
-                            continue;
-                        }
-                        break;
-                    }
-                    if (startPos === pos) {
+                function nextJSDocToken() {
+                    return token = scanner.scanJSDocToken();
+                }
+                function parseJSDocIdentifier() {
+                    if (token !== 69 /* Identifier */) {
+                        parseErrorAtCurrentToken(ts.Diagnostics.Identifier_expected);
                         return undefined;
                     }
-                    var result = createNode(69 /* Identifier */, startPos);
-                    result.text = content.substring(startPos, pos);
-                    return finishNode(result, pos);
+                    var pos = scanner.getTokenPos();
+                    var end = scanner.getTextPos();
+                    var result = createNode(69 /* Identifier */, pos);
+                    result.text = content.substring(pos, end);
+                    finishNode(result, end);
+                    nextJSDocToken();
+                    return result;
                 }
             }
             JSDocParser.parseJSDocCommentWorker = parseJSDocCommentWorker;
@@ -13132,6 +13216,15 @@ var ts;
                 case 216 /* FunctionDeclaration */:
                 case 217 /* ClassDeclaration */:
                     return node.flags & 512 /* Default */ ? "default" : undefined;
+                case 264 /* JSDocFunctionType */:
+                    return ts.isJSDocConstructSignature(node) ? "__new" : "__call";
+                case 139 /* Parameter */:
+                    // Parameters with names are handled at the top of this function.  Parameters
+                    // without names can only come from JSDocFunctionTypes.
+                    ts.Debug.assert(node.parent.kind === 264 /* JSDocFunctionType */);
+                    var functionType = node.parent;
+                    var index = ts.indexOf(functionType.parameters, node);
+                    return "p" + index;
             }
         }
         function getDisplayName(node) {
@@ -13309,6 +13402,9 @@ var ts;
                 currentReachabilityState = 2 /* Reachable */;
                 hasExplicitReturn = false;
                 labelStack = labelIndexMap = implicitLabels = undefined;
+            }
+            if (ts.isInJavaScriptFile(node) && node.jsDocComment) {
+                bind(node.jsDocComment);
             }
             bindReachableStatement(node);
             if (currentReachabilityState === 2 /* Reachable */ && ts.isFunctionLikeKind(kind) && ts.nodeIsPresent(node.body)) {
@@ -13530,8 +13626,9 @@ var ts;
                 case 217 /* ClassDeclaration */:
                 case 218 /* InterfaceDeclaration */:
                 case 220 /* EnumDeclaration */:
-                case 156 /* TypeLiteral */:
                 case 168 /* ObjectLiteralExpression */:
+                case 156 /* TypeLiteral */:
+                case 260 /* JSDocRecordType */:
                     return 1 /* IsContainer */;
                 case 148 /* CallSignature */:
                 case 149 /* ConstructSignature */:
@@ -13605,6 +13702,7 @@ var ts;
                 case 156 /* TypeLiteral */:
                 case 168 /* ObjectLiteralExpression */:
                 case 218 /* InterfaceDeclaration */:
+                case 260 /* JSDocRecordType */:
                     // Interface/Object-types always have their children added to the 'members' of
                     // their container. They are only accessible through an instance of their
                     // container, and are never in scope otherwise (even inside the body of the
@@ -13624,6 +13722,7 @@ var ts;
                 case 216 /* FunctionDeclaration */:
                 case 176 /* FunctionExpression */:
                 case 177 /* ArrowFunction */:
+                case 264 /* JSDocFunctionType */:
                 case 219 /* TypeAliasDeclaration */:
                     // All the children of these container types are never visible through another
                     // symbol (i.e. through another symbol's 'exports' or 'members').  Instead,
@@ -14011,6 +14110,7 @@ var ts;
                     return bindVariableDeclarationOrBindingElement(node);
                 case 142 /* PropertyDeclaration */:
                 case 141 /* PropertySignature */:
+                case 261 /* JSDocRecordMember */:
                     return bindPropertyOrMethodOrAccessor(node, 4 /* Property */ | (node.questionToken ? 536870912 /* Optional */ : 0 /* None */), 107455 /* PropertyExcludes */);
                 case 248 /* PropertyAssignment */:
                 case 249 /* ShorthandPropertyAssignment */:
@@ -14038,8 +14138,10 @@ var ts;
                     return bindPropertyOrMethodOrAccessor(node, 65536 /* SetAccessor */, 74687 /* SetAccessorExcludes */);
                 case 153 /* FunctionType */:
                 case 154 /* ConstructorType */:
+                case 264 /* JSDocFunctionType */:
                     return bindFunctionOrConstructorType(node);
                 case 156 /* TypeLiteral */:
+                case 260 /* JSDocRecordType */:
                     return bindAnonymousDeclaration(node, 2048 /* TypeLiteral */, "__type");
                 case 168 /* ObjectLiteralExpression */:
                     return bindObjectLiteralExpression(node);
@@ -14921,7 +15023,9 @@ var ts;
                             // - Type parameters of a function are in scope in the entire function declaration, including the parameter
                             //   list and return type. However, local types are only in scope in the function body.
                             // - parameters are only in the scope of function body
-                            if (meaning & result.flags & 793056 /* Type */) {
+                            // This restriction does not apply to JSDoc comment types because they are parented
+                            // at a higher level than type parameters would normally be
+                            if (meaning & result.flags & 793056 /* Type */ && lastLocation.kind !== 268 /* JSDocComment */) {
                                 useResult = result.flags & 262144 /* TypeParameter */
                                     ? lastLocation === location.type ||
                                         lastLocation.kind === 139 /* Parameter */ ||
@@ -16756,8 +16860,48 @@ var ts;
             }
             return type;
         }
+        function getTypeForVariableLikeDeclarationFromJSDocComment(declaration) {
+            var jsDocType = getJSDocTypeForVariableLikeDeclarationFromJSDocComment(declaration);
+            if (jsDocType) {
+                return getTypeFromTypeNode(jsDocType);
+            }
+        }
+        function getJSDocTypeForVariableLikeDeclarationFromJSDocComment(declaration) {
+            // First, see if this node has an @type annotation on it directly.
+            var typeTag = ts.getJSDocTypeTag(declaration);
+            if (typeTag) {
+                return typeTag.typeExpression.type;
+            }
+            if (declaration.kind === 214 /* VariableDeclaration */ &&
+                declaration.parent.kind === 215 /* VariableDeclarationList */ &&
+                declaration.parent.parent.kind === 196 /* VariableStatement */) {
+                // @type annotation might have been on the variable statement, try that instead.
+                var annotation = ts.getJSDocTypeTag(declaration.parent.parent);
+                if (annotation) {
+                    return annotation.typeExpression.type;
+                }
+            }
+            else if (declaration.kind === 139 /* Parameter */) {
+                // If it's a parameter, see if the parent has a jsdoc comment with an @param 
+                // annotation.
+                var paramTag = ts.getCorrespondingJSDocParameterTag(declaration);
+                if (paramTag && paramTag.typeExpression) {
+                    return paramTag.typeExpression.type;
+                }
+            }
+            return undefined;
+        }
         // Return the inferred type for a variable, parameter, or property declaration
         function getTypeForVariableLikeDeclaration(declaration) {
+            if (declaration.parserContextFlags & 32 /* JavaScriptFile */) {
+                // If this is a variable in a JavaScript file, then use the JSDoc type (if it has
+                // one as its type), otherwise fallback to the below standard TS codepaths to 
+                // try to figure it out.
+                var type = getTypeForVariableLikeDeclarationFromJSDocComment(declaration);
+                if (type && type !== unknownType) {
+                    return type;
+                }
+            }
             // A variable declared in a for..in statement is always of type string
             if (declaration.parent.parent.kind === 203 /* ForInStatement */) {
                 return stringType;
@@ -17998,6 +18142,15 @@ var ts;
         function getIndexTypeOfType(type, kind) {
             return getIndexTypeOfStructuredType(getApparentType(type), kind);
         }
+        function getTypeParametersFromJSDocTemplate(declaration) {
+            if (declaration.parserContextFlags & 32 /* JavaScriptFile */) {
+                var templateTag = ts.getJSDocTemplateTag(declaration);
+                if (templateTag) {
+                    return getTypeParametersFromDeclaration(templateTag.typeParameters);
+                }
+            }
+            return undefined;
+        }
         // Return list of type parameters with duplicates removed (duplicate identifier errors are generated in the actual
         // type checking functions).
         function getTypeParametersFromDeclaration(typeParameterDeclarations) {
@@ -18020,6 +18173,20 @@ var ts;
             return result;
         }
         function isOptionalParameter(node) {
+            if (node.parserContextFlags & 32 /* JavaScriptFile */) {
+                if (node.type && node.type.kind === 263 /* JSDocOptionalType */) {
+                    return true;
+                }
+                var paramTag = ts.getCorrespondingJSDocParameterTag(node);
+                if (paramTag) {
+                    if (paramTag.isBracketed) {
+                        return true;
+                    }
+                    if (paramTag.typeExpression) {
+                        return paramTag.typeExpression.type.kind === 263 /* JSDocOptionalType */;
+                    }
+                }
+            }
             if (ts.hasQuestionToken(node)) {
                 return true;
             }
@@ -18056,11 +18223,17 @@ var ts;
                     getDeclaredTypeOfClassOrInterface(getMergedSymbol(declaration.parent.symbol))
                     : undefined;
                 var typeParameters = classType ? classType.localTypeParameters :
-                    declaration.typeParameters ? getTypeParametersFromDeclaration(declaration.typeParameters) : undefined;
+                    declaration.typeParameters ? getTypeParametersFromDeclaration(declaration.typeParameters) :
+                        getTypeParametersFromJSDocTemplate(declaration);
                 var parameters = [];
                 var hasStringLiterals = false;
                 var minArgumentCount = -1;
-                for (var i = 0, n = declaration.parameters.length; i < n; i++) {
+                var isJSConstructSignature = ts.isJSDocConstructSignature(declaration);
+                var returnType = undefined;
+                // If this is a JSDoc construct signature, then skip the first parameter in the 
+                // parameter list.  The first parameter represents the return type of the construct
+                // signature.
+                for (var i = isJSConstructSignature ? 1 : 0, n = declaration.parameters.length; i < n; i++) {
                     var param = declaration.parameters[i];
                     var paramSymbol = param.symbol;
                     // Include parameter symbol instead of property symbol in the signature
@@ -18085,14 +18258,23 @@ var ts;
                 if (minArgumentCount < 0) {
                     minArgumentCount = declaration.parameters.length;
                 }
-                var returnType;
-                if (classType) {
+                if (isJSConstructSignature) {
+                    minArgumentCount--;
+                    returnType = getTypeFromTypeNode(declaration.parameters[0].type);
+                }
+                else if (classType) {
                     returnType = classType;
                 }
                 else if (declaration.type) {
                     returnType = getTypeFromTypeNode(declaration.type);
                 }
                 else {
+                    if (declaration.parserContextFlags & 32 /* JavaScriptFile */) {
+                        var type = getReturnTypeFromJSDocComment(declaration);
+                        if (type && type !== unknownType) {
+                            returnType = type;
+                        }
+                    }
                     // TypeScript 1.0 spec (April 2014):
                     // If only one accessor includes a type annotation, the other behaves as if it had the same type annotation.
                     if (declaration.kind === 146 /* GetAccessor */ && !ts.hasDynamicName(declaration)) {
@@ -18127,6 +18309,7 @@ var ts;
                     case 147 /* SetAccessor */:
                     case 176 /* FunctionExpression */:
                     case 177 /* ArrowFunction */:
+                    case 264 /* JSDocFunctionType */:
                         // Don't include signature if node is the implementation of an overloaded function. A node is considered
                         // an implementation node if it has a body and the previous node is of the same kind and immediately
                         // precedes the implementation node (i.e. has the same parent and ends where the implementation starts).
@@ -18378,18 +18561,68 @@ var ts;
             }
             return getDeclaredTypeOfSymbol(symbol);
         }
+        function getTypeReferenceName(node) {
+            switch (node.kind) {
+                case 152 /* TypeReference */:
+                    return node.typeName;
+                case 262 /* JSDocTypeReference */:
+                    return node.name;
+                case 191 /* ExpressionWithTypeArguments */:
+                    // We only support expressions that are simple qualified names. For other
+                    // expressions this produces undefined.
+                    if (ts.isSupportedExpressionWithTypeArguments(node)) {
+                        return node.expression;
+                    }
+            }
+            return undefined;
+        }
+        function resolveTypeReferenceName(node, typeReferenceName) {
+            if (!typeReferenceName) {
+                return unknownSymbol;
+            }
+            return resolveEntityName(typeReferenceName, 793056 /* Type */) || unknownSymbol;
+        }
+        function getTypeReferenceType(node, symbol) {
+            if (symbol === unknownSymbol) {
+                return unknownType;
+            }
+            if (symbol.flags & (32 /* Class */ | 64 /* Interface */)) {
+                return getTypeFromClassOrInterfaceReference(node, symbol);
+            }
+            if (symbol.flags & 524288 /* TypeAlias */) {
+                return getTypeFromTypeAliasReference(node, symbol);
+            }
+            if (symbol.flags & 107455 /* Value */ && node.kind === 262 /* JSDocTypeReference */) {
+                // A JSDocTypeReference may have resolved to a value (as opposed to a type). In 
+                // that case, the type of this reference is just the type of the value we resolved
+                // to.
+                return getTypeOfSymbol(symbol);
+            }
+            return getTypeFromNonGenericTypeReference(node, symbol);
+        }
         function getTypeFromTypeReference(node) {
             var links = getNodeLinks(node);
             if (!links.resolvedType) {
-                // We only support expressions that are simple qualified names. For other expressions this produces undefined.
-                var typeNameOrExpression = node.kind === 152 /* TypeReference */ ? node.typeName :
-                    ts.isSupportedExpressionWithTypeArguments(node) ? node.expression :
-                        undefined;
-                var symbol = typeNameOrExpression && resolveEntityName(typeNameOrExpression, 793056 /* Type */) || unknownSymbol;
-                var type = symbol === unknownSymbol ? unknownType :
-                    symbol.flags & (32 /* Class */ | 64 /* Interface */) ? getTypeFromClassOrInterfaceReference(node, symbol) :
-                        symbol.flags & 524288 /* TypeAlias */ ? getTypeFromTypeAliasReference(node, symbol) :
-                            getTypeFromNonGenericTypeReference(node, symbol);
+                var symbol;
+                var type;
+                if (node.kind === 262 /* JSDocTypeReference */) {
+                    var typeReferenceName = getTypeReferenceName(node);
+                    symbol = resolveTypeReferenceName(node, typeReferenceName);
+                    type = getTypeReferenceType(node, symbol);
+                    links.resolvedSymbol = symbol;
+                    links.resolvedType = type;
+                }
+                else {
+                    // We only support expressions that are simple qualified names. For other expressions this produces undefined.
+                    var typeNameOrExpression = node.kind === 152 /* TypeReference */ ? node.typeName :
+                        ts.isSupportedExpressionWithTypeArguments(node) ? node.expression :
+                            undefined;
+                    symbol = typeNameOrExpression && resolveEntityName(typeNameOrExpression, 793056 /* Type */) || unknownSymbol;
+                    type = symbol === unknownSymbol ? unknownType :
+                        symbol.flags & (32 /* Class */ | 64 /* Interface */) ? getTypeFromClassOrInterfaceReference(node, symbol) :
+                            symbol.flags & 524288 /* TypeAlias */ ? getTypeFromTypeAliasReference(node, symbol) :
+                                getTypeFromNonGenericTypeReference(node, symbol);
+                }
                 // Cache both the resolved symbol and the resolved type. The resolved symbol is needed in when we check the
                 // type reference in checkTypeReferenceOrExpressionWithTypeArguments.
                 links.resolvedSymbol = symbol;
@@ -18654,6 +18887,22 @@ var ts;
             }
             return links.resolvedType;
         }
+        function getTypeFromJSDocVariadicType(node) {
+            var links = getNodeLinks(node);
+            if (!links.resolvedType) {
+                var type = getTypeFromTypeNode(node.type);
+                links.resolvedType = type ? createArrayType(type) : unknownType;
+            }
+            return links.resolvedType;
+        }
+        function getTypeFromJSDocTupleType(node) {
+            var links = getNodeLinks(node);
+            if (!links.resolvedType) {
+                var types = ts.map(node.types, getTypeFromTypeNode);
+                links.resolvedType = createTupleType(types);
+            }
+            return links.resolvedType;
+        }
         function getThisType(node) {
             var container = ts.getThisContainer(node, /*includeArrowFunctions*/ false);
             var parent = container && container.parent;
@@ -18692,6 +18941,8 @@ var ts;
         function getTypeFromTypeNode(node) {
             switch (node.kind) {
                 case 117 /* AnyKeyword */:
+                case 253 /* JSDocAllType */:
+                case 254 /* JSDocUnknownType */:
                     return anyType;
                 case 130 /* StringKeyword */:
                     return stringType;
@@ -18708,6 +18959,7 @@ var ts;
                 case 163 /* StringLiteralType */:
                     return getTypeFromStringLiteralTypeNode(node);
                 case 152 /* TypeReference */:
+                case 262 /* JSDocTypeReference */:
                     return getTypeFromTypeReference(node);
                 case 151 /* TypePredicate */:
                     return getTypeFromPredicateTypeNode(node);
@@ -18716,18 +18968,27 @@ var ts;
                 case 155 /* TypeQuery */:
                     return getTypeFromTypeQueryNode(node);
                 case 157 /* ArrayType */:
+                case 255 /* JSDocArrayType */:
                     return getTypeFromArrayTypeNode(node);
                 case 158 /* TupleType */:
                     return getTypeFromTupleTypeNode(node);
                 case 159 /* UnionType */:
+                case 256 /* JSDocUnionType */:
                     return getTypeFromUnionTypeNode(node);
                 case 160 /* IntersectionType */:
                     return getTypeFromIntersectionTypeNode(node);
                 case 161 /* ParenthesizedType */:
+                case 258 /* JSDocNullableType */:
+                case 259 /* JSDocNonNullableType */:
+                case 266 /* JSDocConstructorType */:
+                case 267 /* JSDocThisType */:
+                case 263 /* JSDocOptionalType */:
                     return getTypeFromTypeNode(node.type);
                 case 153 /* FunctionType */:
                 case 154 /* ConstructorType */:
                 case 156 /* TypeLiteral */:
+                case 264 /* JSDocFunctionType */:
+                case 260 /* JSDocRecordType */:
                     return getTypeFromTypeLiteralOrFunctionOrConstructorTypeNode(node);
                 // This function assumes that an identifier or qualified name is a type expression
                 // Callers should first ensure this by calling isTypeNode
@@ -18735,6 +18996,10 @@ var ts;
                 case 136 /* QualifiedName */:
                     var symbol = getSymbolAtLocation(node);
                     return symbol && getDeclaredTypeOfSymbol(symbol);
+                case 257 /* JSDocTupleType */:
+                    return getTypeFromJSDocTupleType(node);
+                case 265 /* JSDocVariadicType */:
+                    return getTypeFromJSDocVariadicType(node);
                 default:
                     return unknownType;
             }
@@ -20932,22 +21197,37 @@ var ts;
                 var symbol = getSymbolOfNode(container.parent);
                 return container.flags & 64 /* Static */ ? getTypeOfSymbol(symbol) : getDeclaredTypeOfSymbol(symbol).thisType;
             }
-            // If this is a function in a JS file, it might be a class method. Check if it's the RHS
-            // of a x.prototype.y = function [name]() { .... }
-            if (ts.isInJavaScriptFile(node) && container.kind === 176 /* FunctionExpression */) {
-                if (ts.getSpecialPropertyAssignmentKind(container.parent) === 3 /* PrototypeProperty */) {
-                    // Get the 'x' of 'x.prototype.y = f' (here, 'f' is 'container')
-                    var className = container.parent // x.protoype.y = f
-                        .left // x.prototype.y
-                        .expression // x.prototype
-                        .expression; // x
-                    var classSymbol = checkExpression(className).symbol;
-                    if (classSymbol && classSymbol.members && (classSymbol.flags & 16 /* Function */)) {
-                        return getInferredClassType(classSymbol);
+            if (ts.isInJavaScriptFile(node)) {
+                var type = getTypeForThisExpressionFromJSDoc(container);
+                if (type && type !== unknownType) {
+                    return type;
+                }
+                // If this is a function in a JS file, it might be a class method. Check if it's the RHS
+                // of a x.prototype.y = function [name]() { .... }
+                if (container.kind === 176 /* FunctionExpression */) {
+                    if (ts.getSpecialPropertyAssignmentKind(container.parent) === 3 /* PrototypeProperty */) {
+                        // Get the 'x' of 'x.prototype.y = f' (here, 'f' is 'container')
+                        var className = container.parent // x.protoype.y = f
+                            .left // x.prototype.y
+                            .expression // x.prototype
+                            .expression; // x
+                        var classSymbol = checkExpression(className).symbol;
+                        if (classSymbol && classSymbol.members && (classSymbol.flags & 16 /* Function */)) {
+                            return getInferredClassType(classSymbol);
+                        }
                     }
                 }
             }
             return anyType;
+        }
+        function getTypeForThisExpressionFromJSDoc(node) {
+            var typeTag = ts.getJSDocTypeTag(node);
+            if (typeTag && typeTag.typeExpression.type.kind === 264 /* JSDocFunctionType */) {
+                var jsDocFunctionType = typeTag.typeExpression.type;
+                if (jsDocFunctionType.parameters.length > 0 && jsDocFunctionType.parameters[0].type.kind === 267 /* JSDocThisType */) {
+                    return getTypeFromTypeNode(jsDocFunctionType.parameters[0].type);
+                }
+            }
         }
         function isInConstructorArgumentInitializer(node, constructorDecl) {
             for (var n = node; n && n !== constructorDecl; n = n.parent) {
@@ -23450,7 +23730,8 @@ var ts;
                 if (declaration &&
                     declaration.kind !== 145 /* Constructor */ &&
                     declaration.kind !== 149 /* ConstructSignature */ &&
-                    declaration.kind !== 154 /* ConstructorType */) {
+                    declaration.kind !== 154 /* ConstructorType */ &&
+                    !ts.isJSDocConstructSignature(declaration)) {
                     // When resolved signature is a call signature (and not a construct signature) the result type is any, unless
                     // the declaring function had members created through 'x.prototype.y = expr' or 'this.y = expr' psuedodeclarations
                     // in a JS file
@@ -23557,6 +23838,12 @@ var ts;
                 // (inferring Base would make type argument inference inconsistent between the two
                 // overloads).
                 inferTypes(mapper.context, links.type, instantiateType(contextualType, mapper));
+            }
+        }
+        function getReturnTypeFromJSDocComment(func) {
+            var returnTag = ts.getJSDocReturnTag(func);
+            if (returnTag) {
+                return getTypeFromTypeNode(returnTag.typeExpression.type);
             }
         }
         function createPromiseType(promisedType) {
