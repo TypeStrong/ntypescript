@@ -52216,8 +52216,7 @@ var ts;
             var posLineAndChar = sourceFile.getLineAndCharacterOfPosition(position);
             var lineStart = sourceFile.getLineStarts()[posLineAndChar.line];
             var indentationStr = sourceFile.text.substr(lineStart, posLineAndChar.character);
-            // TODO: call a helper method instead once PR #4133 gets merged in.
-            var newLine = host.getNewLine ? host.getNewLine() : "\r\n";
+            var newLine = ts.getNewLineOrDefaultFromHost(host);
             var docParams = "";
             for (var i = 0, numParams = parameters.length; i < numParams; i++) {
                 var currentName = parameters[i].name;
