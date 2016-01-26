@@ -1438,12 +1438,13 @@ declare namespace ts {
         SuperInstance = 256,
         SuperStatic = 512,
         ContextChecked = 1024,
-        LexicalArguments = 2048,
-        CaptureArguments = 4096,
-        EnumValuesComputed = 8192,
-        BlockScopedBindingInLoop = 16384,
-        LexicalModuleMergesWithClass = 32768,
-        LoopWithBlockScopedBindingCapturedInFunction = 65536,
+        AsyncMethodWithSuper = 2048,
+        AsyncMethodWithSuperBinding = 4096,
+        CaptureArguments = 8192,
+        EnumValuesComputed = 16384,
+        BlockScopedBindingInLoop = 32768,
+        LexicalModuleMergesWithClass = 65536,
+        LoopWithBlockScopedBindingCapturedInFunction = 131072,
     }
     interface NodeLinks {
         resolvedType?: Type;
@@ -2208,6 +2209,10 @@ declare namespace ts {
       *   i.e. super property access is illegal in function declaration but can be legal in the statement list
       */
     function getSuperContainer(node: Node, stopOnFunctions: boolean): Node;
+    /**
+     * Determines whether a node is a property or element access expression for super.
+     */
+    function isSuperPropertyOrElementAccess(node: Node): boolean;
     function getEntityNameFromTypeNode(node: TypeNode): EntityName | Expression;
     function getInvokedExpression(node: CallLikeExpression): Expression;
     function nodeCanBeDecorated(node: Node): boolean;

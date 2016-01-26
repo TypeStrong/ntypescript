@@ -579,13 +579,14 @@ var ts;
         NodeCheckFlags[NodeCheckFlags["SuperInstance"] = 256] = "SuperInstance";
         NodeCheckFlags[NodeCheckFlags["SuperStatic"] = 512] = "SuperStatic";
         NodeCheckFlags[NodeCheckFlags["ContextChecked"] = 1024] = "ContextChecked";
-        NodeCheckFlags[NodeCheckFlags["LexicalArguments"] = 2048] = "LexicalArguments";
-        NodeCheckFlags[NodeCheckFlags["CaptureArguments"] = 4096] = "CaptureArguments";
+        NodeCheckFlags[NodeCheckFlags["AsyncMethodWithSuper"] = 2048] = "AsyncMethodWithSuper";
+        NodeCheckFlags[NodeCheckFlags["AsyncMethodWithSuperBinding"] = 4096] = "AsyncMethodWithSuperBinding";
+        NodeCheckFlags[NodeCheckFlags["CaptureArguments"] = 8192] = "CaptureArguments";
         // Values for enum members have been computed, and any errors have been reported for them.
-        NodeCheckFlags[NodeCheckFlags["EnumValuesComputed"] = 8192] = "EnumValuesComputed";
-        NodeCheckFlags[NodeCheckFlags["BlockScopedBindingInLoop"] = 16384] = "BlockScopedBindingInLoop";
-        NodeCheckFlags[NodeCheckFlags["LexicalModuleMergesWithClass"] = 32768] = "LexicalModuleMergesWithClass";
-        NodeCheckFlags[NodeCheckFlags["LoopWithBlockScopedBindingCapturedInFunction"] = 65536] = "LoopWithBlockScopedBindingCapturedInFunction";
+        NodeCheckFlags[NodeCheckFlags["EnumValuesComputed"] = 16384] = "EnumValuesComputed";
+        NodeCheckFlags[NodeCheckFlags["BlockScopedBindingInLoop"] = 32768] = "BlockScopedBindingInLoop";
+        NodeCheckFlags[NodeCheckFlags["LexicalModuleMergesWithClass"] = 65536] = "LexicalModuleMergesWithClass";
+        NodeCheckFlags[NodeCheckFlags["LoopWithBlockScopedBindingCapturedInFunction"] = 131072] = "LoopWithBlockScopedBindingCapturedInFunction";
     })(ts.NodeCheckFlags || (ts.NodeCheckFlags = {}));
     var NodeCheckFlags = ts.NodeCheckFlags;
     (function (TypeFlags) {
@@ -2964,6 +2965,15 @@ var ts;
         }
     }
     ts.getSuperContainer = getSuperContainer;
+    /**
+     * Determines whether a node is a property or element access expression for super.
+     */
+    function isSuperPropertyOrElementAccess(node) {
+        return (node.kind === 169 /* PropertyAccessExpression */
+            || node.kind === 170 /* ElementAccessExpression */)
+            && node.expression.kind === 95 /* SuperKeyword */;
+    }
+    ts.isSuperPropertyOrElementAccess = isSuperPropertyOrElementAccess;
     function getEntityNameFromTypeNode(node) {
         if (node) {
             switch (node.kind) {
@@ -7598,7 +7608,7 @@ var ts;
         Parser.parseSourceFile = parseSourceFile;
         function getLanguageVariant(fileName) {
             // .tsx and .jsx files are treated as jsx language variant.
-            return ts.fileExtensionIs(fileName, ".tsx") || ts.fileExtensionIs(fileName, ".jsx") ? 1 /* JSX */ : 0 /* Standard */;
+            return ts.fileExtensionIs(fileName, ".tsx") || ts.fileExtensionIs(fileName, ".jsx") || ts.fileExtensionIs(fileName, ".js") ? 1 /* JSX */ : 0 /* Standard */;
         }
         function initializeState(fileName, _sourceText, languageVersion, isJavaScriptFile, _syntaxCursor) {
             NodeConstructor = ts.objectAllocator.getNodeConstructor();
@@ -14865,8 +14875,8 @@ var ts;
             var moduleAugmentation = moduleName.parent;
             if (moduleAugmentation.symbol.valueDeclaration !== moduleAugmentation) {
                 // this is a combined symbol for multiple augmentations within the same file.
-                // its symbol already has accumulated information for all declarations 
-                // so we need to add it just once - do the work only for first declaration 
+                // its symbol already has accumulated information for all declarations
+                // so we need to add it just once - do the work only for first declaration
                 ts.Debug.assert(moduleAugmentation.symbol.declarations.length > 1);
                 return;
             }
@@ -14874,7 +14884,7 @@ var ts;
                 mergeSymbolTable(globals, moduleAugmentation.symbol.exports);
             }
             else {
-                // find a module that about to be augmented 
+                // find a module that about to be augmented
                 var mainModule = resolveExternalModuleNameWorker(moduleName, moduleName, ts.Diagnostics.Invalid_module_name_in_augmentation_module_0_cannot_be_found);
                 if (!mainModule) {
                     return;
@@ -15260,7 +15270,7 @@ var ts;
                         return true;
                     }
                     // No static member is present.
-                    // Check if we're in an instance method and look for a relevant instance member. 
+                    // Check if we're in an instance method and look for a relevant instance member.
                     if (location === container && !(location.flags & 64 /* Static */)) {
                         var instanceType = getDeclaredTypeOfSymbol(classSymbol).thisType;
                         if (getPropertyOfType(instanceType, name)) {
@@ -15576,7 +15586,7 @@ var ts;
                     return getMergedSymbol(sourceFile.symbol);
                 }
                 if (moduleNotFoundError) {
-                    // report errors only if it was requested 
+                    // report errors only if it was requested
                     error(moduleReferenceLiteral, ts.Diagnostics.File_0_is_not_a_module, sourceFile.fileName);
                 }
                 return undefined;
@@ -21080,8 +21090,7 @@ var ts;
                     }
                 }
                 if (node.parserContextFlags & 8 /* Await */) {
-                    getNodeLinks(container).flags |= 4096 /* CaptureArguments */;
-                    getNodeLinks(node).flags |= 2048 /* LexicalArguments */;
+                    getNodeLinks(container).flags |= 8192 /* CaptureArguments */;
                 }
             }
             if (symbol.flags & 8388608 /* Alias */ && !isInTypeQuery(node) && !isConstEnumOrConstEnumOnlyModule(resolveAlias(symbol))) {
@@ -21136,10 +21145,10 @@ var ts;
             while (current && !ts.nodeStartsNewLexicalEnvironment(current)) {
                 if (ts.isIterationStatement(current, /*lookInLabeledStatements*/ false)) {
                     if (inFunction) {
-                        getNodeLinks(current).flags |= 65536 /* LoopWithBlockScopedBindingCapturedInFunction */;
+                        getNodeLinks(current).flags |= 131072 /* LoopWithBlockScopedBindingCapturedInFunction */;
                     }
                     // mark value declaration so during emit they can have a special handling
-                    getNodeLinks(symbol.valueDeclaration).flags |= 16384 /* BlockScopedBindingInLoop */;
+                    getNodeLinks(symbol.valueDeclaration).flags |= 32768 /* BlockScopedBindingInLoop */;
                     break;
                 }
                 current = current.parent;
@@ -21281,6 +21290,70 @@ var ts;
                 nodeCheckFlag = 256 /* SuperInstance */;
             }
             getNodeLinks(node).flags |= nodeCheckFlag;
+            // Due to how we emit async functions, we need to specialize the emit for an async method that contains a `super` reference.
+            // This is due to the fact that we emit the body of an async function inside of a generator function. As generator
+            // functions cannot reference `super`, we emit a helper inside of the method body, but outside of the generator. This helper
+            // uses an arrow function, which is permitted to reference `super`.
+            //
+            // There are two primary ways we can access `super` from within an async method. The first is getting the value of a property
+            // or indexed access on super, either as part of a right-hand-side expression or call expression. The second is when setting the value
+            // of a property or indexed access, either as part of an assignment expression or destructuring assignment.
+            //
+            // The simplest case is reading a value, in which case we will emit something like the following:
+            //
+            //  // ts
+            //  ...
+            //  async asyncMethod() {
+            //    let x = await super.asyncMethod();
+            //    return x;
+            //  }
+            //  ...
+            //
+            //  // js
+            //  ...
+            //  asyncMethod() {
+            //      const _super = name => super[name];
+            //      return __awaiter(this, arguments, Promise, function *() {
+            //          let x = yield _super("asyncMethod").call(this);
+            //          return x;
+            //      });
+            //  }
+            //  ...
+            //
+            // The more complex case is when we wish to assign a value, especially as part of a destructuring assignment. As both cases
+            // are legal in ES6, but also likely less frequent, we emit the same more complex helper for both scenarios:
+            //
+            //  // ts
+            //  ...
+            //  async asyncMethod(ar: Promise<any[]>) {
+            //      [super.a, super.b] = await ar;
+            //  }
+            //  ...
+            //
+            //  // js
+            //  ...
+            //  asyncMethod(ar) {
+            //      const _super = (function (geti, seti) {
+            //          const cache = Object.create(null);
+            //          return name => cache[name] || (cache[name] = { get value() { return geti(name); }, set value(v) { seti(name, v); } });
+            //      })(name => super[name], (name, value) => super[name] = value);
+            //      return __awaiter(this, arguments, Promise, function *() {
+            //          [_super("a").value, _super("b").value] = yield ar;
+            //      });
+            //  }
+            //  ...
+            //
+            // This helper creates an object with a "value" property that wraps the `super` property or indexed access for both get and set.
+            // This is required for destructuring assignments, as a call expression cannot be used as the target of a destructuring assignment
+            // while a property access can.
+            if (container.kind === 144 /* MethodDeclaration */ && container.flags & 256 /* Async */) {
+                if (ts.isSuperPropertyOrElementAccess(node.parent) && isAssignmentTarget(node.parent)) {
+                    getNodeLinks(container).flags |= 4096 /* AsyncMethodWithSuperBinding */;
+                }
+                else {
+                    getNodeLinks(container).flags |= 2048 /* AsyncMethodWithSuper */;
+                }
+            }
             if (needToCaptureLexicalThis) {
                 // call expressions are allowed only in constructors so they should always capture correct 'this'
                 // super property access expressions can also appear in arrow functions -
@@ -23978,7 +24051,8 @@ var ts;
         }
         /*
          *TypeScript Specification 1.0 (6.3) - July 2014
-         * An explicitly typed function whose return type isn't the Void or the Any type
+         * An explicitly typed function whose return type isn't the Void type,
+         * the Any type, or a union type containing the Void or Any type as a constituent
          * must have at least one return statement somewhere in its body.
          * An exception to this rule is if the function implementation consists of a single 'throw' statement.
          * @param returnType - return type of the function, can be undefined if return type is not explicitly specified
@@ -23988,7 +24062,7 @@ var ts;
                 return;
             }
             // Functions with with an explicitly specified 'void' or 'any' return type don't need any return expressions.
-            if (returnType === voidType || isTypeAny(returnType)) {
+            if (returnType === voidType || isTypeAny(returnType) || (returnType && (returnType.flags & 16384 /* Union */) && someConstituentTypeHasKind(returnType, 1 /* Any */ | 16 /* Void */))) {
                 return;
             }
             // If all we have is a function signature, or an arrow function with an expression body, then there is nothing to check.
@@ -27225,7 +27299,7 @@ var ts;
         }
         function computeEnumMemberValues(node) {
             var nodeLinks = getNodeLinks(node);
-            if (!(nodeLinks.flags & 8192 /* EnumValuesComputed */)) {
+            if (!(nodeLinks.flags & 16384 /* EnumValuesComputed */)) {
                 var enumSymbol = getSymbolOfNode(node);
                 var enumType = getDeclaredTypeOfSymbol(enumSymbol);
                 var autoValue = 0; // set to undefined when enum member is non-constant
@@ -27264,7 +27338,7 @@ var ts;
                         autoValue++;
                     }
                 }
-                nodeLinks.flags |= 8192 /* EnumValuesComputed */;
+                nodeLinks.flags |= 16384 /* EnumValuesComputed */;
             }
             function computeConstantValueForEnumMemberInitializer(initializer, enumType, enumIsConst, ambient) {
                 // Controls if error should be reported after evaluation of constant value is completed
@@ -27526,16 +27600,16 @@ var ts;
                     var mergedClass = ts.getDeclarationOfKind(symbol, 217 /* ClassDeclaration */);
                     if (mergedClass &&
                         inSameLexicalScope(node, mergedClass)) {
-                        getNodeLinks(node).flags |= 32768 /* LexicalModuleMergesWithClass */;
+                        getNodeLinks(node).flags |= 65536 /* LexicalModuleMergesWithClass */;
                     }
                 }
                 if (isAmbientExternalModule) {
                     if (ts.isExternalModuleAugmentation(node)) {
                         // body of the augmentation should be checked for consistency only if augmentation was applied to its target (either global scope or module)
-                        // otherwise we'll be swamped in cascading errors. 
+                        // otherwise we'll be swamped in cascading errors.
                         // We can detect if augmentation was applied using following rules:
                         // - augmentation for a global scope is always applied
-                        // - augmentation for some external module is applied if symbol for augmentation is merged (it was combined with target module). 
+                        // - augmentation for some external module is applied if symbol for augmentation is merged (it was combined with target module).
                         var checkBody = isGlobalAugmentation || (getSymbolOfNode(node).flags & 33554432 /* Merged */);
                         if (checkBody) {
                             // body of ambient external module is always a module block
@@ -32604,7 +32678,7 @@ var ts;
         var metadataHelper = "\nvar __metadata = (this && this.__metadata) || function (k, v) {\n    if (typeof Reflect === \"object\" && typeof Reflect.metadata === \"function\") return Reflect.metadata(k, v);\n};";
         // emit output for the __param helper function
         var paramHelper = "\nvar __param = (this && this.__param) || function (paramIndex, decorator) {\n    return function (target, key) { decorator(target, key, paramIndex); }\n};";
-        var awaiterHelper = "\nvar __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {\n    return new P(function (resolve, reject) {\n        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }\n        function rejected(value) { try { step(generator.throw(value)); } catch (e) { reject(e); } }\n        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }\n        step((generator = generator.call(thisArg, _arguments)).next());\n    });\n};";
+        var awaiterHelper = "\nvar __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {\n    return new P(function (resolve, reject) {\n        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }\n        function rejected(value) { try { step(generator.throw(value)); } catch (e) { reject(e); } }\n        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }\n        step((generator = generator.apply(thisArg, _arguments)).next());\n    });\n};";
         var compilerOptions = host.getCompilerOptions();
         var languageVersion = ts.getEmitScriptTarget(compilerOptions);
         var modulekind = ts.getEmitModuleKind(compilerOptions);
@@ -33567,10 +33641,6 @@ var ts;
                 return false;
             }
             function emitExpressionIdentifier(node) {
-                if (resolver.getNodeCheckFlags(node) & 2048 /* LexicalArguments */) {
-                    write("_arguments");
-                    return;
-                }
                 var container = resolver.getReferencedExportContainer(node);
                 if (container) {
                     if (container.kind === 251 /* SourceFile */) {
@@ -34131,6 +34201,14 @@ var ts;
                 if (tryEmitConstantValue(node)) {
                     return;
                 }
+                if (languageVersion === 2 /* ES6 */ &&
+                    node.expression.kind === 95 /* SuperKeyword */ &&
+                    isInAsyncMethodWithSuperInES6(node)) {
+                    var name_26 = ts.createSynthesizedNode(9 /* StringLiteral */);
+                    name_26.text = node.name.text;
+                    emitSuperAccessInAsyncMethod(node.expression, name_26);
+                    return;
+                }
                 emit(node.expression);
                 var indentedBeforeDot = indentIfOnDifferentLines(node, node.expression, node.dotToken);
                 // 1 .toString is a valid property access, emit a space after the literal
@@ -34205,6 +34283,12 @@ var ts;
                 if (tryEmitConstantValue(node)) {
                     return;
                 }
+                if (languageVersion === 2 /* ES6 */ &&
+                    node.expression.kind === 95 /* SuperKeyword */ &&
+                    isInAsyncMethodWithSuperInES6(node)) {
+                    emitSuperAccessInAsyncMethod(node.expression, node.argumentExpression);
+                    return;
+                }
                 emit(node.expression);
                 write("[");
                 emit(node.argumentExpression);
@@ -34274,23 +34358,42 @@ var ts;
                 emitListWithSpread(node.arguments, /*needsUniqueCopy*/ false, /*multiLine*/ false, /*trailingComma*/ false, /*useConcat*/ true);
                 write(")");
             }
+            function isInAsyncMethodWithSuperInES6(node) {
+                if (languageVersion === 2 /* ES6 */) {
+                    var container = ts.getSuperContainer(node, /*includeFunctions*/ false);
+                    if (container && resolver.getNodeCheckFlags(container) & (2048 /* AsyncMethodWithSuper */ | 4096 /* AsyncMethodWithSuperBinding */)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            function emitSuperAccessInAsyncMethod(superNode, argumentExpression) {
+                var container = ts.getSuperContainer(superNode, /*includeFunctions*/ false);
+                var isSuperBinding = resolver.getNodeCheckFlags(container) & 4096 /* AsyncMethodWithSuperBinding */;
+                write("_super(");
+                emit(argumentExpression);
+                write(isSuperBinding ? ").value" : ")");
+            }
             function emitCallExpression(node) {
                 if (languageVersion < 2 /* ES6 */ && hasSpreadElement(node.arguments)) {
                     emitCallWithSpread(node);
                     return;
                 }
+                var expression = node.expression;
                 var superCall = false;
-                if (node.expression.kind === 95 /* SuperKeyword */) {
-                    emitSuper(node.expression);
+                var isAsyncMethodWithSuper = false;
+                if (expression.kind === 95 /* SuperKeyword */) {
+                    emitSuper(expression);
                     superCall = true;
                 }
                 else {
-                    emit(node.expression);
-                    superCall = node.expression.kind === 169 /* PropertyAccessExpression */ && node.expression.expression.kind === 95 /* SuperKeyword */;
+                    superCall = ts.isSuperPropertyOrElementAccess(expression);
+                    isAsyncMethodWithSuper = superCall && isInAsyncMethodWithSuperInES6(node);
+                    emit(expression);
                 }
-                if (superCall && languageVersion < 2 /* ES6 */) {
+                if (superCall && (languageVersion < 2 /* ES6 */ || isAsyncMethodWithSuper)) {
                     write(".call(");
-                    emitThis(node.expression);
+                    emitThis(expression);
                     if (node.arguments.length) {
                         write(", ");
                         emitCommaList(node.arguments);
@@ -34782,7 +34885,7 @@ var ts;
             }
             function shouldConvertLoopBody(node) {
                 return languageVersion < 2 /* ES6 */ &&
-                    (resolver.getNodeCheckFlags(node) & 65536 /* LoopWithBlockScopedBindingCapturedInFunction */) !== 0;
+                    (resolver.getNodeCheckFlags(node) & 131072 /* LoopWithBlockScopedBindingCapturedInFunction */) !== 0;
             }
             function emitLoop(node, loopEmitter) {
                 var shouldConvert = shouldConvertLoopBody(node);
@@ -35835,7 +35938,7 @@ var ts;
                         // for (...) { var <some-uniqie-name> = void 0; }
                         // this is necessary to preserve ES6 semantic in scenarios like
                         // for (...) { let x; console.log(x); x = 1 } // assignment on one iteration should not affect other iterations
-                        var isLetDefinedInLoop = (resolver.getNodeCheckFlags(node) & 16384 /* BlockScopedBindingInLoop */) &&
+                        var isLetDefinedInLoop = (resolver.getNodeCheckFlags(node) & 32768 /* BlockScopedBindingInLoop */) &&
                             (getCombinedFlagsForIdentifier(node.name) & 8192 /* Let */);
                         // NOTE: default initialization should not be added to let bindings in for-in\for-of statements
                         if (isLetDefinedInLoop &&
@@ -35929,12 +36032,12 @@ var ts;
             function emitParameter(node) {
                 if (languageVersion < 2 /* ES6 */) {
                     if (ts.isBindingPattern(node.name)) {
-                        var name_26 = createTempVariable(0 /* Auto */);
+                        var name_27 = createTempVariable(0 /* Auto */);
                         if (!tempParameters) {
                             tempParameters = [];
                         }
-                        tempParameters.push(name_26);
-                        emit(name_26);
+                        tempParameters.push(name_27);
+                        emit(name_27);
                     }
                     else {
                         emit(node.name);
@@ -36153,7 +36256,7 @@ var ts;
             function emitAsyncFunctionBodyForES6(node) {
                 var promiseConstructor = ts.getEntityNameFromTypeNode(node.type);
                 var isArrowFunction = node.kind === 177 /* ArrowFunction */;
-                var hasLexicalArguments = (resolver.getNodeCheckFlags(node) & 4096 /* CaptureArguments */) !== 0;
+                var hasLexicalArguments = (resolver.getNodeCheckFlags(node) & 8192 /* CaptureArguments */) !== 0;
                 // An async function is emit as an outer function that calls an inner
                 // generator function. To preserve lexical bindings, we pass the current
                 // `this` and `arguments` objects to `__awaiter`. The generator function
@@ -36231,6 +36334,14 @@ var ts;
                     write(" {");
                     increaseIndent();
                     writeLine();
+                    if (resolver.getNodeCheckFlags(node) & 4096 /* AsyncMethodWithSuperBinding */) {
+                        writeLines("\nconst _super = (function (geti, seti) {\n    const cache = Object.create(null);\n    return name => cache[name] || (cache[name] = { get value() { return geti(name); }, set value(v) { seti(name, v); } });\n})(name => super[name], (name, value) => super[name] = value);");
+                        writeLine();
+                    }
+                    else if (resolver.getNodeCheckFlags(node) & 2048 /* AsyncMethodWithSuper */) {
+                        write("const _super = name => super[name];");
+                        writeLine();
+                    }
                     write("return");
                 }
                 write(" __awaiter(this");
@@ -36247,12 +36358,7 @@ var ts;
                     write("Promise");
                 }
                 // Emit the call to __awaiter.
-                if (hasLexicalArguments) {
-                    write(", function* (_arguments)");
-                }
-                else {
-                    write(", function* ()");
-                }
+                write(", function* ()");
                 // Emit the signature and body for the inner generator function.
                 emitFunctionBody(node);
                 write(")");
@@ -37522,7 +37628,7 @@ var ts;
                 return ts.isInstantiatedModule(node, compilerOptions.preserveConstEnums || compilerOptions.isolatedModules);
             }
             function isModuleMergedWithES6Class(node) {
-                return languageVersion === 2 /* ES6 */ && !!(resolver.getNodeCheckFlags(node) & 32768 /* LexicalModuleMergesWithClass */);
+                return languageVersion === 2 /* ES6 */ && !!(resolver.getNodeCheckFlags(node) & 65536 /* LexicalModuleMergesWithClass */);
             }
             function isFirstDeclarationOfKind(node, declarations, kind) {
                 return !ts.forEach(declarations, function (declaration) { return declaration.kind === kind && declaration.pos < node.pos; });
@@ -37696,14 +37802,17 @@ var ts;
                 if (ts.contains(externalImports, node)) {
                     var isExportedImport = node.kind === 224 /* ImportEqualsDeclaration */ && (node.flags & 2 /* Export */) !== 0;
                     var namespaceDeclaration = getNamespaceDeclarationNode(node);
+                    var varOrConst = (languageVersion <= 1 /* ES5 */) ? "var " : "const ";
                     if (modulekind !== 2 /* AMD */) {
                         emitLeadingComments(node);
                         emitStart(node);
                         if (namespaceDeclaration && !isDefaultImport(node)) {
                             // import x = require("foo")
                             // import * as x from "foo"
-                            if (!isExportedImport)
-                                write("var ");
+                            if (!isExportedImport) {
+                                write(varOrConst);
+                            }
+                            ;
                             emitModuleMemberName(namespaceDeclaration);
                             write(" = ");
                         }
@@ -37715,7 +37824,7 @@ var ts;
                             // import d, { x, y } from "foo"
                             var isNakedImport = 225 /* ImportDeclaration */ && !node.importClause;
                             if (!isNakedImport) {
-                                write("var ");
+                                write(varOrConst);
                                 write(getGeneratedNameForNode(node));
                                 write(" = ");
                             }
@@ -37742,7 +37851,7 @@ var ts;
                         }
                         else if (namespaceDeclaration && isDefaultImport(node)) {
                             // import d, * as x from "foo"
-                            write("var ");
+                            write(varOrConst);
                             emitModuleMemberName(namespaceDeclaration);
                             write(" = ");
                             write(getGeneratedNameForNode(node));
@@ -37964,8 +38073,8 @@ var ts;
                                 // export { x, y }
                                 for (var _c = 0, _d = node.exportClause.elements; _c < _d.length; _c++) {
                                     var specifier = _d[_c];
-                                    var name_27 = (specifier.propertyName || specifier.name).text;
-                                    (exportSpecifiers[name_27] || (exportSpecifiers[name_27] = [])).push(specifier);
+                                    var name_28 = (specifier.propertyName || specifier.name).text;
+                                    (exportSpecifiers[name_28] || (exportSpecifiers[name_28] = [])).push(specifier);
                                 }
                             }
                             break;
@@ -38004,9 +38113,9 @@ var ts;
             }
             function getExternalModuleNameText(importNode, emitRelativePathAsModuleName) {
                 if (emitRelativePathAsModuleName) {
-                    var name_28 = getExternalModuleNameFromDeclaration(host, resolver, importNode);
-                    if (name_28) {
-                        return "\"" + name_28 + "\"";
+                    var name_29 = getExternalModuleNameFromDeclaration(host, resolver, importNode);
+                    if (name_29) {
+                        return "\"" + name_29 + "\"";
                     }
                 }
                 var moduleName = ts.getExternalModuleName(importNode);
@@ -38178,12 +38287,12 @@ var ts;
                     var seen = {};
                     for (var i = 0; i < hoistedVars.length; i++) {
                         var local = hoistedVars[i];
-                        var name_29 = local.kind === 69 /* Identifier */
+                        var name_30 = local.kind === 69 /* Identifier */
                             ? local
                             : local.name;
-                        if (name_29) {
+                        if (name_30) {
                             // do not emit duplicate entries (in case of declaration merging) in the list of hoisted variables
-                            var text = ts.unescapeIdentifier(name_29.text);
+                            var text = ts.unescapeIdentifier(name_30.text);
                             if (ts.hasProperty(seen, text)) {
                                 continue;
                             }
@@ -38262,15 +38371,15 @@ var ts;
                     }
                     if (node.kind === 214 /* VariableDeclaration */ || node.kind === 166 /* BindingElement */) {
                         if (shouldHoistVariable(node, /*checkIfSourceFileLevelDecl*/ false)) {
-                            var name_30 = node.name;
-                            if (name_30.kind === 69 /* Identifier */) {
+                            var name_31 = node.name;
+                            if (name_31.kind === 69 /* Identifier */) {
                                 if (!hoistedVars) {
                                     hoistedVars = [];
                                 }
-                                hoistedVars.push(name_30);
+                                hoistedVars.push(name_31);
                             }
                             else {
-                                ts.forEachChild(name_30, visit);
+                                ts.forEachChild(name_31, visit);
                             }
                         }
                         return;
@@ -39312,7 +39421,7 @@ var ts;
     /* @internal */ ts.ioWriteTime = 0;
     /** The version of the TypeScript compiler release */
     var emptyArray = [];
-    ts.version = "1.8.0";
+    ts.version = "1.9.0";
     function findConfigFile(searchPath, fileExists) {
         var fileName = "tsconfig.json";
         while (true) {
@@ -41128,10 +41237,10 @@ var ts;
         function serializeCompilerOptions(options) {
             var result = {};
             var optionsNameMap = ts.getOptionNameMap().optionNameMap;
-            for (var name_31 in options) {
-                if (ts.hasProperty(options, name_31)) {
-                    var value = options[name_31];
-                    switch (name_31) {
+            for (var name_32 in options) {
+                if (ts.hasProperty(options, name_32)) {
+                    var value = options[name_32];
+                    switch (name_32) {
                         case "init":
                         case "watch":
                         case "version":
@@ -41139,11 +41248,11 @@ var ts;
                         case "project":
                             break;
                         default:
-                            var optionDefinition = optionsNameMap[name_31.toLowerCase()];
+                            var optionDefinition = optionsNameMap[name_32.toLowerCase()];
                             if (optionDefinition) {
                                 if (typeof optionDefinition.type === "string") {
                                     // string, number or boolean
-                                    result[name_31] = value;
+                                    result[name_32] = value;
                                 }
                                 else {
                                     // Enum
@@ -41151,7 +41260,7 @@ var ts;
                                     for (var key in typeMap) {
                                         if (ts.hasProperty(typeMap, key)) {
                                             if (typeMap[key] === value)
-                                                result[name_31] = key;
+                                                result[name_32] = key;
                                         }
                                     }
                                 }
@@ -41342,12 +41451,12 @@ var ts;
             ts.forEach(program.getSourceFiles(), function (sourceFile) {
                 cancellationToken.throwIfCancellationRequested();
                 var nameToDeclarations = sourceFile.getNamedDeclarations();
-                for (var name_32 in nameToDeclarations) {
-                    var declarations = ts.getProperty(nameToDeclarations, name_32);
+                for (var name_33 in nameToDeclarations) {
+                    var declarations = ts.getProperty(nameToDeclarations, name_33);
                     if (declarations) {
                         // First do a quick check to see if the name of the declaration matches the 
                         // last portion of the (possibly) dotted name they're searching for.
-                        var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_32);
+                        var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_33);
                         if (!matches) {
                             continue;
                         }
@@ -41360,14 +41469,14 @@ var ts;
                                 if (!containers) {
                                     return undefined;
                                 }
-                                matches = patternMatcher.getMatches(containers, name_32);
+                                matches = patternMatcher.getMatches(containers, name_33);
                                 if (!matches) {
                                     continue;
                                 }
                             }
                             var fileName = sourceFile.fileName;
                             var matchKind = bestMatchKind(matches);
-                            rawItems.push({ name: name_32, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
+                            rawItems.push({ name: name_33, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
                         }
                     }
                 }
@@ -41748,9 +41857,9 @@ var ts;
                     case 214 /* VariableDeclaration */:
                     case 166 /* BindingElement */:
                         var variableDeclarationNode;
-                        var name_33;
+                        var name_34;
                         if (node.kind === 166 /* BindingElement */) {
-                            name_33 = node.name;
+                            name_34 = node.name;
                             variableDeclarationNode = node;
                             // binding elements are added only for variable declarations
                             // bubble up to the containing variable declaration
@@ -41762,16 +41871,16 @@ var ts;
                         else {
                             ts.Debug.assert(!ts.isBindingPattern(node.name));
                             variableDeclarationNode = node;
-                            name_33 = node.name;
+                            name_34 = node.name;
                         }
                         if (ts.isConst(variableDeclarationNode)) {
-                            return createItem(node, getTextOfNode(name_33), ts.ScriptElementKind.constElement);
+                            return createItem(node, getTextOfNode(name_34), ts.ScriptElementKind.constElement);
                         }
                         else if (ts.isLet(variableDeclarationNode)) {
-                            return createItem(node, getTextOfNode(name_33), ts.ScriptElementKind.letElement);
+                            return createItem(node, getTextOfNode(name_34), ts.ScriptElementKind.letElement);
                         }
                         else {
-                            return createItem(node, getTextOfNode(name_33), ts.ScriptElementKind.variableElement);
+                            return createItem(node, getTextOfNode(name_34), ts.ScriptElementKind.variableElement);
                         }
                     case 145 /* Constructor */:
                         return createItem(node, "constructor", ts.ScriptElementKind.constructorImplementationElement);
@@ -44538,9 +44647,9 @@ var ts;
             }
             Rules.prototype.getRuleName = function (rule) {
                 var o = this;
-                for (var name_34 in o) {
-                    if (o[name_34] === rule) {
-                        return name_34;
+                for (var name_35 in o) {
+                    if (o[name_35] === rule) {
+                        return name_35;
                     }
                 }
                 throw new Error("Unknown rule");
@@ -49245,8 +49354,8 @@ var ts;
                     if (element.getStart() <= position && position <= element.getEnd()) {
                         continue;
                     }
-                    var name_35 = element.propertyName || element.name;
-                    exisingImportsOrExports[name_35.text] = true;
+                    var name_36 = element.propertyName || element.name;
+                    exisingImportsOrExports[name_36.text] = true;
                 }
                 if (ts.isEmpty(exisingImportsOrExports)) {
                     return exportsOfModule;
@@ -49363,10 +49472,10 @@ var ts;
                 var entries = [];
                 var target = program.getCompilerOptions().target;
                 var nameTable = getNameTable(sourceFile);
-                for (var name_36 in nameTable) {
-                    if (!uniqueNames[name_36]) {
-                        uniqueNames[name_36] = name_36;
-                        var displayName = getCompletionEntryDisplayName(name_36, target, /*performCharacterChecks*/ true);
+                for (var name_37 in nameTable) {
+                    if (!uniqueNames[name_37]) {
+                        uniqueNames[name_37] = name_37;
+                        var displayName = getCompletionEntryDisplayName(name_37, target, /*performCharacterChecks*/ true);
                         if (displayName) {
                             var entry = {
                                 name: displayName,
@@ -51318,19 +51427,19 @@ var ts;
                 if (isNameOfPropertyAssignment(node)) {
                     var objectLiteral = node.parent.parent;
                     var contextualType = typeChecker.getContextualType(objectLiteral);
-                    var name_37 = node.text;
+                    var name_38 = node.text;
                     if (contextualType) {
                         if (contextualType.flags & 16384 /* Union */) {
                             // This is a union type, first see if the property we are looking for is a union property (i.e. exists in all types)
                             // if not, search the constituent types for the property
-                            var unionProperty = contextualType.getProperty(name_37);
+                            var unionProperty = contextualType.getProperty(name_38);
                             if (unionProperty) {
                                 return [unionProperty];
                             }
                             else {
                                 var result_4 = [];
                                 ts.forEach(contextualType.types, function (t) {
-                                    var symbol = t.getProperty(name_37);
+                                    var symbol = t.getProperty(name_38);
                                     if (symbol) {
                                         result_4.push(symbol);
                                     }
@@ -51339,7 +51448,7 @@ var ts;
                             }
                         }
                         else {
-                            var symbol_1 = contextualType.getProperty(name_37);
+                            var symbol_1 = contextualType.getProperty(name_38);
                             if (symbol_1) {
                                 return [symbol_1];
                             }
@@ -54266,7 +54375,7 @@ var TypeScript;
 // 'toolsVersion' gets consumed by the managed side, so it's not unused.
 // TODO: it should be moved into a namespace though.
 /* @internal */
-var toolsVersion = "1.8";
+var toolsVersion = "1.9";
 /* tslint:enable:no-unused-variable */ 
 /**
  * Sample: add a new utility function
