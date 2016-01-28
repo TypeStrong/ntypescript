@@ -3319,7 +3319,17 @@ var ts;
                 node.parent.initializer === node &&
                 node.parent.parent.parent.kind === 197 /* VariableStatement */;
             var variableStatementNode = isInitializerOfVariableDeclarationInStatement ? node.parent.parent.parent : undefined;
-            return variableStatementNode && variableStatementNode.jsDocComment;
+            if (variableStatementNode) {
+                return variableStatementNode.jsDocComment;
+            }
+            // Also recognize when the node is the RHS of an assignment expression
+            var isSourceOfAssignmentExpressionStatement = node.parent && node.parent.parent &&
+                node.parent.kind === 185 /* BinaryExpression */ &&
+                node.parent.operatorToken.kind === 56 /* EqualsToken */ &&
+                node.parent.parent.kind === 199 /* ExpressionStatement */;
+            if (isSourceOfAssignmentExpressionStatement) {
+                return node.parent.parent.jsDocComment;
+            }
         }
         return undefined;
     }
@@ -10679,7 +10689,7 @@ var ts;
             if (saveDecoratorContext) {
                 setDecoratorContext(/*val*/ true);
             }
-            return finishNode(node);
+            return addJSDocComment(finishNode(node));
         }
         function parseOptionalIdentifier() {
             return isIdentifier() ? parseIdentifier() : undefined;
@@ -10921,13 +10931,13 @@ var ts;
                 var labeledStatement = createNode(211 /* LabeledStatement */, fullStart);
                 labeledStatement.label = expression;
                 labeledStatement.statement = parseStatement();
-                return finishNode(labeledStatement);
+                return addJSDocComment(finishNode(labeledStatement));
             }
             else {
                 var expressionStatement = createNode(199 /* ExpressionStatement */, fullStart);
                 expressionStatement.expression = expression;
                 parseSemicolon();
-                return finishNode(expressionStatement);
+                return addJSDocComment(finishNode(expressionStatement));
             }
         }
         function nextTokenIsIdentifierOrKeywordOnSameLine() {
@@ -24047,7 +24057,8 @@ var ts;
                     }
                     else {
                         error(func, ts.Diagnostics.No_best_common_type_exists_among_return_expressions);
-                        return unknownType;
+                        // Defer to unioning the return types so we get a) downstream errors earlier and b) better Salsa experience
+                        return getUnionType(types);
                     }
                 }
                 if (funcIsGenerator) {
@@ -28431,6 +28442,18 @@ var ts;
             if (ts.isDeclarationName(entityName)) {
                 return getSymbolOfNode(entityName.parent);
             }
+            if (ts.isInJavaScriptFile(entityName) && entityName.parent.kind === 170 /* PropertyAccessExpression */) {
+                var specialPropertyAssignmentKind = ts.getSpecialPropertyAssignmentKind(entityName.parent.parent);
+                switch (specialPropertyAssignmentKind) {
+                    case 1 /* ExportsProperty */:
+                    case 3 /* PrototypeProperty */:
+                        return getSymbolOfNode(entityName.parent);
+                    case 4 /* ThisProperty */:
+                    case 2 /* ModuleExports */:
+                        return getSymbolOfNode(entityName.parent.parent);
+                    default:
+                }
+            }
             if (entityName.parent.kind === 231 /* ExportAssignment */) {
                 return resolveEntityName(entityName, 
                 /*all meanings*/ 107455 /* Value */ | 793056 /* Type */ | 1536 /* Namespace */ | 8388608 /* Alias */);
@@ -31295,17 +31318,20 @@ var ts;
                 }
             }
         }
-        function emitClassMemberDeclarationFlags(node) {
-            if (node.flags & 8 /* Private */) {
+        function emitClassMemberDeclarationFlags(flags) {
+            if (flags & 8 /* Private */) {
                 write("private ");
             }
-            else if (node.flags & 16 /* Protected */) {
+            else if (flags & 16 /* Protected */) {
                 write("protected ");
             }
-            if (node.flags & 32 /* Static */) {
+            if (flags & 32 /* Static */) {
                 write("static ");
             }
-            if (node.flags & 128 /* Abstract */) {
+            if (flags & 64 /* Readonly */) {
+                write("readonly ");
+            }
+            if (flags & 128 /* Abstract */) {
                 write("abstract ");
             }
         }
@@ -31693,7 +31719,7 @@ var ts;
                 return;
             }
             emitJsDocComments(node);
-            emitClassMemberDeclarationFlags(node);
+            emitClassMemberDeclarationFlags(node.flags);
             emitVariableDeclaration(node);
             write(";");
             writeLine();
@@ -31834,7 +31860,7 @@ var ts;
             if (node === accessors.firstAccessor) {
                 emitJsDocComments(accessors.getAccessor);
                 emitJsDocComments(accessors.setAccessor);
-                emitClassMemberDeclarationFlags(node);
+                emitClassMemberDeclarationFlags(node.flags | (accessors.setAccessor ? 0 : 64 /* Readonly */));
                 writeTextOfNode(currentText, node.name);
                 if (!(node.flags & 8 /* Private */)) {
                     accessorWithTypeAnnotation = node;
@@ -31917,7 +31943,7 @@ var ts;
                     emitModuleElementDeclarationFlags(node);
                 }
                 else if (node.kind === 145 /* MethodDeclaration */) {
-                    emitClassMemberDeclarationFlags(node);
+                    emitClassMemberDeclarationFlags(node.flags);
                 }
                 if (node.kind === 217 /* FunctionDeclaration */) {
                     write("function ");
@@ -31942,15 +31968,17 @@ var ts;
         function emitSignatureDeclaration(node) {
             var prevEnclosingDeclaration = enclosingDeclaration;
             enclosingDeclaration = node;
-            // Construct signature or constructor type write new Signature
-            if (node.kind === 150 /* ConstructSignature */ || node.kind === 155 /* ConstructorType */) {
-                write("new ");
-            }
-            emitTypeParameters(node.typeParameters);
             if (node.kind === 151 /* IndexSignature */) {
+                // Index signature can have readonly modifier
+                emitClassMemberDeclarationFlags(node.flags);
                 write("[");
             }
             else {
+                // Construct signature or constructor type write new Signature
+                if (node.kind === 150 /* ConstructSignature */ || node.kind === 155 /* ConstructorType */) {
+                    write("new ");
+                }
+                emitTypeParameters(node.typeParameters);
                 write("(");
             }
             // Parameters
@@ -38857,14 +38885,20 @@ var ts;
                 var dependencyGroups = [];
                 for (var i = 0; i < externalImports.length; i++) {
                     var text = getExternalModuleNameText(externalImports[i], emitRelativePathAsModuleName);
-                    if (ts.hasProperty(groupIndices, text)) {
+                    if (text === undefined) {
+                        continue;
+                    }
+                    // text should be quoted string
+                    // for deduplication purposes in key remove leading and trailing quotes so 'a' and "a" will be considered the same                     
+                    var key = text.substr(1, text.length - 2);
+                    if (ts.hasProperty(groupIndices, key)) {
                         // deduplicate/group entries in dependency list by the dependency name
-                        var groupIndex = groupIndices[text];
+                        var groupIndex = groupIndices[key];
                         dependencyGroups[groupIndex].push(externalImports[i]);
                         continue;
                     }
                     else {
-                        groupIndices[text] = dependencyGroups.length;
+                        groupIndices[key] = dependencyGroups.length;
                         dependencyGroups.push([externalImports[i]]);
                     }
                     if (i !== 0) {
