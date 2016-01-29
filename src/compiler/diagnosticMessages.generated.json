@@ -691,5 +691,6 @@
   "A_constructor_cannot_contain_a_super_call_when_its_class_extends_null_17005" : "A constructor cannot contain a 'super' call when its class extends 'null'",
   "An_unary_expression_with_the_0_operator_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_ex_17006" : "An unary expression with the '{0}' operator is not allowed in the left-hand side of an exponentiation expression. Consider enclosing the expression in parentheses.",
   "A_type_assertion_expression_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_expression_Con_17007" : "A type assertion expression is not allowed in the left-hand side of an exponentiation expression. Consider enclosing the expression in parentheses.",
-  "JSX_element_0_has_no_corresponding_closing_tag_17008" : "JSX element '{0}' has no corresponding closing tag."
+  "JSX_element_0_has_no_corresponding_closing_tag_17008" : "JSX element '{0}' has no corresponding closing tag.",
+  "super_must_be_called_before_accessing_this_in_the_constructor_of_a_derived_class_17009" : "'super' must be called before accessing 'this' in the constructor of a derived class."
 }

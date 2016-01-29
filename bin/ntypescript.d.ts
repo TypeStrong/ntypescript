@@ -1448,6 +1448,7 @@ declare namespace ts {
         LoopWithCapturedBlockScopedBinding = 65536,
         CapturedBlockScopedBinding = 131072,
         BlockScopedBindingInLoop = 262144,
+        HasSeenSuperCall = 524288,
     }
     interface NodeLinks {
         resolvedType?: Type;
@@ -2254,7 +2255,7 @@ declare namespace ts {
      * exactly one argument.
      * This function does not test if the node is in a JavaScript file or not.
     */
-    function isRequireCall(expression: Node): expression is CallExpression;
+    function isRequireCall(expression: Node, checkArgumentIsStringLiteral: boolean): expression is CallExpression;
     function getSpecialPropertyAssignmentKind(expression: Node): SpecialPropertyAssignmentKind;
     function getExternalModuleName(node: Node): Expression;
     function hasQuestionToken(node: Node): boolean;
@@ -6603,6 +6604,12 @@ declare namespace ts {
             message: string;
         };
         JSX_element_0_has_no_corresponding_closing_tag: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        super_must_be_called_before_accessing_this_in_the_constructor_of_a_derived_class: {
             code: number;
             category: DiagnosticCategory;
             key: string;

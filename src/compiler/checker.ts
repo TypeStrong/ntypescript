@@ -7267,6 +7267,14 @@ namespace ts {
             let container = getThisContainer(node, /* includeArrowFunctions */ true);
             let needToCaptureLexicalThis = false;
 
+            if (container.kind === SyntaxKind.Constructor) {
+                const baseTypeNode = getClassExtendsHeritageClauseElement(<ClassLikeDeclaration>container.parent);
+                if (baseTypeNode && !(getNodeCheckFlags(container) & NodeCheckFlags.HasSeenSuperCall)) {
+                    // In ES6, super inside constructor of class-declaration has to precede "this" accessing
+                    error(node, Diagnostics.super_must_be_called_before_accessing_this_in_the_constructor_of_a_derived_class);
+                }
+            }
+
             // Now skip arrow functions to get the "real" owner of 'this'.
             if (container.kind === SyntaxKind.ArrowFunction) {
                 container = getThisContainer(container, /* includeArrowFunctions */ false);
@@ -8768,7 +8776,7 @@ namespace ts {
          */
         function checkClassPropertyAccess(node: PropertyAccessExpression | QualifiedName, left: Expression | QualifiedName, type: Type, prop: Symbol): boolean {
             const flags = getDeclarationFlagsFromSymbol(prop);
-            const declaringClass = <InterfaceType>getDeclaredTypeOfSymbol(prop.parent);
+            const declaringClass = <InterfaceType>getDeclaredTypeOfSymbol(getMergedSymbol(prop.parent));
 
             if (left.kind === SyntaxKind.SuperKeyword) {
                 const errorNode = node.kind === SyntaxKind.PropertyAccessExpression ?
@@ -10213,6 +10221,11 @@ namespace ts {
 
             const signature = getResolvedSignature(node);
             if (node.expression.kind === SyntaxKind.SuperKeyword) {
+                const containgFunction = getContainingFunction(node.expression);
+
+                if (containgFunction && containgFunction.kind === SyntaxKind.Constructor) {
+                    getNodeLinks(containgFunction).flags |= NodeCheckFlags.HasSeenSuperCall;
+                }
                 return voidType;
             }
             if (node.kind === SyntaxKind.NewExpression) {
@@ -10239,7 +10252,7 @@ namespace ts {
             }
 
             // In JavaScript files, calls to any identifier 'require' are treated as external module imports
-            if (isInJavaScriptFile(node) && isRequireCall(node)) {
+            if (isInJavaScriptFile(node) && isRequireCall(node, /*checkArgumentIsStringLiteral*/true)) {
                 return resolveExternalModuleTypeByLiteral(<StringLiteral>node.arguments[0]);
             }
 
@@ -11829,10 +11842,6 @@ namespace ts {
                         }
                         if (!superCallStatement) {
                             error(node, Diagnostics.A_super_call_must_be_the_first_statement_in_the_constructor_when_a_class_contains_initialized_properties_or_has_parameter_properties);
-                        }
-                        else {
-                            // In such a required super call, it is a compile-time error for argument expressions to reference this.
-                            markThisReferencesAsErrors(superCallStatement.expression);
                         }
                     }
                 }

@@ -590,6 +590,7 @@ var ts;
         NodeCheckFlags[NodeCheckFlags["LoopWithCapturedBlockScopedBinding"] = 65536] = "LoopWithCapturedBlockScopedBinding";
         NodeCheckFlags[NodeCheckFlags["CapturedBlockScopedBinding"] = 131072] = "CapturedBlockScopedBinding";
         NodeCheckFlags[NodeCheckFlags["BlockScopedBindingInLoop"] = 262144] = "BlockScopedBindingInLoop";
+        NodeCheckFlags[NodeCheckFlags["HasSeenSuperCall"] = 524288] = "HasSeenSuperCall";
     })(ts.NodeCheckFlags || (ts.NodeCheckFlags = {}));
     var NodeCheckFlags = ts.NodeCheckFlags;
     (function (TypeFlags) {
@@ -3206,12 +3207,13 @@ var ts;
      * exactly one argument.
      * This function does not test if the node is in a JavaScript file or not.
     */
-    function isRequireCall(expression) {
+    function isRequireCall(expression, checkArgumentIsStringLiteral) {
         // of the form 'require("name")'
-        return expression.kind === 172 /* CallExpression */ &&
+        var isRequire = expression.kind === 172 /* CallExpression */ &&
             expression.expression.kind === 69 /* Identifier */ &&
             expression.expression.text === "require" &&
             expression.arguments.length === 1;
+        return isRequire && (!checkArgumentIsStringLiteral || expression.arguments[0].kind === 9 /* StringLiteral */);
     }
     ts.isRequireCall = isRequireCall;
     /// Given a BinaryExpression, returns SpecialPropertyAssignmentKind for the various kinds of property
@@ -5512,6 +5514,7 @@ var ts;
         An_unary_expression_with_the_0_operator_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_expression_Consider_enclosing_the_expression_in_parentheses: { code: 17006, category: ts.DiagnosticCategory.Error, key: "An_unary_expression_with_the_0_operator_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_ex_17006", message: "An unary expression with the '{0}' operator is not allowed in the left-hand side of an exponentiation expression. Consider enclosing the expression in parentheses." },
         A_type_assertion_expression_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_expression_Consider_enclosing_the_expression_in_parentheses: { code: 17007, category: ts.DiagnosticCategory.Error, key: "A_type_assertion_expression_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_expression_Con_17007", message: "A type assertion expression is not allowed in the left-hand side of an exponentiation expression. Consider enclosing the expression in parentheses." },
         JSX_element_0_has_no_corresponding_closing_tag: { code: 17008, category: ts.DiagnosticCategory.Error, key: "JSX_element_0_has_no_corresponding_closing_tag_17008", message: "JSX element '{0}' has no corresponding closing tag." },
+        super_must_be_called_before_accessing_this_in_the_constructor_of_a_derived_class: { code: 17009, category: ts.DiagnosticCategory.Error, key: "super_must_be_called_before_accessing_this_in_the_constructor_of_a_derived_class_17009", message: "'super' must be called before accessing 'this' in the constructor of a derived class." },
     };
 })(ts || (ts = {}));
 /// <reference path="core.ts"/>
@@ -14338,7 +14341,7 @@ var ts;
         function bindCallExpression(node) {
             // We're only inspecting call expressions to detect CommonJS modules, so we can skip
             // this check if we've already seen the module indicator
-            if (!file.commonJsModuleIndicator && ts.isRequireCall(node)) {
+            if (!file.commonJsModuleIndicator && ts.isRequireCall(node, /*checkArgumentIsStringLiteral*/ false)) {
                 setCommonJsModuleIndicator(node);
             }
         }
@@ -21238,6 +21241,13 @@ var ts;
             // tell whether 'this' needs to be captured.
             var container = ts.getThisContainer(node, /* includeArrowFunctions */ true);
             var needToCaptureLexicalThis = false;
+            if (container.kind === 146 /* Constructor */) {
+                var baseTypeNode = ts.getClassExtendsHeritageClauseElement(container.parent);
+                if (baseTypeNode && !(getNodeCheckFlags(container) & 524288 /* HasSeenSuperCall */)) {
+                    // In ES6, super inside constructor of class-declaration has to precede "this" accessing
+                    error(node, ts.Diagnostics.super_must_be_called_before_accessing_this_in_the_constructor_of_a_derived_class);
+                }
+            }
             // Now skip arrow functions to get the "real" owner of 'this'.
             if (container.kind === 178 /* ArrowFunction */) {
                 container = ts.getThisContainer(container, /* includeArrowFunctions */ false);
@@ -22593,7 +22603,7 @@ var ts;
          */
         function checkClassPropertyAccess(node, left, type, prop) {
             var flags = getDeclarationFlagsFromSymbol(prop);
-            var declaringClass = getDeclaredTypeOfSymbol(prop.parent);
+            var declaringClass = getDeclaredTypeOfSymbol(getMergedSymbol(prop.parent));
             if (left.kind === 95 /* SuperKeyword */) {
                 var errorNode = node.kind === 170 /* PropertyAccessExpression */ ?
                     node.name :
@@ -23867,6 +23877,10 @@ var ts;
             checkGrammarTypeArguments(node, node.typeArguments) || checkGrammarArguments(node, node.arguments);
             var signature = getResolvedSignature(node);
             if (node.expression.kind === 95 /* SuperKeyword */) {
+                var containgFunction = ts.getContainingFunction(node.expression);
+                if (containgFunction && containgFunction.kind === 146 /* Constructor */) {
+                    getNodeLinks(containgFunction).flags |= 524288 /* HasSeenSuperCall */;
+                }
                 return voidType;
             }
             if (node.kind === 173 /* NewExpression */) {
@@ -23890,7 +23904,7 @@ var ts;
                 }
             }
             // In JavaScript files, calls to any identifier 'require' are treated as external module imports
-            if (ts.isInJavaScriptFile(node) && ts.isRequireCall(node)) {
+            if (ts.isInJavaScriptFile(node) && ts.isRequireCall(node, /*checkArgumentIsStringLiteral*/ true)) {
                 return resolveExternalModuleTypeByLiteral(node.arguments[0]);
             }
             return getReturnTypeOfSignature(signature);
@@ -25312,10 +25326,6 @@ var ts;
                         }
                         if (!superCallStatement) {
                             error(node, ts.Diagnostics.A_super_call_must_be_the_first_statement_in_the_constructor_when_a_class_contains_initialized_properties_or_has_parameter_properties);
-                        }
-                        else {
-                            // In such a required super call, it is a compile-time error for argument expressions to reference this.
-                            markThisReferencesAsErrors(superCallStatement.expression);
                         }
                     }
                 }
@@ -33002,6 +33012,7 @@ var ts;
             // =>
             // var x;... exporter("x", x = 1)
             var exportFunctionForFile;
+            var contextObjectForFile;
             var generatedNameSet;
             var nodeToGeneratedName;
             var computedPropertyNamesToGeneratedNames;
@@ -33066,6 +33077,7 @@ var ts;
                 currentText = undefined;
                 currentLineMap = undefined;
                 exportFunctionForFile = undefined;
+                contextObjectForFile = undefined;
                 generatedNameSet = undefined;
                 nodeToGeneratedName = undefined;
                 computedPropertyNamesToGeneratedNames = undefined;
@@ -33092,6 +33104,7 @@ var ts;
                 currentText = sourceFile.text;
                 currentLineMap = ts.getLineStarts(sourceFile);
                 exportFunctionForFile = undefined;
+                contextObjectForFile = undefined;
                 isEs6Module = sourceFile.symbol && sourceFile.symbol.exports && !!sourceFile.symbol.exports["___esModule"];
                 renamedDependencies = sourceFile.renamedDependencies;
                 currentFileIdentifiers = sourceFile.identifiers;
@@ -38877,6 +38890,7 @@ var ts;
                 ts.Debug.assert(!exportFunctionForFile);
                 // make sure that  name of 'exports' function does not conflict with existing identifiers
                 exportFunctionForFile = makeUniqueName("exports");
+                contextObjectForFile = makeUniqueName("context");
                 writeLine();
                 write("System.register(");
                 writeModuleName(node, emitRelativePathAsModuleName);
@@ -38906,10 +38920,13 @@ var ts;
                     }
                     write(text);
                 }
-                write("], function(" + exportFunctionForFile + ") {");
+                write("], function(" + exportFunctionForFile + ", " + contextObjectForFile + ") {");
                 writeLine();
                 increaseIndent();
                 var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ true);
+                writeLine();
+                write("var __moduleName = " + contextObjectForFile + " && " + contextObjectForFile + ".id;");
+                writeLine();
                 emitEmitHelpers(node);
                 emitCaptureThisForNodeIfNecessary(node);
                 emitSystemModuleBody(node, dependencyGroups, startIndex);
@@ -40839,7 +40856,7 @@ var ts;
                 }
             }
             function collectRequireCalls(node) {
-                if (ts.isRequireCall(node)) {
+                if (ts.isRequireCall(node, /*checkArgumentIsStringLiteral*/ true)) {
                     (imports || (imports = [])).push(node.arguments[0]);
                 }
                 else {
