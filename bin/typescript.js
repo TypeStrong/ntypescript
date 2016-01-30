@@ -584,13 +584,14 @@ var ts;
         NodeCheckFlags[NodeCheckFlags["AsyncMethodWithSuper"] = 2048] = "AsyncMethodWithSuper";
         NodeCheckFlags[NodeCheckFlags["AsyncMethodWithSuperBinding"] = 4096] = "AsyncMethodWithSuperBinding";
         NodeCheckFlags[NodeCheckFlags["CaptureArguments"] = 8192] = "CaptureArguments";
-        // Values for enum members have been computed, and any errors have been reported for them.
         NodeCheckFlags[NodeCheckFlags["EnumValuesComputed"] = 16384] = "EnumValuesComputed";
         NodeCheckFlags[NodeCheckFlags["LexicalModuleMergesWithClass"] = 32768] = "LexicalModuleMergesWithClass";
         NodeCheckFlags[NodeCheckFlags["LoopWithCapturedBlockScopedBinding"] = 65536] = "LoopWithCapturedBlockScopedBinding";
         NodeCheckFlags[NodeCheckFlags["CapturedBlockScopedBinding"] = 131072] = "CapturedBlockScopedBinding";
         NodeCheckFlags[NodeCheckFlags["BlockScopedBindingInLoop"] = 262144] = "BlockScopedBindingInLoop";
         NodeCheckFlags[NodeCheckFlags["HasSeenSuperCall"] = 524288] = "HasSeenSuperCall";
+        NodeCheckFlags[NodeCheckFlags["ClassWithBodyScopedClassBinding"] = 1048576] = "ClassWithBodyScopedClassBinding";
+        NodeCheckFlags[NodeCheckFlags["BodyScopedClassBinding"] = 2097152] = "BodyScopedClassBinding";
     })(ts.NodeCheckFlags || (ts.NodeCheckFlags = {}));
     var NodeCheckFlags = ts.NodeCheckFlags;
     (function (TypeFlags) {
@@ -5364,7 +5365,7 @@ var ts;
         Cannot_write_file_0_because_it_would_be_overwritten_by_multiple_input_files: { code: 5056, category: ts.DiagnosticCategory.Error, key: "Cannot_write_file_0_because_it_would_be_overwritten_by_multiple_input_files_5056", message: "Cannot write file '{0}' because it would be overwritten by multiple input files." },
         Cannot_find_a_tsconfig_json_file_at_the_specified_directory_Colon_0: { code: 5057, category: ts.DiagnosticCategory.Error, key: "Cannot_find_a_tsconfig_json_file_at_the_specified_directory_Colon_0_5057", message: "Cannot find a tsconfig.json file at the specified directory: '{0}'" },
         The_specified_path_does_not_exist_Colon_0: { code: 5058, category: ts.DiagnosticCategory.Error, key: "The_specified_path_does_not_exist_Colon_0_5058", message: "The specified path does not exist: '{0}'" },
-        Invalide_value_for_reactNamespace_0_is_not_a_valid_identifier: { code: 5059, category: ts.DiagnosticCategory.Error, key: "Invalide_value_for_reactNamespace_0_is_not_a_valid_identifier_5059", message: "Invalide value for '--reactNamespace'. '{0}' is not a valid identifier." },
+        Invalid_value_for_reactNamespace_0_is_not_a_valid_identifier: { code: 5059, category: ts.DiagnosticCategory.Error, key: "Invalid_value_for_reactNamespace_0_is_not_a_valid_identifier_5059", message: "Invalid value for '--reactNamespace'. '{0}' is not a valid identifier." },
         Option_paths_cannot_be_used_without_specifying_baseUrl_option: { code: 5060, category: ts.DiagnosticCategory.Error, key: "Option_paths_cannot_be_used_without_specifying_baseUrl_option_5060", message: "Option 'paths' cannot be used without specifying '--baseUrl' option." },
         Pattern_0_can_have_at_most_one_Asterisk_character: { code: 5061, category: ts.DiagnosticCategory.Error, key: "Pattern_0_can_have_at_most_one_Asterisk_character_5061", message: "Pattern '{0}' can have at most one '*' character" },
         Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character: { code: 5062, category: ts.DiagnosticCategory.Error, key: "Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character_5062", message: "Substitution '{0}' in pattern '{1}' in can have at most one '*' character" },
@@ -21178,10 +21179,28 @@ var ts;
             if (symbol.flags & 8388608 /* Alias */ && !isInTypeQuery(node) && !isConstEnumOrConstEnumOnlyModule(resolveAlias(symbol))) {
                 markAliasSymbolAsReferenced(symbol);
             }
+            var localOrExportSymbol = getExportSymbolOfValueSymbolIfExported(symbol);
+            // Due to the emit for class decorators, any reference to the class from inside of the class body
+            // must instead be rewritten to point to a temporary variable to avoid issues with the double-bind
+            // behavior of class names in ES6.
+            if (languageVersion === 2 /* ES6 */
+                && localOrExportSymbol.flags & 32 /* Class */
+                && localOrExportSymbol.valueDeclaration.kind === 218 /* ClassDeclaration */
+                && ts.nodeIsDecorated(localOrExportSymbol.valueDeclaration)) {
+                var container = ts.getContainingClass(node);
+                while (container !== undefined) {
+                    if (container === localOrExportSymbol.valueDeclaration && container.name !== node) {
+                        getNodeLinks(container).flags |= 1048576 /* ClassWithBodyScopedClassBinding */;
+                        getNodeLinks(node).flags |= 2097152 /* BodyScopedClassBinding */;
+                        break;
+                    }
+                    container = ts.getContainingClass(container);
+                }
+            }
             checkCollisionWithCapturedSuperVariable(node, node);
             checkCollisionWithCapturedThisVariable(node, node);
             checkNestedBlockScopedBinding(node, symbol);
-            return getNarrowedTypeOfSymbol(getExportSymbolOfValueSymbolIfExported(symbol), node);
+            return getNarrowedTypeOfSymbol(localOrExportSymbol, node);
         }
         function isInsideFunction(node, threshold) {
             var current = node;
@@ -21216,7 +21235,7 @@ var ts;
             }
             if (containedInIterationStatement) {
                 if (usedInFunction) {
-                    // mark iteration statement as containing block-scoped binding captured in some function 
+                    // mark iteration statement as containing block-scoped binding captured in some function
                     getNodeLinks(current).flags |= 65536 /* LoopWithCapturedBlockScopedBinding */;
                 }
                 // set 'declared inside loop' bit on the block-scoped binding
@@ -28795,7 +28814,7 @@ var ts;
                             // - binding is not top level - top level bindings never collide with anything
                             // AND
                             //   - binding is not declared in loop, should be renamed to avoid name reuse across siblings
-                            //     let a, b 
+                            //     let a, b
                             //     { let x = 1; a = () => x;  }
                             //     { let x = 100; b = () => x; }
                             //     console.log(a()); // should print '1'
@@ -33016,6 +33035,7 @@ var ts;
             var generatedNameSet;
             var nodeToGeneratedName;
             var computedPropertyNamesToGeneratedNames;
+            var decoratedClassAliases;
             var convertedLoopState;
             var extendsEmitted;
             var decorateEmitted;
@@ -33057,6 +33077,7 @@ var ts;
                 sourceMap.initialize(jsFilePath, sourceMapFilePath, sourceFiles, isBundledEmit);
                 generatedNameSet = {};
                 nodeToGeneratedName = [];
+                decoratedClassAliases = [];
                 isOwnFileEmit = !isBundledEmit;
                 // Emit helpers from all the files
                 if (isBundledEmit && modulekind) {
@@ -33080,6 +33101,7 @@ var ts;
                 contextObjectForFile = undefined;
                 generatedNameSet = undefined;
                 nodeToGeneratedName = undefined;
+                decoratedClassAliases = undefined;
                 computedPropertyNamesToGeneratedNames = undefined;
                 convertedLoopState = undefined;
                 extendsEmitted = false;
@@ -33942,11 +33964,24 @@ var ts;
                             }
                         }
                     }
-                    if (languageVersion !== 2 /* ES6 */) {
+                    if (languageVersion < 2 /* ES6 */) {
                         var declaration = resolver.getReferencedDeclarationWithCollidingName(node);
                         if (declaration) {
                             write(getGeneratedNameForNode(declaration.name));
                             return;
+                        }
+                    }
+                    else if (resolver.getNodeCheckFlags(node) & 2097152 /* BodyScopedClassBinding */) {
+                        // Due to the emit for class decorators, any reference to the class from inside of the class body
+                        // must instead be rewritten to point to a temporary variable to avoid issues with the double-bind
+                        // behavior of class names in ES6.
+                        var declaration = resolver.getReferencedValueDeclaration(node);
+                        if (declaration) {
+                            var classAlias = decoratedClassAliases[ts.getNodeId(declaration)];
+                            if (classAlias !== undefined) {
+                                write(classAlias);
+                                return;
+                            }
                         }
                     }
                 }
@@ -36198,7 +36233,7 @@ var ts;
                     var initializer = node.initializer;
                     if (!initializer &&
                         languageVersion < 2 /* ES6 */ &&
-                        // for names - binding patterns that lack initializer there is no point to emit explicit initializer 
+                        // for names - binding patterns that lack initializer there is no point to emit explicit initializer
                         // since downlevel codegen for destructuring will fail in the absence of initializer so all binding elements will say uninitialized
                         node.name.kind === 69 /* Identifier */) {
                         var container = ts.getEnclosingBlockScopeContainer(node);
@@ -36217,11 +36252,11 @@ var ts;
                         //   explicitly initialized. One particular case: non-captured binding declared inside loop body (but not in loop initializer)
                         //   let x;
                         //   for (;;) {
-                        //       let x;  
+                        //       let x;
                         //   }
                         //   in downlevel codegen inner 'x' will be renamed so it won't collide with outer 'x' however it will should be reset on every iteration
-                        //   as if it was declared anew. 
-                        //   * Why non-captured binding - because if loop contains block scoped binding captured in some function then loop body will be rewritten 
+                        //   as if it was declared anew.
+                        //   * Why non-captured binding - because if loop contains block scoped binding captured in some function then loop body will be rewritten
                         //   to have a fresh scope on every iteration so everything will just work.
                         //   * Why loop initializer is excluded - since we've introduced a fresh name it already will be undefined.
                         var isCapturedInFunction = flags & 131072 /* CapturedBlockScopedBinding */;
@@ -37130,63 +37165,103 @@ var ts;
                 }
             }
             function emitClassLikeDeclarationForES6AndHigher(node) {
+                var decoratedClassAlias;
                 var thisNodeIsDecorated = ts.nodeIsDecorated(node);
                 if (node.kind === 218 /* ClassDeclaration */) {
                     if (thisNodeIsDecorated) {
-                        // To preserve the correct runtime semantics when decorators are applied to the class,
-                        // the emit needs to follow one of the following rules:
+                        // When we emit an ES6 class that has a class decorator, we must tailor the
+                        // emit to certain specific cases.
                         //
-                        // * For a local class declaration:
+                        // In the simplest case, we emit the class declaration as a let declaration, and
+                        // evaluate decorators after the close of the class body:
                         //
-                        //     @dec class C {
-                        //     }
+                        //  TypeScript                      | Javascript
+                        //  --------------------------------|------------------------------------
+                        //  @dec                            | let C = class C {
+                        //  class C {                       | }
+                        //  }                               | C = __decorate([dec], C);
+                        //  --------------------------------|------------------------------------
+                        //  @dec                            | export let C = class C {
+                        //  export class C {                | }
+                        //  }                               | C = __decorate([dec], C);
+                        //  ---------------------------------------------------------------------
+                        //  [Example 1]
                         //
-                        //   The emit should be:
+                        // If a class declaration contains a reference to itself *inside* of the class body,
+                        // this introduces two bindings to the class: One outside of the class body, and one
+                        // inside of the class body. If we apply decorators as in [Example 1] above, there
+                        // is the possibility that the decorator `dec` will return a new value for the
+                        // constructor, which would result in the binding inside of the class no longer
+                        // pointing to the same reference as the binding outside of the class.
                         //
-                        //     let C = class {
-                        //     };
-                        //     C = __decorate([dec], C);
+                        // As a result, we must instead rewrite all references to the class *inside* of the
+                        // class body to instead point to a local temporary alias for the class:
                         //
-                        // * For an exported class declaration:
+                        //  TypeScript                      | Javascript
+                        //  --------------------------------|------------------------------------
+                        //  @dec                            | let C_1;
+                        //  class C {                       | let C = C_1 = class C {
+                        //    static x() { return C.y; }    |   static x() { return C_1.y; }
+                        //    static y = 1;                 | }
+                        //  }                               | C.y = 1;
+                        //                                  | C = C_1 = __decorate([dec], C);
+                        //  --------------------------------|------------------------------------
+                        //  @dec                            | let C_1;
+                        //  export class C {                | export let C = C_1 = class C {
+                        //    static x() { return C.y; }    |   static x() { return C_1.y; }
+                        //    static y = 1;                 | }
+                        //  }                               | C.y = 1;
+                        //                                  | C = C_1 = __decorate([dec], C);
+                        //  ---------------------------------------------------------------------
+                        //  [Example 2]
                         //
-                        //     @dec export class C {
-                        //     }
+                        // If a class declaration is the default export of a module, we instead emit
+                        // the export after the decorated declaration:
                         //
-                        //   The emit should be:
+                        //  TypeScript                      | Javascript
+                        //  --------------------------------|------------------------------------
+                        //  @dec                            | let default_1 = class {
+                        //  export default class {          | }
+                        //  }                               | default_1 = __decorate([dec], default_1);
+                        //                                  | export default default_1;
+                        //  --------------------------------|------------------------------------
+                        //  @dec                            | let C = class C {
+                        //  export default class {          | }
+                        //  }                               | C = __decorate([dec], C);
+                        //                                  | export default C;
+                        //  ---------------------------------------------------------------------
+                        //  [Example 3]
                         //
-                        //     export let C = class {
-                        //     };
-                        //     C = __decorate([dec], C);
+                        // If the class declaration is the default export and a reference to itself
+                        // inside of the class body, we must emit both an alias for the class *and*
+                        // move the export after the declaration:
                         //
-                        // * For a default export of a class declaration with a name:
+                        //  TypeScript                      | Javascript
+                        //  --------------------------------|------------------------------------
+                        //  @dec                            | let C_1;
+                        //  export default class C {        | let C = C_1 = class C {
+                        //    static x() { return C.y; }    |   static x() { return C_1.y; }
+                        //    static y = 1;                 | }
+                        //  }                               | C.y = 1;
+                        //                                  | C = C_1 = __decorate([dec], C);
+                        //                                  | export default C;
+                        //  ---------------------------------------------------------------------
+                        //  [Example 4]
                         //
-                        //     @dec default export class C {
-                        //     }
-                        //
-                        //   The emit should be:
-                        //
-                        //     let C = class {
-                        //     }
-                        //     C = __decorate([dec], C);
-                        //     export default C;
-                        //
-                        // * For a default export of a class declaration without a name:
-                        //
-                        //     @dec default export class {
-                        //     }
-                        //
-                        //   The emit should be:
-                        //
-                        //     let _default = class {
-                        //     }
-                        //     _default = __decorate([dec], _default);
-                        //     export default _default;
-                        //
+                        if (resolver.getNodeCheckFlags(node) & 1048576 /* ClassWithBodyScopedClassBinding */) {
+                            decoratedClassAlias = ts.unescapeIdentifier(makeUniqueName(node.name ? node.name.text : "default"));
+                            decoratedClassAliases[ts.getNodeId(node)] = decoratedClassAlias;
+                            write("let " + decoratedClassAlias + ";");
+                            writeLine();
+                        }
                         if (isES6ExportedDeclaration(node) && !(node.flags & 512 /* Default */)) {
                             write("export ");
                         }
                         write("let ");
                         emitDeclarationName(node);
+                        if (decoratedClassAlias !== undefined) {
+                            write(" = " + decoratedClassAlias);
+                        }
                         write(" = ");
                     }
                     else if (isES6ExportedDeclaration(node)) {
@@ -37221,7 +37296,7 @@ var ts;
                 // emit name if
                 // - node has a name
                 // - this is default export with static initializers
-                if ((node.name || (node.flags & 512 /* Default */ && (staticProperties.length > 0 || modulekind !== ts.ModuleKind.ES6))) && !thisNodeIsDecorated) {
+                if (node.name || (node.flags & 512 /* Default */ && (staticProperties.length > 0 || modulekind !== ts.ModuleKind.ES6) && !thisNodeIsDecorated)) {
                     write(" ");
                     emitDeclarationName(node);
                 }
@@ -37238,15 +37313,8 @@ var ts;
                 decreaseIndent();
                 writeLine();
                 emitToken(16 /* CloseBraceToken */, node.members.end);
-                // TODO(rbuckton): Need to go back to `let _a = class C {}` approach, removing the defineProperty call for now.
-                // For a decorated class, we need to assign its name (if it has one). This is because we emit
-                // the class as a class expression to avoid the double-binding of the identifier:
-                //
-                //   let C = class {
-                //   }
-                //   Object.defineProperty(C, "name", { value: "C", configurable: true });
-                //
                 if (thisNodeIsDecorated) {
+                    decoratedClassAliases[ts.getNodeId(node)] = undefined;
                     write(";");
                 }
                 // Emit static property assignment. Because classDeclaration is lexically evaluated,
@@ -37270,7 +37338,7 @@ var ts;
                 else {
                     writeLine();
                     emitPropertyDeclarations(node, staticProperties);
-                    emitDecoratorsOfClass(node);
+                    emitDecoratorsOfClass(node, decoratedClassAlias);
                 }
                 if (!(node.flags & 1 /* Export */)) {
                     return;
@@ -37340,7 +37408,7 @@ var ts;
                 emitMemberFunctionsForES5AndLower(node);
                 emitPropertyDeclarations(node, getInitializedProperties(node, /*isStatic*/ true));
                 writeLine();
-                emitDecoratorsOfClass(node);
+                emitDecoratorsOfClass(node, /*decoratedClassAlias*/ undefined);
                 writeLine();
                 emitToken(16 /* CloseBraceToken */, node.members.end, function () {
                     write("return ");
@@ -37377,12 +37445,12 @@ var ts;
                     write(".prototype");
                 }
             }
-            function emitDecoratorsOfClass(node) {
+            function emitDecoratorsOfClass(node, decoratedClassAlias) {
                 emitDecoratorsOfMembers(node, /*staticFlag*/ 0);
                 emitDecoratorsOfMembers(node, 32 /* Static */);
-                emitDecoratorsOfConstructor(node);
+                emitDecoratorsOfConstructor(node, decoratedClassAlias);
             }
-            function emitDecoratorsOfConstructor(node) {
+            function emitDecoratorsOfConstructor(node, decoratedClassAlias) {
                 var decorators = node.decorators;
                 var constructor = ts.getFirstConstructorWithBody(node);
                 var firstParameterDecorator = constructor && ts.forEach(constructor.parameters, function (parameter) { return parameter.decorators; });
@@ -37403,6 +37471,9 @@ var ts;
                 writeLine();
                 emitStart(node.decorators || firstParameterDecorator);
                 emitDeclarationName(node);
+                if (decoratedClassAlias !== undefined) {
+                    write(" = " + decoratedClassAlias);
+                }
                 write(" = __decorate([");
                 increaseIndent();
                 writeLine();
@@ -39897,7 +39968,7 @@ var ts;
         for (var _i = 0, _a = state.compilerOptions.rootDirs; _i < _a.length; _i++) {
             var rootDir = _a[_i];
             // rootDirs are expected to be absolute
-            // in case of tsconfig.json this will happen automatically - compiler will expand relative names 
+            // in case of tsconfig.json this will happen automatically - compiler will expand relative names
             // using locaton of tsconfig.json as base location
             var normalizedRoot = ts.normalizePath(rootDir);
             if (!endsWith(normalizedRoot, ts.directorySeparator)) {
@@ -39933,7 +40004,7 @@ var ts;
             for (var _b = 0, _c = state.compilerOptions.rootDirs; _b < _c.length; _b++) {
                 var rootDir = _c[_b];
                 if (rootDir === matchedRootDir) {
-                    // skip the initially matched entry 
+                    // skip the initially matched entry
                     continue;
                 }
                 var candidate_1 = ts.combinePaths(ts.normalizePath(rootDir), suffix);
@@ -40091,7 +40162,7 @@ var ts;
                 jsonContent = jsonText ? JSON.parse(jsonText) : { typings: undefined };
             }
             catch (e) {
-                // gracefully handle if readFile fails or returns not JSON 
+                // gracefully handle if readFile fails or returns not JSON
                 jsonContent = { typings: undefined };
             }
             if (jsonContent.typings) {
@@ -40328,7 +40399,7 @@ var ts;
             });
         var filesByName = ts.createFileMap();
         // stores 'filename -> file association' ignoring case
-        // used to track cases when two file names differ only in casing 
+        // used to track cases when two file names differ only in casing
         var filesByNameIgnoreCase = host.useCaseSensitiveFileNames() ? ts.createFileMap(function (fileName) { return fileName.toLowerCase(); }) : undefined;
         if (oldProgram) {
             // check properties that can affect structure of the program or module resolution strategy
@@ -40824,7 +40895,7 @@ var ts;
                             break;
                         }
                         // TypeScript 1.0 spec (April 2014): 12.1.6
-                        // An ExternalImportDeclaration in an AmbientExternalModuleDeclaration may reference other external modules 
+                        // An ExternalImportDeclaration in an AmbientExternalModuleDeclaration may reference other external modules
                         // only through top - level external module names. Relative external module names are not permitted.
                         if (!inAmbientModule || !ts.isExternalModuleNameRelative(moduleNameExpr.text)) {
                             (imports || (imports = [])).push(moduleNameExpr);
@@ -40842,7 +40913,7 @@ var ts;
                                 (moduleAugmentations || (moduleAugmentations = [])).push(moduleName);
                             }
                             else if (!inAmbientModule) {
-                                // An AmbientExternalModuleDeclaration declares an external module. 
+                                // An AmbientExternalModuleDeclaration declares an external module.
                                 // This type of declaration is permitted only in the global module.
                                 // The StringLiteral must specify a top - level external module name.
                                 // Relative external module names are not permitted
@@ -41187,7 +41258,7 @@ var ts;
                 programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "emitDecoratorMetadata", "experimentalDecorators"));
             }
             if (options.reactNamespace && !ts.isIdentifier(options.reactNamespace, languageVersion)) {
-                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Invalide_value_for_reactNamespace_0_is_not_a_valid_identifier, options.reactNamespace));
+                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Invalid_value_for_reactNamespace_0_is_not_a_valid_identifier, options.reactNamespace));
             }
             // If the emit is enabled make sure that every output file is unique and not overwriting any of the input files
             if (!options.noEmit) {

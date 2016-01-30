@@ -1449,6 +1449,8 @@ declare namespace ts {
         CapturedBlockScopedBinding = 131072,
         BlockScopedBindingInLoop = 262144,
         HasSeenSuperCall = 524288,
+        ClassWithBodyScopedClassBinding = 1048576,
+        BodyScopedClassBinding = 2097152,
     }
     interface NodeLinks {
         resolvedType?: Type;
@@ -5709,7 +5711,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Invalide_value_for_reactNamespace_0_is_not_a_valid_identifier: {
+        Invalid_value_for_reactNamespace_0_is_not_a_valid_identifier: {
             code: number;
             category: DiagnosticCategory;
             key: string;
