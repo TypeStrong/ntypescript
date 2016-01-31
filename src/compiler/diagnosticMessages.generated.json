@@ -454,6 +454,7 @@
   "export_modifier_cannot_be_applied_to_ambient_modules_and_module_augmentations_since_they_are_always__2668" : "'export' modifier cannot be applied to ambient modules and module augmentations since they are always visible.",
   "Augmentations_for_the_global_scope_can_only_be_directly_nested_in_external_modules_or_ambient_module_2669" : "Augmentations for the global scope can only be directly nested in external modules or ambient module declarations.",
   "Augmentations_for_the_global_scope_should_have_declare_modifier_unless_they_appear_in_already_ambien_2670" : "Augmentations for the global scope should have 'declare' modifier unless they appear in already ambient context.",
+  "Cannot_augment_module_0_because_it_resolves_to_a_non_module_entity_2671" : "Cannot augment module '{0}' because it resolves to a non-module entity.",
   "Import_declaration_0_is_using_private_name_1_4000" : "Import declaration '{0}' is using private name '{1}'.",
   "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002" : "Type parameter '{0}' of exported class has or is using private name '{1}'.",
   "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004" : "Type parameter '{0}' of exported interface has or is using private name '{1}'.",

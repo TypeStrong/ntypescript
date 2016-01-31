@@ -5183,6 +5183,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Cannot_augment_module_0_because_it_resolves_to_a_non_module_entity: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;
