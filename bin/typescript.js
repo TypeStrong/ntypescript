@@ -349,59 +349,37 @@ var ts;
         NodeFlags[NodeFlags["Abstract"] = 128] = "Abstract";
         NodeFlags[NodeFlags["Async"] = 256] = "Async";
         NodeFlags[NodeFlags["Default"] = 512] = "Default";
-        NodeFlags[NodeFlags["MultiLine"] = 1024] = "MultiLine";
-        NodeFlags[NodeFlags["Synthetic"] = 2048] = "Synthetic";
-        NodeFlags[NodeFlags["DeclarationFile"] = 4096] = "DeclarationFile";
-        NodeFlags[NodeFlags["Let"] = 8192] = "Let";
-        NodeFlags[NodeFlags["Const"] = 16384] = "Const";
-        NodeFlags[NodeFlags["OctalLiteral"] = 32768] = "OctalLiteral";
-        NodeFlags[NodeFlags["Namespace"] = 65536] = "Namespace";
-        NodeFlags[NodeFlags["ExportContext"] = 131072] = "ExportContext";
-        NodeFlags[NodeFlags["ContainsThis"] = 262144] = "ContainsThis";
-        NodeFlags[NodeFlags["HasImplicitReturn"] = 524288] = "HasImplicitReturn";
-        NodeFlags[NodeFlags["HasExplicitReturn"] = 1048576] = "HasExplicitReturn";
-        NodeFlags[NodeFlags["GlobalAugmentation"] = 2097152] = "GlobalAugmentation";
-        NodeFlags[NodeFlags["HasClassExtends"] = 4194304] = "HasClassExtends";
-        NodeFlags[NodeFlags["HasDecorators"] = 8388608] = "HasDecorators";
-        NodeFlags[NodeFlags["HasParamDecorators"] = 16777216] = "HasParamDecorators";
-        NodeFlags[NodeFlags["HasAsyncFunctions"] = 33554432] = "HasAsyncFunctions";
+        NodeFlags[NodeFlags["Let"] = 1024] = "Let";
+        NodeFlags[NodeFlags["Const"] = 2048] = "Const";
+        NodeFlags[NodeFlags["Namespace"] = 4096] = "Namespace";
+        NodeFlags[NodeFlags["ExportContext"] = 8192] = "ExportContext";
+        NodeFlags[NodeFlags["ContainsThis"] = 16384] = "ContainsThis";
+        NodeFlags[NodeFlags["HasImplicitReturn"] = 32768] = "HasImplicitReturn";
+        NodeFlags[NodeFlags["HasExplicitReturn"] = 65536] = "HasExplicitReturn";
+        NodeFlags[NodeFlags["GlobalAugmentation"] = 131072] = "GlobalAugmentation";
+        NodeFlags[NodeFlags["HasClassExtends"] = 262144] = "HasClassExtends";
+        NodeFlags[NodeFlags["HasDecorators"] = 524288] = "HasDecorators";
+        NodeFlags[NodeFlags["HasParamDecorators"] = 1048576] = "HasParamDecorators";
+        NodeFlags[NodeFlags["HasAsyncFunctions"] = 2097152] = "HasAsyncFunctions";
+        NodeFlags[NodeFlags["DisallowInContext"] = 4194304] = "DisallowInContext";
+        NodeFlags[NodeFlags["YieldContext"] = 8388608] = "YieldContext";
+        NodeFlags[NodeFlags["DecoratorContext"] = 16777216] = "DecoratorContext";
+        NodeFlags[NodeFlags["AwaitContext"] = 33554432] = "AwaitContext";
+        NodeFlags[NodeFlags["ThisNodeHasError"] = 67108864] = "ThisNodeHasError";
+        NodeFlags[NodeFlags["JavaScriptFile"] = 134217728] = "JavaScriptFile";
+        NodeFlags[NodeFlags["ThisNodeOrAnySubNodesHasError"] = 268435456] = "ThisNodeOrAnySubNodesHasError";
+        NodeFlags[NodeFlags["HasAggregatedChildData"] = 536870912] = "HasAggregatedChildData";
         NodeFlags[NodeFlags["Modifier"] = 959] = "Modifier";
         NodeFlags[NodeFlags["AccessibilityModifier"] = 28] = "AccessibilityModifier";
-        NodeFlags[NodeFlags["BlockScoped"] = 24576] = "BlockScoped";
-        NodeFlags[NodeFlags["ReachabilityCheckFlags"] = 1572864] = "ReachabilityCheckFlags";
-        NodeFlags[NodeFlags["EmitHelperFlags"] = 62914560] = "EmitHelperFlags";
+        NodeFlags[NodeFlags["BlockScoped"] = 3072] = "BlockScoped";
+        NodeFlags[NodeFlags["ReachabilityCheckFlags"] = 98304] = "ReachabilityCheckFlags";
+        NodeFlags[NodeFlags["EmitHelperFlags"] = 3932160] = "EmitHelperFlags";
+        // Parsing context flags
+        NodeFlags[NodeFlags["ContextFlags"] = 62914560] = "ContextFlags";
+        // Exclude these flags when parsing a Type
+        NodeFlags[NodeFlags["TypeExcludesFlags"] = 41943040] = "TypeExcludesFlags";
     })(ts.NodeFlags || (ts.NodeFlags = {}));
     var NodeFlags = ts.NodeFlags;
-    /* @internal */
-    (function (ParserContextFlags) {
-        ParserContextFlags[ParserContextFlags["None"] = 0] = "None";
-        // If this node was parsed in a context where 'in-expressions' are not allowed.
-        ParserContextFlags[ParserContextFlags["DisallowIn"] = 1] = "DisallowIn";
-        // If this node was parsed in the 'yield' context created when parsing a generator.
-        ParserContextFlags[ParserContextFlags["Yield"] = 2] = "Yield";
-        // If this node was parsed as part of a decorator
-        ParserContextFlags[ParserContextFlags["Decorator"] = 4] = "Decorator";
-        // If this node was parsed in the 'await' context created when parsing an async function.
-        ParserContextFlags[ParserContextFlags["Await"] = 8] = "Await";
-        // If the parser encountered an error when parsing the code that created this node.  Note
-        // the parser only sets this directly on the node it creates right after encountering the
-        // error.
-        ParserContextFlags[ParserContextFlags["ThisNodeHasError"] = 16] = "ThisNodeHasError";
-        // This node was parsed in a JavaScript file and can be processed differently.  For example
-        // its type can be specified usign a JSDoc comment.
-        ParserContextFlags[ParserContextFlags["JavaScriptFile"] = 32] = "JavaScriptFile";
-        // Context flags set directly by the parser.
-        ParserContextFlags[ParserContextFlags["ParserGeneratedFlags"] = 31] = "ParserGeneratedFlags";
-        // Exclude these flags when parsing a Type
-        ParserContextFlags[ParserContextFlags["TypeExcludesFlags"] = 10] = "TypeExcludesFlags";
-        // Context flags computed by aggregating child flags upwards.
-        // Used during incremental parsing to determine if this node or any of its children had an
-        // error.  Computed only once and then cached.
-        ParserContextFlags[ParserContextFlags["ThisNodeOrAnySubNodesHasError"] = 64] = "ThisNodeOrAnySubNodesHasError";
-        // Used to know if we've computed data from children and cached it in this node.
-        ParserContextFlags[ParserContextFlags["HasAggregatedChildData"] = 128] = "HasAggregatedChildData";
-    })(ts.ParserContextFlags || (ts.ParserContextFlags = {}));
-    var ParserContextFlags = ts.ParserContextFlags;
     (function (JsxFlags) {
         JsxFlags[JsxFlags["None"] = 0] = "None";
         /** An element from a named property of the JSX.IntrinsicElements interface */
@@ -2279,24 +2257,24 @@ var ts;
     // Returns true if this node contains a parse error anywhere underneath it.
     function containsParseError(node) {
         aggregateChildData(node);
-        return (node.parserContextFlags & 64 /* ThisNodeOrAnySubNodesHasError */) !== 0;
+        return (node.flags & 268435456 /* ThisNodeOrAnySubNodesHasError */) !== 0;
     }
     ts.containsParseError = containsParseError;
     function aggregateChildData(node) {
-        if (!(node.parserContextFlags & 128 /* HasAggregatedChildData */)) {
+        if (!(node.flags & 536870912 /* HasAggregatedChildData */)) {
             // A node is considered to contain a parse error if:
             //  a) the parser explicitly marked that it had an error
             //  b) any of it's children reported that it had an error.
-            var thisNodeOrAnySubNodesHasError = ((node.parserContextFlags & 16 /* ThisNodeHasError */) !== 0) ||
+            var thisNodeOrAnySubNodesHasError = ((node.flags & 67108864 /* ThisNodeHasError */) !== 0) ||
                 ts.forEachChild(node, containsParseError);
             // If so, mark ourselves accordingly.
             if (thisNodeOrAnySubNodesHasError) {
-                node.parserContextFlags |= 64 /* ThisNodeOrAnySubNodesHasError */;
+                node.flags |= 268435456 /* ThisNodeOrAnySubNodesHasError */;
             }
             // Also mark that we've propogated the child information to this node.  This way we can
             // always consult the bit directly on this node without needing to check its children
             // again.
-            node.parserContextFlags |= 128 /* HasAggregatedChildData */;
+            node.flags |= 536870912 /* HasAggregatedChildData */;
         }
     }
     function getSourceFileOfNode(node) {
@@ -2411,7 +2389,7 @@ var ts;
     }
     ts.makeIdentifierFromModuleName = makeIdentifierFromModuleName;
     function isBlockOrCatchScoped(declaration) {
-        return (getCombinedNodeFlags(declaration) & 24576 /* BlockScoped */) !== 0 ||
+        return (getCombinedNodeFlags(declaration) & 3072 /* BlockScoped */) !== 0 ||
             isCatchClauseVariableDeclaration(declaration);
     }
     ts.isBlockOrCatchScoped = isBlockOrCatchScoped;
@@ -2428,7 +2406,7 @@ var ts;
     }
     ts.isBlockScopedContainerTopLevel = isBlockScopedContainerTopLevel;
     function isGlobalScopeAugmentation(module) {
-        return !!(module.flags & 2097152 /* GlobalAugmentation */);
+        return !!(module.flags & 131072 /* GlobalAugmentation */);
     }
     ts.isGlobalScopeAugmentation = isGlobalScopeAugmentation;
     function isExternalModuleAugmentation(node) {
@@ -2562,7 +2540,7 @@ var ts;
     }
     ts.isExternalOrCommonJsModule = isExternalOrCommonJsModule;
     function isDeclarationFile(file) {
-        return (file.flags & 4096 /* DeclarationFile */) !== 0;
+        return file.isDeclarationFile;
     }
     ts.isDeclarationFile = isDeclarationFile;
     function isConstEnumDeclaration(node) {
@@ -2599,11 +2577,11 @@ var ts;
     }
     ts.getCombinedNodeFlags = getCombinedNodeFlags;
     function isConst(node) {
-        return !!(getCombinedNodeFlags(node) & 16384 /* Const */);
+        return !!(getCombinedNodeFlags(node) & 2048 /* Const */);
     }
     ts.isConst = isConst;
     function isLet(node) {
-        return !!(getCombinedNodeFlags(node) & 8192 /* Let */);
+        return !!(getCombinedNodeFlags(node) & 1024 /* Let */);
     }
     ts.isLet = isLet;
     function isPrologueDirective(node) {
@@ -3200,7 +3178,7 @@ var ts;
     }
     ts.isSourceFileJavaScript = isSourceFileJavaScript;
     function isInJavaScriptFile(node) {
-        return node && !!(node.parserContextFlags & 32 /* JavaScriptFile */);
+        return node && !!(node.flags & 134217728 /* JavaScriptFile */);
     }
     ts.isInJavaScriptFile = isInJavaScriptFile;
     /**
@@ -3376,7 +3354,7 @@ var ts;
     ts.hasRestParameter = hasRestParameter;
     function isRestParameter(node) {
         if (node) {
-            if (node.parserContextFlags & 32 /* JavaScriptFile */) {
+            if (node.flags & 134217728 /* JavaScriptFile */) {
                 if (node.type && node.type.kind === 266 /* JSDocVariadicType */) {
                     return true;
                 }
@@ -3417,7 +3395,7 @@ var ts;
     ts.isNodeDescendentOf = isNodeDescendentOf;
     function isInAmbientContext(node) {
         while (node) {
-            if (node.flags & (2 /* Ambient */ | 4096 /* DeclarationFile */)) {
+            if (node.flags & 2 /* Ambient */ || (node.kind === 252 /* SourceFile */ && node.isDeclarationFile)) {
                 return true;
             }
             node = node.parent;
@@ -4370,7 +4348,7 @@ var ts;
             case 115 /* AbstractKeyword */: return 128 /* Abstract */;
             case 82 /* ExportKeyword */: return 1 /* Export */;
             case 122 /* DeclareKeyword */: return 2 /* Ambient */;
-            case 74 /* ConstKeyword */: return 16384 /* Const */;
+            case 74 /* ConstKeyword */: return 2048 /* Const */;
             case 77 /* DefaultKeyword */: return 512 /* Default */;
             case 118 /* AsyncKeyword */: return 256 /* Async */;
             case 127 /* ReadonlyKeyword */: return 64 /* Readonly */;
@@ -7594,7 +7572,7 @@ var ts;
         // Share a single scanner across all calls to parse a source file.  This helps speed things
         // up by avoiding the cost of creating/compiling scanners over and over again.
         var scanner = ts.createScanner(2 /* Latest */, /*skipTrivia*/ true);
-        var disallowInAndDecoratorContext = 1 /* DisallowIn */ | 4 /* Decorator */;
+        var disallowInAndDecoratorContext = 4194304 /* DisallowInContext */ | 16777216 /* DecoratorContext */;
         // capture constructors in 'initializeState' to avoid null checks
         var NodeConstructor;
         var SourceFileConstructor;
@@ -7704,7 +7682,7 @@ var ts;
             identifiers = {};
             identifierCount = 0;
             nodeCount = 0;
-            contextFlags = isJavaScriptFile ? 32 /* JavaScriptFile */ : 0 /* None */;
+            contextFlags = isJavaScriptFile ? 134217728 /* JavaScriptFile */ : 0 /* None */;
             parseErrorBeforeNextFinishedNode = false;
             // Initialize and prime the scanner before parsing the source elements.
             scanner.setText(sourceText);
@@ -7725,9 +7703,7 @@ var ts;
         }
         function parseSourceFileWorker(fileName, languageVersion, setParentNodes) {
             sourceFile = createSourceFile(fileName, languageVersion);
-            if (contextFlags & 32 /* JavaScriptFile */) {
-                sourceFile.parserContextFlags = 32 /* JavaScriptFile */;
-            }
+            sourceFile.flags = contextFlags;
             // Prime the scanner.
             token = nextToken();
             processReferenceComments(sourceFile);
@@ -7745,7 +7721,7 @@ var ts;
             return sourceFile;
         }
         function addJSDocComment(node) {
-            if (contextFlags & 32 /* JavaScriptFile */) {
+            if (contextFlags & 134217728 /* JavaScriptFile */) {
                 var comments = ts.getLeadingCommentRangesOfNode(node, sourceFile);
                 if (comments) {
                     for (var _i = 0, comments_1 = comments; _i < comments_1.length; _i++) {
@@ -7790,8 +7766,8 @@ var ts;
             sourceFile.bindDiagnostics = [];
             sourceFile.languageVersion = languageVersion;
             sourceFile.fileName = ts.normalizePath(fileName);
-            sourceFile.flags = ts.fileExtensionIs(sourceFile.fileName, ".d.ts") ? 4096 /* DeclarationFile */ : 0;
             sourceFile.languageVariant = getLanguageVariant(sourceFile.fileName);
+            sourceFile.isDeclarationFile = ts.fileExtensionIs(sourceFile.fileName, ".d.ts");
             return sourceFile;
         }
         function setContextFlag(val, flag) {
@@ -7803,16 +7779,16 @@ var ts;
             }
         }
         function setDisallowInContext(val) {
-            setContextFlag(val, 1 /* DisallowIn */);
+            setContextFlag(val, 4194304 /* DisallowInContext */);
         }
         function setYieldContext(val) {
-            setContextFlag(val, 2 /* Yield */);
+            setContextFlag(val, 8388608 /* YieldContext */);
         }
         function setDecoratorContext(val) {
-            setContextFlag(val, 4 /* Decorator */);
+            setContextFlag(val, 16777216 /* DecoratorContext */);
         }
         function setAwaitContext(val) {
-            setContextFlag(val, 8 /* Await */);
+            setContextFlag(val, 33554432 /* AwaitContext */);
         }
         function doOutsideOfContext(context, func) {
             // contextFlagsToClear will contain only the context flags that are
@@ -7853,40 +7829,40 @@ var ts;
             return func();
         }
         function allowInAnd(func) {
-            return doOutsideOfContext(1 /* DisallowIn */, func);
+            return doOutsideOfContext(4194304 /* DisallowInContext */, func);
         }
         function disallowInAnd(func) {
-            return doInsideOfContext(1 /* DisallowIn */, func);
+            return doInsideOfContext(4194304 /* DisallowInContext */, func);
         }
         function doInYieldContext(func) {
-            return doInsideOfContext(2 /* Yield */, func);
+            return doInsideOfContext(8388608 /* YieldContext */, func);
         }
         function doInDecoratorContext(func) {
-            return doInsideOfContext(4 /* Decorator */, func);
+            return doInsideOfContext(16777216 /* DecoratorContext */, func);
         }
         function doInAwaitContext(func) {
-            return doInsideOfContext(8 /* Await */, func);
+            return doInsideOfContext(33554432 /* AwaitContext */, func);
         }
         function doOutsideOfAwaitContext(func) {
-            return doOutsideOfContext(8 /* Await */, func);
+            return doOutsideOfContext(33554432 /* AwaitContext */, func);
         }
         function doInYieldAndAwaitContext(func) {
-            return doInsideOfContext(2 /* Yield */ | 8 /* Await */, func);
+            return doInsideOfContext(8388608 /* YieldContext */ | 33554432 /* AwaitContext */, func);
         }
         function inContext(flags) {
             return (contextFlags & flags) !== 0;
         }
         function inYieldContext() {
-            return inContext(2 /* Yield */);
+            return inContext(8388608 /* YieldContext */);
         }
         function inDisallowInContext() {
-            return inContext(1 /* DisallowIn */);
+            return inContext(4194304 /* DisallowInContext */);
         }
         function inDecoratorContext() {
-            return inContext(4 /* Decorator */);
+            return inContext(16777216 /* DecoratorContext */);
         }
         function inAwaitContext() {
-            return inContext(8 /* Await */);
+            return inContext(33554432 /* AwaitContext */);
         }
         function parseErrorAtCurrentToken(message, arg0) {
             var start = scanner.getTokenPos();
@@ -8060,14 +8036,14 @@ var ts;
         function finishNode(node, end) {
             node.end = end === undefined ? scanner.getStartPos() : end;
             if (contextFlags) {
-                node.parserContextFlags = contextFlags;
+                node.flags |= contextFlags;
             }
             // Keep track on the node if we encountered an error while parsing it.  If we did, then
             // we cannot reuse the node incrementally.  Once we've marked this node, clear out the
             // flag so that we don't mark any subsequent nodes.
             if (parseErrorBeforeNextFinishedNode) {
                 parseErrorBeforeNextFinishedNode = false;
-                node.parserContextFlags |= 16 /* ThisNodeHasError */;
+                node.flags |= 67108864 /* ThisNodeHasError */;
             }
             return node;
         }
@@ -8457,7 +8433,7 @@ var ts;
             // differently depending on what mode it is in.
             //
             // This also applies to all our other context flags as well.
-            var nodeContextFlags = node.parserContextFlags & 31 /* ParserGeneratedFlags */;
+            var nodeContextFlags = node.flags & 62914560 /* ContextFlags */;
             if (nodeContextFlags !== contextFlags) {
                 return undefined;
             }
@@ -8854,7 +8830,7 @@ var ts;
             if (node.kind === 8 /* NumericLiteral */
                 && sourceText.charCodeAt(tokenPos) === 48 /* _0 */
                 && ts.isOctalDigit(sourceText.charCodeAt(tokenPos + 1))) {
-                node.flags |= 32768 /* OctalLiteral */;
+                node.isOctalLiteral = true;
             }
             return node;
         }
@@ -9368,7 +9344,7 @@ var ts;
         function parseType() {
             // The rules about 'yield' only apply to actual code/expression contexts.  They don't
             // apply to 'type' contexts.  So we disable these parameters here before moving on.
-            return doOutsideOfContext(10 /* TypeExcludesFlags */, parseTypeWorker);
+            return doOutsideOfContext(41943040 /* TypeExcludesFlags */, parseTypeWorker);
         }
         function parseTypeWorker() {
             if (isStartOfFunctionType()) {
@@ -10600,8 +10576,9 @@ var ts;
         function parseArrayLiteralExpression() {
             var node = createNode(168 /* ArrayLiteralExpression */);
             parseExpected(19 /* OpenBracketToken */);
-            if (scanner.hasPrecedingLineBreak())
-                node.flags |= 1024 /* MultiLine */;
+            if (scanner.hasPrecedingLineBreak()) {
+                node.multiLine = true;
+            }
             node.elements = parseDelimitedList(15 /* ArrayLiteralMembers */, parseArgumentOrArrayLiteralElement);
             parseExpected(20 /* CloseBracketToken */);
             return finishNode(node);
@@ -10662,7 +10639,7 @@ var ts;
             var node = createNode(169 /* ObjectLiteralExpression */);
             parseExpected(15 /* OpenBraceToken */);
             if (scanner.hasPrecedingLineBreak()) {
-                node.flags |= 1024 /* MultiLine */;
+                node.multiLine = true;
             }
             node.properties = parseDelimitedList(12 /* ObjectLiteralMembers */, parseObjectLiteralElement, /*considerSemicolonAsDelimeter*/ true);
             parseExpected(16 /* CloseBraceToken */);
@@ -11282,10 +11259,10 @@ var ts;
                 case 102 /* VarKeyword */:
                     break;
                 case 108 /* LetKeyword */:
-                    node.flags |= 8192 /* Let */;
+                    node.flags |= 1024 /* Let */;
                     break;
                 case 74 /* ConstKeyword */:
-                    node.flags |= 16384 /* Const */;
+                    node.flags |= 2048 /* Const */;
                     break;
                 default:
                     ts.Debug.fail();
@@ -11375,7 +11352,7 @@ var ts;
             // The checker may still error in the static case to explicitly disallow the yield expression.
             property.initializer = modifiers && modifiers.flags & 32 /* Static */
                 ? allowInAnd(parseNonParameterInitializer)
-                : doOutsideOfContext(2 /* Yield */ | 1 /* DisallowIn */, parseNonParameterInitializer);
+                : doOutsideOfContext(8388608 /* YieldContext */ | 4194304 /* DisallowInContext */, parseNonParameterInitializer);
             parseSemicolon();
             return finishNode(property);
         }
@@ -11720,7 +11697,7 @@ var ts;
             var node = createNode(222 /* ModuleDeclaration */, fullStart);
             // If we are parsing a dotted namespace name, we want to
             // propagate the 'Namespace' flag across the names if set.
-            var namespaceFlag = flags & 65536 /* Namespace */;
+            var namespaceFlag = flags & 4096 /* Namespace */;
             node.decorators = decorators;
             setModifiers(node, modifiers);
             node.flags |= flags;
@@ -11737,7 +11714,7 @@ var ts;
             if (token === 135 /* GlobalKeyword */) {
                 // parse 'global' as name of global scope augmentation 
                 node.name = parseIdentifier();
-                node.flags |= 2097152 /* GlobalAugmentation */;
+                node.flags |= 131072 /* GlobalAugmentation */;
             }
             else {
                 node.name = parseLiteralNode(/*internName*/ true);
@@ -11752,7 +11729,7 @@ var ts;
                 return parseAmbientExternalModuleDeclaration(fullStart, decorators, modifiers);
             }
             else if (parseOptional(126 /* NamespaceKeyword */)) {
-                flags |= 65536 /* Namespace */;
+                flags |= 4096 /* Namespace */;
             }
             else {
                 parseExpected(125 /* ModuleKeyword */);
@@ -13393,7 +13370,7 @@ var ts;
                 //       during global merging in the checker. Why? The only case when ambient module is permitted inside another module is module augmentation
                 //       and this case is specially handled. Module augmentations should only be merged with original module definition
                 //       and should never be merged directly with other augmentation, and the latter case would be possible if automatic merge is allowed.
-                if (!ts.isAmbientModule(node) && (hasExportModifier || container.flags & 131072 /* ExportContext */)) {
+                if (!ts.isAmbientModule(node) && (hasExportModifier || container.flags & 8192 /* ExportContext */)) {
                     var exportKind = (symbolFlags & 107455 /* Value */ ? 1048576 /* ExportValue */ : 0) |
                         (symbolFlags & 793056 /* Type */ ? 2097152 /* ExportType */ : 0) |
                         (symbolFlags & 1536 /* Namespace */ ? 4194304 /* ExportNamespace */ : 0);
@@ -13456,9 +13433,9 @@ var ts;
             var kind = node.kind;
             var flags = node.flags;
             // reset all reachability check related flags on node (for incremental scenarios)
-            flags &= ~1572864 /* ReachabilityCheckFlags */;
+            flags &= ~98304 /* ReachabilityCheckFlags */;
             // reset all emit helper flags on node (for incremental scenarios)
-            flags &= ~62914560 /* EmitHelperFlags */;
+            flags &= ~3932160 /* EmitHelperFlags */;
             if (kind === 219 /* InterfaceDeclaration */) {
                 seenThisKeyword = false;
             }
@@ -13478,26 +13455,26 @@ var ts;
             }
             bindReachableStatement(node);
             if (currentReachabilityState === 2 /* Reachable */ && ts.isFunctionLikeKind(kind) && ts.nodeIsPresent(node.body)) {
-                flags |= 524288 /* HasImplicitReturn */;
+                flags |= 32768 /* HasImplicitReturn */;
                 if (hasExplicitReturn) {
-                    flags |= 1048576 /* HasExplicitReturn */;
+                    flags |= 65536 /* HasExplicitReturn */;
                 }
             }
             if (kind === 219 /* InterfaceDeclaration */) {
-                flags = seenThisKeyword ? flags | 262144 /* ContainsThis */ : flags & ~262144 /* ContainsThis */;
+                flags = seenThisKeyword ? flags | 16384 /* ContainsThis */ : flags & ~16384 /* ContainsThis */;
             }
             if (kind === 252 /* SourceFile */) {
                 if (hasClassExtends) {
-                    flags |= 4194304 /* HasClassExtends */;
+                    flags |= 262144 /* HasClassExtends */;
                 }
                 if (hasDecorators) {
-                    flags |= 8388608 /* HasDecorators */;
+                    flags |= 524288 /* HasDecorators */;
                 }
                 if (hasParameterDecorators) {
-                    flags |= 16777216 /* HasParamDecorators */;
+                    flags |= 1048576 /* HasParamDecorators */;
                 }
                 if (hasAsyncFunctions) {
-                    flags |= 33554432 /* HasAsyncFunctions */;
+                    flags |= 2097152 /* HasAsyncFunctions */;
                 }
             }
             node.flags = flags;
@@ -13829,10 +13806,10 @@ var ts;
             // A declaration source file or ambient module declaration that contains no export declarations (but possibly regular
             // declarations with export modifiers) is an export context in which declarations are implicitly exported.
             if (ts.isInAmbientContext(node) && !hasExportDeclarations(node)) {
-                node.flags |= 131072 /* ExportContext */;
+                node.flags |= 8192 /* ExportContext */;
             }
             else {
-                node.flags &= ~131072 /* ExportContext */;
+                node.flags &= ~8192 /* ExportContext */;
             }
         }
         function bindModuleDeclaration(node) {
@@ -14027,7 +14004,7 @@ var ts;
             }
         }
         function checkStrictModeNumericLiteral(node) {
-            if (inStrictMode && node.flags & 32768 /* OctalLiteral */) {
+            if (inStrictMode && node.isOctalLiteral) {
                 file.bindDiagnostics.push(ts.createDiagnosticForNode(node, ts.Diagnostics.Octal_literals_are_not_allowed_in_strict_mode));
             }
         }
@@ -14276,7 +14253,7 @@ var ts;
                 // Export assignment in some sort of block construct
                 bindAnonymousDeclaration(node, 8388608 /* Alias */, getDeclarationName(node));
             }
-            else if (boundExpression.kind === 69 /* Identifier */) {
+            else if (boundExpression.kind === 69 /* Identifier */ && node.kind === 231 /* ExportAssignment */) {
                 // An export default clause with an identifier exports all meanings of that identifier
                 declareSymbol(container.symbol.exports, container.symbol, node, 8388608 /* Alias */, 107455 /* PropertyExcludes */ | 8388608 /* AliasExcludes */);
             }
@@ -14328,8 +14305,14 @@ var ts;
             // We saw a node of the form 'x.prototype.y = z'. Declare a 'member' y on x if x was a function.
             // Look up the function in the local scope, since prototype assignments should
             // follow the function declaration
-            var classId = node.left.expression.expression;
-            var funcSymbol = container.locals[classId.text];
+            var leftSideOfAssignment = node.left;
+            var classPrototype = leftSideOfAssignment.expression;
+            var constructorFunction = classPrototype.expression;
+            // Fix up parent pointers since we're going to use these nodes before we bind into them
+            leftSideOfAssignment.parent = node;
+            constructorFunction.parent = classPrototype;
+            classPrototype.parent = leftSideOfAssignment;
+            var funcSymbol = container.locals[constructorFunction.text];
             if (!funcSymbol || !(funcSymbol.flags & 16 /* Function */)) {
                 return;
             }
@@ -14338,7 +14321,7 @@ var ts;
                 funcSymbol.members = {};
             }
             // Declare the method/property
-            declareSymbol(funcSymbol.members, funcSymbol, node.left, 4 /* Property */, 107455 /* PropertyExcludes */);
+            declareSymbol(funcSymbol.members, funcSymbol, leftSideOfAssignment, 4 /* Property */, 107455 /* PropertyExcludes */);
         }
         function bindCallExpression(node) {
             // We're only inspecting call expressions to detect CommonJS modules, so we can skip
@@ -14555,7 +14538,7 @@ var ts;
                         var reportUnreachableCode = !options.allowUnreachableCode &&
                             !ts.isInAmbientContext(node) &&
                             (node.kind !== 197 /* VariableStatement */ ||
-                                ts.getCombinedNodeFlags(node.declarationList) & 24576 /* BlockScoped */ ||
+                                ts.getCombinedNodeFlags(node.declarationList) & 3072 /* BlockScoped */ ||
                                 ts.forEach(node.declarationList.declarations, function (d) { return d.initializer; }));
                         if (reportUnreachableCode) {
                             errorOnFirstToken(node, ts.Diagnostics.Unreachable_code_detected);
@@ -16840,7 +16823,7 @@ var ts;
             // Every class automatically contains a static property member named 'prototype',
             // the type of which is an instantiation of the class type with type Any supplied as a type argument for each type parameter.
             // It is an error to explicitly declare a static property member with the name 'prototype'.
-            var classType = getDeclaredTypeOfSymbol(getMergedSymbol(prototype.parent));
+            var classType = getDeclaredTypeOfSymbol(getParentOfSymbol(prototype));
             return classType.typeParameters ? createTypeReference(classType, ts.map(classType.typeParameters, function (_) { return anyType; })) : classType;
         }
         // Return the type of the given property in the given type, or undefined if no such property exists
@@ -16971,7 +16954,7 @@ var ts;
         }
         // Return the inferred type for a variable, parameter, or property declaration
         function getTypeForVariableLikeDeclaration(declaration) {
-            if (declaration.parserContextFlags & 32 /* JavaScriptFile */) {
+            if (declaration.flags & 134217728 /* JavaScriptFile */) {
                 // If this is a variable in a JavaScript file, then use the JSDoc type (if it has
                 // one as its type), otherwise fallback to the below standard TS codepaths to
                 // try to figure it out.
@@ -17525,7 +17508,7 @@ var ts;
             for (var _i = 0, _a = symbol.declarations; _i < _a.length; _i++) {
                 var declaration = _a[_i];
                 if (declaration.kind === 219 /* InterfaceDeclaration */) {
-                    if (declaration.flags & 262144 /* ContainsThis */) {
+                    if (declaration.flags & 16384 /* ContainsThis */) {
                         return false;
                     }
                     var baseTypeNodes = ts.getInterfaceBaseTypeNodes(declaration);
@@ -18235,7 +18218,7 @@ var ts;
             return getIndexTypeOfStructuredType(getApparentType(type), kind);
         }
         function getTypeParametersFromJSDocTemplate(declaration) {
-            if (declaration.parserContextFlags & 32 /* JavaScriptFile */) {
+            if (declaration.flags & 134217728 /* JavaScriptFile */) {
                 var templateTag = ts.getJSDocTemplateTag(declaration);
                 if (templateTag) {
                     return getTypeParametersFromDeclaration(templateTag.typeParameters);
@@ -18265,7 +18248,7 @@ var ts;
             return result;
         }
         function isOptionalParameter(node) {
-            if (node.parserContextFlags & 32 /* JavaScriptFile */) {
+            if (node.flags & 134217728 /* JavaScriptFile */) {
                 if (node.type && node.type.kind === 264 /* JSDocOptionalType */) {
                     return true;
                 }
@@ -18361,7 +18344,7 @@ var ts;
                     returnType = getTypeFromTypeNode(declaration.type);
                 }
                 else {
-                    if (declaration.parserContextFlags & 32 /* JavaScriptFile */) {
+                    if (declaration.flags & 134217728 /* JavaScriptFile */) {
                         var type = getReturnTypeFromJSDocComment(declaration);
                         if (type && type !== unknownType) {
                             returnType = type;
@@ -19889,8 +19872,8 @@ var ts;
                             }
                             else if (targetPropFlags & 16 /* Protected */) {
                                 var sourceDeclaredInClass = sourceProp.parent && sourceProp.parent.flags & 32 /* Class */;
-                                var sourceClass = sourceDeclaredInClass ? getDeclaredTypeOfSymbol(sourceProp.parent) : undefined;
-                                var targetClass = getDeclaredTypeOfSymbol(targetProp.parent);
+                                var sourceClass = sourceDeclaredInClass ? getDeclaredTypeOfSymbol(getParentOfSymbol(sourceProp)) : undefined;
+                                var targetClass = getDeclaredTypeOfSymbol(getParentOfSymbol(targetProp));
                                 if (!sourceClass || !hasBaseType(sourceClass, targetClass)) {
                                     if (reportErrors) {
                                         reportError(ts.Diagnostics.Property_0_is_protected_but_type_1_is_not_a_class_derived_from_2, symbolToString(targetProp), typeToString(sourceClass || source), typeToString(targetClass));
@@ -21180,7 +21163,7 @@ var ts;
                         error(node, ts.Diagnostics.The_arguments_object_cannot_be_referenced_in_an_arrow_function_in_ES3_and_ES5_Consider_using_a_standard_function_expression);
                     }
                 }
-                if (node.parserContextFlags & 8 /* Await */) {
+                if (node.flags & 33554432 /* AwaitContext */) {
                     getNodeLinks(container).flags |= 8192 /* CaptureArguments */;
                 }
             }
@@ -22630,7 +22613,7 @@ var ts;
          */
         function checkClassPropertyAccess(node, left, type, prop) {
             var flags = getDeclarationFlagsFromSymbol(prop);
-            var declaringClass = getDeclaredTypeOfSymbol(getMergedSymbol(prop.parent));
+            var declaringClass = getDeclaredTypeOfSymbol(getParentOfSymbol(prop));
             if (left.kind === 95 /* SuperKeyword */) {
                 var errorNode = node.kind === 170 /* PropertyAccessExpression */ ?
                     node.name :
@@ -24180,10 +24163,10 @@ var ts;
             }
             // If all we have is a function signature, or an arrow function with an expression body, then there is nothing to check.
             // also if HasImplicitReturn flag is not set this means that all codepaths in function body end with return or throw
-            if (ts.nodeIsMissing(func.body) || func.body.kind !== 196 /* Block */ || !(func.flags & 524288 /* HasImplicitReturn */)) {
+            if (ts.nodeIsMissing(func.body) || func.body.kind !== 196 /* Block */ || !(func.flags & 32768 /* HasImplicitReturn */)) {
                 return;
             }
-            var hasExplicitReturn = func.flags & 1048576 /* HasExplicitReturn */;
+            var hasExplicitReturn = func.flags & 65536 /* HasExplicitReturn */;
             if (returnType && !hasExplicitReturn) {
                 // minimal check: function has syntactic return type annotation and no explicit return statements in the body
                 // this function does not conform to the specification.
@@ -24308,7 +24291,7 @@ var ts;
             // Get accessors without matching set accessors
             // Enum members
             return symbol.flags & 4 /* Property */ && (getDeclarationFlagsFromSymbol(symbol) & 64 /* Readonly */) !== 0 ||
-                symbol.flags & 3 /* Variable */ && (getDeclarationFlagsFromSymbol(symbol) & 16384 /* Const */) !== 0 ||
+                symbol.flags & 3 /* Variable */ && (getDeclarationFlagsFromSymbol(symbol) & 2048 /* Const */) !== 0 ||
                 symbol.flags & 98304 /* Accessor */ && !(symbol.flags & 65536 /* SetAccessor */) ||
                 (symbol.flags & 8 /* EnumMember */) !== 0;
         }
@@ -24387,7 +24370,7 @@ var ts;
         function checkAwaitExpression(node) {
             // Grammar checking
             if (produceDiagnostics) {
-                if (!(node.parserContextFlags & 8 /* Await */)) {
+                if (!(node.flags & 33554432 /* AwaitContext */)) {
                     grammarErrorOnFirstToken(node, ts.Diagnostics.await_expression_is_only_allowed_within_an_async_function);
                 }
                 if (isInParameterInitializerBeforeContainingFunction(node)) {
@@ -24809,7 +24792,7 @@ var ts;
         function checkYieldExpression(node) {
             // Grammar checking
             if (produceDiagnostics) {
-                if (!(node.parserContextFlags & 2 /* Yield */) || isYieldExpressionInClass(node)) {
+                if (!(node.flags & 8388608 /* YieldContext */) || isYieldExpressionInClass(node)) {
                     grammarErrorOnFirstToken(node, ts.Diagnostics.A_yield_expression_is_only_allowed_in_a_generator_body);
                 }
                 if (isInParameterInitializerBeforeContainingFunction(node)) {
@@ -25368,8 +25351,8 @@ var ts;
                 checkDecorators(node);
                 checkSignatureDeclaration(node);
                 if (node.kind === 147 /* GetAccessor */) {
-                    if (!ts.isInAmbientContext(node) && ts.nodeIsPresent(node.body) && (node.flags & 524288 /* HasImplicitReturn */)) {
-                        if (node.flags & 1048576 /* HasExplicitReturn */) {
+                    if (!ts.isInAmbientContext(node) && ts.nodeIsPresent(node.body) && (node.flags & 32768 /* HasImplicitReturn */)) {
+                        if (node.flags & 65536 /* HasExplicitReturn */) {
                             if (compilerOptions.noImplicitReturns) {
                                 error(node.name, ts.Diagnostics.Not_all_code_paths_return_a_value);
                             }
@@ -26364,7 +26347,7 @@ var ts;
             }
             // In case of variable declaration, node.parent is variable statement so look at the variable statement's parent
             var parent = getDeclarationContainer(node);
-            if (parent.kind === 252 /* SourceFile */ && ts.isExternalOrCommonJsModule(parent) && parent.flags & 33554432 /* HasAsyncFunctions */) {
+            if (parent.kind === 252 /* SourceFile */ && ts.isExternalOrCommonJsModule(parent) && parent.flags & 2097152 /* HasAsyncFunctions */) {
                 // If the declaration happens to be in external module, report error that Promise is a reserved identifier.
                 error(name, ts.Diagnostics.Duplicate_identifier_0_Compiler_reserves_name_1_in_top_level_scope_of_a_module_containing_async_functions, ts.declarationNameToString(name), ts.declarationNameToString(name));
             }
@@ -26393,7 +26376,7 @@ var ts;
             //          const x = 0; // symbol for this declaration will be 'symbol'
             //      }
             // skip block-scoped variables and parameters
-            if ((ts.getCombinedNodeFlags(node) & 24576 /* BlockScoped */) !== 0 || ts.isParameterDeclaration(node)) {
+            if ((ts.getCombinedNodeFlags(node) & 3072 /* BlockScoped */) !== 0 || ts.isParameterDeclaration(node)) {
                 return;
             }
             // skip variable declarations that don't have initializers
@@ -26408,7 +26391,7 @@ var ts;
                 if (localDeclarationSymbol &&
                     localDeclarationSymbol !== symbol &&
                     localDeclarationSymbol.flags & 2 /* BlockScopedVariable */) {
-                    if (getDeclarationFlagsFromSymbol(localDeclarationSymbol) & 24576 /* BlockScoped */) {
+                    if (getDeclarationFlagsFromSymbol(localDeclarationSymbol) & 3072 /* BlockScoped */) {
                         var varDeclList = ts.getAncestor(localDeclarationSymbol.valueDeclaration, 216 /* VariableDeclarationList */);
                         var container = varDeclList.parent.kind === 197 /* VariableStatement */ && varDeclList.parent.parent
                             ? varDeclList.parent.parent
@@ -26962,7 +26945,7 @@ var ts;
         function checkWithStatement(node) {
             // Grammar checking for withStatement
             if (!checkGrammarStatementInAmbientContext(node)) {
-                if (node.parserContextFlags & 8 /* Await */) {
+                if (node.flags & 33554432 /* AwaitContext */) {
                     grammarErrorOnFirstToken(node, ts.Diagnostics.with_statements_are_not_allowed_in_an_async_function_block);
                 }
             }
@@ -30155,7 +30138,7 @@ var ts;
         }
         function checkGrammarNumericLiteral(node) {
             // Grammar checking
-            if (node.flags & 32768 /* OctalLiteral */ && languageVersion >= 1 /* ES5 */) {
+            if (node.isOctalLiteral && languageVersion >= 1 /* ES5 */) {
                 return grammarErrorOnNode(node, ts.Diagnostics.Octal_literals_are_not_available_when_targeting_ECMAScript_5_and_higher);
             }
         }
@@ -31514,7 +31497,7 @@ var ts;
                 write("global ");
             }
             else {
-                if (node.flags & 65536 /* Namespace */) {
+                if (node.flags & 4096 /* Namespace */) {
                     write("namespace ");
                 }
                 else {
@@ -34199,7 +34182,7 @@ var ts;
                     write("]");
                 }
                 else {
-                    emitListWithSpread(elements, /*needsUniqueCopy*/ true, /*multiLine*/ (node.flags & 1024 /* MultiLine */) !== 0, 
+                    emitListWithSpread(elements, /*needsUniqueCopy*/ true, /*multiLine*/ node.multiLine, 
                     /*trailingComma*/ elements.hasTrailingComma, /*useConcat*/ true);
                 }
             }
@@ -34218,7 +34201,7 @@ var ts;
                         emitLinePreservingList(node, properties, /*allowTrailingComma*/ languageVersion >= 1 /* ES5 */, /*spacesBetweenBraces*/ true);
                     }
                     else {
-                        var multiLine = (node.flags & 1024 /* MultiLine */) !== 0;
+                        var multiLine = node.multiLine;
                         if (!multiLine) {
                             write(" ");
                         }
@@ -34237,7 +34220,7 @@ var ts;
                 write("}");
             }
             function emitDownlevelObjectLiteralWithComputedProperties(node, firstComputedPropertyIndex) {
-                var multiLine = (node.flags & 1024 /* MultiLine */) !== 0;
+                var multiLine = node.multiLine;
                 var properties = node.properties;
                 write("(");
                 if (multiLine) {
@@ -34900,12 +34883,12 @@ var ts;
                 if (!node || !isCurrentFileSystemExternalModule()) {
                     return false;
                 }
-                var current = node;
+                var current = ts.getRootDeclaration(node).parent;
                 while (current) {
                     if (current.kind === 252 /* SourceFile */) {
                         return !isExported || ((ts.getCombinedNodeFlags(node) & 1 /* Export */) !== 0);
                     }
-                    else if (ts.isFunctionLike(current) || current.kind === 223 /* ModuleBlock */) {
+                    else if (ts.isDeclaration(current)) {
                         return false;
                     }
                     else {
@@ -35142,7 +35125,7 @@ var ts;
                     // variables in variable declaration list were already hoisted
                     return false;
                 }
-                if (convertedLoopState && (ts.getCombinedNodeFlags(decl) & 24576 /* BlockScoped */) === 0) {
+                if (convertedLoopState && (ts.getCombinedNodeFlags(decl) & 3072 /* BlockScoped */) === 0) {
                     // we are inside a converted loop - this can only happen in downlevel scenarios
                     // record names for all variable declarations
                     for (var _a = 0, _b = decl.declarations; _a < _b.length; _a++) {
@@ -35219,7 +35202,7 @@ var ts;
                         break;
                 }
                 var loopParameters;
-                if (loopInitializer && (ts.getCombinedNodeFlags(loopInitializer) & 24576 /* BlockScoped */)) {
+                if (loopInitializer && (ts.getCombinedNodeFlags(loopInitializer) & 3072 /* BlockScoped */)) {
                     // if loop initializer contains block scoped variables - they should be passed to converted loop body as parameters
                     loopParameters = [];
                     for (var _a = 0, _b = loopInitializer.declarations; _a < _b.length; _a++) {
@@ -36271,7 +36254,7 @@ var ts;
                         var isDeclaredInLoop = flags & 262144 /* BlockScopedBindingInLoop */;
                         var emittedAsTopLevel = ts.isBlockScopedContainerTopLevel(container) ||
                             (isCapturedInFunction && isDeclaredInLoop && container.kind === 196 /* Block */ && ts.isIterationStatement(container.parent, /*lookInLabeledStatements*/ false));
-                        var emittedAsNestedLetDeclaration = ts.getCombinedNodeFlags(node) & 8192 /* Let */ &&
+                        var emittedAsNestedLetDeclaration = ts.getCombinedNodeFlags(node) & 1024 /* Let */ &&
                             !emittedAsTopLevel;
                         var emitExplicitInitializer = emittedAsNestedLetDeclaration &&
                             container.kind !== 204 /* ForInStatement */ &&
@@ -38774,7 +38757,7 @@ var ts;
                 // - it is top level block scoped
                 // if block scoped variables are nested in some another block then
                 // no other functions can use them except ones that are defined at least in the same block
-                return (ts.getCombinedNodeFlags(node) & 24576 /* BlockScoped */) === 0 ||
+                return (ts.getCombinedNodeFlags(node) & 3072 /* BlockScoped */) === 0 ||
                     ts.getEnclosingBlockScopeContainer(node).kind === 252 /* SourceFile */;
             }
             function isCurrentFileSystemExternalModule() {
@@ -39304,22 +39287,22 @@ var ts;
                 if (!compilerOptions.noEmitHelpers) {
                     // Only Emit __extends function when target ES5.
                     // For target ES6 and above, we can emit classDeclaration as is.
-                    if ((languageVersion < 2 /* ES6 */) && (!extendsEmitted && node.flags & 4194304 /* HasClassExtends */)) {
+                    if ((languageVersion < 2 /* ES6 */) && (!extendsEmitted && node.flags & 262144 /* HasClassExtends */)) {
                         writeLines(extendsHelper);
                         extendsEmitted = true;
                     }
-                    if (!decorateEmitted && node.flags & 8388608 /* HasDecorators */) {
+                    if (!decorateEmitted && node.flags & 524288 /* HasDecorators */) {
                         writeLines(decorateHelper);
                         if (compilerOptions.emitDecoratorMetadata) {
                             writeLines(metadataHelper);
                         }
                         decorateEmitted = true;
                     }
-                    if (!paramEmitted && node.flags & 16777216 /* HasParamDecorators */) {
+                    if (!paramEmitted && node.flags & 1048576 /* HasParamDecorators */) {
                         writeLines(paramHelper);
                         paramEmitted = true;
                     }
-                    if (!awaiterEmitted && node.flags & 33554432 /* HasAsyncFunctions */) {
+                    if (!awaiterEmitted && node.flags & 2097152 /* HasAsyncFunctions */) {
                         writeLines(awaiterHelper);
                         awaiterEmitted = true;
                     }
@@ -41269,7 +41252,7 @@ var ts;
                 programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Invalid_value_for_reactNamespace_0_is_not_a_valid_identifier, options.reactNamespace));
             }
             // If the emit is enabled make sure that every output file is unique and not overwriting any of the input files
-            if (!options.noEmit) {
+            if (!options.noEmit && !options.suppressOutputPathCheck) {
                 var emitHost = getEmitHost();
                 var emitFilesSeen = ts.createFileMap(!host.useCaseSensitiveFileNames() ? function (key) { return key.toLocaleLowerCase(); } : undefined);
                 ts.forEachExpectedEmitFile(emitHost, function (emitFileNames, sourceFiles, isBundledEmit) {
@@ -47459,13 +47442,13 @@ var ts;
             while (pos < end) {
                 var token = scanner.scan();
                 var textPos = scanner.getTextPos();
-                nodes.push(createNode(token, pos, textPos, 2048 /* Synthetic */, this));
+                nodes.push(createNode(token, pos, textPos, 0, this));
                 pos = textPos;
             }
             return pos;
         };
         NodeObject.prototype.createSyntaxList = function (nodes) {
-            var list = createNode(275 /* SyntaxList */, nodes.pos, nodes.end, 2048 /* Synthetic */, this);
+            var list = createNode(275 /* SyntaxList */, nodes.pos, nodes.end, 0, this);
             list._children = [];
             var pos = nodes.pos;
             for (var _i = 0, nodes_7 = nodes; _i < nodes_7.length; _i++) {
@@ -48422,6 +48405,8 @@ var ts;
     function transpileModule(input, transpileOptions) {
         var options = transpileOptions.compilerOptions ? ts.clone(transpileOptions.compilerOptions) : getDefaultCompilerOptions();
         options.isolatedModules = true;
+        // transpileModule does not write anything to disk so there is no need to verify that there are no conflicts between input and output paths. 
+        options.suppressOutputPathCheck = true;
         // Filename can be non-ts file.
         options.allowNonTsExtensions = true;
         // We are not returning a sourceFile for lib file when asked by the program,
@@ -48490,8 +48475,6 @@ var ts;
         var text = scriptSnapshot.getText(0, scriptSnapshot.getLength());
         var sourceFile = ts.createSourceFile(fileName, text, scriptTarget, setNodeParents);
         setSourceFileFields(sourceFile, scriptSnapshot, version);
-        // after full parsing we can use table with interned strings as name table
-        sourceFile.nameTable = sourceFile.identifiers;
         return sourceFile;
     }
     ts.createLanguageServiceSourceFile = createLanguageServiceSourceFile;
@@ -50128,7 +50111,7 @@ var ts;
             var entries = [];
             if (isRightOfDot && ts.isSourceFileJavaScript(sourceFile)) {
                 var uniqueNames = getCompletionEntriesFromSymbols(symbols, entries);
-                ts.addRange(entries, getJavaScriptCompletionEntries(sourceFile, uniqueNames));
+                ts.addRange(entries, getJavaScriptCompletionEntries(sourceFile, location.pos, uniqueNames));
             }
             else {
                 if (!symbols || symbols.length === 0) {
@@ -50157,11 +50140,15 @@ var ts;
                 ts.addRange(entries, keywordCompletions);
             }
             return { isMemberCompletion: isMemberCompletion, isNewIdentifierLocation: isNewIdentifierLocation, entries: entries };
-            function getJavaScriptCompletionEntries(sourceFile, uniqueNames) {
+            function getJavaScriptCompletionEntries(sourceFile, position, uniqueNames) {
                 var entries = [];
                 var target = program.getCompilerOptions().target;
                 var nameTable = getNameTable(sourceFile);
                 for (var name_36 in nameTable) {
+                    // Skip identifiers produced only from the current location
+                    if (nameTable[name_36] === position) {
+                        continue;
+                    }
                     if (!uniqueNames[name_36]) {
                         uniqueNames[name_36] = name_36;
                         var displayName = getCompletionEntryDisplayName(name_36, target, /*performCharacterChecks*/ true);
@@ -51570,7 +51557,7 @@ var ts;
                     var sourceFile = sourceFiles_3[_i];
                     cancellationToken.throwIfCancellationRequested();
                     var nameTable = getNameTable(sourceFile);
-                    if (ts.lookUp(nameTable, internedName)) {
+                    if (ts.lookUp(nameTable, internedName) !== undefined) {
                         result = result || [];
                         getReferencesInNode(sourceFile, symbol, declaredName, node, searchMeaning, findInStrings, findInComments, result, symbolToIndex);
                     }
@@ -53315,7 +53302,7 @@ var ts;
         function walk(node) {
             switch (node.kind) {
                 case 69 /* Identifier */:
-                    nameTable[node.text] = node.text;
+                    nameTable[node.text] = nameTable[node.text] === undefined ? node.pos : -1;
                     break;
                 case 9 /* StringLiteral */:
                 case 8 /* NumericLiteral */:
@@ -53326,7 +53313,7 @@ var ts;
                     if (ts.isDeclarationName(node) ||
                         node.parent.kind === 236 /* ExternalModuleReference */ ||
                         isArgumentOfElementAccessExpression(node)) {
-                        nameTable[node.text] = node.text;
+                        nameTable[node.text] = nameTable[node.text] === undefined ? node.pos : -1;
                     }
                     break;
                 default:
@@ -53797,7 +53784,7 @@ var ts;
          */
         function spanInSourceFileAtLocation(sourceFile, position) {
             // Cannot set breakpoint in dts file
-            if (sourceFile.flags & 4096 /* DeclarationFile */) {
+            if (sourceFile.isDeclarationFile) {
                 return undefined;
             }
             var tokenAtLocation = ts.getTokenAtPosition(sourceFile, position);

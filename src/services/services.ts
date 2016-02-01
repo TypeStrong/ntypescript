@@ -62,7 +62,7 @@ namespace ts {
     export interface SourceFile {
         /* @internal */ version: string;
         /* @internal */ scriptSnapshot: IScriptSnapshot;
-        /* @internal */ nameTable: Map<string>;
+        /* @internal */ nameTable: Map<number>;
 
         /* @internal */ getNamedDeclarations(): Map<Declaration[]>;
 
@@ -237,14 +237,14 @@ namespace ts {
             while (pos < end) {
                 const token = scanner.scan();
                 const textPos = scanner.getTextPos();
-                nodes.push(createNode(token, pos, textPos, NodeFlags.Synthetic, this));
+                nodes.push(createNode(token, pos, textPos, 0, this));
                 pos = textPos;
             }
             return pos;
         }
 
         private createSyntaxList(nodes: NodeArray<Node>): Node {
-            const list = createNode(SyntaxKind.SyntaxList, nodes.pos, nodes.end, NodeFlags.Synthetic, this);
+            const list = createNode(SyntaxKind.SyntaxList, nodes.pos, nodes.end, 0, this);
             list._children = [];
             let pos = nodes.pos;
 
@@ -797,6 +797,7 @@ namespace ts {
         public parseDiagnostics: Diagnostic[];
         public bindDiagnostics: Diagnostic[];
 
+        public isDeclarationFile: boolean;
         public isDefaultLib: boolean;
         public hasNoDefaultLib: boolean;
         public externalModuleIndicator: Node; // The first node that causes this file to be an external module
@@ -808,7 +809,7 @@ namespace ts {
         public languageVersion: ScriptTarget;
         public languageVariant: LanguageVariant;
         public identifiers: Map<string>;
-        public nameTable: Map<string>;
+        public nameTable: Map<number>;
         public resolvedModules: Map<ResolvedModule>;
         public imports: LiteralExpression[];
         public moduleAugmentations: LiteralExpression[];
@@ -1875,6 +1876,9 @@ namespace ts {
 
         options.isolatedModules = true;
 
+        // transpileModule does not write anything to disk so there is no need to verify that there are no conflicts between input and output paths. 
+        options.suppressOutputPathCheck = true;
+
         // Filename can be non-ts file.
         options.allowNonTsExtensions = true;
 
@@ -1954,8 +1958,6 @@ namespace ts {
         const text = scriptSnapshot.getText(0, scriptSnapshot.getLength());
         const sourceFile = createSourceFile(fileName, text, scriptTarget, setNodeParents);
         setSourceFileFields(sourceFile, scriptSnapshot, version);
-        // after full parsing we can use table with interned strings as name table
-        sourceFile.nameTable = sourceFile.identifiers;
         return sourceFile;
     }
 
@@ -3834,7 +3836,7 @@ namespace ts {
 
             if (isRightOfDot && isSourceFileJavaScript(sourceFile)) {
                 const uniqueNames = getCompletionEntriesFromSymbols(symbols, entries);
-                addRange(entries, getJavaScriptCompletionEntries(sourceFile, uniqueNames));
+                addRange(entries, getJavaScriptCompletionEntries(sourceFile, location.pos, uniqueNames));
             }
             else {
                 if (!symbols || symbols.length === 0) {
@@ -3867,12 +3869,17 @@ namespace ts {
 
             return { isMemberCompletion, isNewIdentifierLocation, entries };
 
-            function getJavaScriptCompletionEntries(sourceFile: SourceFile, uniqueNames: Map<string>): CompletionEntry[] {
+            function getJavaScriptCompletionEntries(sourceFile: SourceFile, position: number, uniqueNames: Map<string>): CompletionEntry[] {
                 const entries: CompletionEntry[] = [];
                 const target = program.getCompilerOptions().target;
 
                 const nameTable = getNameTable(sourceFile);
                 for (const name in nameTable) {
+                    // Skip identifiers produced only from the current location
+                    if (nameTable[name] === position) {
+                        continue;
+                    }
+
                     if (!uniqueNames[name]) {
                         uniqueNames[name] = name;
                         const displayName = getCompletionEntryDisplayName(name, target, /*performCharacterChecks*/ true);
@@ -5487,7 +5494,7 @@ namespace ts {
 
                     const nameTable = getNameTable(sourceFile);
 
-                    if (lookUp(nameTable, internedName)) {
+                    if (lookUp(nameTable, internedName) !== undefined) {
                         result = result || [];
                         getReferencesInNode(sourceFile, symbol, declaredName, node, searchMeaning, findInStrings, findInComments, result, symbolToIndex);
                     }
@@ -7513,7 +7520,7 @@ namespace ts {
     }
 
     /* @internal */
-    export function getNameTable(sourceFile: SourceFile): Map<string> {
+    export function getNameTable(sourceFile: SourceFile): Map<number> {
         if (!sourceFile.nameTable) {
             initializeNameTable(sourceFile);
         }
@@ -7522,7 +7529,7 @@ namespace ts {
     }
 
     function initializeNameTable(sourceFile: SourceFile): void {
-        const nameTable: Map<string> = {};
+        const nameTable: Map<number> = {};
 
         walk(sourceFile);
         sourceFile.nameTable = nameTable;
@@ -7530,7 +7537,7 @@ namespace ts {
         function walk(node: Node) {
             switch (node.kind) {
                 case SyntaxKind.Identifier:
-                    nameTable[(<Identifier>node).text] = (<Identifier>node).text;
+                    nameTable[(<Identifier>node).text] = nameTable[(<Identifier>node).text] === undefined ? node.pos : -1;
                     break;
                 case SyntaxKind.StringLiteral:
                 case SyntaxKind.NumericLiteral:
@@ -7542,7 +7549,7 @@ namespace ts {
                         node.parent.kind === SyntaxKind.ExternalModuleReference ||
                         isArgumentOfElementAccessExpression(node)) {
 
-                        nameTable[(<LiteralExpression>node).text] = (<LiteralExpression>node).text;
+                        nameTable[(<LiteralExpression>node).text] = nameTable[(<LiteralExpression>node).text] === undefined ? node.pos : -1;
                     }
                     break;
                 default:

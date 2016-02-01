@@ -331,40 +331,33 @@ declare namespace ts {
         Abstract = 128,
         Async = 256,
         Default = 512,
-        MultiLine = 1024,
-        Synthetic = 2048,
-        DeclarationFile = 4096,
-        Let = 8192,
-        Const = 16384,
-        OctalLiteral = 32768,
-        Namespace = 65536,
-        ExportContext = 131072,
-        ContainsThis = 262144,
-        HasImplicitReturn = 524288,
-        HasExplicitReturn = 1048576,
-        GlobalAugmentation = 2097152,
-        HasClassExtends = 4194304,
-        HasDecorators = 8388608,
-        HasParamDecorators = 16777216,
-        HasAsyncFunctions = 33554432,
+        Let = 1024,
+        Const = 2048,
+        Namespace = 4096,
+        ExportContext = 8192,
+        ContainsThis = 16384,
+        HasImplicitReturn = 32768,
+        HasExplicitReturn = 65536,
+        GlobalAugmentation = 131072,
+        HasClassExtends = 262144,
+        HasDecorators = 524288,
+        HasParamDecorators = 1048576,
+        HasAsyncFunctions = 2097152,
+        DisallowInContext = 4194304,
+        YieldContext = 8388608,
+        DecoratorContext = 16777216,
+        AwaitContext = 33554432,
+        ThisNodeHasError = 67108864,
+        JavaScriptFile = 134217728,
+        ThisNodeOrAnySubNodesHasError = 268435456,
+        HasAggregatedChildData = 536870912,
         Modifier = 959,
         AccessibilityModifier = 28,
-        BlockScoped = 24576,
-        ReachabilityCheckFlags = 1572864,
-        EmitHelperFlags = 62914560,
-    }
-    enum ParserContextFlags {
-        None = 0,
-        DisallowIn = 1,
-        Yield = 2,
-        Decorator = 4,
-        Await = 8,
-        ThisNodeHasError = 16,
-        JavaScriptFile = 32,
-        ParserGeneratedFlags = 31,
-        TypeExcludesFlags = 10,
-        ThisNodeOrAnySubNodesHasError = 64,
-        HasAggregatedChildData = 128,
+        BlockScoped = 3072,
+        ReachabilityCheckFlags = 98304,
+        EmitHelperFlags = 3932160,
+        ContextFlags = 62914560,
+        TypeExcludesFlags = 41943040,
     }
     enum JsxFlags {
         None = 0,
@@ -386,7 +379,6 @@ declare namespace ts {
     interface Node extends TextRange {
         kind: SyntaxKind;
         flags: NodeFlags;
-        parserContextFlags?: ParserContextFlags;
         decorators?: NodeArray<Decorator>;
         modifiers?: ModifiersArray;
         id?: number;
@@ -678,6 +670,7 @@ declare namespace ts {
         text: string;
         isUnterminated?: boolean;
         hasExtendedUnicodeEscape?: boolean;
+        isOctalLiteral?: boolean;
     }
     interface LiteralExpression extends LiteralLikeNode, PrimaryExpression {
         _literalExpressionBrand: any;
@@ -698,12 +691,14 @@ declare namespace ts {
     }
     interface ArrayLiteralExpression extends PrimaryExpression {
         elements: NodeArray<Expression>;
+        multiLine?: boolean;
     }
     interface SpreadElementExpression extends Expression {
         expression: Expression;
     }
     interface ObjectLiteralExpression extends PrimaryExpression, Declaration {
         properties: NodeArray<ObjectLiteralElement>;
+        multiLine?: boolean;
     }
     interface PropertyAccessExpression extends MemberExpression, Declaration {
         expression: LeftHandSideExpression;
@@ -1053,6 +1048,7 @@ declare namespace ts {
         moduleName: string;
         referencedFiles: FileReference[];
         languageVariant: LanguageVariant;
+        isDeclarationFile: boolean;
         renamedDependencies?: Map<string>;
         /**
          * lib.d.ts should have a reference comment like
@@ -1731,6 +1727,7 @@ declare namespace ts {
         allowJs?: boolean;
         stripInternal?: boolean;
         skipDefaultLibCheck?: boolean;
+        suppressOutputPathCheck?: boolean;
         [option: string]: string | number | boolean | TsConfigOnlyOptions;
     }
     enum ModuleKind {
@@ -7363,7 +7360,7 @@ declare namespace ts {
     interface SourceFile {
         version: string;
         scriptSnapshot: IScriptSnapshot;
-        nameTable: Map<string>;
+        nameTable: Map<number>;
         getNamedDeclarations(): Map<Declaration[]>;
         getLineAndCharacterOfPosition(pos: number): LineAndCharacter;
         getLineStarts(): number[];
@@ -7921,7 +7918,7 @@ declare namespace ts {
     function getContainerNode(node: Node): Declaration;
     function getNodeKind(node: Node): string;
     function createLanguageService(host: LanguageServiceHost, documentRegistry?: DocumentRegistry): LanguageService;
-    function getNameTable(sourceFile: SourceFile): Map<string>;
+    function getNameTable(sourceFile: SourceFile): Map<number>;
     function createClassifier(): Classifier;
     /**
       * Get the path of the default library files (lib.d.ts) as distributed with the typescript
