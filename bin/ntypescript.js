@@ -11319,7 +11319,7 @@ var ts;
             parseExpected(121 /* ConstructorKeyword */);
             fillSignature(54 /* ColonToken */, /*yieldContext*/ false, /*awaitContext*/ false, /*requireCompleteParameterList*/ false, node);
             node.body = parseFunctionBlockOrSemicolon(/*isGenerator*/ false, /*isAsync*/ false, ts.Diagnostics.or_expected);
-            return finishNode(node);
+            return addJSDocComment(finishNode(node));
         }
         function parseMethodDeclaration(fullStart, decorators, modifiers, asteriskToken, name, questionToken, diagnosticMessage) {
             var method = createNode(145 /* MethodDeclaration */, fullStart);
@@ -11332,7 +11332,7 @@ var ts;
             var isAsync = !!(method.flags & 256 /* Async */);
             fillSignature(54 /* ColonToken */, /*yieldContext*/ isGenerator, /*awaitContext*/ isAsync, /*requireCompleteParameterList*/ false, method);
             method.body = parseFunctionBlockOrSemicolon(isGenerator, isAsync, diagnosticMessage);
-            return finishNode(method);
+            return addJSDocComment(finishNode(method));
         }
         function parsePropertyDeclaration(fullStart, decorators, modifiers, name, questionToken) {
             var property = createNode(143 /* PropertyDeclaration */, fullStart);
@@ -14298,7 +14298,8 @@ var ts;
             // Declare a 'member' in case it turns out the container was an ES5 class
             if (container.kind === 177 /* FunctionExpression */ || container.kind === 217 /* FunctionDeclaration */) {
                 container.symbol.members = container.symbol.members || {};
-                declareSymbol(container.symbol.members, container.symbol, node, 4 /* Property */, 107455 /* PropertyExcludes */);
+                // It's acceptable for multiple 'this' assignments of the same identifier to occur
+                declareSymbol(container.symbol.members, container.symbol, node, 4 /* Property */, 107455 /* PropertyExcludes */ & ~4 /* Property */);
             }
         }
         function bindPrototypePropertyAssignment(node) {
@@ -17132,7 +17133,7 @@ var ts;
                 }
                 // Handle module.exports = expr
                 if (declaration.kind === 185 /* BinaryExpression */) {
-                    return links.type = checkExpression(declaration.right);
+                    return links.type = getUnionType(ts.map(symbol.declarations, function (decl) { return checkExpressionCached(decl.right); }));
                 }
                 if (declaration.kind === 170 /* PropertyAccessExpression */) {
                     // Declarations only exist for property access expressions for certain
@@ -19961,28 +19962,22 @@ var ts;
                 var saveErrorInfo = errorInfo;
                 outer: for (var _i = 0, targetSignatures_1 = targetSignatures; _i < targetSignatures_1.length; _i++) {
                     var t = targetSignatures_1[_i];
-                    if (!t.hasStringLiterals || target.flags & 262144 /* FromSignature */) {
-                        // Only elaborate errors from the first failure
-                        var shouldElaborateErrors = reportErrors;
-                        for (var _a = 0, sourceSignatures_1 = sourceSignatures; _a < sourceSignatures_1.length; _a++) {
-                            var s = sourceSignatures_1[_a];
-                            if (!s.hasStringLiterals || source.flags & 262144 /* FromSignature */) {
-                                var related = signatureRelatedTo(s, t, shouldElaborateErrors);
-                                if (related) {
-                                    result &= related;
-                                    errorInfo = saveErrorInfo;
-                                    continue outer;
-                                }
-                                shouldElaborateErrors = false;
-                            }
+                    // Only elaborate errors from the first failure
+                    var shouldElaborateErrors = reportErrors;
+                    for (var _a = 0, sourceSignatures_1 = sourceSignatures; _a < sourceSignatures_1.length; _a++) {
+                        var s = sourceSignatures_1[_a];
+                        var related = signatureRelatedTo(s, t, shouldElaborateErrors);
+                        if (related) {
+                            result &= related;
+                            errorInfo = saveErrorInfo;
+                            continue outer;
                         }
-                        // don't elaborate the primitive apparent types (like Number)
-                        // because the actual primitives will have already been reported.
-                        if (shouldElaborateErrors) {
-                            reportError(ts.Diagnostics.Type_0_provides_no_match_for_the_signature_1, typeToString(source), signatureToString(t, /*enclosingDeclaration*/ undefined, /*flags*/ undefined, kind));
-                        }
-                        return 0 /* False */;
+                        shouldElaborateErrors = false;
                     }
+                    if (shouldElaborateErrors) {
+                        reportError(ts.Diagnostics.Type_0_provides_no_match_for_the_signature_1, typeToString(source), signatureToString(t, /*enclosingDeclaration*/ undefined, /*flags*/ undefined, kind));
+                    }
+                    return 0 /* False */;
                 }
                 return result;
             }
@@ -24010,9 +24005,10 @@ var ts;
         }
         function getReturnTypeFromJSDocComment(func) {
             var returnTag = ts.getJSDocReturnTag(func);
-            if (returnTag) {
+            if (returnTag && returnTag.typeExpression) {
                 return getTypeFromTypeNode(returnTag.typeExpression.type);
             }
+            return undefined;
         }
         function createPromiseType(promisedType) {
             // creates a `Promise<T>` type where `T` is the promisedType argument
@@ -25190,7 +25186,6 @@ var ts;
                     }
                 }
             }
-            checkSpecializedSignatureDeclaration(node);
         }
         function checkTypeForDuplicateIndexSignatures(node) {
             if (node.kind === 219 /* InterfaceDeclaration */) {
@@ -25461,44 +25456,6 @@ var ts;
         function isPrivateWithinAmbient(node) {
             return (node.flags & 8 /* Private */) && ts.isInAmbientContext(node);
         }
-        function checkSpecializedSignatureDeclaration(signatureDeclarationNode) {
-            if (!produceDiagnostics) {
-                return;
-            }
-            var signature = getSignatureFromDeclaration(signatureDeclarationNode);
-            if (!signature.hasStringLiterals) {
-                return;
-            }
-            // TypeScript 1.0 spec (April 2014): 3.7.2.2
-            // Specialized signatures are not permitted in conjunction with a function body
-            if (ts.nodeIsPresent(signatureDeclarationNode.body)) {
-                error(signatureDeclarationNode, ts.Diagnostics.A_signature_with_an_implementation_cannot_use_a_string_literal_type);
-                return;
-            }
-            // TypeScript 1.0 spec (April 2014): 3.7.2.4
-            // Every specialized call or construct signature in an object type must be assignable
-            // to at least one non-specialized call or construct signature in the same object type
-            var signaturesToCheck;
-            // Unnamed (call\construct) signatures in interfaces are inherited and not shadowed so examining just node symbol won't give complete answer.
-            // Use declaring type to obtain full list of signatures.
-            if (!signatureDeclarationNode.name && signatureDeclarationNode.parent && signatureDeclarationNode.parent.kind === 219 /* InterfaceDeclaration */) {
-                ts.Debug.assert(signatureDeclarationNode.kind === 149 /* CallSignature */ || signatureDeclarationNode.kind === 150 /* ConstructSignature */);
-                var signatureKind = signatureDeclarationNode.kind === 149 /* CallSignature */ ? 0 /* Call */ : 1 /* Construct */;
-                var containingSymbol = getSymbolOfNode(signatureDeclarationNode.parent);
-                var containingType = getDeclaredTypeOfSymbol(containingSymbol);
-                signaturesToCheck = getSignaturesOfType(containingType, signatureKind);
-            }
-            else {
-                signaturesToCheck = getSignaturesOfSymbol(getSymbolOfNode(signatureDeclarationNode));
-            }
-            for (var _i = 0, signaturesToCheck_1 = signaturesToCheck; _i < signaturesToCheck_1.length; _i++) {
-                var otherSignature = signaturesToCheck_1[_i];
-                if (!otherSignature.hasStringLiterals && isSignatureAssignableTo(signature, otherSignature, /*ignoreReturnTypes*/ false)) {
-                    return;
-                }
-            }
-            error(signatureDeclarationNode, ts.Diagnostics.Specialized_overload_signature_is_not_assignable_to_any_non_specialized_signature);
-        }
         function getEffectiveDeclarationFlags(n, flagsToCheck) {
             var flags = ts.getCombinedNodeFlags(n);
             // children of classes (even ambient classes) should not be marked as ambient or export
@@ -25698,29 +25655,11 @@ var ts;
                 if (bodyDeclaration) {
                     var signatures = getSignaturesOfSymbol(symbol);
                     var bodySignature = getSignatureFromDeclaration(bodyDeclaration);
-                    // If the implementation signature has string literals, we will have reported an error in
-                    // checkSpecializedSignatureDeclaration
-                    if (!bodySignature.hasStringLiterals) {
-                        // TypeScript 1.0 spec (April 2014): 6.1
-                        // If a function declaration includes overloads, the overloads determine the call
-                        // signatures of the type given to the function object
-                        // and the function implementation signature must be assignable to that type
-                        //
-                        // TypeScript 1.0 spec (April 2014): 3.8.4
-                        // Note that specialized call and construct signatures (section 3.7.2.4) are not significant when determining assignment compatibility
-                        // Consider checking against specialized signatures too. Not doing so creates a type hole:
-                        //
-                        // function g(x: "hi", y: boolean);
-                        // function g(x: string, y: {});
-                        // function g(x: string, y: string) { }
-                        //
-                        // The implementation is completely unrelated to the specialized signature, yet we do not check this.
-                        for (var _a = 0, signatures_3 = signatures; _a < signatures_3.length; _a++) {
-                            var signature = signatures_3[_a];
-                            if (!signature.hasStringLiterals && !isImplementationCompatibleWithOverload(bodySignature, signature)) {
-                                error(signature.declaration, ts.Diagnostics.Overload_signature_is_not_compatible_with_function_implementation);
-                                break;
-                            }
+                    for (var _a = 0, signatures_3 = signatures; _a < signatures_3.length; _a++) {
+                        var signature = signatures_3[_a];
+                        if (!isImplementationCompatibleWithOverload(bodySignature, signature)) {
+                            error(signature.declaration, ts.Diagnostics.Overload_signature_is_not_compatible_with_function_implementation);
+                            break;
                         }
                     }
                 }
@@ -33709,23 +33648,45 @@ var ts;
                     }
                     // Children
                     if (children) {
-                        for (var i = 0; i < children.length; i++) {
-                            // Don't emit empty expressions
-                            if (children[i].kind === 244 /* JsxExpression */ && !(children[i].expression)) {
-                                continue;
-                            }
-                            // Don't emit empty strings
-                            if (children[i].kind === 240 /* JsxText */) {
-                                var text = getTextToEmit(children[i]);
-                                if (text !== undefined) {
-                                    write(", \"");
-                                    write(text);
-                                    write("\"");
+                        var firstChild;
+                        var multipleEmittableChildren = false;
+                        for (var i = 0, n = children.length; i < n; i++) {
+                            var jsxChild = children[i];
+                            if (isJsxChildEmittable(jsxChild)) {
+                                // we need to decide whether to emit in single line or multiple lines as indented list
+                                // store firstChild reference, if we see another emittable child, then emit accordingly
+                                if (!firstChild) {
+                                    write(", ");
+                                    firstChild = jsxChild;
+                                }
+                                else {
+                                    // more than one emittable child, emit indented list
+                                    if (!multipleEmittableChildren) {
+                                        multipleEmittableChildren = true;
+                                        increaseIndent();
+                                        writeLine();
+                                        emit(firstChild);
+                                    }
+                                    write(", ");
+                                    writeLine();
+                                    emit(jsxChild);
                                 }
                             }
+                        }
+                        if (multipleEmittableChildren) {
+                            decreaseIndent();
+                        }
+                        else if (firstChild) {
+                            if (firstChild.kind !== 237 /* JsxElement */ && firstChild.kind !== 238 /* JsxSelfClosingElement */) {
+                                emit(firstChild);
+                            }
                             else {
-                                write(", ");
-                                emit(children[i]);
+                                // If the only child is jsx element, put it on a new indented line
+                                increaseIndent();
+                                writeLine();
+                                emit(firstChild);
+                                writeLine();
+                                decreaseIndent();
                             }
                         }
                     }
@@ -35375,7 +35336,7 @@ var ts;
                         }
                         else {
                             // top level converted loop - return unwrapped value
-                            write("return " + loopResult + ".value");
+                            write("return " + loopResult + ".value;");
                         }
                         writeLine();
                     }
@@ -39197,6 +39158,18 @@ var ts;
                 }
                 return result;
             }
+            function isJsxChildEmittable(child) {
+                if (child.kind === 244 /* JsxExpression */) {
+                    // Don't emit empty expressions
+                    return !!child.expression;
+                }
+                else if (child.kind === 240 /* JsxText */) {
+                    // Don't emit empty strings
+                    return !!getTextToEmit(child);
+                }
+                return true;
+            }
+            ;
             function getTextToEmit(node) {
                 switch (compilerOptions.jsx) {
                     case 2 /* React */:
@@ -40084,7 +40057,7 @@ var ts;
         var supportedExtensions = ts.getSupportedExtensions(compilerOptions);
         var traceEnabled = isTraceEnabled(compilerOptions, host);
         var failedLookupLocations = [];
-        var state = { compilerOptions: compilerOptions, host: host, traceEnabled: traceEnabled };
+        var state = { compilerOptions: compilerOptions, host: host, traceEnabled: traceEnabled, skipTsx: false };
         var resolvedFileName = tryLoadModuleUsingOptionalResolutionSettings(moduleName, containingDirectory, nodeLoadModuleByRelativeName, failedLookupLocations, supportedExtensions, state);
         if (resolvedFileName) {
             return createResolvedModule(resolvedFileName, /*isExternalLibraryImport*/ false, failedLookupLocations);
@@ -40124,6 +40097,9 @@ var ts;
     function loadModuleFromFile(candidate, extensions, failedLookupLocation, onlyRecordFailures, state) {
         return ts.forEach(extensions, tryLoad);
         function tryLoad(ext) {
+            if (ext === ".tsx" && state.skipTsx) {
+                return undefined;
+            }
             var fileName = ts.fileExtensionIs(candidate, ext) ? candidate : candidate + ext;
             if (!onlyRecordFailures && state.host.fileExists(fileName)) {
                 if (state.traceEnabled) {
@@ -40214,7 +40190,7 @@ var ts;
     }
     function classicNameResolver(moduleName, containingFile, compilerOptions, host) {
         var traceEnabled = isTraceEnabled(compilerOptions, host);
-        var state = { compilerOptions: compilerOptions, host: host, traceEnabled: traceEnabled };
+        var state = { compilerOptions: compilerOptions, host: host, traceEnabled: traceEnabled, skipTsx: !compilerOptions.jsx };
         var failedLookupLocations = [];
         var supportedExtensions = ts.getSupportedExtensions(compilerOptions);
         var containingDirectory = ts.getDirectoryPath(containingFile);
@@ -40225,8 +40201,7 @@ var ts;
         var referencedSourceFile;
         while (true) {
             var searchName = ts.normalizePath(ts.combinePaths(containingDirectory, moduleName));
-            var directoryName = ts.getDirectoryPath(searchName);
-            referencedSourceFile = loadModuleFromFile(searchName, supportedExtensions, failedLookupLocations, !directoryProbablyExists(directoryName, host), state);
+            referencedSourceFile = loadModuleFromFile(searchName, supportedExtensions, failedLookupLocations, /*onlyRecordFailures*/ false, state);
             if (referencedSourceFile) {
                 break;
             }
@@ -40685,8 +40660,11 @@ var ts;
                             diagnostics.push(ts.createDiagnosticForNode(node, ts.Diagnostics.import_can_only_be_used_in_a_ts_file));
                             return true;
                         case 231 /* ExportAssignment */:
-                            diagnostics.push(ts.createDiagnosticForNode(node, ts.Diagnostics.export_can_only_be_used_in_a_ts_file));
-                            return true;
+                            if (node.isExportEquals) {
+                                diagnostics.push(ts.createDiagnosticForNode(node, ts.Diagnostics.export_can_only_be_used_in_a_ts_file));
+                                return true;
+                            }
+                            break;
                         case 218 /* ClassDeclaration */:
                             var classDeclaration = node;
                             if (checkModifiers(classDeclaration.modifiers) ||
@@ -41053,7 +41031,7 @@ var ts;
                         if (importedFile && resolution.isExternalLibraryImport) {
                             // Since currently irrespective of allowJs, we only look for supportedTypeScript extension external module files,
                             // this check is ok. Otherwise this would be never true for javascript file
-                            if (!ts.isExternalModule(importedFile)) {
+                            if (!ts.isExternalModule(importedFile) && importedFile.statements.length) {
                                 var start_5 = ts.getTokenPosOfNode(file.imports[i], file);
                                 fileProcessingDiagnostics.add(ts.createFileDiagnostic(file, start_5, file.imports[i].end - start_5, ts.Diagnostics.Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_the_package_definition, importedFile.fileName));
                             }
@@ -52715,19 +52693,53 @@ var ts;
                     pushClassification(start, end - start, type);
                 }
             }
-            function classifyTokenOrJsxText(token) {
-                if (ts.nodeIsMissing(token)) {
-                    return;
+            /**
+             * Returns true if node should be treated as classified and no further processing is required.
+             * False will mean that node is not classified and traverse routine should recurse into node contents.
+             */
+            function tryClassifyNode(node) {
+                if (ts.nodeIsMissing(node)) {
+                    return true;
                 }
-                var tokenStart = token.kind === 240 /* JsxText */ ? token.pos : classifyLeadingTriviaAndGetTokenStart(token);
-                var tokenWidth = token.end - tokenStart;
+                var classifiedElementName = tryClassifyJsxElementName(node);
+                if (!ts.isToken(node) && node.kind !== 240 /* JsxText */ && classifiedElementName === undefined) {
+                    return false;
+                }
+                var tokenStart = node.kind === 240 /* JsxText */ ? node.pos : classifyLeadingTriviaAndGetTokenStart(node);
+                var tokenWidth = node.end - tokenStart;
                 ts.Debug.assert(tokenWidth >= 0);
                 if (tokenWidth > 0) {
-                    var type = classifyTokenType(token.kind, token);
+                    var type = classifiedElementName || classifyTokenType(node.kind, node);
                     if (type) {
                         pushClassification(tokenStart, tokenWidth, type);
                     }
                 }
+                return true;
+            }
+            function tryClassifyJsxElementName(token) {
+                switch (token.parent && token.parent.kind) {
+                    case 239 /* JsxOpeningElement */:
+                        if (token.parent.tagName === token) {
+                            return 19 /* jsxOpenTagName */;
+                        }
+                        break;
+                    case 241 /* JsxClosingElement */:
+                        if (token.parent.tagName === token) {
+                            return 20 /* jsxCloseTagName */;
+                        }
+                        break;
+                    case 238 /* JsxSelfClosingElement */:
+                        if (token.parent.tagName === token) {
+                            return 21 /* jsxSelfClosingTagName */;
+                        }
+                        break;
+                    case 242 /* JsxAttribute */:
+                        if (token.parent.name === token) {
+                            return 22 /* jsxAttribute */;
+                        }
+                        break;
+                }
+                return undefined;
             }
             // for accurate classification, the actual token should be passed in.  however, for
             // cases like 'disabled merge code' classification, we just get the token kind and
@@ -52815,25 +52827,6 @@ var ts;
                                     return 17 /* parameterName */;
                                 }
                                 return;
-                            case 239 /* JsxOpeningElement */:
-                                if (token.parent.tagName === token) {
-                                    return 19 /* jsxOpenTagName */;
-                                }
-                                return;
-                            case 241 /* JsxClosingElement */:
-                                if (token.parent.tagName === token) {
-                                    return 20 /* jsxCloseTagName */;
-                                }
-                                return;
-                            case 238 /* JsxSelfClosingElement */:
-                                if (token.parent.tagName === token) {
-                                    return 21 /* jsxSelfClosingTagName */;
-                                }
-                                return;
-                            case 242 /* JsxAttribute */:
-                                if (token.parent.name === token) {
-                                    return 22 /* jsxAttribute */;
-                                }
                         }
                     }
                     return 2 /* identifier */;
@@ -52849,10 +52842,7 @@ var ts;
                     var children = element.getChildren(sourceFile);
                     for (var i = 0, n = children.length; i < n; i++) {
                         var child = children[i];
-                        if (ts.isToken(child) || child.kind === 240 /* JsxText */) {
-                            classifyTokenOrJsxText(child);
-                        }
-                        else {
+                        if (!tryClassifyNode(child)) {
                             // Recurse into our child nodes.
                             processElement(child);
                         }

@@ -88,6 +88,8 @@ namespace ts {
         host: ModuleResolutionHost;
         compilerOptions: CompilerOptions;
         traceEnabled: boolean;
+        // skip .tsx files if jsx is not enabled
+        skipTsx: boolean;
     }
 
     export function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations {
@@ -369,7 +371,7 @@ namespace ts {
         const traceEnabled = isTraceEnabled(compilerOptions, host);
 
         const failedLookupLocations: string[] = [];
-        const state = {compilerOptions, host, traceEnabled};
+        const state = {compilerOptions, host, traceEnabled, skipTsx: false};
         let resolvedFileName = tryLoadModuleUsingOptionalResolutionSettings(moduleName, containingDirectory, nodeLoadModuleByRelativeName,
             failedLookupLocations, supportedExtensions, state);
 
@@ -418,6 +420,9 @@ namespace ts {
         return forEach(extensions, tryLoad);
 
         function tryLoad(ext: string): string {
+            if (ext === ".tsx" && state.skipTsx) {
+                return undefined;
+            }
             const fileName = fileExtensionIs(candidate, ext) ? candidate : candidate + ext;
             if (!onlyRecordFailures && state.host.fileExists(fileName)) {
                 if (state.traceEnabled) {
@@ -517,7 +522,7 @@ namespace ts {
 
     export function classicNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations {
         const traceEnabled = isTraceEnabled(compilerOptions, host);
-        const state = { compilerOptions, host, traceEnabled };
+        const state = { compilerOptions, host, traceEnabled, skipTsx: !compilerOptions.jsx };
         const failedLookupLocations: string[] = [];
         const supportedExtensions = getSupportedExtensions(compilerOptions);
         let containingDirectory = getDirectoryPath(containingFile);
@@ -530,8 +535,7 @@ namespace ts {
         let referencedSourceFile: string;
         while (true) {
             const searchName = normalizePath(combinePaths(containingDirectory, moduleName));
-            const directoryName = getDirectoryPath(searchName);
-            referencedSourceFile = loadModuleFromFile(searchName, supportedExtensions, failedLookupLocations, !directoryProbablyExists(directoryName, host), state);
+            referencedSourceFile = loadModuleFromFile(searchName, supportedExtensions, failedLookupLocations, /*onlyRecordFailures*/ false, state);
             if (referencedSourceFile) {
                 break;
             }
@@ -1071,8 +1075,11 @@ namespace ts {
                             diagnostics.push(createDiagnosticForNode(node, Diagnostics.import_can_only_be_used_in_a_ts_file));
                             return true;
                         case SyntaxKind.ExportAssignment:
-                            diagnostics.push(createDiagnosticForNode(node, Diagnostics.export_can_only_be_used_in_a_ts_file));
-                            return true;
+                            if ((<ExportAssignment>node).isExportEquals) {
+                                diagnostics.push(createDiagnosticForNode(node, Diagnostics.export_can_only_be_used_in_a_ts_file));
+                                return true;
+                            }
+                            break;
                         case SyntaxKind.ClassDeclaration:
                             let classDeclaration = <ClassDeclaration>node;
                             if (checkModifiers(classDeclaration.modifiers) ||
@@ -1483,7 +1490,7 @@ namespace ts {
                         if (importedFile && resolution.isExternalLibraryImport) {
                             // Since currently irrespective of allowJs, we only look for supportedTypeScript extension external module files,
                             // this check is ok. Otherwise this would be never true for javascript file
-                            if (!isExternalModule(importedFile)) {
+                            if (!isExternalModule(importedFile) && importedFile.statements.length) {
                                 const start = getTokenPosOfNode(file.imports[i], file);
                                 fileProcessingDiagnostics.add(createFileDiagnostic(file, start, file.imports[i].end - start, Diagnostics.Exported_external_package_typings_file_0_is_not_a_module_Please_contact_the_package_author_to_update_the_package_definition, importedFile.fileName));
                             }
