@@ -1940,9 +1940,6 @@ var ts;
                         }
                     }
                 }
-                /**
-                 * @param watcherPath is the path from which the watcher is triggered.
-                 */
                 function fileEventHandler(eventName, relativeFileName, baseDirPath) {
                     // When files are deleted from disk, the triggered "rename" event would have a relativefileName of "undefined"
                     var filePath = typeof relativeFileName !== "string"
@@ -4831,7 +4828,7 @@ var ts;
         _0_modifier_cannot_be_used_with_a_class_declaration: { code: 1041, category: ts.DiagnosticCategory.Error, key: "_0_modifier_cannot_be_used_with_a_class_declaration_1041", message: "'{0}' modifier cannot be used with a class declaration." },
         _0_modifier_cannot_be_used_here: { code: 1042, category: ts.DiagnosticCategory.Error, key: "_0_modifier_cannot_be_used_here_1042", message: "'{0}' modifier cannot be used here." },
         _0_modifier_cannot_appear_on_a_data_property: { code: 1043, category: ts.DiagnosticCategory.Error, key: "_0_modifier_cannot_appear_on_a_data_property_1043", message: "'{0}' modifier cannot appear on a data property." },
-        _0_modifier_cannot_appear_on_a_module_element: { code: 1044, category: ts.DiagnosticCategory.Error, key: "_0_modifier_cannot_appear_on_a_module_element_1044", message: "'{0}' modifier cannot appear on a module element." },
+        _0_modifier_cannot_appear_on_a_module_or_namespace_element: { code: 1044, category: ts.DiagnosticCategory.Error, key: "_0_modifier_cannot_appear_on_a_module_or_namespace_element_1044", message: "'{0}' modifier cannot appear on a module or namespace element." },
         A_0_modifier_cannot_be_used_with_an_interface_declaration: { code: 1045, category: ts.DiagnosticCategory.Error, key: "A_0_modifier_cannot_be_used_with_an_interface_declaration_1045", message: "A '{0}' modifier cannot be used with an interface declaration." },
         A_declare_modifier_is_required_for_a_top_level_declaration_in_a_d_ts_file: { code: 1046, category: ts.DiagnosticCategory.Error, key: "A_declare_modifier_is_required_for_a_top_level_declaration_in_a_d_ts_file_1046", message: "A 'declare' modifier is required for a top level declaration in a .d.ts file." },
         A_rest_parameter_cannot_be_optional: { code: 1047, category: ts.DiagnosticCategory.Error, key: "A_rest_parameter_cannot_be_optional_1047", message: "A rest parameter cannot be optional." },
@@ -5120,7 +5117,6 @@ var ts;
         Class_name_cannot_be_0: { code: 2414, category: ts.DiagnosticCategory.Error, key: "Class_name_cannot_be_0_2414", message: "Class name cannot be '{0}'" },
         Class_0_incorrectly_extends_base_class_1: { code: 2415, category: ts.DiagnosticCategory.Error, key: "Class_0_incorrectly_extends_base_class_1_2415", message: "Class '{0}' incorrectly extends base class '{1}'." },
         Class_static_side_0_incorrectly_extends_base_class_static_side_1: { code: 2417, category: ts.DiagnosticCategory.Error, key: "Class_static_side_0_incorrectly_extends_base_class_static_side_1_2417", message: "Class static side '{0}' incorrectly extends base class static side '{1}'." },
-        Type_name_0_in_extends_clause_does_not_reference_constructor_function_for_0: { code: 2419, category: ts.DiagnosticCategory.Error, key: "Type_name_0_in_extends_clause_does_not_reference_constructor_function_for_0_2419", message: "Type name '{0}' in extends clause does not reference constructor function for '{0}'." },
         Class_0_incorrectly_implements_interface_1: { code: 2420, category: ts.DiagnosticCategory.Error, key: "Class_0_incorrectly_implements_interface_1_2420", message: "Class '{0}' incorrectly implements interface '{1}'." },
         A_class_may_only_implement_another_class_or_interface: { code: 2422, category: ts.DiagnosticCategory.Error, key: "A_class_may_only_implement_another_class_or_interface_2422", message: "A class may only implement another class or interface." },
         Class_0_defines_instance_member_function_1_but_extended_class_2_defines_it_as_instance_member_accessor: { code: 2423, category: ts.DiagnosticCategory.Error, key: "Class_0_defines_instance_member_function_1_but_extended_class_2_defines_it_as_instance_member_access_2423", message: "Class '{0}' defines instance member function '{1}', but extended class '{2}' defines it as instance member accessor." },
@@ -9292,6 +9288,23 @@ var ts;
             }
             return token === 17 /* OpenParenToken */ && lookAhead(isUnambiguouslyStartOfFunctionType);
         }
+        function skipParameterStart() {
+            if (ts.isModifierKind(token)) {
+                // Skip modifiers
+                parseModifiers();
+            }
+            if (isIdentifier()) {
+                nextToken();
+                return true;
+            }
+            if (token === 19 /* OpenBracketToken */ || token === 15 /* OpenBraceToken */) {
+                // Return true if we can parse an array or object binding pattern with no errors
+                var previousErrorCount = parseDiagnostics.length;
+                parseIdentifierOrPattern();
+                return previousErrorCount === parseDiagnostics.length;
+            }
+            return false;
+        }
         function isUnambiguouslyStartOfFunctionType() {
             nextToken();
             if (token === 18 /* CloseParenToken */ || token === 22 /* DotDotDotToken */) {
@@ -9299,22 +9312,21 @@ var ts;
                 // ( ...
                 return true;
             }
-            if (isIdentifier() || ts.isModifierKind(token)) {
-                nextToken();
+            if (skipParameterStart()) {
+                // We successfully skipped modifiers (if any) and an identifier or binding pattern,
+                // now see if we have something that indicates a parameter declaration
                 if (token === 54 /* ColonToken */ || token === 24 /* CommaToken */ ||
-                    token === 53 /* QuestionToken */ || token === 56 /* EqualsToken */ ||
-                    isIdentifier() || ts.isModifierKind(token)) {
-                    // ( id :
-                    // ( id ,
-                    // ( id ?
-                    // ( id =
-                    // ( modifier id
+                    token === 53 /* QuestionToken */ || token === 56 /* EqualsToken */) {
+                    // ( xxx :
+                    // ( xxx ,
+                    // ( xxx ?
+                    // ( xxx =
                     return true;
                 }
                 if (token === 18 /* CloseParenToken */) {
                     nextToken();
                     if (token === 34 /* EqualsGreaterThanToken */) {
-                        // ( id ) =>
+                        // ( xxx ) =>
                         return true;
                     }
                 }
@@ -29193,7 +29205,7 @@ var ts;
                             return grammarErrorOnNode(modifier, ts.Diagnostics._0_modifier_must_precede_1_modifier, text, "async");
                         }
                         else if (node.parent.kind === 223 /* ModuleBlock */ || node.parent.kind === 252 /* SourceFile */) {
-                            return grammarErrorOnNode(modifier, ts.Diagnostics._0_modifier_cannot_appear_on_a_module_element, text);
+                            return grammarErrorOnNode(modifier, ts.Diagnostics._0_modifier_cannot_appear_on_a_module_or_namespace_element, text);
                         }
                         else if (flags & 128 /* Abstract */) {
                             if (modifier.kind === 110 /* PrivateKeyword */) {
@@ -29216,7 +29228,7 @@ var ts;
                             return grammarErrorOnNode(modifier, ts.Diagnostics._0_modifier_must_precede_1_modifier, "static", "async");
                         }
                         else if (node.parent.kind === 223 /* ModuleBlock */ || node.parent.kind === 252 /* SourceFile */) {
-                            return grammarErrorOnNode(modifier, ts.Diagnostics._0_modifier_cannot_appear_on_a_module_element, "static");
+                            return grammarErrorOnNode(modifier, ts.Diagnostics._0_modifier_cannot_appear_on_a_module_or_namespace_element, "static");
                         }
                         else if (node.kind === 140 /* Parameter */) {
                             return grammarErrorOnNode(modifier, ts.Diagnostics._0_modifier_cannot_appear_on_a_parameter, "static");
@@ -32278,6 +32290,14 @@ var ts;
 var ts;
 (function (ts) {
     var nullSourceMapWriter;
+    // Used for initialize lastEncodedSourceMapSpan and reset lastEncodedSourceMapSpan when updateLastEncodedAndRecordedSpans
+    var defaultLastEncodedSourceMapSpan = {
+        emittedLine: 1,
+        emittedColumn: 1,
+        sourceLine: 1,
+        sourceColumn: 1,
+        sourceIndex: 0
+    };
     function getNullSourceMapWriter() {
         if (nullSourceMapWriter === undefined) {
             nullSourceMapWriter = {
@@ -32331,13 +32351,7 @@ var ts;
             sourceMapSourceIndex = -1;
             // Last recorded and encoded spans
             lastRecordedSourceMapSpan = undefined;
-            lastEncodedSourceMapSpan = {
-                emittedLine: 1,
-                emittedColumn: 1,
-                sourceLine: 1,
-                sourceColumn: 1,
-                sourceIndex: 0
-            };
+            lastEncodedSourceMapSpan = defaultLastEncodedSourceMapSpan;
             lastEncodedNameIndex = 0;
             // Initialize source map data
             sourceMapData = {
@@ -32400,10 +32414,12 @@ var ts;
                 lastRecordedSourceMapSpan.emittedColumn = lastEncodedSourceMapSpan.emittedColumn;
                 // Pop sourceMapDecodedMappings to remove last entry
                 sourceMapData.sourceMapDecodedMappings.pop();
-                // Change the last encoded source map
+                // Point the lastEncodedSourceMapSpace to the previous encoded sourceMapSpan
+                // If the list is empty which indicates that we are at the beginning of the file,
+                // we have to reset it to default value (same value when we first initialize sourceMapWriter)
                 lastEncodedSourceMapSpan = sourceMapData.sourceMapDecodedMappings.length ?
                     sourceMapData.sourceMapDecodedMappings[sourceMapData.sourceMapDecodedMappings.length - 1] :
-                    undefined;
+                    defaultLastEncodedSourceMapSpan;
                 // TODO: Update lastEncodedNameIndex 
                 // Since we dont support this any more, lets not worry about it right now.
                 // When we start supporting nameIndex, we will get back to this

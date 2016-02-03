@@ -2636,7 +2636,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        _0_modifier_cannot_appear_on_a_module_element: {
+        _0_modifier_cannot_appear_on_a_module_or_namespace_element: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4365,12 +4365,6 @@ declare namespace ts {
             message: string;
         };
         Class_static_side_0_incorrectly_extends_base_class_static_side_1: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
-        Type_name_0_in_extends_clause_does_not_reference_constructor_function_for_0: {
             code: number;
             category: DiagnosticCategory;
             key: string;
