@@ -1447,6 +1447,7 @@ declare namespace ts {
         HasSeenSuperCall = 524288,
         ClassWithBodyScopedClassBinding = 1048576,
         BodyScopedClassBinding = 2097152,
+        NeedsLoopOutParameter = 4194304,
     }
     interface NodeLinks {
         resolvedType?: Type;
