@@ -12200,18 +12200,26 @@ var ts;
             function parseJSDocParameter() {
                 var parameter = createNode(140 /* Parameter */);
                 parameter.type = parseJSDocType();
+                if (parseOptional(56 /* EqualsToken */)) {
+                    parameter.questionToken = createNode(56 /* EqualsToken */);
+                }
                 return finishNode(parameter);
             }
             function parseJSDocTypeReference() {
                 var result = createNode(263 /* JSDocTypeReference */);
                 result.name = parseSimplePropertyName();
-                while (parseOptional(21 /* DotToken */)) {
-                    if (token === 25 /* LessThanToken */) {
-                        result.typeArguments = parseTypeArguments();
-                        break;
-                    }
-                    else {
-                        result.name = parseQualifiedName(result.name);
+                if (token === 25 /* LessThanToken */) {
+                    result.typeArguments = parseTypeArguments();
+                }
+                else {
+                    while (parseOptional(21 /* DotToken */)) {
+                        if (token === 25 /* LessThanToken */) {
+                            result.typeArguments = parseTypeArguments();
+                            break;
+                        }
+                        else {
+                            result.name = parseQualifiedName(result.name);
+                        }
                     }
                 }
                 return finishNode(result);
