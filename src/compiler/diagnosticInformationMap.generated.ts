@@ -646,6 +646,7 @@ namespace ts {
         Loading_0_from_the_root_dir_1_candidate_location_2: { code: 6109, category: DiagnosticCategory.Message, key: "Loading_0_from_the_root_dir_1_candidate_location_2_6109", message: "Loading '{0}' from the root dir '{1}', candidate location '{2}'" },
         Trying_other_entries_in_rootDirs: { code: 6110, category: DiagnosticCategory.Message, key: "Trying_other_entries_in_rootDirs_6110", message: "Trying other entries in 'rootDirs'" },
         Module_resolution_using_rootDirs_has_failed: { code: 6111, category: DiagnosticCategory.Message, key: "Module_resolution_using_rootDirs_has_failed_6111", message: "Module resolution using 'rootDirs' has failed" },
+        Do_not_emit_use_strict_directives_in_module_output: { code: 6112, category: DiagnosticCategory.Message, key: "Do_not_emit_use_strict_directives_in_module_output_6112", message: "Do not emit 'use strict' directives in module output." },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: DiagnosticCategory.Error, key: "Parameter_0_implicitly_has_an_1_type_7006", message: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: DiagnosticCategory.Error, key: "Member_0_implicitly_has_an_1_type_7008", message: "Member '{0}' implicitly has an '{1}' type." },

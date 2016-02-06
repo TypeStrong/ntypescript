@@ -4895,18 +4895,24 @@ const _super = (function (geti, seti) {
                 emitToken(SyntaxKind.CloseBraceToken, body.statements.end);
             }
 
-            function findInitialSuperCall(ctor: ConstructorDeclaration): ExpressionStatement {
-                if (ctor.body) {
-                    const statement = (<Block>ctor.body).statements[0];
-                    if (statement && statement.kind === SyntaxKind.ExpressionStatement) {
-                        const expr = (<ExpressionStatement>statement).expression;
-                        if (expr && expr.kind === SyntaxKind.CallExpression) {
-                            const func = (<CallExpression>expr).expression;
-                            if (func && func.kind === SyntaxKind.SuperKeyword) {
-                                return <ExpressionStatement>statement;
-                            }
-                        }
-                    }
+            /**
+             * Return the statement at a given index if it is a super-call statement
+             * @param ctor a constructor declaration
+             * @param index an index to constructor's body to check
+             */
+            function getSuperCallAtGivenIndex(ctor: ConstructorDeclaration, index: number): ExpressionStatement {
+                if (!ctor.body) {
+                    return undefined;
+                }
+                const statements = ctor.body.statements;
+
+                if (!statements || index >= statements.length) {
+                    return undefined;
+                }
+
+                const statement = statements[index];
+                if (statement.kind === SyntaxKind.ExpressionStatement) {
+                    return isSuperCallExpression((<ExpressionStatement>statement).expression) ? <ExpressionStatement>statement : undefined;
                 }
             }
 
@@ -5190,13 +5196,15 @@ const _super = (function (geti, seti) {
                 if (ctor) {
                     emitDefaultValueAssignments(ctor);
                     emitRestParameter(ctor);
+
                     if (baseTypeElement) {
-                        superCall = findInitialSuperCall(ctor);
+                        superCall = getSuperCallAtGivenIndex(ctor, startIndex);
                         if (superCall) {
                             writeLine();
                             emit(superCall);
                         }
                     }
+
                     emitParameterPropertyAssignments(ctor);
                 }
                 else {
@@ -7284,7 +7292,7 @@ const _super = (function (geti, seti) {
                 write(`], function(${exportFunctionForFile}, ${contextObjectForFile}) {`);
                 writeLine();
                 increaseIndent();
-                const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ true);
+                const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ !compilerOptions.noImplicitUseStrict);
                 writeLine();
                 write(`var __moduleName = ${contextObjectForFile} && ${contextObjectForFile}.id;`);
                 writeLine();
@@ -7390,7 +7398,7 @@ const _super = (function (geti, seti) {
                 writeModuleName(node, emitRelativePathAsModuleName);
                 emitAMDDependencies(node, /*includeNonAmdDependencies*/ true, emitRelativePathAsModuleName);
                 increaseIndent();
-                const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ true);
+                const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/!compilerOptions.noImplicitUseStrict);
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);
@@ -7402,7 +7410,7 @@ const _super = (function (geti, seti) {
             }
 
             function emitCommonJSModule(node: SourceFile) {
-                const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false, /*ensureUseStrict*/ true);
+                const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false, /*ensureUseStrict*/ !compilerOptions.noImplicitUseStrict);
                 emitEmitHelpers(node);
                 collectExternalModuleInfo(node);
                 emitExportStarHelper();
@@ -7431,7 +7439,7 @@ const _super = (function (geti, seti) {
 })(`);
                 emitAMDFactoryHeader(dependencyNames);
                 increaseIndent();
-                const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ true);
+                const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ !compilerOptions.noImplicitUseStrict);
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);

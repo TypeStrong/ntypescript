@@ -2582,6 +2582,10 @@ var ts;
         return !!(getCombinedNodeFlags(node) & 1024 /* Let */);
     }
     ts.isLet = isLet;
+    function isSuperCallExpression(n) {
+        return n.kind === 172 /* CallExpression */ && n.expression.kind === 95 /* SuperKeyword */;
+    }
+    ts.isSuperCallExpression = isSuperCallExpression;
     function isPrologueDirective(node) {
         return node.kind === 199 /* ExpressionStatement */ && node.expression.kind === 9 /* StringLiteral */;
     }
@@ -5446,6 +5450,7 @@ var ts;
         Loading_0_from_the_root_dir_1_candidate_location_2: { code: 6109, category: ts.DiagnosticCategory.Message, key: "Loading_0_from_the_root_dir_1_candidate_location_2_6109", message: "Loading '{0}' from the root dir '{1}', candidate location '{2}'" },
         Trying_other_entries_in_rootDirs: { code: 6110, category: ts.DiagnosticCategory.Message, key: "Trying_other_entries_in_rootDirs_6110", message: "Trying other entries in 'rootDirs'" },
         Module_resolution_using_rootDirs_has_failed: { code: 6111, category: ts.DiagnosticCategory.Message, key: "Module_resolution_using_rootDirs_has_failed_6111", message: "Module resolution using 'rootDirs' has failed" },
+        Do_not_emit_use_strict_directives_in_module_output: { code: 6112, category: ts.DiagnosticCategory.Message, key: "Do_not_emit_use_strict_directives_in_module_output_6112", message: "Do not emit 'use strict' directives in module output." },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter_0_implicitly_has_an_1_type_7006", message: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member_0_implicitly_has_an_1_type_7008", message: "Member '{0}' implicitly has an '{1}' type." },
@@ -25327,14 +25332,11 @@ var ts;
             if (!produceDiagnostics) {
                 return;
             }
-            function isSuperCallExpression(n) {
-                return n.kind === 172 /* CallExpression */ && n.expression.kind === 95 /* SuperKeyword */;
-            }
             function containsSuperCallAsComputedPropertyName(n) {
                 return n.name && containsSuperCall(n.name);
             }
             function containsSuperCall(n) {
-                if (isSuperCallExpression(n)) {
+                if (ts.isSuperCallExpression(n)) {
                     return true;
                 }
                 else if (ts.isFunctionLike(n)) {
@@ -25384,7 +25386,7 @@ var ts;
                         var superCallStatement;
                         for (var _i = 0, statements_2 = statements; _i < statements_2.length; _i++) {
                             var statement = statements_2[_i];
-                            if (statement.kind === 199 /* ExpressionStatement */ && isSuperCallExpression(statement.expression)) {
+                            if (statement.kind === 199 /* ExpressionStatement */ && ts.isSuperCallExpression(statement.expression)) {
                                 superCallStatement = statement;
                                 break;
                             }
@@ -30478,6 +30480,11 @@ var ts;
             name: "allowSyntheticDefaultImports",
             type: "boolean",
             description: ts.Diagnostics.Allow_default_imports_from_modules_with_no_default_export_This_does_not_affect_code_emit_just_typechecking
+        },
+        {
+            name: "noImplicitUseStrict",
+            type: "boolean",
+            description: ts.Diagnostics.Do_not_emit_use_strict_directives_in_module_output
         }
     ];
     var optionNameMapCache;
@@ -36900,18 +36907,22 @@ var ts;
                 }
                 emitToken(16 /* CloseBraceToken */, body.statements.end);
             }
-            function findInitialSuperCall(ctor) {
-                if (ctor.body) {
-                    var statement = ctor.body.statements[0];
-                    if (statement && statement.kind === 199 /* ExpressionStatement */) {
-                        var expr = statement.expression;
-                        if (expr && expr.kind === 172 /* CallExpression */) {
-                            var func = expr.expression;
-                            if (func && func.kind === 95 /* SuperKeyword */) {
-                                return statement;
-                            }
-                        }
-                    }
+            /**
+             * Return the statement at a given index if it is a super-call statement
+             * @param ctor a constructor declaration
+             * @param index an index to constructor's body to check
+             */
+            function getSuperCallAtGivenIndex(ctor, index) {
+                if (!ctor.body) {
+                    return undefined;
+                }
+                var statements = ctor.body.statements;
+                if (!statements || index >= statements.length) {
+                    return undefined;
+                }
+                var statement = statements[index];
+                if (statement.kind === 199 /* ExpressionStatement */) {
+                    return ts.isSuperCallExpression(statement.expression) ? statement : undefined;
                 }
             }
             function emitParameterPropertyAssignments(node) {
@@ -37175,7 +37186,7 @@ var ts;
                     emitDefaultValueAssignments(ctor);
                     emitRestParameter(ctor);
                     if (baseTypeElement) {
-                        superCall = findInitialSuperCall(ctor);
+                        superCall = getSuperCallAtGivenIndex(ctor, startIndex);
                         if (superCall) {
                             writeLine();
                             emit(superCall);
@@ -39063,7 +39074,7 @@ var ts;
                 write("], function(" + exportFunctionForFile + ", " + contextObjectForFile + ") {");
                 writeLine();
                 increaseIndent();
-                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ true);
+                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ !compilerOptions.noImplicitUseStrict);
                 writeLine();
                 write("var __moduleName = " + contextObjectForFile + " && " + contextObjectForFile + ".id;");
                 writeLine();
@@ -39156,7 +39167,7 @@ var ts;
                 writeModuleName(node, emitRelativePathAsModuleName);
                 emitAMDDependencies(node, /*includeNonAmdDependencies*/ true, emitRelativePathAsModuleName);
                 increaseIndent();
-                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ true);
+                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ !compilerOptions.noImplicitUseStrict);
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);
@@ -39167,7 +39178,7 @@ var ts;
                 write("});");
             }
             function emitCommonJSModule(node) {
-                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false, /*ensureUseStrict*/ true);
+                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false, /*ensureUseStrict*/ !compilerOptions.noImplicitUseStrict);
                 emitEmitHelpers(node);
                 collectExternalModuleInfo(node);
                 emitExportStarHelper();
@@ -39187,7 +39198,7 @@ var ts;
                 writeLines("    }\n})(");
                 emitAMDFactoryHeader(dependencyNames);
                 increaseIndent();
-                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ true);
+                var startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ true, /*ensureUseStrict*/ !compilerOptions.noImplicitUseStrict);
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);

@@ -1726,6 +1726,7 @@ declare namespace ts {
         traceModuleResolution?: boolean;
         allowSyntheticDefaultImports?: boolean;
         allowJs?: boolean;
+        noImplicitUseStrict?: boolean;
         stripInternal?: boolean;
         skipDefaultLibCheck?: boolean;
         suppressOutputPathCheck?: boolean;
@@ -2200,6 +2201,7 @@ declare namespace ts {
     function getCombinedNodeFlags(node: Node): NodeFlags;
     function isConst(node: Node): boolean;
     function isLet(node: Node): boolean;
+    function isSuperCallExpression(n: Node): boolean;
     function isPrologueDirective(node: Node): boolean;
     function getLeadingCommentRangesOfNode(node: Node, sourceFileOfNode: SourceFile): CommentRange[];
     function getLeadingCommentRangesOfNodeFromText(node: Node, text: string): CommentRange[];
@@ -6304,6 +6306,12 @@ declare namespace ts {
             message: string;
         };
         Module_resolution_using_rootDirs_has_failed: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Do_not_emit_use_strict_directives_in_module_output: {
             code: number;
             category: DiagnosticCategory;
             key: string;
