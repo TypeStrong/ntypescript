@@ -4059,7 +4059,22 @@ var ts;
             }
         }
         function onSingleFileEmit(host, sourceFile) {
-            var jsFilePath = getOwnEmitOutputFilePath(sourceFile, host, sourceFile.languageVariant === 1 /* JSX */ && options.jsx === 1 /* Preserve */ ? ".jsx" : ".js");
+            // JavaScript files are always LanguageVariant.JSX, as JSX syntax is allowed in .js files also.
+            // So for JavaScript files, '.jsx' is only emitted if the input was '.jsx', and JsxEmit.Preserve.
+            // For TypeScript, the only time to emit with a '.jsx' extension, is on JSX input, and JsxEmit.Preserve
+            var extension = ".js";
+            if (options.jsx === 1 /* Preserve */) {
+                if (isSourceFileJavaScript(sourceFile)) {
+                    if (ts.fileExtensionIs(sourceFile.fileName, ".jsx")) {
+                        extension = ".jsx";
+                    }
+                }
+                else if (sourceFile.languageVariant === 1 /* JSX */) {
+                    // TypeScript source file preserving JSX syntax
+                    extension = ".jsx";
+                }
+            }
+            var jsFilePath = getOwnEmitOutputFilePath(sourceFile, host, extension);
             var emitFileNames = {
                 jsFilePath: jsFilePath,
                 sourceMapFilePath: getSourceMapFilePath(jsFilePath, options),
