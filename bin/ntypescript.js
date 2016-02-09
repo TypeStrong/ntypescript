@@ -15048,9 +15048,9 @@ var ts;
          * @return a tuple of two symbols
          */
         function getSymbolsOfParameterPropertyDeclaration(parameter, parameterName) {
-            var constructoDeclaration = parameter.parent;
+            var constructorDeclaration = parameter.parent;
             var classDeclaration = parameter.parent.parent;
-            var parameterSymbol = getSymbol(constructoDeclaration.locals, parameterName, 107455 /* Value */);
+            var parameterSymbol = getSymbol(constructorDeclaration.locals, parameterName, 107455 /* Value */);
             var propertySymbol = getSymbol(classDeclaration.symbol.members, parameterName, 107455 /* Value */);
             if (parameterSymbol && propertySymbol) {
                 return [parameterSymbol, propertySymbol];
@@ -15931,7 +15931,7 @@ var ts;
                 function isAccessible(symbolFromSymbolTable, resolvedAliasSymbol) {
                     if (symbol === (resolvedAliasSymbol || symbolFromSymbolTable)) {
                         // if the symbolFromSymbolTable is not external module (it could be if it was determined as ambient external module and would be in globals table)
-                        // and if symbolfrom symbolTable or alias resolution matches the symbol,
+                        // and if symbolFromSymbolTable or alias resolution matches the symbol,
                         // check the symbol can be qualified, it is only then this symbol is accessible
                         return !ts.forEach(symbolFromSymbolTable.declarations, hasExternalModuleSymbol) &&
                             canQualifySymbol(symbolFromSymbolTable, meaning);
@@ -16551,10 +16551,10 @@ var ts;
                     inObjectTypeLiteral = saveInObjectTypeLiteral;
                 }
             }
-            function buildTypeParameterDisplayFromSymbol(symbol, writer, enclosingDeclaraiton, flags) {
+            function buildTypeParameterDisplayFromSymbol(symbol, writer, enclosingDeclaration, flags) {
                 var targetSymbol = getTargetSymbol(symbol);
                 if (targetSymbol.flags & 32 /* Class */ || targetSymbol.flags & 64 /* Interface */ || targetSymbol.flags & 524288 /* TypeAlias */) {
-                    buildDisplayForTypeParametersAndDelimiters(getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(symbol), writer, enclosingDeclaraiton, flags);
+                    buildDisplayForTypeParametersAndDelimiters(getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(symbol), writer, enclosingDeclaration, flags);
                 }
             }
             function buildTypeParameterDisplay(tp, writer, enclosingDeclaration, flags, symbolStack) {
@@ -17730,7 +17730,7 @@ var ts;
         // Returns true if the class or interface member given by the symbol is free of "this" references. The
         // function may return false for symbols that are actually free of "this" references because it is not
         // feasible to perform a complete analysis in all cases. In particular, property members with types
-        // inferred from their initializers and function members with inferred return types are convervatively
+        // inferred from their initializers and function members with inferred return types are conservatively
         // assumed not to be free of "this" references.
         function isIndependentMember(symbol) {
             if (symbol.declarations && symbol.declarations.length === 1) {
@@ -19705,7 +19705,7 @@ var ts;
                 return false;
             }
             function hasExcessProperties(source, target, reportErrors) {
-                if (!(target.flags & 67108864 /* ObjectLiteralPatternWithComputedProperties */) && someConstituentTypeHasKind(target, 80896 /* ObjectType */)) {
+                if (!(target.flags & 67108864 /* ObjectLiteralPatternWithComputedProperties */) && maybeTypeOfKind(target, 80896 /* ObjectType */)) {
                     for (var _i = 0, _a = getPropertiesOfObjectType(source); _i < _a.length; _i++) {
                         var prop = _a[_i];
                         if (!isKnownProperty(target, prop.name)) {
@@ -19996,7 +19996,7 @@ var ts;
                 if (kind === 1 /* Construct */ && sourceSignatures.length && targetSignatures.length &&
                     isAbstractConstructorType(source) && !isAbstractConstructorType(target)) {
                     // An abstract constructor type is not assignable to a non-abstract constructor type
-                    // as it would otherwise be possible to new an abstract class. Note that the assignablity
+                    // as it would otherwise be possible to new an abstract class. Note that the assignability
                     // check we perform for an extends clause excludes construct signatures from the target,
                     // so this check never proceeds.
                     if (reportErrors) {
@@ -20644,7 +20644,7 @@ var ts;
                     }
                 }
                 else if (source.flags & 49152 /* UnionOrIntersection */) {
-                    // Source is a union or intersection type, infer from each consituent type
+                    // Source is a union or intersection type, infer from each constituent type
                     var sourceTypes = source.types;
                     for (var _c = 0, sourceTypes_3 = sourceTypes; _c < sourceTypes_3.length; _c++) {
                         var sourceType = sourceTypes_3[_c];
@@ -21383,7 +21383,7 @@ var ts;
                 if (container.kind === 177 /* FunctionExpression */) {
                     if (ts.getSpecialPropertyAssignmentKind(container.parent) === 3 /* PrototypeProperty */) {
                         // Get the 'x' of 'x.prototype.y = f' (here, 'f' is 'container')
-                        var className = container.parent // x.protoype.y = f
+                        var className = container.parent // x.prototype.y = f
                             .left // x.prototype.y
                             .expression // x.prototype
                             .expression; // x
@@ -21850,7 +21850,7 @@ var ts;
          * Otherwise this may not be very useful.
          *
          * In cases where you *are* working on this function, you should understand
-         * when it is appropriate to use 'getContextualType' and 'getApparentTypeOfContetxualType'.
+         * when it is appropriate to use 'getContextualType' and 'getApparentTypeOfContextualType'.
          *
          *   - Use 'getContextualType' when you are simply going to propagate the result to the expression.
          *   - Use 'getApparentTypeOfContextualType' when you're going to need the members of the type.
@@ -22097,7 +22097,7 @@ var ts;
             return isTypeAnyOrAllConstituentTypesHaveKind(checkComputedPropertyName(name), 132 /* NumberLike */);
         }
         function isTypeAnyOrAllConstituentTypesHaveKind(type, kind) {
-            return isTypeAny(type) || allConstituentTypesHaveKind(type, kind);
+            return isTypeAny(type) || isTypeOfKind(type, kind);
         }
         function isNumericLiteralName(name) {
             // The intent of numeric names is that
@@ -22465,10 +22465,10 @@ var ts;
             return getUnionType(signatures.map(getReturnTypeOfSignature));
         }
         /// e.g. "props" for React.d.ts,
-        /// or 'undefined' if ElementAttributesPropery doesn't exist (which means all
+        /// or 'undefined' if ElementAttributesProperty doesn't exist (which means all
         ///     non-intrinsic elements' attributes type is 'any'),
         /// or '' if it has 0 properties (which means every
-        ///     non-instrinsic elements' attributes type is the element instance type)
+        ///     non-intrinsic elements' attributes type is the element instance type)
         function getJsxElementPropertiesName() {
             // JSX
             var jsxNamespace = getGlobalSymbol(JsxNames.JSX, 1536 /* Namespace */, /*diagnosticMessage*/ undefined);
@@ -22476,7 +22476,7 @@ var ts;
             var attribsPropTypeSym = jsxNamespace && getSymbol(jsxNamespace.exports, JsxNames.ElementAttributesPropertyNameContainer, 793056 /* Type */);
             // JSX.ElementAttributesProperty [type]
             var attribPropType = attribsPropTypeSym && getDeclaredTypeOfSymbol(attribsPropTypeSym);
-            // The properites of JSX.ElementAttributesProperty
+            // The properties of JSX.ElementAttributesProperty
             var attribProperties = attribPropType && getPropertiesOfType(attribPropType);
             if (attribProperties) {
                 // Element Attributes has zero properties, so the element attributes type will be the class instance type
@@ -23206,7 +23206,7 @@ var ts;
             // Tagged template expressions will always have `undefined` for `excludeArgument[0]`.
             if (excludeArgument) {
                 for (var i = 0; i < argCount; i++) {
-                    // No need to check for omitted args and template expressions, their exlusion value is always undefined
+                    // No need to check for omitted args and template expressions, their exclusion value is always undefined
                     if (excludeArgument[i] === false) {
                         var arg = args[i];
                         var paramType = getTypeAtPosition(signature, i);
@@ -23429,7 +23429,7 @@ var ts;
                         return getStringLiteralTypeForText(element.name.text);
                     case 138 /* ComputedPropertyName */:
                         var nameType = checkComputedPropertyName(element.name);
-                        if (allConstituentTypesHaveKind(nameType, 16777216 /* ESSymbol */)) {
+                        if (isTypeOfKind(nameType, 16777216 /* ESSymbol */)) {
                             return nameType;
                         }
                         else {
@@ -23452,7 +23452,7 @@ var ts;
           */
         function getEffectiveDecoratorThirdArgumentType(node) {
             // The third argument to a decorator is either its `descriptor` for a method decorator
-            // or its `parameterIndex` for a paramter decorator
+            // or its `parameterIndex` for a parameter decorator
             if (node.kind === 218 /* ClassDeclaration */) {
                 ts.Debug.fail("Class decorators should not have a third synthetic argument.");
                 return unknownType;
@@ -23782,7 +23782,7 @@ var ts;
             // We exclude union types because we may have a union of function types that happen to have
             // no common signatures.
             if (isTypeAny(funcType) || (!callSignatures.length && !constructSignatures.length && !(funcType.flags & 16384 /* Union */) && isTypeAssignableTo(funcType, globalFunctionType))) {
-                // The unknownType indicates that an error already occured (and was reported).  No
+                // The unknownType indicates that an error already occurred (and was reported).  No
                 // need to report another error in this case.
                 if (funcType !== unknownType && node.typeArguments) {
                     error(node, ts.Diagnostics.Untyped_function_calls_may_not_accept_type_arguments);
@@ -23965,9 +23965,9 @@ var ts;
             checkGrammarTypeArguments(node, node.typeArguments) || checkGrammarArguments(node, node.arguments);
             var signature = getResolvedSignature(node);
             if (node.expression.kind === 95 /* SuperKeyword */) {
-                var containgFunction = ts.getContainingFunction(node.expression);
-                if (containgFunction && containgFunction.kind === 146 /* Constructor */) {
-                    getNodeLinks(containgFunction).flags |= 524288 /* HasSeenSuperCall */;
+                var containingFunction = ts.getContainingFunction(node.expression);
+                if (containingFunction && containingFunction.kind === 146 /* Constructor */) {
+                    getNodeLinks(containingFunction).flags |= 524288 /* HasSeenSuperCall */;
                 }
                 return voidType;
             }
@@ -24006,8 +24006,8 @@ var ts;
             if (produceDiagnostics && targetType !== unknownType) {
                 var widenedType = getWidenedType(exprType);
                 // Permit 'number[] | "foo"' to be asserted to 'string'.
-                var bothAreStringLike = someConstituentTypeHasKind(targetType, 258 /* StringLike */) &&
-                    someConstituentTypeHasKind(widenedType, 258 /* StringLike */);
+                var bothAreStringLike = maybeTypeOfKind(targetType, 258 /* StringLike */) &&
+                    maybeTypeOfKind(widenedType, 258 /* StringLike */);
                 if (!bothAreStringLike && !(isTypeAssignableTo(targetType, widenedType))) {
                     checkTypeAssignableTo(exprType, targetType, node, ts.Diagnostics.Neither_type_0_nor_type_1_is_assignable_to_the_other);
                 }
@@ -24237,7 +24237,7 @@ var ts;
                 return;
             }
             // Functions with with an explicitly specified 'void' or 'any' return type don't need any return expressions.
-            if (returnType === voidType || isTypeAny(returnType) || (returnType && (returnType.flags & 16384 /* Union */) && someConstituentTypeHasKind(returnType, 1 /* Any */ | 16 /* Void */))) {
+            if (returnType && maybeTypeOfKind(returnType, 1 /* Any */ | 16 /* Void */)) {
                 return;
             }
             // If all we have is a function signature, or an arrow function with an expression body, then there is nothing to check.
@@ -24465,7 +24465,7 @@ var ts;
                 case 35 /* PlusToken */:
                 case 36 /* MinusToken */:
                 case 50 /* TildeToken */:
-                    if (someConstituentTypeHasKind(operandType, 16777216 /* ESSymbol */)) {
+                    if (maybeTypeOfKind(operandType, 16777216 /* ESSymbol */)) {
                         error(node.operand, ts.Diagnostics.The_0_operator_cannot_be_applied_to_type_symbol, ts.tokenToString(node.operator));
                     }
                     return numberType;
@@ -24491,38 +24491,48 @@ var ts;
             }
             return numberType;
         }
-        // Just like isTypeOfKind below, except that it returns true if *any* constituent
-        // has this kind.
-        function someConstituentTypeHasKind(type, kind) {
+        // Return true if type might be of the given kind. A union or intersection type might be of a given
+        // kind if at least one constituent type is of the given kind.
+        function maybeTypeOfKind(type, kind) {
             if (type.flags & kind) {
                 return true;
             }
             if (type.flags & 49152 /* UnionOrIntersection */) {
                 var types = type.types;
                 for (var _i = 0, types_10 = types; _i < types_10.length; _i++) {
-                    var current = types_10[_i];
-                    if (current.flags & kind) {
+                    var t = types_10[_i];
+                    if (maybeTypeOfKind(t, kind)) {
                         return true;
                     }
                 }
-                return false;
             }
             return false;
         }
-        // Return true if type has the given flags, or is a union or intersection type composed of types that all have those flags.
-        function allConstituentTypesHaveKind(type, kind) {
+        // Return true if type is of the given kind. A union type is of a given kind if all constituent types
+        // are of the given kind. An intersection type is of a given kind if at least one constituent type is
+        // of the given kind.
+        function isTypeOfKind(type, kind) {
             if (type.flags & kind) {
                 return true;
             }
-            if (type.flags & 49152 /* UnionOrIntersection */) {
+            if (type.flags & 16384 /* Union */) {
                 var types = type.types;
                 for (var _i = 0, types_11 = types; _i < types_11.length; _i++) {
-                    var current = types_11[_i];
-                    if (!(current.flags & kind)) {
+                    var t = types_11[_i];
+                    if (!isTypeOfKind(t, kind)) {
                         return false;
                     }
                 }
                 return true;
+            }
+            if (type.flags & 32768 /* Intersection */) {
+                var types = type.types;
+                for (var _a = 0, types_12 = types; _a < types_12.length; _a++) {
+                    var t = types_12[_a];
+                    if (isTypeOfKind(t, kind)) {
+                        return true;
+                    }
+                }
             }
             return false;
         }
@@ -24538,7 +24548,7 @@ var ts;
             // and the right operand to be of type Any or a subtype of the 'Function' interface type.
             // The result is always of the Boolean primitive type.
             // NOTE: do not raise error if leftType is unknown as related error was already reported
-            if (allConstituentTypesHaveKind(leftType, 16777726 /* Primitive */)) {
+            if (isTypeOfKind(leftType, 16777726 /* Primitive */)) {
                 error(left, ts.Diagnostics.The_left_hand_side_of_an_instanceof_expression_must_be_of_type_any_an_object_type_or_a_type_parameter);
             }
             // NOTE: do not raise error if right is unknown as related error was already reported
@@ -24745,13 +24755,13 @@ var ts;
                     if (rightType.flags & (32 /* Undefined */ | 64 /* Null */))
                         rightType = leftType;
                     var resultType;
-                    if (allConstituentTypesHaveKind(leftType, 132 /* NumberLike */) && allConstituentTypesHaveKind(rightType, 132 /* NumberLike */)) {
+                    if (isTypeOfKind(leftType, 132 /* NumberLike */) && isTypeOfKind(rightType, 132 /* NumberLike */)) {
                         // Operands of an enum type are treated as having the primitive type Number.
                         // If both operands are of the Number primitive type, the result is of the Number primitive type.
                         resultType = numberType;
                     }
                     else {
-                        if (allConstituentTypesHaveKind(leftType, 258 /* StringLike */) || allConstituentTypesHaveKind(rightType, 258 /* StringLike */)) {
+                        if (isTypeOfKind(leftType, 258 /* StringLike */) || isTypeOfKind(rightType, 258 /* StringLike */)) {
                             // If one or both operands are of the String primitive type, the result is of the String primitive type.
                             resultType = stringType;
                         }
@@ -24786,7 +24796,7 @@ var ts;
                 case 32 /* EqualsEqualsEqualsToken */:
                 case 33 /* ExclamationEqualsEqualsToken */:
                     // Permit 'number[] | "foo"' to be asserted to 'string'.
-                    if (someConstituentTypeHasKind(leftType, 258 /* StringLike */) && someConstituentTypeHasKind(rightType, 258 /* StringLike */)) {
+                    if (maybeTypeOfKind(leftType, 258 /* StringLike */) && maybeTypeOfKind(rightType, 258 /* StringLike */)) {
                         return booleanType;
                     }
                     if (!isTypeAssignableTo(leftType, rightType) && !isTypeAssignableTo(rightType, leftType)) {
@@ -24809,8 +24819,8 @@ var ts;
             }
             // Return true if there was no error, false if there was an error.
             function checkForDisallowedESSymbolOperand(operator) {
-                var offendingSymbolOperand = someConstituentTypeHasKind(leftType, 16777216 /* ESSymbol */) ? left :
-                    someConstituentTypeHasKind(rightType, 16777216 /* ESSymbol */) ? right :
+                var offendingSymbolOperand = maybeTypeOfKind(leftType, 16777216 /* ESSymbol */) ? left :
+                    maybeTypeOfKind(rightType, 16777216 /* ESSymbol */) ? right :
                         undefined;
                 if (offendingSymbolOperand) {
                     error(offendingSymbolOperand, ts.Diagnostics.The_0_operator_cannot_be_applied_to_type_symbol, ts.tokenToString(operator));
@@ -25331,7 +25341,7 @@ var ts;
         function checkConstructorDeclaration(node) {
             // Grammar check on signature of constructor and modifier of the constructor is done in checkSignatureDeclaration function.
             checkSignatureDeclaration(node);
-            // Grammar check for checking only related to constructoDeclaration
+            // Grammar check for checking only related to constructorDeclaration
             checkGrammarConstructorTypeParameters(node) || checkGrammarConstructorTypeAnnotation(node);
             checkSourceElement(node.body);
             var symbol = getSymbolOfNode(node);
@@ -25785,7 +25795,7 @@ var ts;
                     nonExportedDeclarationSpaces |= declarationSpaces;
                 }
             }
-            // Spaces for anyting not declared a 'default export'.
+            // Spaces for anything not declared a 'default export'.
             var nonDefaultExportedDeclarationSpaces = exportedDeclarationSpaces | nonExportedDeclarationSpaces;
             var commonDeclarationSpacesForExportsAndLocals = exportedDeclarationSpaces & nonExportedDeclarationSpaces;
             var commonDeclarationSpacesForDefaultAndNonDefault = defaultExportedDeclarationSpaces & nonDefaultExportedDeclarationSpaces;
@@ -25794,7 +25804,7 @@ var ts;
                 for (var _b = 0, _c = symbol.declarations; _b < _c.length; _b++) {
                     var d = _c[_b];
                     var declarationSpaces = getDeclarationSpaces(d);
-                    // Only error on the declarations that conributed to the intersecting spaces.
+                    // Only error on the declarations that contributed to the intersecting spaces.
                     if (declarationSpaces & commonDeclarationSpacesForDefaultAndNonDefault) {
                         error(d.name, ts.Diagnostics.Merged_declaration_0_cannot_include_a_default_export_declaration_Consider_adding_a_separate_export_default_0_declaration_instead, ts.declarationNameToString(d.name));
                     }
@@ -26846,7 +26856,7 @@ var ts;
          * This function does the following steps:
          *   1. Break up arrayOrStringType (possibly a union) into its string constituents and array constituents.
          *   2. Take the element types of the array constituents.
-         *   3. Return the union of the element types, and string if there was a string constitutent.
+         *   3. Return the union of the element types, and string if there was a string constituent.
          *
          * For example:
          *     string -> string
@@ -26911,7 +26921,7 @@ var ts;
             checkGrammarStatementInAmbientContext(node) || checkGrammarBreakOrContinueStatement(node);
             // TODO: Check that target label is valid
         }
-        function isGetAccessorWithAnnotatatedSetAccessor(node) {
+        function isGetAccessorWithAnnotatedSetAccessor(node) {
             return !!(node.kind === 147 /* GetAccessor */ && ts.getSetAccessorTypeAnnotationNode(ts.getDeclarationOfKind(node.symbol, 148 /* SetAccessor */)));
         }
         function checkReturnStatement(node) {
@@ -26943,7 +26953,7 @@ var ts;
                             error(node.expression, ts.Diagnostics.Return_type_of_constructor_signature_must_be_assignable_to_the_instance_type_of_the_class);
                         }
                     }
-                    else if (func.type || isGetAccessorWithAnnotatatedSetAccessor(func) || returnType.flags & 134217728 /* PredicateType */) {
+                    else if (func.type || isGetAccessorWithAnnotatedSetAccessor(func) || returnType.flags & 134217728 /* PredicateType */) {
                         if (ts.isAsyncFunctionLike(func)) {
                             var promisedType = getPromisedType(returnType);
                             var awaitedType = checkAwaitedType(exprType, node.expression, ts.Diagnostics.Return_expression_in_async_function_does_not_have_a_valid_callable_then_member);
@@ -26977,7 +26987,7 @@ var ts;
             var firstDefaultClause;
             var hasDuplicateDefaultClause = false;
             var expressionType = checkExpression(node.expression);
-            var expressionTypeIsStringLike = someConstituentTypeHasKind(expressionType, 258 /* StringLike */);
+            var expressionTypeIsStringLike = maybeTypeOfKind(expressionType, 258 /* StringLike */);
             ts.forEach(node.caseBlock.clauses, function (clause) {
                 // Grammar check for duplicate default clauses, skip if we already report duplicate default clause
                 if (clause.kind === 246 /* DefaultClause */ && !hasDuplicateDefaultClause) {
@@ -26999,7 +27009,7 @@ var ts;
                     var caseType = checkExpression(caseClause.expression);
                     var expressionTypeIsAssignableToCaseType = 
                     // Permit 'number[] | "foo"' to be asserted to 'string'.
-                    (expressionTypeIsStringLike && someConstituentTypeHasKind(caseType, 258 /* StringLike */)) ||
+                    (expressionTypeIsStringLike && maybeTypeOfKind(caseType, 258 /* StringLike */)) ||
                         isTypeAssignableTo(expressionType, caseType);
                     if (!expressionTypeIsAssignableToCaseType) {
                         // 'expressionType is not assignable to caseType', try the reversed check and report errors if it fails
@@ -27294,7 +27304,7 @@ var ts;
                 var baseDeclarationFlags = getDeclarationFlagsFromSymbol(base);
                 ts.Debug.assert(!!derived, "derived should point to something, even if it is the base class' declaration.");
                 if (derived) {
-                    // In order to resolve whether the inherited method was overriden in the base class or not,
+                    // In order to resolve whether the inherited method was overridden in the base class or not,
                     // we compare the Symbols obtained. Since getTargetSymbol returns the symbol on the *uninstantiated*
                     // type declaration, derived and base resolve to the same symbol even in the case of generic classes.
                     if (derived === base) {
@@ -28119,7 +28129,7 @@ var ts;
             }
             var kind = node.kind;
             if (cancellationToken) {
-                // Only bother checking on a few construct kinds.  We don't want to be excessivly
+                // Only bother checking on a few construct kinds.  We don't want to be excessively
                 // hitting the cancellation token on every node we check.
                 switch (kind) {
                     case 222 /* ModuleDeclaration */:
@@ -28810,13 +28820,13 @@ var ts;
         function isSymbolOfDeclarationWithCollidingName(symbol) {
             if (symbol.flags & 418 /* BlockScoped */) {
                 var links = getSymbolLinks(symbol);
-                if (links.isDeclaratonWithCollidingName === undefined) {
+                if (links.isDeclarationWithCollidingName === undefined) {
                     var container = ts.getEnclosingBlockScopeContainer(symbol.valueDeclaration);
                     if (ts.isStatementWithLocals(container)) {
                         var nodeLinks_1 = getNodeLinks(symbol.valueDeclaration);
                         if (!!resolveName(container.parent, symbol.name, 107455 /* Value */, /*nameNotFoundMessage*/ undefined, /*nameArg*/ undefined)) {
                             // redeclaration - always should be renamed
-                            links.isDeclaratonWithCollidingName = true;
+                            links.isDeclarationWithCollidingName = true;
                         }
                         else if (nodeLinks_1.flags & 131072 /* CapturedBlockScopedBinding */) {
                             // binding is captured in the function
@@ -28831,20 +28841,20 @@ var ts;
                             //     console.log(b()); // should print '100'
                             //     OR
                             //   - binding is declared inside loop but not in inside initializer of iteration statement or directly inside loop body
-                            //     * variables from initializer are passed to rewritted loop body as parameters so they are not captured directly
+                            //     * variables from initializer are passed to rewritten loop body as parameters so they are not captured directly
                             //     * variables that are declared immediately in loop body will become top level variable after loop is rewritten and thus
                             //       they will not collide with anything
                             var isDeclaredInLoop = nodeLinks_1.flags & 262144 /* BlockScopedBindingInLoop */;
                             var inLoopInitializer = ts.isIterationStatement(container, /*lookInLabeledStatements*/ false);
                             var inLoopBodyBlock = container.kind === 196 /* Block */ && ts.isIterationStatement(container.parent, /*lookInLabeledStatements*/ false);
-                            links.isDeclaratonWithCollidingName = !ts.isBlockScopedContainerTopLevel(container) && (!isDeclaredInLoop || (!inLoopInitializer && !inLoopBodyBlock));
+                            links.isDeclarationWithCollidingName = !ts.isBlockScopedContainerTopLevel(container) && (!isDeclaredInLoop || (!inLoopInitializer && !inLoopBodyBlock));
                         }
                         else {
-                            links.isDeclaratonWithCollidingName = false;
+                            links.isDeclarationWithCollidingName = false;
                         }
                     }
                 }
-                return links.isDeclaratonWithCollidingName;
+                return links.isDeclarationWithCollidingName;
             }
             return false;
         }
@@ -28889,7 +28899,7 @@ var ts;
             if (target === unknownSymbol && compilerOptions.isolatedModules) {
                 return true;
             }
-            // const enums and modules that contain only const enums are not considered values from the emit perespective
+            // const enums and modules that contain only const enums are not considered values from the emit perspective
             // unless 'preserveConstEnums' option is set to true
             return target !== unknownSymbol &&
                 target &&
@@ -28974,22 +28984,22 @@ var ts;
             else if (type.flags & 1 /* Any */) {
                 return ts.TypeReferenceSerializationKind.ObjectType;
             }
-            else if (allConstituentTypesHaveKind(type, 16 /* Void */)) {
+            else if (isTypeOfKind(type, 16 /* Void */)) {
                 return ts.TypeReferenceSerializationKind.VoidType;
             }
-            else if (allConstituentTypesHaveKind(type, 8 /* Boolean */)) {
+            else if (isTypeOfKind(type, 8 /* Boolean */)) {
                 return ts.TypeReferenceSerializationKind.BooleanType;
             }
-            else if (allConstituentTypesHaveKind(type, 132 /* NumberLike */)) {
+            else if (isTypeOfKind(type, 132 /* NumberLike */)) {
                 return ts.TypeReferenceSerializationKind.NumberLikeType;
             }
-            else if (allConstituentTypesHaveKind(type, 258 /* StringLike */)) {
+            else if (isTypeOfKind(type, 258 /* StringLike */)) {
                 return ts.TypeReferenceSerializationKind.StringLikeType;
             }
-            else if (allConstituentTypesHaveKind(type, 8192 /* Tuple */)) {
+            else if (isTypeOfKind(type, 8192 /* Tuple */)) {
                 return ts.TypeReferenceSerializationKind.ArrayLikeType;
             }
-            else if (allConstituentTypesHaveKind(type, 16777216 /* ESSymbol */)) {
+            else if (isTypeOfKind(type, 16777216 /* ESSymbol */)) {
                 return ts.TypeReferenceSerializationKind.ESSymbolType;
             }
             else if (isFunctionType(type)) {
@@ -29667,8 +29677,8 @@ var ts;
             var seen = {};
             var Property = 1;
             var GetAccessor = 2;
-            var SetAccesor = 4;
-            var GetOrSetAccessor = GetAccessor | SetAccesor;
+            var SetAccessor = 4;
+            var GetOrSetAccessor = GetAccessor | SetAccessor;
             var _loop_1 = function(prop) {
                 var name_18 = prop.name;
                 if (prop.kind === 191 /* OmittedExpression */ ||
@@ -29688,7 +29698,7 @@ var ts;
                         grammarErrorOnNode(mod, ts.Diagnostics._0_modifier_cannot_be_used_here, ts.getTextOfNode(mod));
                     }
                 });
-                // ECMA-262 11.1.5 Object Initialiser
+                // ECMA-262 11.1.5 Object Initializer
                 // If previous is not undefined then throw a SyntaxError exception if any of the following conditions are true
                 // a.This production is contained in strict code and IsDataDescriptor(previous) is true and
                 // IsDataDescriptor(propId.descriptor) is true.
@@ -29698,7 +29708,7 @@ var ts;
                 // and either both previous and propId.descriptor have[[Get]] fields or both previous and propId.descriptor have[[Set]] fields
                 var currentKind = void 0;
                 if (prop.kind === 249 /* PropertyAssignment */ || prop.kind === 250 /* ShorthandPropertyAssignment */) {
-                    // Grammar checking for computedPropertName and shorthandPropertyAssignment
+                    // Grammar checking for computedPropertyName and shorthandPropertyAssignment
                     checkGrammarForInvalidQuestionMark(prop, prop.questionToken, ts.Diagnostics.An_object_member_cannot_be_declared_optional);
                     if (name_18.kind === 8 /* NumericLiteral */) {
                         checkGrammarNumericLiteral(name_18);
@@ -29712,7 +29722,7 @@ var ts;
                     currentKind = GetAccessor;
                 }
                 else if (prop.kind === 148 /* SetAccessor */) {
-                    currentKind = SetAccesor;
+                    currentKind = SetAccessor;
                 }
                 else {
                     ts.Debug.fail("Unexpected syntax kind:" + prop.kind);
@@ -30141,7 +30151,7 @@ var ts;
                 }
                 // We are either parented by another statement, or some sort of block.
                 // If we're in a block, we only want to really report an error once
-                // to prevent noisyness.  So use a bit on the block to indicate if
+                // to prevent noisiness.  So use a bit on the block to indicate if
                 // this has already been reported, and don't report if it has.
                 //
                 if (node.parent.kind === 196 /* Block */ || node.parent.kind === 223 /* ModuleBlock */ || node.parent.kind === 252 /* SourceFile */) {
@@ -31019,23 +31029,23 @@ var ts;
             });
             setWriter(oldWriter);
         }
-        function handleSymbolAccessibilityError(symbolAccesibilityResult) {
-            if (symbolAccesibilityResult.accessibility === 0 /* Accessible */) {
+        function handleSymbolAccessibilityError(symbolAccessibilityResult) {
+            if (symbolAccessibilityResult.accessibility === 0 /* Accessible */) {
                 // write the aliases
-                if (symbolAccesibilityResult && symbolAccesibilityResult.aliasesToMakeVisible) {
-                    writeAsynchronousModuleElements(symbolAccesibilityResult.aliasesToMakeVisible);
+                if (symbolAccessibilityResult && symbolAccessibilityResult.aliasesToMakeVisible) {
+                    writeAsynchronousModuleElements(symbolAccessibilityResult.aliasesToMakeVisible);
                 }
             }
             else {
                 // Report error
                 reportedDeclarationError = true;
-                var errorInfo = writer.getSymbolAccessibilityDiagnostic(symbolAccesibilityResult);
+                var errorInfo = writer.getSymbolAccessibilityDiagnostic(symbolAccessibilityResult);
                 if (errorInfo) {
                     if (errorInfo.typeName) {
-                        emitterDiagnostics.add(ts.createDiagnosticForNode(symbolAccesibilityResult.errorNode || errorInfo.errorNode, errorInfo.diagnosticMessage, ts.getTextOfNodeFromSourceText(currentText, errorInfo.typeName), symbolAccesibilityResult.errorSymbolName, symbolAccesibilityResult.errorModuleName));
+                        emitterDiagnostics.add(ts.createDiagnosticForNode(symbolAccessibilityResult.errorNode || errorInfo.errorNode, errorInfo.diagnosticMessage, ts.getTextOfNodeFromSourceText(currentText, errorInfo.typeName), symbolAccessibilityResult.errorSymbolName, symbolAccessibilityResult.errorModuleName));
                     }
                     else {
-                        emitterDiagnostics.add(ts.createDiagnosticForNode(symbolAccesibilityResult.errorNode || errorInfo.errorNode, errorInfo.diagnosticMessage, symbolAccesibilityResult.errorSymbolName, symbolAccesibilityResult.errorModuleName));
+                        emitterDiagnostics.add(ts.createDiagnosticForNode(symbolAccessibilityResult.errorNode || errorInfo.errorNode, errorInfo.diagnosticMessage, symbolAccessibilityResult.errorSymbolName, symbolAccessibilityResult.errorModuleName));
                     }
                 }
             }
@@ -31399,7 +31409,7 @@ var ts;
                 write(");");
             }
             writer.writeLine();
-            function getImportEntityNameVisibilityError(symbolAccesibilityResult) {
+            function getImportEntityNameVisibilityError(symbolAccessibilityResult) {
                 return {
                     diagnosticMessage: ts.Diagnostics.Import_declaration_0_is_using_private_name_1,
                     errorNode: node,
@@ -31452,7 +31462,7 @@ var ts;
         function emitExternalModuleSpecifier(parent) {
             // emitExternalModuleSpecifier is usually called when we emit something in the.d.ts file that will make it an external module (i.e. import/export declarations).
             // the only case when it is not true is when we call it to emit correct name for module augmentation - d.ts files with just module augmentations are not considered 
-            // external modules since they are indistingushable from script files with ambient modules. To fix this in such d.ts files we'll emit top level 'export {}'
+            // external modules since they are indistinguishable from script files with ambient modules. To fix this in such d.ts files we'll emit top level 'export {}'
             // so compiler will treat them as external modules.
             resultHasExternalModuleIndicator = resultHasExternalModuleIndicator || parent.kind !== 222 /* ModuleDeclaration */;
             var moduleSpecifier;
@@ -31559,7 +31569,7 @@ var ts;
             write(";");
             writeLine();
             enclosingDeclaration = prevEnclosingDeclaration;
-            function getTypeAliasDeclarationVisibilityError(symbolAccesibilityResult) {
+            function getTypeAliasDeclarationVisibilityError(symbolAccessibilityResult) {
                 return {
                     diagnosticMessage: ts.Diagnostics.Exported_type_alias_0_has_or_is_using_private_name_1,
                     errorNode: node.type,
@@ -31621,7 +31631,7 @@ var ts;
                         emitTypeWithNewGetSymbolAccessibilityDiagnostic(node.constraint, getTypeParameterConstraintVisibilityError);
                     }
                 }
-                function getTypeParameterConstraintVisibilityError(symbolAccesibilityResult) {
+                function getTypeParameterConstraintVisibilityError(symbolAccessibilityResult) {
                     // Type parameter constraints are named by user so we should always be able to name it
                     var diagnosticMessage;
                     switch (node.parent.kind) {
@@ -31680,7 +31690,7 @@ var ts;
                 else if (!isImplementsList && node.expression.kind === 93 /* NullKeyword */) {
                     write("null");
                 }
-                function getHeritageClauseVisibilityError(symbolAccesibilityResult) {
+                function getHeritageClauseVisibilityError(symbolAccessibilityResult) {
                     var diagnosticMessage;
                     // Heritage clause is written by user so it can always be named
                     if (node.parent.parent.kind === 218 /* ClassDeclaration */) {
@@ -31788,10 +31798,10 @@ var ts;
                     }
                 }
             }
-            function getVariableDeclarationTypeVisibilityDiagnosticMessage(symbolAccesibilityResult) {
+            function getVariableDeclarationTypeVisibilityDiagnosticMessage(symbolAccessibilityResult) {
                 if (node.kind === 215 /* VariableDeclaration */) {
-                    return symbolAccesibilityResult.errorModuleName ?
-                        symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                    return symbolAccessibilityResult.errorModuleName ?
+                        symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                             ts.Diagnostics.Exported_variable_0_has_or_is_using_name_1_from_external_module_2_but_cannot_be_named :
                             ts.Diagnostics.Exported_variable_0_has_or_is_using_name_1_from_private_module_2 :
                         ts.Diagnostics.Exported_variable_0_has_or_is_using_private_name_1;
@@ -31799,29 +31809,29 @@ var ts;
                 else if (node.kind === 143 /* PropertyDeclaration */ || node.kind === 142 /* PropertySignature */) {
                     // TODO(jfreeman): Deal with computed properties in error reporting.
                     if (node.flags & 32 /* Static */) {
-                        return symbolAccesibilityResult.errorModuleName ?
-                            symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                        return symbolAccessibilityResult.errorModuleName ?
+                            symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                 ts.Diagnostics.Public_static_property_0_of_exported_class_has_or_is_using_name_1_from_external_module_2_but_cannot_be_named :
                                 ts.Diagnostics.Public_static_property_0_of_exported_class_has_or_is_using_name_1_from_private_module_2 :
                             ts.Diagnostics.Public_static_property_0_of_exported_class_has_or_is_using_private_name_1;
                     }
                     else if (node.parent.kind === 218 /* ClassDeclaration */) {
-                        return symbolAccesibilityResult.errorModuleName ?
-                            symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                        return symbolAccessibilityResult.errorModuleName ?
+                            symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                 ts.Diagnostics.Public_property_0_of_exported_class_has_or_is_using_name_1_from_external_module_2_but_cannot_be_named :
                                 ts.Diagnostics.Public_property_0_of_exported_class_has_or_is_using_name_1_from_private_module_2 :
                             ts.Diagnostics.Public_property_0_of_exported_class_has_or_is_using_private_name_1;
                     }
                     else {
                         // Interfaces cannot have types that cannot be named
-                        return symbolAccesibilityResult.errorModuleName ?
+                        return symbolAccessibilityResult.errorModuleName ?
                             ts.Diagnostics.Property_0_of_exported_interface_has_or_is_using_name_1_from_private_module_2 :
                             ts.Diagnostics.Property_0_of_exported_interface_has_or_is_using_private_name_1;
                     }
                 }
             }
-            function getVariableDeclarationTypeVisibilityError(symbolAccesibilityResult) {
-                var diagnosticMessage = getVariableDeclarationTypeVisibilityDiagnosticMessage(symbolAccesibilityResult);
+            function getVariableDeclarationTypeVisibilityError(symbolAccessibilityResult) {
+                var diagnosticMessage = getVariableDeclarationTypeVisibilityDiagnosticMessage(symbolAccessibilityResult);
                 return diagnosticMessage !== undefined ? {
                     diagnosticMessage: diagnosticMessage,
                     errorNode: node,
@@ -31844,8 +31854,8 @@ var ts;
                 emitCommaList(elements, emitBindingElement);
             }
             function emitBindingElement(bindingElement) {
-                function getBindingElementTypeVisibilityError(symbolAccesibilityResult) {
-                    var diagnosticMessage = getVariableDeclarationTypeVisibilityDiagnosticMessage(symbolAccesibilityResult);
+                function getBindingElementTypeVisibilityError(symbolAccessibilityResult) {
+                    var diagnosticMessage = getVariableDeclarationTypeVisibilityDiagnosticMessage(symbolAccessibilityResult);
                     return diagnosticMessage !== undefined ? {
                         diagnosticMessage: diagnosticMessage,
                         errorNode: bindingElement,
@@ -31927,17 +31937,17 @@ var ts;
                             : undefined;
                 }
             }
-            function getAccessorDeclarationTypeVisibilityError(symbolAccesibilityResult) {
+            function getAccessorDeclarationTypeVisibilityError(symbolAccessibilityResult) {
                 var diagnosticMessage;
                 if (accessorWithTypeAnnotation.kind === 148 /* SetAccessor */) {
                     // Setters have to have type named and cannot infer it so, the type should always be named
                     if (accessorWithTypeAnnotation.parent.flags & 32 /* Static */) {
-                        diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
+                        diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
                             ts.Diagnostics.Parameter_0_of_public_static_property_setter_from_exported_class_has_or_is_using_name_1_from_private_module_2 :
                             ts.Diagnostics.Parameter_0_of_public_static_property_setter_from_exported_class_has_or_is_using_private_name_1;
                     }
                     else {
-                        diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
+                        diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
                             ts.Diagnostics.Parameter_0_of_public_property_setter_from_exported_class_has_or_is_using_name_1_from_private_module_2 :
                             ts.Diagnostics.Parameter_0_of_public_property_setter_from_exported_class_has_or_is_using_private_name_1;
                     }
@@ -31950,15 +31960,15 @@ var ts;
                 }
                 else {
                     if (accessorWithTypeAnnotation.flags & 32 /* Static */) {
-                        diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
-                            symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                        diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
+                            symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                 ts.Diagnostics.Return_type_of_public_static_property_getter_from_exported_class_has_or_is_using_name_0_from_external_module_1_but_cannot_be_named :
                                 ts.Diagnostics.Return_type_of_public_static_property_getter_from_exported_class_has_or_is_using_name_0_from_private_module_1 :
                             ts.Diagnostics.Return_type_of_public_static_property_getter_from_exported_class_has_or_is_using_private_name_0;
                     }
                     else {
-                        diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
-                            symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                        diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
+                            symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                 ts.Diagnostics.Return_type_of_public_property_getter_from_exported_class_has_or_is_using_name_0_from_external_module_1_but_cannot_be_named :
                                 ts.Diagnostics.Return_type_of_public_property_getter_from_exported_class_has_or_is_using_name_0_from_private_module_1 :
                             ts.Diagnostics.Return_type_of_public_property_getter_from_exported_class_has_or_is_using_private_name_0;
@@ -32046,53 +32056,53 @@ var ts;
                 write(";");
                 writeLine();
             }
-            function getReturnTypeVisibilityError(symbolAccesibilityResult) {
+            function getReturnTypeVisibilityError(symbolAccessibilityResult) {
                 var diagnosticMessage;
                 switch (node.kind) {
                     case 150 /* ConstructSignature */:
                         // Interfaces cannot have return types that cannot be named
-                        diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
+                        diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
                             ts.Diagnostics.Return_type_of_constructor_signature_from_exported_interface_has_or_is_using_name_0_from_private_module_1 :
                             ts.Diagnostics.Return_type_of_constructor_signature_from_exported_interface_has_or_is_using_private_name_0;
                         break;
                     case 149 /* CallSignature */:
                         // Interfaces cannot have return types that cannot be named
-                        diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
+                        diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
                             ts.Diagnostics.Return_type_of_call_signature_from_exported_interface_has_or_is_using_name_0_from_private_module_1 :
                             ts.Diagnostics.Return_type_of_call_signature_from_exported_interface_has_or_is_using_private_name_0;
                         break;
                     case 151 /* IndexSignature */:
                         // Interfaces cannot have return types that cannot be named
-                        diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
+                        diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
                             ts.Diagnostics.Return_type_of_index_signature_from_exported_interface_has_or_is_using_name_0_from_private_module_1 :
                             ts.Diagnostics.Return_type_of_index_signature_from_exported_interface_has_or_is_using_private_name_0;
                         break;
                     case 145 /* MethodDeclaration */:
                     case 144 /* MethodSignature */:
                         if (node.flags & 32 /* Static */) {
-                            diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
-                                symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                            diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
+                                symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                     ts.Diagnostics.Return_type_of_public_static_method_from_exported_class_has_or_is_using_name_0_from_external_module_1_but_cannot_be_named :
                                     ts.Diagnostics.Return_type_of_public_static_method_from_exported_class_has_or_is_using_name_0_from_private_module_1 :
                                 ts.Diagnostics.Return_type_of_public_static_method_from_exported_class_has_or_is_using_private_name_0;
                         }
                         else if (node.parent.kind === 218 /* ClassDeclaration */) {
-                            diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
-                                symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                            diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
+                                symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                     ts.Diagnostics.Return_type_of_public_method_from_exported_class_has_or_is_using_name_0_from_external_module_1_but_cannot_be_named :
                                     ts.Diagnostics.Return_type_of_public_method_from_exported_class_has_or_is_using_name_0_from_private_module_1 :
                                 ts.Diagnostics.Return_type_of_public_method_from_exported_class_has_or_is_using_private_name_0;
                         }
                         else {
                             // Interfaces cannot have return types that cannot be named
-                            diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
+                            diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
                                 ts.Diagnostics.Return_type_of_method_from_exported_interface_has_or_is_using_name_0_from_private_module_1 :
                                 ts.Diagnostics.Return_type_of_method_from_exported_interface_has_or_is_using_private_name_0;
                         }
                         break;
                     case 217 /* FunctionDeclaration */:
-                        diagnosticMessage = symbolAccesibilityResult.errorModuleName ?
-                            symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                        diagnosticMessage = symbolAccessibilityResult.errorModuleName ?
+                            symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                 ts.Diagnostics.Return_type_of_exported_function_has_or_is_using_name_0_from_external_module_1_but_cannot_be_named :
                                 ts.Diagnostics.Return_type_of_exported_function_has_or_is_using_name_0_from_private_module_1 :
                             ts.Diagnostics.Return_type_of_exported_function_has_or_is_using_private_name_0;
@@ -32133,57 +32143,57 @@ var ts;
             else if (!(node.parent.flags & 8 /* Private */)) {
                 writeTypeOfDeclaration(node, node.type, getParameterDeclarationTypeVisibilityError);
             }
-            function getParameterDeclarationTypeVisibilityError(symbolAccesibilityResult) {
-                var diagnosticMessage = getParameterDeclarationTypeVisibilityDiagnosticMessage(symbolAccesibilityResult);
+            function getParameterDeclarationTypeVisibilityError(symbolAccessibilityResult) {
+                var diagnosticMessage = getParameterDeclarationTypeVisibilityDiagnosticMessage(symbolAccessibilityResult);
                 return diagnosticMessage !== undefined ? {
                     diagnosticMessage: diagnosticMessage,
                     errorNode: node,
                     typeName: node.name
                 } : undefined;
             }
-            function getParameterDeclarationTypeVisibilityDiagnosticMessage(symbolAccesibilityResult) {
+            function getParameterDeclarationTypeVisibilityDiagnosticMessage(symbolAccessibilityResult) {
                 switch (node.parent.kind) {
                     case 146 /* Constructor */:
-                        return symbolAccesibilityResult.errorModuleName ?
-                            symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                        return symbolAccessibilityResult.errorModuleName ?
+                            symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                 ts.Diagnostics.Parameter_0_of_constructor_from_exported_class_has_or_is_using_name_1_from_external_module_2_but_cannot_be_named :
                                 ts.Diagnostics.Parameter_0_of_constructor_from_exported_class_has_or_is_using_name_1_from_private_module_2 :
                             ts.Diagnostics.Parameter_0_of_constructor_from_exported_class_has_or_is_using_private_name_1;
                     case 150 /* ConstructSignature */:
                         // Interfaces cannot have parameter types that cannot be named
-                        return symbolAccesibilityResult.errorModuleName ?
+                        return symbolAccessibilityResult.errorModuleName ?
                             ts.Diagnostics.Parameter_0_of_constructor_signature_from_exported_interface_has_or_is_using_name_1_from_private_module_2 :
                             ts.Diagnostics.Parameter_0_of_constructor_signature_from_exported_interface_has_or_is_using_private_name_1;
                     case 149 /* CallSignature */:
                         // Interfaces cannot have parameter types that cannot be named
-                        return symbolAccesibilityResult.errorModuleName ?
+                        return symbolAccessibilityResult.errorModuleName ?
                             ts.Diagnostics.Parameter_0_of_call_signature_from_exported_interface_has_or_is_using_name_1_from_private_module_2 :
                             ts.Diagnostics.Parameter_0_of_call_signature_from_exported_interface_has_or_is_using_private_name_1;
                     case 145 /* MethodDeclaration */:
                     case 144 /* MethodSignature */:
                         if (node.parent.flags & 32 /* Static */) {
-                            return symbolAccesibilityResult.errorModuleName ?
-                                symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                            return symbolAccessibilityResult.errorModuleName ?
+                                symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                     ts.Diagnostics.Parameter_0_of_public_static_method_from_exported_class_has_or_is_using_name_1_from_external_module_2_but_cannot_be_named :
                                     ts.Diagnostics.Parameter_0_of_public_static_method_from_exported_class_has_or_is_using_name_1_from_private_module_2 :
                                 ts.Diagnostics.Parameter_0_of_public_static_method_from_exported_class_has_or_is_using_private_name_1;
                         }
                         else if (node.parent.parent.kind === 218 /* ClassDeclaration */) {
-                            return symbolAccesibilityResult.errorModuleName ?
-                                symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                            return symbolAccessibilityResult.errorModuleName ?
+                                symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                     ts.Diagnostics.Parameter_0_of_public_method_from_exported_class_has_or_is_using_name_1_from_external_module_2_but_cannot_be_named :
                                     ts.Diagnostics.Parameter_0_of_public_method_from_exported_class_has_or_is_using_name_1_from_private_module_2 :
                                 ts.Diagnostics.Parameter_0_of_public_method_from_exported_class_has_or_is_using_private_name_1;
                         }
                         else {
                             // Interfaces cannot have parameter types that cannot be named
-                            return symbolAccesibilityResult.errorModuleName ?
+                            return symbolAccessibilityResult.errorModuleName ?
                                 ts.Diagnostics.Parameter_0_of_method_from_exported_interface_has_or_is_using_name_1_from_private_module_2 :
                                 ts.Diagnostics.Parameter_0_of_method_from_exported_interface_has_or_is_using_private_name_1;
                         }
                     case 217 /* FunctionDeclaration */:
-                        return symbolAccesibilityResult.errorModuleName ?
-                            symbolAccesibilityResult.accessibility === 2 /* CannotBeNamed */ ?
+                        return symbolAccessibilityResult.errorModuleName ?
+                            symbolAccessibilityResult.accessibility === 2 /* CannotBeNamed */ ?
                                 ts.Diagnostics.Parameter_0_of_exported_function_has_or_is_using_name_1_from_external_module_2_but_cannot_be_named :
                                 ts.Diagnostics.Parameter_0_of_exported_function_has_or_is_using_name_1_from_private_module_2 :
                             ts.Diagnostics.Parameter_0_of_exported_function_has_or_is_using_private_name_1;
@@ -50970,7 +50980,14 @@ var ts;
             // to jump to the implementation directly.
             if (symbol.flags & 8388608 /* Alias */) {
                 var declaration = symbol.declarations[0];
-                if (node.kind === 69 /* Identifier */ && node.parent === declaration) {
+                // Go to the original declaration for cases:
+                //
+                //   (1) when the aliased symbol was declared in the location(parent).
+                //   (2) when the aliased symbol is originating from a named import.
+                //
+                if (node.kind === 69 /* Identifier */ &&
+                    (node.parent === declaration ||
+                        (declaration.kind === 230 /* ImportSpecifier */ && declaration.parent && declaration.parent.kind === 229 /* NamedImports */))) {
                     symbol = typeChecker.getAliasedSymbol(symbol);
                 }
             }

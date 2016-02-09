@@ -1222,7 +1222,7 @@ declare namespace ts {
         buildSignatureDisplay(signatures: Signature, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, kind?: SignatureKind): void;
         buildParameterDisplay(parameter: Symbol, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
         buildTypeParameterDisplay(tp: TypeParameter, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
-        buildTypeParameterDisplayFromSymbol(symbol: Symbol, writer: SymbolWriter, enclosingDeclaraiton?: Node, flags?: TypeFormatFlags): void;
+        buildTypeParameterDisplayFromSymbol(symbol: Symbol, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
         buildDisplayForParametersAndDelimiters(parameters: Symbol[], writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
         buildDisplayForTypeParametersAndDelimiters(typeParameters: TypeParameter[], writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
         buildReturnTypeDisplay(signature: Signature, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
@@ -1285,7 +1285,7 @@ declare namespace ts {
         errorSymbolName?: string;
         errorNode?: Node;
     }
-    interface SymbolAccessiblityResult extends SymbolVisibilityResult {
+    interface SymbolAccessibilityResult extends SymbolVisibilityResult {
         errorModuleName?: string;
     }
     /** Indicates how to serialize the name for a TypeReferenceNode when emitting decorator
@@ -1318,7 +1318,7 @@ declare namespace ts {
         writeTypeOfDeclaration(declaration: AccessorDeclaration | VariableLikeDeclaration, enclosingDeclaration: Node, flags: TypeFormatFlags, writer: SymbolWriter): void;
         writeReturnTypeOfSignatureDeclaration(signatureDeclaration: SignatureDeclaration, enclosingDeclaration: Node, flags: TypeFormatFlags, writer: SymbolWriter): void;
         writeTypeOfExpression(expr: Expression, enclosingDeclaration: Node, flags: TypeFormatFlags, writer: SymbolWriter): void;
-        isSymbolAccessible(symbol: Symbol, enclosingDeclaration: Node, meaning: SymbolFlags): SymbolAccessiblityResult;
+        isSymbolAccessible(symbol: Symbol, enclosingDeclaration: Node, meaning: SymbolFlags): SymbolAccessibilityResult;
         isEntityNameVisible(entityName: EntityName | Expression, enclosingDeclaration: Node): SymbolVisibilityResult;
         getConstantValue(node: EnumMember | PropertyAccessExpression | ElementAccessExpression): number;
         getReferencedValueDeclaration(reference: Identifier): Declaration;
@@ -1420,7 +1420,7 @@ declare namespace ts {
         containingType?: UnionOrIntersectionType;
         resolvedExports?: SymbolTable;
         exportsChecked?: boolean;
-        isDeclaratonWithCollidingName?: boolean;
+        isDeclarationWithCollidingName?: boolean;
         bindingElement?: BindingElement;
         exportsSomeValue?: boolean;
     }
