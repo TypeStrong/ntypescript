@@ -16977,7 +16977,7 @@ var ts;
         function getJSDocTypeForVariableLikeDeclarationFromJSDocComment(declaration) {
             // First, see if this node has an @type annotation on it directly.
             var typeTag = ts.getJSDocTypeTag(declaration);
-            if (typeTag) {
+            if (typeTag && typeTag.typeExpression) {
                 return typeTag.typeExpression.type;
             }
             if (declaration.kind === 215 /* VariableDeclaration */ &&
@@ -16985,7 +16985,7 @@ var ts;
                 declaration.parent.parent.kind === 197 /* VariableStatement */) {
                 // @type annotation might have been on the variable statement, try that instead.
                 var annotation = ts.getJSDocTypeTag(declaration.parent.parent);
-                if (annotation) {
+                if (annotation && annotation.typeExpression) {
                     return annotation.typeExpression.type;
                 }
             }
@@ -21398,7 +21398,7 @@ var ts;
         }
         function getTypeForThisExpressionFromJSDoc(node) {
             var typeTag = ts.getJSDocTypeTag(node);
-            if (typeTag && typeTag.typeExpression.type.kind === 265 /* JSDocFunctionType */) {
+            if (typeTag && typeTag.typeExpression && typeTag.typeExpression.type && typeTag.typeExpression.type.kind === 265 /* JSDocFunctionType */) {
                 var jsDocFunctionType = typeTag.typeExpression.type;
                 if (jsDocFunctionType.parameters.length > 0 && jsDocFunctionType.parameters[0].type.kind === 268 /* JSDocThisType */) {
                     return getTypeFromTypeNode(jsDocFunctionType.parameters[0].type);
@@ -47794,7 +47794,7 @@ var ts;
                     else if (spacesToRemoveAfterAsterisk === undefined) {
                         spacesToRemoveAfterAsterisk = 0;
                     }
-                    // Analyse text on this line
+                    // Analyze text on this line
                     while (pos < end && !ts.isLineBreak(sourceFile.text.charCodeAt(pos))) {
                         var ch = sourceFile.text.charAt(pos);
                         if (ch === "@") {
@@ -47914,7 +47914,7 @@ var ts;
                             }
                             paramHelpStringMargin = undefined;
                         }
-                        // If this is the start of another tag, continue with the loop in seach of param tag with symbol name
+                        // If this is the start of another tag, continue with the loop in search of param tag with symbol name
                         if (sourceFile.text.charCodeAt(pos) === 64 /* at */) {
                             continue;
                         }
@@ -49373,7 +49373,7 @@ var ts;
                     return undefined;
                 }
                 // Check if the language version has changed since we last created a program; if they are the same,
-                // it is safe to reuse the souceFiles; if not, then the shape of the AST can change, and the oldSourceFile
+                // it is safe to reuse the sourceFiles; if not, then the shape of the AST can change, and the oldSourceFile
                 // can not be reused. we have to dump all syntax trees and create new ones.
                 if (!changesInCompilationSettingsAffectSyntax) {
                     // Check if the old program had this file already
@@ -49454,7 +49454,7 @@ var ts;
             return program.getSyntacticDiagnostics(getValidSourceFile(fileName), cancellationToken);
         }
         /**
-         * getSemanticDiagnostiscs return array of Diagnostics. If '-d' is not enabled, only report semantic errors
+         * getSemanticDiagnostics return array of Diagnostics. If '-d' is not enabled, only report semantic errors
          * If '-d' enabled, report both semantic and emitter errors
          */
         function getSemanticDiagnostics(fileName) {
@@ -50150,7 +50150,7 @@ var ts;
              *          do not occur at the current position and have not otherwise been typed.
              */
             function filterNamedImportOrExportCompletionItems(exportsOfModule, namedImportsOrExports) {
-                var exisingImportsOrExports = {};
+                var existingImportsOrExports = {};
                 for (var _i = 0, namedImportsOrExports_1 = namedImportsOrExports; _i < namedImportsOrExports_1.length; _i++) {
                     var element = namedImportsOrExports_1[_i];
                     // If this is the current item we are editing right now, do not filter it out
@@ -50158,12 +50158,12 @@ var ts;
                         continue;
                     }
                     var name_35 = element.propertyName || element.name;
-                    exisingImportsOrExports[name_35.text] = true;
+                    existingImportsOrExports[name_35.text] = true;
                 }
-                if (ts.isEmpty(exisingImportsOrExports)) {
+                if (ts.isEmpty(existingImportsOrExports)) {
                     return exportsOfModule;
                 }
-                return ts.filter(exportsOfModule, function (e) { return !ts.lookUp(exisingImportsOrExports, e.name); });
+                return ts.filter(exportsOfModule, function (e) { return !ts.lookUp(existingImportsOrExports, e.name); });
             }
             /**
              * Filters out completion suggestions for named imports or exports.
@@ -51756,7 +51756,7 @@ var ts;
                     }
                 }
                 // If the symbol is an import we would like to find it if we are looking for what it imports.
-                // So consider it visibile outside its declaration scope.
+                // So consider it visible outside its declaration scope.
                 if (symbol.flags & 8388608 /* Alias */) {
                     return undefined;
                 }
@@ -52081,11 +52081,11 @@ var ts;
             function populateSearchSymbolSet(symbol, location) {
                 // The search set contains at least the current symbol
                 var result = [symbol];
-                // If the symbol is an alias, add what it alaises to the list
+                // If the symbol is an alias, add what it aliases to the list
                 if (isImportSpecifierSymbol(symbol)) {
                     result.push(typeChecker.getAliasedSymbol(symbol));
                 }
-                // For export specifiers, the exported name can be refering to a local symbol, e.g.:
+                // For export specifiers, the exported name can be referring to a local symbol, e.g.:
                 //     import {a} from "mod";
                 //     export {a as somethingElse}
                 // We want the *local* declaration of 'a' as declared in the import,
@@ -52118,7 +52118,7 @@ var ts;
                 }
                 // If the symbol.valueDeclaration is a property parameter declaration,
                 // we should include both parameter declaration symbol and property declaration symbol
-                // Parameter Declaration symbol is only visible within function scope, so the symbol is stored in contructor.locals.
+                // Parameter Declaration symbol is only visible within function scope, so the symbol is stored in constructor.locals.
                 // Property Declaration symbol is a member of the class, so the symbol is stored in its class Declaration.symbol.members
                 if (symbol.valueDeclaration && symbol.valueDeclaration.kind === 140 /* Parameter */ &&
                     ts.isParameterPropertyDeclaration(symbol.valueDeclaration)) {
@@ -52140,9 +52140,9 @@ var ts;
             /**
              * Find symbol of the given property-name and add the symbol to the given result array
              * @param symbol a symbol to start searching for the given propertyName
-             * @param propertyName a name of property to serach for
+             * @param propertyName a name of property to search for
              * @param result an array of symbol of found property symbols
-             * @param previousIterationSymbolsCache a cache of symbol from previous iterations of calling this function to prevent infinite revisitng of the same symbol.
+             * @param previousIterationSymbolsCache a cache of symbol from previous iterations of calling this function to prevent infinite revisiting of the same symbol.
              *                                The value of previousIterationSymbol is undefined when the function is first called.
              */
             function getPropertySymbolsFromBaseTypes(symbol, propertyName, result, previousIterationSymbolsCache) {
@@ -53300,11 +53300,11 @@ var ts;
                 // comment portion.
                 var singleLineCommentStart = /(?:\/\/+\s*)/.source;
                 var multiLineCommentStart = /(?:\/\*+\s*)/.source;
-                var anyNumberOfSpacesAndAsterixesAtStartOfLine = /(?:^(?:\s|\*)*)/.source;
+                var anyNumberOfSpacesAndAsterisksAtStartOfLine = /(?:^(?:\s|\*)*)/.source;
                 // Match any of the above three TODO comment start regexps.
                 // Note that the outermost group *is* a capture group.  We want to capture the preamble
                 // so that we can determine the starting position of the TODO comment match.
-                var preamble = "(" + anyNumberOfSpacesAndAsterixesAtStartOfLine + "|" + singleLineCommentStart + "|" + multiLineCommentStart + ")";
+                var preamble = "(" + anyNumberOfSpacesAndAsterisksAtStartOfLine + "|" + singleLineCommentStart + "|" + multiLineCommentStart + ")";
                 // Takes the descriptors and forms a regexp that matches them as if they were literals.
                 // For example, if the descriptors are "TODO(jason)" and "HACK", then this will be:
                 //
