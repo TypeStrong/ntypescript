@@ -1459,7 +1459,7 @@ var ts;
     }
     ts.getNormalizedPathFromPathComponents = getNormalizedPathFromPathComponents;
     function getNormalizedPathComponentsOfUrl(url) {
-        // Get root length of http://www.website.com/folder1/foler2/
+        // Get root length of http://www.website.com/folder1/folder2/
         // In this example the root is:  http://www.website.com/
         // normalized path components should be ["http://www.website.com/", "folder1", "folder2"]
         var urlLength = url.length;
@@ -1484,7 +1484,7 @@ var ts;
         var indexOfNextSlash = url.indexOf(ts.directorySeparator, rootLength);
         if (indexOfNextSlash !== -1) {
             // Found the "/" after the website.com so the root is length of http://www.website.com/
-            // and get components afetr the root normally like any other folder components
+            // and get components after the root normally like any other folder components
             rootLength = indexOfNextSlash + 1;
             return normalizedPathComponents(url, rootLength);
         }
@@ -2061,7 +2061,7 @@ var ts;
                 readFile: readFile,
                 writeFile: writeFile,
                 watchFile: function (filePath, callback) {
-                    // Node 4.0 stablized the `fs.watch` function on Windows which avoids polling
+                    // Node 4.0 stabilized the `fs.watch` function on Windows which avoids polling
                     // and is more efficient than `fs.watchFile` (ref: https://github.com/nodejs/node/pull/2649
                     // and https://github.com/Microsoft/TypeScript/issues/4643), therefore
                     // if the current node.js version is newer than 4, use `fs.watch` instead.
@@ -2269,7 +2269,7 @@ var ts;
             if (thisNodeOrAnySubNodesHasError) {
                 node.flags |= 268435456 /* ThisNodeOrAnySubNodesHasError */;
             }
-            // Also mark that we've propogated the child information to this node.  This way we can
+            // Also mark that we've propagated the child information to this node.  This way we can
             // always consult the bit directly on this node without needing to check its children
             // again.
             node.flags |= 536870912 /* HasAggregatedChildData */;
@@ -4561,7 +4561,7 @@ var ts;
             else if (i + 2 >= length) {
                 byte4 = 64;
             }
-            // Write to the ouput
+            // Write to the output
             result += base64Digits.charAt(byte1) + base64Digits.charAt(byte2) + base64Digits.charAt(byte3) + base64Digits.charAt(byte4);
             i += 3;
         }
@@ -4747,9 +4747,9 @@ var ts;
             //                .                    |                                      \
             //      ----------------------------------------------------------------------*--------------------------------
             //
-            // (Note the dots represent the newly inferrred start.
+            // (Note the dots represent the newly inferred start.
             // Determining the new and old end is also pretty simple.  Basically it boils down to paying attention to the
-            // absolute positions at the asterixes, and the relative change between the dollar signs. Basically, we see
+            // absolute positions at the asterisks, and the relative change between the dollar signs. Basically, we see
             // which if the two $'s precedes the other, and we move that one forward until they line up.  in this case that
             // means:
             //
@@ -4772,8 +4772,8 @@ var ts;
             // ended with a delta of 20 characters (60 - 40).  Thus, if we go back in time to where the first edit started
             // that's the same as if we started at char 80 instead of 60.
             //
-            // As it so happens, the same logic applies if the second edit precedes the first edit.  In that case rahter
-            // than pusing the first edit forward to match the second, we'll push the second edit forward to match the
+            // As it so happens, the same logic applies if the second edit precedes the first edit.  In that case rather
+            // than pushing the first edit forward to match the second, we'll push the second edit forward to match the
             // first.
             //
             // In this case that means we have { oldStart: 10, oldEnd: 80, newEnd: 70 } or, in TextChangeRange
@@ -5967,7 +5967,7 @@ var ts;
     }
     ts.skipTrivia = skipTrivia;
     // All conflict markers consist of the same character repeated seven times.  If it is
-    // a <<<<<<< or >>>>>>> marker then it is also followd by a space.
+    // a <<<<<<< or >>>>>>> marker then it is also followed by a space.
     var mergeConflictMarkerLength = "<<<<<<<".length;
     function isConflictMarkerTrivia(text, pos) {
         ts.Debug.assert(pos >= 0);
@@ -5999,7 +5999,7 @@ var ts;
         }
         else {
             ts.Debug.assert(ch === 61 /* equals */);
-            // Consume everything from the start of the mid-conlict marker to the start of the next
+            // Consume everything from the start of the mid-conflict marker to the start of the next
             // end-conflict marker.
             while (pos < len) {
                 var ch_1 = text.charCodeAt(pos);
@@ -7716,7 +7716,7 @@ var ts;
             // Clear out the text the scanner is pointing at, so it doesn't keep anything alive unnecessarily.
             scanner.setText("");
             scanner.setOnError(undefined);
-            // Clear any data.  We don't want to accidently hold onto it for too long.
+            // Clear any data.  We don't want to accidentally hold onto it for too long.
             parseDiagnostics = undefined;
             sourceFile = undefined;
             identifiers = undefined;
@@ -8447,8 +8447,8 @@ var ts;
             // We can only reuse a node if it was parsed under the same strict mode that we're
             // currently in.  i.e. if we originally parsed a node in non-strict mode, but then
             // the user added 'using strict' at the top of the file, then we can't use that node
-            // again as the presense of strict mode may cause us to parse the tokens in the file
-            // differetly.
+            // again as the presence of strict mode may cause us to parse the tokens in the file
+            // differently.
             //
             // Note: we *can* reuse tokens when the strict mode changes.  That's because tokens
             // are unaffected by strict mode.  It's just the parser will decide what to do with it
@@ -8460,7 +8460,7 @@ var ts;
                 return undefined;
             }
             // Ok, we have a node that looks like it could be reused.  Now verify that it is valid
-            // in the currest list parsing context that we're currently at.
+            // in the current list parsing context that we're currently at.
             if (!canReuseNode(node, parsingContext)) {
                 return undefined;
             }
@@ -8687,7 +8687,7 @@ var ts;
         }
         ;
         // Parses a comma-delimited list of elements
-        function parseDelimitedList(kind, parseElement, considerSemicolonAsDelimeter) {
+        function parseDelimitedList(kind, parseElement, considerSemicolonAsDelimiter) {
             var saveParsingContext = parsingContext;
             parsingContext |= 1 << kind;
             var result = [];
@@ -8712,7 +8712,7 @@ var ts;
                     // parse errors.  For example, this can happen when people do things like use
                     // a semicolon to delimit object literal members.   Note: we'll have already
                     // reported an error when we called parseExpected above.
-                    if (considerSemicolonAsDelimeter && token === 23 /* SemicolonToken */ && !scanner.hasPrecedingLineBreak()) {
+                    if (considerSemicolonAsDelimiter && token === 23 /* SemicolonToken */ && !scanner.hasPrecedingLineBreak()) {
                         nextToken();
                     }
                     continue;
@@ -9103,7 +9103,7 @@ var ts;
                 setModifiers(method, modifiers);
                 method.name = name;
                 method.questionToken = questionToken;
-                // Method signatues don't exist in expression contexts.  So they have neither
+                // Method signatures don't exist in expression contexts.  So they have neither
                 // [Yield] nor [Await]
                 fillSignature(54 /* ColonToken */, /*yieldContext*/ false, /*awaitContext*/ false, /*requireCompleteParameterList*/ false, method);
                 parseTypeMemberSemicolon();
@@ -9554,7 +9554,7 @@ var ts;
         }
         function isYieldExpression() {
             if (token === 114 /* YieldKeyword */) {
-                // If we have a 'yield' keyword, and htis is a context where yield expressions are
+                // If we have a 'yield' keyword, and this is a context where yield expressions are
                 // allowed, then definitely parse out a yield expression.
                 if (inYieldContext()) {
                     return true;
@@ -9572,7 +9572,7 @@ var ts;
                 //
                 // for now we just check if the next token is an identifier.  More heuristics
                 // can be added here later as necessary.  We just need to make sure that we
-                // don't accidently consume something legal.
+                // don't accidentally consume something legal.
                 return lookAhead(nextTokenIsIdentifierOrKeywordOrNumberOnSameLine);
             }
             return false;
@@ -9596,7 +9596,7 @@ var ts;
             }
             else {
                 // if the next token is not on the same line as yield.  or we don't have an '*' or
-                // the start of an expressin, then this is just a simple "yield" expression.
+                // the start of an expression, then this is just a simple "yield" expression.
                 return finishNode(node);
             }
         }
@@ -9845,7 +9845,7 @@ var ts;
                 // Check the precedence to see if we should "take" this operator
                 // - For left associative operator (all operator but **), consume the operator,
                 //   recursively call the function below, and parse binaryExpression as a rightOperand
-                //   of the caller if the new precendence of the operator is greater then or equal to the current precendence.
+                //   of the caller if the new precedence of the operator is greater then or equal to the current precedence.
                 //   For example:
                 //      a - b - c;
                 //            ^token; leftOperand = b. Return b to the caller as a rightOperand
@@ -9854,8 +9854,8 @@ var ts;
                 //      a - b * c;
                 //            ^token; leftOperand = b. Return b * c to the caller as a rightOperand
                 // - For right associative operator (**), consume the operator, recursively call the function
-                //   and parse binaryExpression as a rightOperand of the caller if the new precendence of
-                //   the operator is strictly grater than the current precendence
+                //   and parse binaryExpression as a rightOperand of the caller if the new precedence of
+                //   the operator is strictly grater than the current precedence
                 //   For example:
                 //      a ** b ** c;
                 //             ^^token; leftOperand = b. Return b ** c to the caller as a rightOperand
@@ -10072,7 +10072,7 @@ var ts;
          */
         function isIncrementExpression() {
             // This function is called inside parseUnaryExpression to decide
-            // whether to call parseSimpleUnaryExpression or call parseIncrmentExpression directly
+            // whether to call parseSimpleUnaryExpression or call parseIncrementExpression directly
             switch (token) {
                 case 35 /* PlusToken */:
                 case 36 /* MinusToken */:
@@ -10505,7 +10505,7 @@ var ts;
                 // If it doesn't have the closing >  then it's definitely not an type argument list.
                 return undefined;
             }
-            // If we have a '<', then only parse this as a arugment list if the type arguments
+            // If we have a '<', then only parse this as a argument list if the type arguments
             // are complete and we have an open paren.  if we don't, rewind and return nothing.
             return typeArguments && canFollowTypeArgumentsInExpression()
                 ? typeArguments
@@ -10679,7 +10679,7 @@ var ts;
             if (scanner.hasPrecedingLineBreak()) {
                 node.multiLine = true;
             }
-            node.properties = parseDelimitedList(12 /* ObjectLiteralMembers */, parseObjectLiteralElement, /*considerSemicolonAsDelimeter*/ true);
+            node.properties = parseDelimitedList(12 /* ObjectLiteralMembers */, parseObjectLiteralElement, /*considerSemicolonAsDelimiter*/ true);
             parseExpected(16 /* CloseBraceToken */);
             return finishNode(node);
         }
@@ -11384,8 +11384,8 @@ var ts;
             // off. The grammar would look something like this:
             //
             //    MemberVariableDeclaration[Yield]:
-            //        AccessibilityModifier_opt   PropertyName   TypeAnnotation_opt   Initialiser_opt[In];
-            //        AccessibilityModifier_opt  static_opt  PropertyName   TypeAnnotation_opt   Initialiser_opt[In, ?Yield];
+            //        AccessibilityModifier_opt   PropertyName   TypeAnnotation_opt   Initializer_opt[In];
+            //        AccessibilityModifier_opt  static_opt  PropertyName   TypeAnnotation_opt   Initializer_opt[In, ?Yield];
             //
             // The checker may still error in the static case to explicitly disallow the yield expression.
             property.initializer = modifiers && modifiers.flags & 32 /* Static */
@@ -11903,7 +11903,7 @@ var ts;
             // ImportSpecifier:
             //   BindingIdentifier
             //   IdentifierName as BindingIdentifier
-            // ExportSpecififer:
+            // ExportSpecifier:
             //   IdentifierName
             //   IdentifierName as IdentifierName
             var checkIdentifierIsKeyword = ts.isKeyword(token) && !isIdentifier();
@@ -12628,7 +12628,7 @@ var ts;
                 return Parser.parseSourceFile(sourceFile.fileName, newText, sourceFile.languageVersion, /*syntaxCursor*/ undefined, /*setParentNodes*/ true);
             }
             // Make sure we're not trying to incrementally update a source file more than once.  Once
-            // we do an update the original source file is considered unusbale from that point onwards.
+            // we do an update the original source file is considered unusable from that point onwards.
             //
             // This is because we do incremental parsing in-place.  i.e. we take nodes from the old
             // tree and give them new positions and parents.  From that point on, trusting the old
@@ -12740,7 +12740,7 @@ var ts;
             // We have an element that intersects the change range in some way.  It may have its
             // start, or its end (or both) in the changed range.  We want to adjust any part
             // that intersects such that the final tree is in a consistent state.  i.e. all
-            // chlidren have spans within the span of their parent, and all siblings are ordered
+            // children have spans within the span of their parent, and all siblings are ordered
             // properly.
             // We may need to update both the 'pos' and the 'end' of the element.
             // If the 'pos' is before the start of the change, then we don't need to touch it.
@@ -12760,7 +12760,7 @@ var ts;
             //  -------------------ZZZ-----------------
             //
             // In this case, any element that started in the 'X' range will keep its position.
-            // However any element htat started after that will have their pos adjusted to be
+            // However any element that started after that will have their pos adjusted to be
             // at the end of the new range.  i.e. any node that started in the 'Y' range will
             // be adjusted to have their start at the end of the 'Z' range.
             //
@@ -12784,7 +12784,7 @@ var ts;
             //  -------------------ZZZ-----------------
             //
             // In this case, any element that ended in the 'X' range will keep its position.
-            // However any element htat ended after that will have their pos adjusted to be
+            // However any element that ended after that will have their pos adjusted to be
             // at the end of the new range.  i.e. any node that ended in the 'Y' range will
             // be adjusted to have their end at the end of the 'Z' range.
             if (element.end >= changeRangeOldEnd) {
@@ -13043,7 +13043,7 @@ var ts;
                     if (position >= node.pos && position < node.end) {
                         // Position was within this node.  Keep searching deeper to find the node.
                         forEachChild(node, visitNode, visitArray);
-                        // don't procede any futher in the search.
+                        // don't proceed any further in the search.
                         return true;
                     }
                     // position wasn't in this node, have to keep searching.
@@ -13099,7 +13099,7 @@ var ts;
     var ModuleInstanceState = ts.ModuleInstanceState;
     var Reachability;
     (function (Reachability) {
-        Reachability[Reachability["Unintialized"] = 1] = "Unintialized";
+        Reachability[Reachability["Uninitialized"] = 1] = "Uninitialized";
         Reachability[Reachability["Reachable"] = 2] = "Reachable";
         Reachability[Reachability["Unreachable"] = 4] = "Unreachable";
         Reachability[Reachability["ReportedUnreachable"] = 8] = "ReportedUnreachable";
@@ -13434,7 +13434,7 @@ var ts;
         // the getLocalNameOfContainer function in the type checker to validate that the local name
         // used for a container is unique.
         function bindChildren(node) {
-            // Before we recurse into a node's chilren, we first save the existing parent, container
+            // Before we recurse into a node's children, we first save the existing parent, container
             // and block-container.  Then after we pop out of processing the children, we restore
             // these saved values.
             var saveParent = parent;
@@ -13457,7 +13457,7 @@ var ts;
             // Finally, if this is a block-container, then we clear out any existing .locals object
             // it may contain within it.  This happens in incremental scenarios.  Because we can be
             // reusing a node from a previous compilation, that node may have had 'locals' created
-            // for it.  We must clear this so we don't accidently move any stale data forward from
+            // for it.  We must clear this so we don't accidentally move any stale data forward from
             // a previous compilation.
             var containerFlags = getContainerFlags(node);
             if (containerFlags & 1 /* IsContainer */) {
@@ -13689,7 +13689,7 @@ var ts;
             bind(n.expression);
             bind(n.caseBlock);
             var hasDefault = ts.forEach(n.caseBlock.clauses, function (c) { return c.kind === 246 /* DefaultClause */; });
-            // post switch state is unreachable if switch is exaustive (has a default case ) and does not have fallthrough from the last case
+            // post switch state is unreachable if switch is exhaustive (has a default case ) and does not have fallthrough from the last case
             var postSwitchState = hasDefault && currentReachabilityState !== 2 /* Reachable */ ? 4 /* Unreachable */ : preSwitchState;
             popImplicitLabel(postSwitchLabel, postSwitchState);
         }
@@ -13748,7 +13748,7 @@ var ts;
                     return 2 /* IsBlockScopedContainer */;
                 case 196 /* Block */:
                     // do not treat blocks directly inside a function as a block-scoped-container.
-                    // Locals that reside in this block should go to the function locals. Othewise 'x'
+                    // Locals that reside in this block should go to the function locals. Otherwise 'x'
                     // would not appear to be a redeclaration of a block scoped local in the following
                     // example:
                     //
@@ -13920,7 +13920,7 @@ var ts;
                         continue;
                     }
                     var identifier = prop.name;
-                    // ECMA-262 11.1.5 Object Initialiser
+                    // ECMA-262 11.1.5 Object Initializer
                     // If previous is not undefined then throw a SyntaxError exception if any of the following conditions are true
                     // a.This production is contained in strict code and IsDataDescriptor(previous) is true and
                     // IsDataDescriptor(propId.descriptor) is true.
@@ -14510,12 +14510,12 @@ var ts;
             if (ts.hasProperty(labelIndexMap, name.text)) {
                 return false;
             }
-            labelIndexMap[name.text] = labelStack.push(1 /* Unintialized */) - 1;
+            labelIndexMap[name.text] = labelStack.push(1 /* Uninitialized */) - 1;
             return true;
         }
         function pushImplicitLabel() {
             initializeReachabilityStateIfNecessary();
-            var index = labelStack.push(1 /* Unintialized */) - 1;
+            var index = labelStack.push(1 /* Uninitialized */) - 1;
             implicitLabels.push(index);
             return index;
         }
@@ -14537,7 +14537,7 @@ var ts;
             setCurrentStateAtLabel(labelStack.pop(), outerState, /*name*/ undefined);
         }
         function setCurrentStateAtLabel(innerMergedState, outerState, label) {
-            if (innerMergedState === 1 /* Unintialized */) {
+            if (innerMergedState === 1 /* Uninitialized */) {
                 if (label && !options.allowUnusedLabels) {
                     file.bindDiagnostics.push(ts.createDiagnosticForNode(label, ts.Diagnostics.Unused_label));
                 }
@@ -14556,7 +14556,7 @@ var ts;
                 return false;
             }
             var stateAtLabel = labelStack[index];
-            labelStack[index] = stateAtLabel === 1 /* Unintialized */ ? outerState : or(stateAtLabel, outerState);
+            labelStack[index] = stateAtLabel === 1 /* Uninitialized */ ? outerState : or(stateAtLabel, outerState);
             return true;
         }
         function checkUnreachable(node) {
@@ -30849,7 +30849,8 @@ var ts;
         var increaseIndent;
         var decreaseIndent;
         var writeTextOfNode;
-        var writer = createAndSetNewTextWriterWithSymbolWriter();
+        var writer;
+        createAndSetNewTextWriterWithSymbolWriter();
         var enclosingDeclaration;
         var resultHasExternalModuleIndicator;
         var currentText;
@@ -30969,7 +30970,6 @@ var ts;
             writer.writeParameter = writer.write;
             writer.writeSymbol = writer.write;
             setWriter(writer);
-            return writer;
         }
         function setWriter(newWriter) {
             writer = newWriter;
@@ -33469,7 +33469,7 @@ var ts;
                 // The raw strings contain the (escaped) strings of what the user wrote.
                 // Examples: `\n` is converted to "\\n", a template string with a newline to "\n".
                 var text = ts.getTextOfNodeFromSourceText(currentText, node);
-                // text contains the original source, it will also contain quotes ("`"), dolar signs and braces ("${" and "}"),
+                // text contains the original source, it will also contain quotes ("`"), dollar signs and braces ("${" and "}"),
                 // thus we need to remove those characters.
                 // First template piece starts with "`", others with "}"
                 // Last template piece ends with "`", others with "${"
@@ -36190,7 +36190,7 @@ var ts;
                     if (properties.length !== 1) {
                         // For anything but a single element destructuring we need to generate a temporary
                         // to ensure value is evaluated exactly once.
-                        // When doing so we want to hightlight the passed in source map node since thats the one needing this temp assignment
+                        // When doing so we want to highlight the passed in source map node since thats the one needing this temp assignment
                         value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true, sourceMapNode);
                     }
                     for (var _a = 0, properties_5 = properties; _a < properties_5.length; _a++) {
@@ -36198,7 +36198,7 @@ var ts;
                         if (p.kind === 249 /* PropertyAssignment */ || p.kind === 250 /* ShorthandPropertyAssignment */) {
                             var propName = p.name;
                             var target_1 = p.kind === 250 /* ShorthandPropertyAssignment */ ? p : p.initializer || propName;
-                            // Assignment for target = value.propName should highligh whole property, hence use p as source map node
+                            // Assignment for target = value.propName should highlight whole property, hence use p as source map node
                             emitDestructuringAssignment(target_1, createPropertyAccessForDestructuringProperty(value, propName), p);
                         }
                     }
@@ -36208,13 +36208,13 @@ var ts;
                     if (elements.length !== 1) {
                         // For anything but a single element destructuring we need to generate a temporary
                         // to ensure value is evaluated exactly once.
-                        // When doing so we want to hightlight the passed in source map node since thats the one needing this temp assignment
+                        // When doing so we want to highlight the passed in source map node since thats the one needing this temp assignment
                         value = ensureIdentifier(value, /*reuseIdentifierExpressions*/ true, sourceMapNode);
                     }
                     for (var i = 0; i < elements.length; i++) {
                         var e = elements[i];
                         if (e.kind !== 191 /* OmittedExpression */) {
-                            // Assignment for target = value.propName should highligh whole property, hence use e as source map node
+                            // Assignment for target = value.propName should highlight whole property, hence use e as source map node
                             if (e.kind !== 189 /* SpreadElementExpression */) {
                                 emitDestructuringAssignment(e, createElementAccessExpression(value, createNumericLiteral(i)), e);
                             }
@@ -38617,7 +38617,7 @@ var ts;
                 // when resolving exports local exported entries/indirect exported entries in the module
                 // should always win over entries with similar names that were added via star exports
                 // to support this we store names of local/indirect exported entries in a set.
-                // this set is used to filter names brought by star expors.
+                // this set is used to filter names brought by star exports.
                 if (!hasExportStarsToExportValues) {
                     // local names set is needed only in presence of star exports
                     return undefined;
@@ -39805,7 +39805,7 @@ var ts;
                     //      declare var x;
                     //      /// <reference-path ...>
                     //      interface F {}
-                    //  The first /// will NOT be removed while the second one will be removed eventhough both node will not be emitted
+                    //  The first /// will NOT be removed while the second one will be removed even though both node will not be emitted
                     if (node.pos === 0) {
                         leadingComments = ts.filter(getLeadingCommentsToEmit(node), isTripleSlashComment);
                     }
@@ -40012,7 +40012,7 @@ var ts;
      * fallback to standard resolution routine.
      *
      * - baseUrl - this setting controls how non-relative module names are resolved. If this setting is specified then non-relative
-     * names will be resolved relative to baseUrl: i.e. if baseUrl is '/a/b' then canditate location to resolve module name 'c/d' will
+     * names will be resolved relative to baseUrl: i.e. if baseUrl is '/a/b' then candidate location to resolve module name 'c/d' will
      * be '/a/b/c/d'
      * - paths - this setting can only be used when baseUrl is specified. allows to tune how non-relative module names
      * will be resolved based on the content of the module name.
@@ -40030,7 +40030,7 @@ var ts;
      * If module name can be matches with multiple patterns then pattern with the longest prefix will be picked.
      * After selecting pattern we'll use list of substitutions to get candidate locations of the module and the try to load module
      * from the candidate location.
-     * Substitiution is a string that can contain zero or one '*'. To get candidate location from substitution we'll pick every
+     * Substitution is a string that can contain zero or one '*'. To get candidate location from substitution we'll pick every
      * substitution in the list and replace '*' with <MatchedStar> string. If candidate location is not rooted it
      * will be converted to absolute using baseUrl.
      * For example:
@@ -40058,10 +40058,10 @@ var ts;
      * 'rootDirs' provides the way to tell compiler that in order to get the whole project it should behave as if content of all
      * root dirs were merged together.
      * I.e. for the example above 'rootDirs' will have two entries: [ '/local/src', '/shared/components/contracts/src' ].
-     * Compiler wil first convert './protocols/file2' into absolute path relative to the location of containing file:
+     * Compiler will first convert './protocols/file2' into absolute path relative to the location of containing file:
      * '/local/src/content/protocols/file2' and try to load it - failure.
      * Then it will search 'rootDirs' looking for a longest matching prefix of this absolute path and if such prefix is found - absolute path will
-     * be converted to a path relative to found rootDir entry './content/protocols/file2' (*). As a last step compiler will check all remainining
+     * be converted to a path relative to found rootDir entry './content/protocols/file2' (*). As a last step compiler will check all remaining
      * entries in 'rootDirs', use them to build absolute path out of (*) and try to resolve module from this location.
      */
     function tryLoadModuleUsingOptionalResolutionSettings(moduleName, containingDirectory, loader, failedLookupLocations, supportedExtensions, state) {
@@ -40086,7 +40086,7 @@ var ts;
             var rootDir = _a[_i];
             // rootDirs are expected to be absolute
             // in case of tsconfig.json this will happen automatically - compiler will expand relative names
-            // using locaton of tsconfig.json as base location
+            // using location of tsconfig.json as base location
             var normalizedRoot = ts.normalizePath(rootDir);
             if (!endsWith(normalizedRoot, ts.directorySeparator)) {
                 normalizedRoot += ts.directorySeparator;
@@ -40172,7 +40172,7 @@ var ts;
                     }
                 }
                 else if (pattern === moduleName) {
-                    // pattern was matched as is - no need to seatch further
+                    // pattern was matched as is - no need to search further
                     matchedPattern = pattern;
                     matchedStar = undefined;
                     break;
@@ -40771,7 +40771,7 @@ var ts;
                     // We were canceled while performing the operation.  Because our type checker
                     // might be a bad state, we need to throw it away.
                     //
-                    // Note: we are overly agressive here.  We do not actually *have* to throw away
+                    // Note: we are overly aggressive here.  We do not actually *have* to throw away
                     // the "noDiagnosticsTypeChecker".  However, for simplicity, i'd like to keep
                     // the lifetimes of these two TypeCheckers the same.  Also, we generally only
                     // cancel when the user has made a change anyways.  And, in that case, we (the
@@ -41173,7 +41173,7 @@ var ts;
                     var resolution = resolutions[i];
                     ts.setResolvedModule(file, moduleNames[i], resolution);
                     // add file to program only if:
-                    // - resolution was successfull
+                    // - resolution was successful
                     // - noResolve is falsy
                     // - module name come from the list fo imports
                     var shouldAddFile = resolution &&
@@ -41512,7 +41512,7 @@ var ts;
     var gutterStyleSequence = "\u001b[100;30m";
     var gutterSeparator = " ";
     var resetEscapeSequence = "\u001b[0m";
-    var elipsis = "...";
+    var ellipsis = "...";
     var categoryFormatMap = (_a = {},
         _a[ts.DiagnosticCategory.Warning] = yellowForegroundEscapeSequence,
         _a[ts.DiagnosticCategory.Error] = redForegroundEscapeSequence,
@@ -41533,14 +41533,14 @@ var ts;
             var hasMoreThanFiveLines = (lastLine - firstLine) >= 4;
             var gutterWidth = (lastLine + 1 + "").length;
             if (hasMoreThanFiveLines) {
-                gutterWidth = Math.max(elipsis.length, gutterWidth);
+                gutterWidth = Math.max(ellipsis.length, gutterWidth);
             }
             output += ts.sys.newLine;
             for (var i = firstLine; i <= lastLine; i++) {
                 // If the error spans over 5 lines, we'll only show the first 2 and last 2 lines,
                 // so we'll skip ahead to the second-to-last line.
                 if (hasMoreThanFiveLines && firstLine + 1 < i && i < lastLine - 1) {
-                    output += formatAndReset(padLeft(elipsis, gutterWidth), gutterStyleSequence) + gutterSeparator + ts.sys.newLine;
+                    output += formatAndReset(padLeft(ellipsis, gutterWidth), gutterStyleSequence) + gutterSeparator + ts.sys.newLine;
                     i = lastLine - 1;
                 }
                 var lineStart = ts.getPositionOfLineAndCharacter(file, i, 0);
@@ -41704,7 +41704,7 @@ var ts;
                 var directory = ts.getDirectoryPath(configFileName);
                 directoryWatcher = ts.sys.watchDirectory(
                 // When the configFileName is just "tsconfig.json", the watched directory should be
-                // the current direcotry; if there is a given "project" parameter, then the configFileName
+                // the current directory; if there is a given "project" parameter, then the configFileName
                 // is an absolute file name.
                 directory == "" ? "." : directory, watchedDirectoryChanged, /*recursive*/ true);
             }
