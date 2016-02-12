@@ -365,10 +365,6 @@ declare namespace ts {
         IntrinsicNamedElement = 1,
         /** An element inferred from the string index signature of the JSX.IntrinsicElements interface */
         IntrinsicIndexedElement = 2,
-        /** An element backed by a class, class-like, or function value */
-        ValueElement = 4,
-        /** Element resolution failed */
-        UnknownElement = 16,
         IntrinsicElement = 3,
     }
     enum RelationComparisonResult {
@@ -3125,7 +3121,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Cannot_compile_modules_unless_the_module_flag_is_provided_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file: {
+        Cannot_compile_modules_unless_the_module_flag_is_provided_with_a_valid_module_type_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5933,7 +5929,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es2015: {
+        Argument_for_module_option_must_be_commonjs_amd_system_umd_es2015_or_none: {
             code: number;
             category: DiagnosticCategory;
             key: string;

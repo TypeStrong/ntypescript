@@ -386,10 +386,6 @@ var ts;
         JsxFlags[JsxFlags["IntrinsicNamedElement"] = 1] = "IntrinsicNamedElement";
         /** An element inferred from the string index signature of the JSX.IntrinsicElements interface */
         JsxFlags[JsxFlags["IntrinsicIndexedElement"] = 2] = "IntrinsicIndexedElement";
-        /** An element backed by a class, class-like, or function value */
-        JsxFlags[JsxFlags["ValueElement"] = 4] = "ValueElement";
-        /** Element resolution failed */
-        JsxFlags[JsxFlags["UnknownElement"] = 16] = "UnknownElement";
         JsxFlags[JsxFlags["IntrinsicElement"] = 3] = "IntrinsicElement";
     })(ts.JsxFlags || (ts.JsxFlags = {}));
     var JsxFlags = ts.JsxFlags;
@@ -1946,7 +1942,8 @@ var ts;
                     var filePath = typeof relativeFileName !== "string"
                         ? undefined
                         : ts.toPath(relativeFileName, baseDirPath, ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames));
-                    if (eventName === "change" && fileWatcherCallbacks.contains(filePath)) {
+                    // Some applications save a working file via rename operations
+                    if ((eventName === "change" || eventName === "rename") && fileWatcherCallbacks.contains(filePath)) {
                         for (var _i = 0, _a = fileWatcherCallbacks.get(filePath); _i < _a.length; _i++) {
                             var fileCallback = _a[_i];
                             fileCallback(filePath);
@@ -1976,7 +1973,7 @@ var ts;
             // win32\win64 are case insensitive platforms, MacOS (darwin) by default is also case insensitive
             var useCaseSensitiveFileNames = platform !== "win32" && platform !== "win64" && platform !== "darwin";
             function readFile(fileName, encoding) {
-                if (!_fs.existsSync(fileName)) {
+                if (!fileExists(fileName)) {
                     return undefined;
                 }
                 var buffer = _fs.readFileSync(fileName);
@@ -2021,6 +2018,29 @@ var ts;
             }
             function getCanonicalPath(path) {
                 return useCaseSensitiveFileNames ? path : path.toLowerCase();
+            }
+            var FileSystemEntryKind;
+            (function (FileSystemEntryKind) {
+                FileSystemEntryKind[FileSystemEntryKind["File"] = 0] = "File";
+                FileSystemEntryKind[FileSystemEntryKind["Directory"] = 1] = "Directory";
+            })(FileSystemEntryKind || (FileSystemEntryKind = {}));
+            function fileSystemEntryExists(path, entryKind) {
+                try {
+                    var stat = _fs.statSync(path);
+                    switch (entryKind) {
+                        case 0 /* File */: return stat.isFile();
+                        case 1 /* Directory */: return stat.isDirectory();
+                    }
+                }
+                catch (e) {
+                    return false;
+                }
+            }
+            function fileExists(path) {
+                return fileSystemEntryExists(path, 0 /* File */);
+            }
+            function directoryExists(path) {
+                return fileSystemEntryExists(path, 1 /* Directory */);
             }
             function readDirectory(path, extension, exclude) {
                 var result = [];
@@ -2095,12 +2115,8 @@ var ts;
                 resolvePath: function (path) {
                     return _path.resolve(path);
                 },
-                fileExists: function (path) {
-                    return _fs.existsSync(path);
-                },
-                directoryExists: function (path) {
-                    return _fs.existsSync(path) && _fs.statSync(path).isDirectory();
-                },
+                fileExists: fileExists,
+                directoryExists: directoryExists,
                 createDirectory: function (directoryName) {
                     if (!this.directoryExists(directoryName)) {
                         _fs.mkdirSync(directoryName);
@@ -4038,9 +4054,9 @@ var ts;
     }
     ts.getEmitScriptTarget = getEmitScriptTarget;
     function getEmitModuleKind(compilerOptions) {
-        return compilerOptions.module ?
+        return typeof compilerOptions.module === "number" ?
             compilerOptions.module :
-            getEmitScriptTarget(compilerOptions) === 2 /* ES6 */ ? ts.ModuleKind.ES6 : ts.ModuleKind.None;
+            getEmitScriptTarget(compilerOptions) === 2 /* ES6 */ ? ts.ModuleKind.ES6 : ts.ModuleKind.CommonJS;
     }
     ts.getEmitModuleKind = getEmitModuleKind;
     function forEachExpectedEmitFile(host, action, targetSourceFile) {
@@ -4934,7 +4950,7 @@ var ts;
         or_expected: { code: 1144, category: ts.DiagnosticCategory.Error, key: "or_expected_1144", message: "'{' or ';' expected." },
         Declaration_expected: { code: 1146, category: ts.DiagnosticCategory.Error, key: "Declaration_expected_1146", message: "Declaration expected." },
         Import_declarations_in_a_namespace_cannot_reference_a_module: { code: 1147, category: ts.DiagnosticCategory.Error, key: "Import_declarations_in_a_namespace_cannot_reference_a_module_1147", message: "Import declarations in a namespace cannot reference a module." },
-        Cannot_compile_modules_unless_the_module_flag_is_provided_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file: { code: 1148, category: ts.DiagnosticCategory.Error, key: "Cannot_compile_modules_unless_the_module_flag_is_provided_Consider_setting_the_module_compiler_optio_1148", message: "Cannot compile modules unless the '--module' flag is provided. Consider setting the 'module' compiler option in a 'tsconfig.json' file." },
+        Cannot_compile_modules_unless_the_module_flag_is_provided_with_a_valid_module_type_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file: { code: 1148, category: ts.DiagnosticCategory.Error, key: "Cannot_compile_modules_unless_the_module_flag_is_provided_with_a_valid_module_type_Consider_setting__1148", message: "Cannot compile modules unless the '--module' flag is provided with a valid module type. Consider setting the 'module' compiler option in a 'tsconfig.json' file." },
         File_name_0_differs_from_already_included_file_name_1_only_in_casing: { code: 1149, category: ts.DiagnosticCategory.Error, key: "File_name_0_differs_from_already_included_file_name_1_only_in_casing_1149", message: "File name '{0}' differs from already included file name '{1}' only in casing" },
         new_T_cannot_be_used_to_create_an_array_Use_new_Array_T_instead: { code: 1150, category: ts.DiagnosticCategory.Error, key: "new_T_cannot_be_used_to_create_an_array_Use_new_Array_T_instead_1150", message: "'new T[]' cannot be used to create an array. Use 'new Array<T>()' instead." },
         const_declarations_must_be_initialized: { code: 1155, category: ts.DiagnosticCategory.Error, key: "const_declarations_must_be_initialized_1155", message: "'const' declarations must be initialized" },
@@ -5402,7 +5418,7 @@ var ts;
         Generates_corresponding_map_file: { code: 6043, category: ts.DiagnosticCategory.Message, key: "Generates_corresponding_map_file_6043", message: "Generates corresponding '.map' file." },
         Compiler_option_0_expects_an_argument: { code: 6044, category: ts.DiagnosticCategory.Error, key: "Compiler_option_0_expects_an_argument_6044", message: "Compiler option '{0}' expects an argument." },
         Unterminated_quoted_string_in_response_file_0: { code: 6045, category: ts.DiagnosticCategory.Error, key: "Unterminated_quoted_string_in_response_file_0_6045", message: "Unterminated quoted string in response file '{0}'." },
-        Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es2015: { code: 6046, category: ts.DiagnosticCategory.Error, key: "Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es2015_6046", message: "Argument for '--module' option must be 'commonjs', 'amd', 'system', 'umd', or 'es2015'." },
+        Argument_for_module_option_must_be_commonjs_amd_system_umd_es2015_or_none: { code: 6046, category: ts.DiagnosticCategory.Error, key: "Argument_for_module_option_must_be_commonjs_amd_system_umd_es2015_or_none_6046", message: "Argument for '--module' option must be 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'none'." },
         Argument_for_target_option_must_be_ES3_ES5_or_ES2015: { code: 6047, category: ts.DiagnosticCategory.Error, key: "Argument_for_target_option_must_be_ES3_ES5_or_ES2015_6047", message: "Argument for '--target' option must be 'ES3', 'ES5', or 'ES2015'." },
         Locale_must_be_of_the_form_language_or_language_territory_For_example_0_or_1: { code: 6048, category: ts.DiagnosticCategory.Error, key: "Locale_must_be_of_the_form_language_or_language_territory_For_example_0_or_1_6048", message: "Locale must be of the form <language> or <language>-<territory>. For example '{0}' or '{1}'." },
         Unsupported_locale_0: { code: 6049, category: ts.DiagnosticCategory.Error, key: "Unsupported_locale_0_6049", message: "Unsupported locale '{0}'." },
@@ -14656,7 +14672,7 @@ var ts;
         var emptySymbols = {};
         var compilerOptions = host.getCompilerOptions();
         var languageVersion = compilerOptions.target || 0 /* ES3 */;
-        var modulekind = compilerOptions.module ? compilerOptions.module : languageVersion === 2 /* ES6 */ ? ts.ModuleKind.ES6 : ts.ModuleKind.None;
+        var modulekind = ts.getEmitModuleKind(compilerOptions);
         var allowSyntheticDefaultImports = typeof compilerOptions.allowSyntheticDefaultImports !== "undefined" ? compilerOptions.allowSyntheticDefaultImports : modulekind === ts.ModuleKind.System;
         var emitResolver = createResolver();
         var undefinedSymbol = createSymbol(4 /* Property */ | 67108864 /* Transient */, "undefined");
@@ -22268,7 +22284,7 @@ var ts;
             // Check attributes
             checkJsxOpeningLikeElement(node.openingElement);
             // Perform resolution on the closing tag so that rename/go to definition/etc work
-            getJsxElementTagSymbol(node.closingElement);
+            getJsxTagSymbol(node.closingElement);
             // Check children
             for (var _i = 0, _a = node.children; _i < _a.length; _i++) {
                 var child = _a[_i];
@@ -22367,70 +22383,49 @@ var ts;
             }
             return jsxTypes[name];
         }
-        /// Given a JSX opening element or self-closing element, return the symbol of the property that the tag name points to if
-        /// this is an intrinsic tag. This might be a named
-        /// property of the IntrinsicElements interface, or its string indexer.
-        /// If this is a class-based tag (otherwise returns undefined), returns the symbol of the class
-        /// type or factory function.
-        /// Otherwise, returns unknownSymbol.
-        function getJsxElementTagSymbol(node) {
+        function getJsxTagSymbol(node) {
+            if (isJsxIntrinsicIdentifier(node.tagName)) {
+                return getIntrinsicTagSymbol(node);
+            }
+            else {
+                return checkExpression(node.tagName).symbol;
+            }
+        }
+        /**
+          * Looks up an intrinsic tag name and returns a symbol that either points to an intrinsic
+          * property (in which case nodeLinks.jsxFlags will be IntrinsicNamedElement) or an intrinsic
+          * string index signature (in which case nodeLinks.jsxFlags will be IntrinsicIndexedElement).
+          * May also return unknownSymbol if both of these lookups fail.
+          */
+        function getIntrinsicTagSymbol(node) {
             var links = getNodeLinks(node);
             if (!links.resolvedSymbol) {
-                if (isJsxIntrinsicIdentifier(node.tagName)) {
-                    links.resolvedSymbol = lookupIntrinsicTag(node);
-                }
-                else {
-                    links.resolvedSymbol = lookupClassTag(node);
-                }
-            }
-            return links.resolvedSymbol;
-            function lookupIntrinsicTag(node) {
                 var intrinsicElementsType = getJsxType(JsxNames.IntrinsicElements);
                 if (intrinsicElementsType !== unknownType) {
                     // Property case
                     var intrinsicProp = getPropertyOfType(intrinsicElementsType, node.tagName.text);
                     if (intrinsicProp) {
                         links.jsxFlags |= 1 /* IntrinsicNamedElement */;
-                        return intrinsicProp;
+                        return links.resolvedSymbol = intrinsicProp;
                     }
                     // Intrinsic string indexer case
                     var indexSignatureType = getIndexTypeOfType(intrinsicElementsType, 0 /* String */);
                     if (indexSignatureType) {
                         links.jsxFlags |= 2 /* IntrinsicIndexedElement */;
-                        return intrinsicElementsType.symbol;
+                        return links.resolvedSymbol = intrinsicElementsType.symbol;
                     }
                     // Wasn't found
                     error(node, ts.Diagnostics.Property_0_does_not_exist_on_type_1, node.tagName.text, "JSX." + JsxNames.IntrinsicElements);
-                    return unknownSymbol;
+                    return links.resolvedSymbol = unknownSymbol;
                 }
                 else {
                     if (compilerOptions.noImplicitAny) {
                         error(node, ts.Diagnostics.JSX_element_implicitly_has_type_any_because_no_interface_JSX_0_exists, JsxNames.IntrinsicElements);
                     }
-                    return unknownSymbol;
+                    return links.resolvedSymbol = unknownSymbol;
                 }
             }
-            function lookupClassTag(node) {
-                var valueSymbol = resolveJsxTagName(node);
-                // Look up the value in the current scope
-                if (valueSymbol && valueSymbol !== unknownSymbol) {
-                    links.jsxFlags |= 4 /* ValueElement */;
-                    if (valueSymbol.flags & 8388608 /* Alias */) {
-                        markAliasSymbolAsReferenced(valueSymbol);
-                    }
-                }
-                return valueSymbol || unknownSymbol;
-            }
-            function resolveJsxTagName(node) {
-                if (node.tagName.kind === 69 /* Identifier */) {
-                    var tag = node.tagName;
-                    var sym = getResolvedSymbol(tag);
-                    return sym.exportSymbol || sym;
-                }
-                else {
-                    return checkQualifiedName(node.tagName).symbol;
-                }
-            }
+            return links.resolvedSymbol;
         }
         /**
          * Given a JSX element that is a class element, finds the Element Instance Type. If the
@@ -22438,15 +22433,7 @@ var ts;
          * For example, in the element <MyClass>, the element instance type is `MyClass` (not `typeof MyClass`).
          */
         function getJsxElementInstanceType(node) {
-            // There is no such thing as an instance type for a non-class element. This
-            // line shouldn't be hit.
-            ts.Debug.assert(!!(getNodeLinks(node).jsxFlags & 4 /* ValueElement */), "Should not call getJsxElementInstanceType on non-class Element");
-            var classSymbol = getJsxElementTagSymbol(node);
-            if (classSymbol === unknownSymbol) {
-                // Couldn't find the class instance type. Error has already been issued
-                return anyType;
-            }
-            var valueType = getTypeOfSymbol(classSymbol);
+            var valueType = checkExpression(node.tagName);
             if (isTypeAny(valueType)) {
                 // Short-circuit if the class tag is using an element type 'any'
                 return anyType;
@@ -22503,15 +22490,23 @@ var ts;
         function getJsxElementAttributesType(node) {
             var links = getNodeLinks(node);
             if (!links.resolvedJsxType) {
-                var sym = getJsxElementTagSymbol(node);
-                if (links.jsxFlags & 4 /* ValueElement */) {
+                if (isJsxIntrinsicIdentifier(node.tagName)) {
+                    var symbol = getIntrinsicTagSymbol(node);
+                    if (links.jsxFlags & 1 /* IntrinsicNamedElement */) {
+                        return links.resolvedJsxType = getTypeOfSymbol(symbol);
+                    }
+                    else if (links.jsxFlags & 2 /* IntrinsicIndexedElement */) {
+                        return links.resolvedJsxType = getIndexInfoOfSymbol(symbol, 0 /* String */).type;
+                    }
+                }
+                else {
                     // Get the element instance type (the result of newing or invoking this tag)
                     var elemInstanceType = getJsxElementInstanceType(node);
                     var elemClassType = getJsxGlobalElementClassType();
                     if (!elemClassType || !isTypeAssignableTo(elemInstanceType, elemClassType)) {
                         // Is this is a stateless function component? See if its single signature's return type is
                         // assignable to the JSX Element Type
-                        var elemType = getTypeOfSymbol(sym);
+                        var elemType = checkExpression(node.tagName);
                         var callSignatures = elemType && getSignaturesOfType(elemType, 0 /* Call */);
                         var callSignature = callSignatures && callSignatures.length > 0 && callSignatures[0];
                         var callReturnType = callSignature && getReturnTypeOfSignature(callSignature);
@@ -22579,16 +22574,7 @@ var ts;
                         }
                     }
                 }
-                else if (links.jsxFlags & 1 /* IntrinsicNamedElement */) {
-                    return links.resolvedJsxType = getTypeOfSymbol(sym);
-                }
-                else if (links.jsxFlags & 2 /* IntrinsicIndexedElement */) {
-                    return links.resolvedJsxType = getIndexInfoOfSymbol(sym, 0 /* String */).type;
-                }
-                else {
-                    // Resolution failed, so we don't know
-                    return links.resolvedJsxType = anyType;
-                }
+                return links.resolvedJsxType = unknownType;
             }
             return links.resolvedJsxType;
         }
@@ -28535,7 +28521,7 @@ var ts;
             else if ((entityName.parent.kind === 239 /* JsxOpeningElement */) ||
                 (entityName.parent.kind === 238 /* JsxSelfClosingElement */) ||
                 (entityName.parent.kind === 241 /* JsxClosingElement */)) {
-                return getJsxElementTagSymbol(entityName.parent);
+                return getJsxTagSymbol(entityName.parent);
             }
             else if (ts.isExpression(entityName)) {
                 if (ts.nodeIsMissing(entityName)) {
@@ -30263,6 +30249,7 @@ var ts;
             name: "module",
             shortName: "m",
             type: {
+                "none": ts.ModuleKind.None,
                 "commonjs": ts.ModuleKind.CommonJS,
                 "amd": ts.ModuleKind.AMD,
                 "system": ts.ModuleKind.System,
@@ -30272,7 +30259,7 @@ var ts;
             },
             description: ts.Diagnostics.Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es2015,
             paramType: ts.Diagnostics.KIND,
-            error: ts.Diagnostics.Argument_for_module_option_must_be_commonjs_amd_system_umd_or_es2015
+            error: ts.Diagnostics.Argument_for_module_option_must_be_commonjs_amd_system_umd_es2015_or_none
         },
         {
             name: "newLine",
@@ -30718,7 +30705,19 @@ var ts;
             }
             else {
                 var filesSeen = {};
-                var exclude = json["exclude"] instanceof Array ? ts.map(json["exclude"], ts.normalizeSlashes) : undefined;
+                var exclude = [];
+                if (json["exclude"] instanceof Array) {
+                    exclude = json["exclude"];
+                }
+                else {
+                    // by default exclude node_modules, and any specificied output directory
+                    exclude = ["node_modules"];
+                    var outDir = json["compilerOptions"] && json["compilerOptions"]["outDir"];
+                    if (outDir) {
+                        exclude.push(outDir);
+                    }
+                }
+                exclude = ts.map(exclude, ts.normalizeSlashes);
                 var supportedExtensions = ts.getSupportedExtensions(options);
                 ts.Debug.assert(ts.indexOf(supportedExtensions, ".ts") < ts.indexOf(supportedExtensions, ".d.ts"), "Changed priority of extensions to pick");
                 // Get files of supported extensions in their order of resolution
@@ -30730,6 +30729,10 @@ var ts;
                         // .ts extension would read the .d.ts extension files too but since .d.ts is lower priority extension,
                         // lets pick them when its turn comes up
                         if (extension === ".ts" && ts.fileExtensionIs(fileName, ".d.ts")) {
+                            continue;
+                        }
+                        // Skip over any minified JavaScript files (ending in ".min.js")
+                        if (/\.min\.js$/.test(fileName)) {
                             continue;
                         }
                         // If this is one of the output extension (which would be .d.ts and .js if we are allowing compilation of js files)
@@ -30753,7 +30756,6 @@ var ts;
         var options = {};
         var errors = [];
         if (configFileName && ts.getBaseFileName(configFileName) === "jsconfig.json") {
-            options.module = ts.ModuleKind.CommonJS;
             options.allowJs = true;
         }
         if (!jsonOptions) {
@@ -41324,7 +41326,7 @@ var ts;
             var outFile = options.outFile || options.out;
             var firstExternalModuleSourceFile = ts.forEach(files, function (f) { return ts.isExternalModule(f) ? f : undefined; });
             if (options.isolatedModules) {
-                if (!options.module && languageVersion < 2 /* ES6 */) {
+                if (options.module === ts.ModuleKind.None && languageVersion < 2 /* ES6 */) {
                     programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES2015_or_higher));
                 }
                 var firstNonExternalModuleSourceFile = ts.forEach(files, function (f) { return !ts.isExternalModule(f) && !ts.isDeclarationFile(f) ? f : undefined; });
@@ -41333,10 +41335,10 @@ var ts;
                     programDiagnostics.add(ts.createFileDiagnostic(firstNonExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_namespaces_when_the_isolatedModules_flag_is_provided));
                 }
             }
-            else if (firstExternalModuleSourceFile && languageVersion < 2 /* ES6 */ && !options.module) {
+            else if (firstExternalModuleSourceFile && languageVersion < 2 /* ES6 */ && options.module === ts.ModuleKind.None) {
                 // We cannot use createDiagnosticFromNode because nodes do not have parents yet
                 var span = ts.getErrorSpanForNode(firstExternalModuleSourceFile, firstExternalModuleSourceFile.externalModuleIndicator);
-                programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_unless_the_module_flag_is_provided_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file));
+                programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_unless_the_module_flag_is_provided_with_a_valid_module_type_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file));
             }
             // Cannot specify module gen target of es6 when below es6
             if (options.module === ts.ModuleKind.ES6 && languageVersion < 2 /* ES6 */) {
@@ -41735,7 +41737,7 @@ var ts;
                 ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                 return;
             }
-            var configParseResult = ts.parseJsonConfigFileContent(configObject, ts.sys, ts.getNormalizedAbsolutePath(ts.getDirectoryPath(configFileName), ts.sys.getCurrentDirectory()), commandLine.options);
+            var configParseResult = ts.parseJsonConfigFileContent(configObject, ts.sys, ts.getNormalizedAbsolutePath(ts.getDirectoryPath(configFileName), ts.sys.getCurrentDirectory()), commandLine.options, configFileName);
             if (configParseResult.errors.length > 0) {
                 reportDiagnostics(configParseResult.errors, /* compilerHost */ undefined);
                 ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
@@ -41831,7 +41833,7 @@ var ts;
             startTimerForRecompilation();
         }
         function watchedDirectoryChanged(fileName) {
-            if (fileName && !ts.isSupportedSourceFileName(fileName, commandLine.options)) {
+            if (fileName && !ts.isSupportedSourceFileName(fileName, compilerOptions)) {
                 return;
             }
             startTimerForHandlingDirectoryChanges();
@@ -48416,7 +48418,6 @@ var ts;
         // Always default to "ScriptTarget.ES5" for the language service
         return {
             target: 1 /* ES5 */,
-            module: ts.ModuleKind.None,
             jsx: 1 /* Preserve */
         };
     }
