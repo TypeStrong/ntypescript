@@ -2530,6 +2530,8 @@ var ts;
             case 217 /* FunctionDeclaration */:
             case 177 /* FunctionExpression */:
             case 145 /* MethodDeclaration */:
+            case 147 /* GetAccessor */:
+            case 148 /* SetAccessor */:
             case 220 /* TypeAliasDeclaration */:
                 errorNode = node.name;
                 break;
@@ -39976,7 +39978,7 @@ var ts;
         }
         var moduleResolution = compilerOptions.moduleResolution;
         if (moduleResolution === undefined) {
-            moduleResolution = compilerOptions.module === ts.ModuleKind.CommonJS ? ts.ModuleResolutionKind.NodeJs : ts.ModuleResolutionKind.Classic;
+            moduleResolution = ts.getEmitModuleKind(compilerOptions) === ts.ModuleKind.CommonJS ? ts.ModuleResolutionKind.NodeJs : ts.ModuleResolutionKind.Classic;
             if (traceEnabled) {
                 trace(host, ts.Diagnostics.Module_resolution_kind_is_not_specified_using_0, ts.ModuleResolutionKind[moduleResolution]);
             }
