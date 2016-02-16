@@ -1218,6 +1218,7 @@ declare namespace ts {
         buildSignatureDisplay(signatures: Signature, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags, kind?: SignatureKind): void;
         buildParameterDisplay(parameter: Symbol, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
         buildTypeParameterDisplay(tp: TypeParameter, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
+        buildTypePredicateDisplay(predicate: TypePredicate, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
         buildTypeParameterDisplayFromSymbol(symbol: Symbol, writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
         buildDisplayForParametersAndDelimiters(parameters: Symbol[], writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
         buildDisplayForTypeParametersAndDelimiters(typeParameters: TypeParameter[], writer: SymbolWriter, enclosingDeclaration?: Node, flags?: TypeFormatFlags): void;
@@ -1263,17 +1264,18 @@ declare namespace ts {
         This = 0,
         Identifier = 1,
     }
-    interface TypePredicate {
+    interface TypePredicateBase {
         kind: TypePredicateKind;
         type: Type;
     }
-    interface ThisTypePredicate extends TypePredicate {
+    interface ThisTypePredicate extends TypePredicateBase {
         _thisTypePredicateBrand: any;
     }
-    interface IdentifierTypePredicate extends TypePredicate {
+    interface IdentifierTypePredicate extends TypePredicateBase {
         parameterName: string;
         parameterIndex: number;
     }
+    type TypePredicate = IdentifierTypePredicate | ThisTypePredicate;
     type AnyImportSyntax = ImportDeclaration | ImportEqualsDeclaration;
     interface SymbolVisibilityResult {
         accessibility: SymbolAccessibility;
@@ -1440,10 +1442,9 @@ declare namespace ts {
         LoopWithCapturedBlockScopedBinding = 65536,
         CapturedBlockScopedBinding = 131072,
         BlockScopedBindingInLoop = 262144,
-        HasSeenSuperCall = 524288,
-        ClassWithBodyScopedClassBinding = 1048576,
-        BodyScopedClassBinding = 2097152,
-        NeedsLoopOutParameter = 4194304,
+        ClassWithBodyScopedClassBinding = 524288,
+        BodyScopedClassBinding = 1048576,
+        NeedsLoopOutParameter = 2097152,
     }
     interface NodeLinks {
         resolvedType?: Type;
@@ -1461,6 +1462,8 @@ declare namespace ts {
         importOnRightSide?: Symbol;
         jsxFlags?: JsxFlags;
         resolvedJsxType?: Type;
+        hasSuperCall?: boolean;
+        superCall?: ExpressionStatement;
     }
     const enum TypeFlags {
         Any = 1,
@@ -1490,7 +1493,6 @@ declare namespace ts {
         ESSymbol = 16777216,
         ThisType = 33554432,
         ObjectLiteralPatternWithComputedProperties = 67108864,
-        PredicateType = 134217728,
         Intrinsic = 16777343,
         Primitive = 16777726,
         StringLike = 258,
@@ -1498,7 +1500,7 @@ declare namespace ts {
         ObjectType = 80896,
         UnionOrIntersection = 49152,
         StructuredType = 130048,
-        RequiresWidening = 140509184,
+        RequiresWidening = 6291456,
         PropagatingFlags = 14680064,
     }
     type DestructuringPattern = BindingPattern | ObjectLiteralExpression | ArrayLiteralExpression;
@@ -1510,9 +1512,6 @@ declare namespace ts {
     }
     interface IntrinsicType extends Type {
         intrinsicName: string;
-    }
-    interface PredicateType extends Type {
-        predicate: ThisTypePredicate | IdentifierTypePredicate;
     }
     interface StringLiteralType extends Type {
         text: string;
@@ -1595,6 +1594,7 @@ declare namespace ts {
         unionSignatures?: Signature[];
         erasedSignatureCache?: Signature;
         isolatedSignatureType?: ObjectType;
+        typePredicate?: TypePredicate;
     }
     const enum IndexKind {
         String = 0,
@@ -2218,6 +2218,7 @@ declare namespace ts {
     function isFunctionBlock(node: Node): boolean;
     function isObjectLiteralMethod(node: Node): node is MethodDeclaration;
     function isIdentifierTypePredicate(predicate: TypePredicate): predicate is IdentifierTypePredicate;
+    function isThisTypePredicate(predicate: TypePredicate): predicate is ThisTypePredicate;
     function getContainingFunction(node: Node): FunctionLikeDeclaration;
     function getContainingClass(node: Node): ClassLikeDeclaration;
     function getThisContainer(node: Node, includeArrowFunctions: boolean): Node;
@@ -3481,7 +3482,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Experimental_support_for_decorators_is_a_feature_that_is_subject_to_change_in_a_future_release_Specify_experimentalDecorators_to_remove_this_warning: {
+        Experimental_support_for_decorators_is_a_feature_that_is_subject_to_change_in_a_future_release_Set_the_experimentalDecorators_option_to_remove_this_warning: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -3530,6 +3531,12 @@ declare namespace ts {
             message: string;
         };
         Parameter_0_is_not_in_the_same_position_as_parameter_1: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        A_type_predicate_is_only_allowed_in_return_type_position_for_functions_and_methods: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6536,12 +6543,6 @@ declare namespace ts {
             message: string;
         };
         type_assertion_expressions_can_only_be_used_in_a_ts_file: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
-        decorators_can_only_be_used_in_a_ts_file: {
             code: number;
             category: DiagnosticCategory;
             key: string;
