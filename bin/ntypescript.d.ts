@@ -1161,7 +1161,7 @@ declare namespace ts {
     }
     interface EmitResult {
         emitSkipped: boolean;
-        diagnostics: Diagnostic[];
+        declarationDiagnostics: Diagnostic[];
         sourceMaps: SourceMapData[];
     }
     interface TypeCheckerHost {
@@ -5006,6 +5006,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Property_0_is_incompatible_with_index_signature: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         JSX_element_attributes_type_0_may_not_be_a_union_type: {
             code: number;
             category: DiagnosticCategory;
@@ -5181,6 +5187,30 @@ declare namespace ts {
             message: string;
         };
         Cannot_augment_module_0_because_it_resolves_to_a_non_module_entity: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Cannot_assign_a_0_constructor_type_to_a_1_constructor_type: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Constructor_of_class_0_is_private_and_only_accessible_within_the_class_declaration: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Constructor_of_class_0_is_protected_and_only_accessible_within_the_class_declaration: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Cannot_extend_a_class_0_Class_constructor_is_marked_as_private: {
             code: number;
             category: DiagnosticCategory;
             key: string;
