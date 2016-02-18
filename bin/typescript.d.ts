@@ -1161,7 +1161,8 @@ declare namespace ts {
     }
     interface EmitResult {
         emitSkipped: boolean;
-        declarationDiagnostics: Diagnostic[];
+        /** Contains declaration emit diagnostics */
+        diagnostics: Diagnostic[];
         sourceMaps: SourceMapData[];
     }
     interface TypeCheckerHost {

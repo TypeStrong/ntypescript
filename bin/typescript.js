@@ -33130,7 +33130,7 @@ var ts;
         ts.forEachExpectedEmitFile(host, emitFile, targetSourceFile);
         return {
             emitSkipped: emitSkipped,
-            declarationDiagnostics: emitterDiagnostics.getDiagnostics(),
+            diagnostics: emitterDiagnostics.getDiagnostics(),
             sourceMaps: sourceMapDataList
         };
         function isUniqueLocalName(name, container) {
@@ -40852,7 +40852,7 @@ var ts;
         function emitWorker(program, sourceFile, writeFileCallback, cancellationToken) {
             var declarationDiagnostics = [];
             if (options.noEmit) {
-                return { declarationDiagnostics: declarationDiagnostics, sourceMaps: undefined, emitSkipped: true };
+                return { diagnostics: declarationDiagnostics, sourceMaps: undefined, emitSkipped: true };
             }
             // If the noEmitOnError flag is set, then check if we have any errors so far.  If so,
             // immediately bail out.  Note that we pass 'undefined' for 'sourceFile' so that we
@@ -40863,7 +40863,7 @@ var ts;
                     declarationDiagnostics = program.getDeclarationDiagnostics(/*sourceFile*/ undefined, cancellationToken);
                 }
                 if (diagnostics.length > 0 || declarationDiagnostics.length > 0) {
-                    return { declarationDiagnostics: declarationDiagnostics, sourceMaps: undefined, emitSkipped: true };
+                    return { diagnostics: diagnostics, sourceMaps: undefined, emitSkipped: true };
                 }
             }
             // Create the emit resolver outside of the "emitTime" tracking code below.  That way
@@ -42068,7 +42068,7 @@ var ts;
             }
             // Otherwise, emit and report any errors we ran into.
             var emitOutput = program.emit();
-            diagnostics = diagnostics.concat(emitOutput.declarationDiagnostics);
+            diagnostics = diagnostics.concat(emitOutput.diagnostics);
             reportDiagnostics(ts.sortAndDeduplicateDiagnostics(diagnostics), compilerHost);
             if (emitOutput.emitSkipped && diagnostics.length > 0) {
                 // If the emitter didn't emit anything, then pass that value along.
