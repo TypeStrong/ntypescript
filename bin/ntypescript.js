@@ -25761,7 +25761,7 @@ var ts;
                         seen = c === node;
                     }
                 });
-                // We may be here because of some extra junk between overloads that could not be parsed into a valid node.
+                // We may be here because of some extra nodes between overloads that could not be parsed into a valid node.
                 // In this case the subsequent node is not really consecutive (.pos !== node.end), and we must ignore it here.
                 if (subsequentNode && subsequentNode.pos === node.end) {
                     if (subsequentNode.kind === node.kind) {
@@ -42219,6 +42219,9 @@ var ts;
             }
             else {
                 configurations.exclude = ["node_modules"];
+                if (compilerOptions.outDir) {
+                    configurations.exclude.push(compilerOptions.outDir);
+                }
             }
             ts.sys.writeFile(file, JSON.stringify(configurations, undefined, 4));
             reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Successfully_created_a_tsconfig_json_file), /* compilerHost */ undefined);
@@ -49575,7 +49578,7 @@ var ts;
                     if (oldSourceFile) {
                         // We already had a source file for this file name.  Go to the registry to
                         // ensure that we get the right up to date version of it.  We need this to
-                        // address the following 'race'.  Specifically, say we have the following:
+                        // address the following race-condition.  Specifically, say we have the following:
                         //
                         //      LS1
                         //          \
