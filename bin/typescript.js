@@ -5045,7 +5045,7 @@ var ts;
         Unable_to_resolve_signature_of_parameter_decorator_when_called_as_an_expression: { code: 1239, category: ts.DiagnosticCategory.Error, key: "Unable_to_resolve_signature_of_parameter_decorator_when_called_as_an_expression_1239", message: "Unable to resolve signature of parameter decorator when called as an expression." },
         Unable_to_resolve_signature_of_property_decorator_when_called_as_an_expression: { code: 1240, category: ts.DiagnosticCategory.Error, key: "Unable_to_resolve_signature_of_property_decorator_when_called_as_an_expression_1240", message: "Unable to resolve signature of property decorator when called as an expression." },
         Unable_to_resolve_signature_of_method_decorator_when_called_as_an_expression: { code: 1241, category: ts.DiagnosticCategory.Error, key: "Unable_to_resolve_signature_of_method_decorator_when_called_as_an_expression_1241", message: "Unable to resolve signature of method decorator when called as an expression." },
-        abstract_modifier_can_only_appear_on_a_class_or_method_declaration: { code: 1242, category: ts.DiagnosticCategory.Error, key: "abstract_modifier_can_only_appear_on_a_class_or_method_declaration_1242", message: "'abstract' modifier can only appear on a class or method declaration." },
+        abstract_modifier_can_only_appear_on_a_class_method_or_property_declaration: { code: 1242, category: ts.DiagnosticCategory.Error, key: "abstract_modifier_can_only_appear_on_a_class_method_or_property_declaration_1242", message: "'abstract' modifier can only appear on a class, method, or property declaration." },
         _0_modifier_cannot_be_used_with_1_modifier: { code: 1243, category: ts.DiagnosticCategory.Error, key: "_0_modifier_cannot_be_used_with_1_modifier_1243", message: "'{0}' modifier cannot be used with '{1}' modifier." },
         Abstract_methods_can_only_appear_within_an_abstract_class: { code: 1244, category: ts.DiagnosticCategory.Error, key: "Abstract_methods_can_only_appear_within_an_abstract_class_1244", message: "Abstract methods can only appear within an abstract class." },
         Method_0_cannot_have_an_implementation_because_it_is_marked_abstract: { code: 1245, category: ts.DiagnosticCategory.Error, key: "Method_0_cannot_have_an_implementation_because_it_is_marked_abstract_1245", message: "Method '{0}' cannot have an implementation because it is marked abstract." },
@@ -5138,7 +5138,7 @@ var ts;
         get_and_set_accessor_must_have_the_same_type: { code: 2380, category: ts.DiagnosticCategory.Error, key: "get_and_set_accessor_must_have_the_same_type_2380", message: "'get' and 'set' accessor must have the same type." },
         A_signature_with_an_implementation_cannot_use_a_string_literal_type: { code: 2381, category: ts.DiagnosticCategory.Error, key: "A_signature_with_an_implementation_cannot_use_a_string_literal_type_2381", message: "A signature with an implementation cannot use a string literal type." },
         Specialized_overload_signature_is_not_assignable_to_any_non_specialized_signature: { code: 2382, category: ts.DiagnosticCategory.Error, key: "Specialized_overload_signature_is_not_assignable_to_any_non_specialized_signature_2382", message: "Specialized overload signature is not assignable to any non-specialized signature." },
-        Overload_signatures_must_all_be_exported_or_not_exported: { code: 2383, category: ts.DiagnosticCategory.Error, key: "Overload_signatures_must_all_be_exported_or_not_exported_2383", message: "Overload signatures must all be exported or not exported." },
+        Overload_signatures_must_all_be_exported_or_non_exported: { code: 2383, category: ts.DiagnosticCategory.Error, key: "Overload_signatures_must_all_be_exported_or_non_exported_2383", message: "Overload signatures must all be exported or non-exported." },
         Overload_signatures_must_all_be_ambient_or_non_ambient: { code: 2384, category: ts.DiagnosticCategory.Error, key: "Overload_signatures_must_all_be_ambient_or_non_ambient_2384", message: "Overload signatures must all be ambient or non-ambient." },
         Overload_signatures_must_all_be_public_private_or_protected: { code: 2385, category: ts.DiagnosticCategory.Error, key: "Overload_signatures_must_all_be_public_private_or_protected_2385", message: "Overload signatures must all be public, private or protected." },
         Overload_signatures_must_all_be_optional_or_required: { code: 2386, category: ts.DiagnosticCategory.Error, key: "Overload_signatures_must_all_be_optional_or_required_2386", message: "Overload signatures must all be optional or required." },
@@ -5259,7 +5259,7 @@ var ts;
         Base_constructor_return_type_0_is_not_a_class_or_interface_type: { code: 2509, category: ts.DiagnosticCategory.Error, key: "Base_constructor_return_type_0_is_not_a_class_or_interface_type_2509", message: "Base constructor return type '{0}' is not a class or interface type." },
         Base_constructors_must_all_have_the_same_return_type: { code: 2510, category: ts.DiagnosticCategory.Error, key: "Base_constructors_must_all_have_the_same_return_type_2510", message: "Base constructors must all have the same return type." },
         Cannot_create_an_instance_of_the_abstract_class_0: { code: 2511, category: ts.DiagnosticCategory.Error, key: "Cannot_create_an_instance_of_the_abstract_class_0_2511", message: "Cannot create an instance of the abstract class '{0}'." },
-        Overload_signatures_must_all_be_abstract_or_not_abstract: { code: 2512, category: ts.DiagnosticCategory.Error, key: "Overload_signatures_must_all_be_abstract_or_not_abstract_2512", message: "Overload signatures must all be abstract or not abstract." },
+        Overload_signatures_must_all_be_abstract_or_non_abstract: { code: 2512, category: ts.DiagnosticCategory.Error, key: "Overload_signatures_must_all_be_abstract_or_non_abstract_2512", message: "Overload signatures must all be abstract or non-abstract." },
         Abstract_method_0_in_class_1_cannot_be_accessed_via_super_expression: { code: 2513, category: ts.DiagnosticCategory.Error, key: "Abstract_method_0_in_class_1_cannot_be_accessed_via_super_expression_2513", message: "Abstract method '{0}' in class '{1}' cannot be accessed via super expression." },
         Classes_containing_abstract_methods_must_be_marked_abstract: { code: 2514, category: ts.DiagnosticCategory.Error, key: "Classes_containing_abstract_methods_must_be_marked_abstract_2514", message: "Classes containing abstract methods must be marked abstract." },
         Non_abstract_class_0_does_not_implement_inherited_abstract_member_1_from_class_2: { code: 2515, category: ts.DiagnosticCategory.Error, key: "Non_abstract_class_0_does_not_implement_inherited_abstract_member_1_from_class_2_2515", message: "Non-abstract class '{0}' does not implement inherited abstract member '{1}' from class '{2}'." },
@@ -5311,6 +5311,7 @@ var ts;
         Constructor_of_class_0_is_private_and_only_accessible_within_the_class_declaration: { code: 2673, category: ts.DiagnosticCategory.Error, key: "Constructor_of_class_0_is_private_and_only_accessible_within_the_class_declaration_2673", message: "Constructor of class '{0}' is private and only accessible within the class declaration." },
         Constructor_of_class_0_is_protected_and_only_accessible_within_the_class_declaration: { code: 2674, category: ts.DiagnosticCategory.Error, key: "Constructor_of_class_0_is_protected_and_only_accessible_within_the_class_declaration_2674", message: "Constructor of class '{0}' is protected and only accessible within the class declaration." },
         Cannot_extend_a_class_0_Class_constructor_is_marked_as_private: { code: 2675, category: ts.DiagnosticCategory.Error, key: "Cannot_extend_a_class_0_Class_constructor_is_marked_as_private_2675", message: "Cannot extend a class '{0}'. Class constructor is marked as private." },
+        Accessors_must_both_be_abstract_or_non_abstract: { code: 2676, category: ts.DiagnosticCategory.Error, key: "Accessors_must_both_be_abstract_or_non_abstract_2676", message: "Accessors must both be abstract or non-abstract." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -20628,6 +20629,7 @@ var ts;
             var targetStack;
             var depth = 0;
             var inferiority = 0;
+            var visited = {};
             inferFromTypes(source, target);
             function isInProcess(source, target) {
                 for (var i = 0; i < depth; i++) {
@@ -20756,6 +20758,11 @@ var ts;
                         if (isDeeplyNestedGeneric(source, sourceStack, depth) && isDeeplyNestedGeneric(target, targetStack, depth)) {
                             return;
                         }
+                        var key = source.id + "," + target.id;
+                        if (ts.hasProperty(visited, key)) {
+                            return;
+                        }
+                        visited[key] = true;
                         if (depth === 0) {
                             sourceStack = [];
                             targetStack = [];
@@ -25590,6 +25597,9 @@ var ts;
                         if (((node.flags & 28 /* AccessibilityModifier */) !== (otherAccessor.flags & 28 /* AccessibilityModifier */))) {
                             error(node.name, ts.Diagnostics.Getter_and_setter_accessors_do_not_agree_in_visibility);
                         }
+                        if (((node.flags & 128 /* Abstract */) !== (otherAccessor.flags & 128 /* Abstract */))) {
+                            error(node.name, ts.Diagnostics.Accessors_must_both_be_abstract_or_non_abstract);
+                        }
                         var currentAccessorType = getAnnotatedAccessorType(node);
                         var otherAccessorType = getAnnotatedAccessorType(otherAccessor);
                         // TypeScript 1.0 spec (April 2014): 4.5
@@ -25712,7 +25722,7 @@ var ts;
                     ts.forEach(overloads, function (o) {
                         var deviation = getEffectiveDeclarationFlags(o, flagsToCheck) ^ canonicalFlags;
                         if (deviation & 1 /* Export */) {
-                            error(o.name, ts.Diagnostics.Overload_signatures_must_all_be_exported_or_not_exported);
+                            error(o.name, ts.Diagnostics.Overload_signatures_must_all_be_exported_or_non_exported);
                         }
                         else if (deviation & 2 /* Ambient */) {
                             error(o.name, ts.Diagnostics.Overload_signatures_must_all_be_ambient_or_non_ambient);
@@ -25721,7 +25731,7 @@ var ts;
                             error(o.name || o, ts.Diagnostics.Overload_signatures_must_all_be_public_private_or_protected);
                         }
                         else if (deviation & 128 /* Abstract */) {
-                            error(o.name, ts.Diagnostics.Overload_signatures_must_all_be_abstract_or_not_abstract);
+                            error(o.name, ts.Diagnostics.Overload_signatures_must_all_be_abstract_or_non_abstract);
                         }
                     });
                 }
@@ -29543,8 +29553,11 @@ var ts;
                             return grammarErrorOnNode(modifier, ts.Diagnostics._0_modifier_already_seen, "abstract");
                         }
                         if (node.kind !== 218 /* ClassDeclaration */) {
-                            if (node.kind !== 145 /* MethodDeclaration */) {
-                                return grammarErrorOnNode(modifier, ts.Diagnostics.abstract_modifier_can_only_appear_on_a_class_or_method_declaration);
+                            if (node.kind !== 145 /* MethodDeclaration */ &&
+                                node.kind !== 143 /* PropertyDeclaration */ &&
+                                node.kind !== 147 /* GetAccessor */ &&
+                                node.kind !== 148 /* SetAccessor */) {
+                                return grammarErrorOnNode(modifier, ts.Diagnostics.abstract_modifier_can_only_appear_on_a_class_method_or_property_declaration);
                             }
                             if (!(node.parent.kind === 218 /* ClassDeclaration */ && node.parent.flags & 128 /* Abstract */)) {
                                 return grammarErrorOnNode(modifier, ts.Diagnostics.Abstract_methods_can_only_appear_within_an_abstract_class);
@@ -29990,7 +30003,7 @@ var ts;
             else if (ts.isInAmbientContext(accessor)) {
                 return grammarErrorOnNode(accessor.name, ts.Diagnostics.An_accessor_cannot_be_declared_in_an_ambient_context);
             }
-            else if (accessor.body === undefined) {
+            else if (accessor.body === undefined && !(accessor.flags & 128 /* Abstract */)) {
                 return grammarErrorAtPos(ts.getSourceFileOfNode(accessor), accessor.end - 1, ";".length, ts.Diagnostics._0_expected, "{");
             }
             else if (accessor.typeParameters) {

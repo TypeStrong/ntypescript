@@ -3629,7 +3629,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        abstract_modifier_can_only_appear_on_a_class_or_method_declaration: {
+        abstract_modifier_can_only_appear_on_a_class_method_or_property_declaration: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4187,7 +4187,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Overload_signatures_must_all_be_exported_or_not_exported: {
+        Overload_signatures_must_all_be_exported_or_non_exported: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -4913,7 +4913,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Overload_signatures_must_all_be_abstract_or_not_abstract: {
+        Overload_signatures_must_all_be_abstract_or_non_abstract: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5220,6 +5220,12 @@ declare namespace ts {
             message: string;
         };
         Cannot_extend_a_class_0_Class_constructor_is_marked_as_private: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Accessors_must_both_be_abstract_or_non_abstract: {
             code: number;
             category: DiagnosticCategory;
             key: string;
