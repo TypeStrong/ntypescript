@@ -4066,6 +4066,17 @@ var ts;
         return emitOutputFilePathWithoutExtension + extension;
     }
     ts.getOwnEmitOutputFilePath = getOwnEmitOutputFilePath;
+    function getDeclarationEmitOutputFilePath(sourceFile, host) {
+        var options = host.getCompilerOptions();
+        var outputDir = options.declarationDir || options.outDir; // Prefer declaration folder if specified
+        if (options.declaration) {
+            var path = outputDir
+                ? getSourceFilePathInNewDir(sourceFile, host, outputDir)
+                : sourceFile.fileName;
+            return ts.removeFileExtension(path) + ".d.ts";
+        }
+    }
+    ts.getDeclarationEmitOutputFilePath = getDeclarationEmitOutputFilePath;
     function getEmitScriptTarget(compilerOptions) {
         return compilerOptions.target || 0 /* ES3 */;
     }
@@ -4111,30 +4122,28 @@ var ts;
             var emitFileNames = {
                 jsFilePath: jsFilePath,
                 sourceMapFilePath: getSourceMapFilePath(jsFilePath, options),
-                declarationFilePath: !isSourceFileJavaScript(sourceFile) ? getDeclarationEmitFilePath(jsFilePath, options) : undefined
+                declarationFilePath: !isSourceFileJavaScript(sourceFile) ? getDeclarationEmitOutputFilePath(sourceFile, host) : undefined
             };
             action(emitFileNames, [sourceFile], /*isBundledEmit*/ false);
         }
         function onBundledEmit(host) {
             // Can emit only sources that are not declaration file and are either non module code or module with --module or --target es6 specified
-            var bundledSources = ts.filter(host.getSourceFiles(), function (sourceFile) { return !isDeclarationFile(sourceFile) &&
-                (!isExternalModule(sourceFile) ||
-                    (getEmitModuleKind(options) && isExternalModule(sourceFile))); }); // module that can emit - note falsy value from getEmitModuleKind means the module kind that shouldn't be emitted
+            var bundledSources = ts.filter(host.getSourceFiles(), function (sourceFile) {
+                return !isDeclarationFile(sourceFile) // Not a declaration file
+                    && (!isExternalModule(sourceFile) || !!getEmitModuleKind(options));
+            }); // and not a module, unless module emit enabled
             if (bundledSources.length) {
                 var jsFilePath = options.outFile || options.out;
                 var emitFileNames = {
                     jsFilePath: jsFilePath,
                     sourceMapFilePath: getSourceMapFilePath(jsFilePath, options),
-                    declarationFilePath: getDeclarationEmitFilePath(jsFilePath, options)
+                    declarationFilePath: options.declaration ? ts.removeFileExtension(jsFilePath) + ".d.ts" : undefined
                 };
                 action(emitFileNames, bundledSources, /*isBundledEmit*/ true);
             }
         }
         function getSourceMapFilePath(jsFilePath, options) {
             return options.sourceMap ? jsFilePath + ".map" : undefined;
-        }
-        function getDeclarationEmitFilePath(jsFilePath, options) {
-            return options.declaration ? ts.removeFileExtension(jsFilePath) + ".d.ts" : undefined;
         }
     }
     ts.forEachExpectedEmitFile = forEachExpectedEmitFile;
@@ -30386,6 +30395,12 @@ var ts;
             description: ts.Diagnostics.Generates_corresponding_d_ts_file,
         },
         {
+            name: "declarationDir",
+            type: "string",
+            isFilePath: true,
+            paramType: ts.Diagnostics.DIRECTORY,
+        },
+        {
             name: "diagnostics",
             type: "boolean",
         },
@@ -41532,6 +41547,14 @@ var ts;
                 }
                 if (options.sourceRoot && !options.inlineSourceMap) {
                     programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "sourceRoot", "sourceMap"));
+                }
+            }
+            if (options.declarationDir) {
+                if (!options.declaration) {
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "declarationDir", "declaration"));
+                }
+                if (options.out || options.outFile) {
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "declarationDir", options.out ? "out" : "outFile"));
                 }
             }
             var languageVersion = options.target || 0 /* ES3 */;
