@@ -238,7 +238,7 @@ interface NumberConstructor {
 
     /**
       * Returns true if passed value is finite.
-      * Unlike the global isFininte, Number.isFinite doesn't forcibly convert the parameter to a 
+      * Unlike the global isFinite, Number.isFinite doesn't forcibly convert the parameter to a 
       * number. Only finite values of the type number, result in true.
       * @param number A numeric value.
       */
@@ -5650,7 +5650,7 @@ declare var ANGLE_instanced_arrays: {
     VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE: number;
 }
 
-interface AnalyserNode extends AudioNode {
+interface AnalyzerNode extends AudioNode {
     fftSize: number;
     frequencyBinCount: number;
     maxDecibels: number;
@@ -5662,9 +5662,9 @@ interface AnalyserNode extends AudioNode {
     getFloatTimeDomainData(array: Float32Array): void;
 }
 
-declare var AnalyserNode: {
-    prototype: AnalyserNode;
-    new(): AnalyserNode;
+declare var AnalyzerNode: {
+    prototype: AnalyzerNode;
+    new(): AnalyzerNode;
 }
 
 interface AnimationEvent extends Event {
@@ -5778,7 +5778,7 @@ interface AudioContext extends EventTarget {
     listener: AudioListener;
     sampleRate: number;
     state: string;
-    createAnalyser(): AnalyserNode;
+    createAnalyzer(): AnalyzerNode;
     createBiquadFilter(): BiquadFilterNode;
     createBuffer(numberOfChannels: number, length: number, sampleRate: number): AudioBuffer;
     createBufferSource(): AudioBufferSourceNode;

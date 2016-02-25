@@ -13751,7 +13751,7 @@ var ts;
             // post catch/finally state is reachable if
             // - post try state is reachable - control flow can fall out of try block
             // - post catch state is reachable - control flow can fall out of catch block
-            currentReachabilityState = or(postTryState, postCatchState);
+            currentReachabilityState = n.catchClause ? or(postTryState, postCatchState) : postTryState;
         }
         function bindSwitchStatement(n) {
             var preSwitchState = currentReachabilityState;
@@ -19701,8 +19701,20 @@ var ts;
                     // on either side that need to be prioritized. For example, A | B = (A | B) & (C | D) or
                     // A & B = (A & B) | (C & D).
                     if (source.flags & 32768 /* Intersection */) {
-                        // If target is a union type the following check will report errors so we suppress them here
-                        if (result = someTypeRelatedToType(source, target, reportErrors && !(target.flags & 16384 /* Union */))) {
+                        // Check to see if any constituents of the intersection are immediately related to the target.
+                        //
+                        // Don't report errors though. Checking whether a constituent is related to the source is not actually
+                        // useful and leads to some confusing error messages. Instead it is better to let the below checks
+                        // take care of this, or to not elaborate at all. For instance,
+                        //
+                        //    - For an object type (such as 'C = A & B'), users are usually more interested in structural errors.
+                        //
+                        //    - For a union type (such as '(A | B) = (C & D)'), it's better to hold onto the whole intersection
+                        //          than to report that 'D' is not assignable to 'A' or 'B'.
+                        //
+                        //    - For a primitive type or type parameter (such as 'number = A & B') there is no point in
+                        //          breaking the intersection apart.
+                        if (result = someTypeRelatedToType(source, target, /*reportErrors*/ false)) {
                             return result;
                         }
                     }
@@ -24424,6 +24436,7 @@ var ts;
             }
             // The identityMapper object is used to indicate that function expressions are wildcards
             if (contextualMapper === identityMapper && isContextSensitive(node)) {
+                checkNodeDeferred(node);
                 return anyFunctionType;
             }
             var links = getNodeLinks(node);
@@ -31048,7 +31061,7 @@ var ts;
     function getDeclarationDiagnostics(host, resolver, targetSourceFile) {
         var declarationDiagnostics = ts.createDiagnosticCollection();
         ts.forEachExpectedEmitFile(host, getDeclarationDiagnosticsFromFile, targetSourceFile);
-        return declarationDiagnostics.getDiagnostics(targetSourceFile.fileName);
+        return declarationDiagnostics.getDiagnostics(targetSourceFile ? targetSourceFile.fileName : undefined);
         function getDeclarationDiagnosticsFromFile(_a, sources, isBundledEmit) {
             var declarationFilePath = _a.declarationFilePath;
             emitDeclarations(host, resolver, declarationDiagnostics, declarationFilePath, sources, isBundledEmit);
@@ -40984,7 +40997,14 @@ var ts;
             return getDiagnosticsHelper(sourceFile, getSemanticDiagnosticsForFile, cancellationToken);
         }
         function getDeclarationDiagnostics(sourceFile, cancellationToken) {
-            return getDiagnosticsHelper(sourceFile, getDeclarationDiagnosticsForFile, cancellationToken);
+            var options = program.getCompilerOptions();
+            // collect diagnostics from the program only once if either no source file was specified or out/outFile is set (bundled emit)
+            if (!sourceFile || options.out || options.outFile) {
+                return getDeclarationDiagnosticsWorker(sourceFile, cancellationToken);
+            }
+            else {
+                return getDiagnosticsHelper(sourceFile, getDeclarationDiagnosticsForFile, cancellationToken);
+            }
         }
         function getSyntacticDiagnosticsForFile(sourceFile, cancellationToken) {
             return sourceFile.parseDiagnostics;
@@ -41179,15 +41199,16 @@ var ts;
                 }
             });
         }
-        function getDeclarationDiagnosticsForFile(sourceFile, cancellationToken) {
+        function getDeclarationDiagnosticsWorker(sourceFile, cancellationToken) {
             return runWithCancellationToken(function () {
-                if (!ts.isDeclarationFile(sourceFile)) {
-                    var resolver = getDiagnosticsProducingTypeChecker().getEmitResolver(sourceFile, cancellationToken);
-                    // Don't actually write any files since we're just getting diagnostics.
-                    var writeFile_1 = function () { };
-                    return ts.getDeclarationDiagnostics(getEmitHost(writeFile_1), resolver, sourceFile);
-                }
+                var resolver = getDiagnosticsProducingTypeChecker().getEmitResolver(sourceFile, cancellationToken);
+                // Don't actually write any files since we're just getting diagnostics.
+                var writeFile = function () { };
+                return ts.getDeclarationDiagnostics(getEmitHost(writeFile), resolver, sourceFile);
             });
+        }
+        function getDeclarationDiagnosticsForFile(sourceFile, cancellationToken) {
+            return ts.isDeclarationFile(sourceFile) ? [] : getDeclarationDiagnosticsWorker(sourceFile, cancellationToken);
         }
         function getOptionsDiagnostics() {
             var allDiagnostics = [];
@@ -42404,7 +42425,7 @@ var ts;
                             var openBrace = ts.findChildOfKind(n, 15 /* OpenBraceToken */, sourceFile);
                             var closeBrace = ts.findChildOfKind(n, 16 /* CloseBraceToken */, sourceFile);
                             // Check if the block is standalone, or 'attached' to some parent statement.
-                            // If the latter, we want to collaps the block, but consider its hint span
+                            // If the latter, we want to collapse the block, but consider its hint span
                             // to be the entire span of the parent.
                             if (parent_9.kind === 201 /* DoStatement */ ||
                                 parent_9.kind === 204 /* ForInStatement */ ||
@@ -42964,7 +42985,7 @@ var ts;
                     case 221 /* EnumDeclaration */:
                         return createEnumItem(node);
                     case 219 /* InterfaceDeclaration */:
-                        return createIterfaceItem(node);
+                        return createInterfaceItem(node);
                     case 222 /* ModuleDeclaration */:
                         return createModuleItem(node);
                     case 217 /* FunctionDeclaration */:
@@ -43030,7 +43051,7 @@ var ts;
                     var childItems = getItemsWorker(sortNodes(removeComputedProperties(node)), createChildItem);
                     return getNavigationBarItem(node.name.text, ts.ScriptElementKind.enumElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
                 }
-                function createIterfaceItem(node) {
+                function createInterfaceItem(node) {
                     var childItems = getItemsWorker(sortNodes(removeDynamicallyNamedProperties(node)), createChildItem);
                     return getNavigationBarItem(node.name.text, ts.ScriptElementKind.interfaceElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
                 }
@@ -43676,7 +43697,7 @@ var ts;
         //                break;
         //            case TypeScript.SyntaxKind.GreaterThanGreaterThanGreaterThanToken:
         //                stack++;
-        //            // Intentaion fall through
+        //            // Intentional fall through
         //            case TypeScript.SyntaxKind.GreaterThanToken:
         //                stack++;
         //                break;
@@ -43696,7 +43717,7 @@ var ts;
         //                }
         //                break;
         //            case TypeScript.SyntaxKind.EqualsGreaterThanToken:
-        //                // This can be a function type or a constructor type. In either case, we want to skip the function defintion
+        //                // This can be a function type or a constructor type. In either case, we want to skip the function definition
         //                token = previousToken(token, /*includeSkippedTokens*/ true);
         //                if (token && token.kind() === TypeScript.SyntaxKind.CloseParenToken) {
         //                    // Skip untill the matching open paren token
@@ -43715,7 +43736,7 @@ var ts;
         //                    }
         //                }
         //                else {
-        //                    // This is not a funtion type. exit the main loop
+        //                    // This is not a function type. exit the main loop
         //                    break whileLoop;
         //                }
         //                break;
@@ -44307,7 +44328,7 @@ var ts;
                 return hasChildOfKind(n, 20 /* CloseBracketToken */, sourceFile);
             case 245 /* CaseClause */:
             case 246 /* DefaultClause */:
-                // there is no such thing as terminator token for CaseClause/DefaultClause so for simplicitly always consider them non-completed
+                // there is no such thing as terminator token for CaseClause/DefaultClause so for simplicity always consider them non-completed
                 return false;
             case 203 /* ForStatement */:
             case 204 /* ForInStatement */:
@@ -44414,7 +44435,7 @@ var ts;
     }
     ts.getTouchingWord = getTouchingWord;
     /* Gets the token whose text has range [start, end) and position >= start
-     * and (position < end or (position === end && token is keyword or identifier or numeric\string litera))
+     * and (position < end or (position === end && token is keyword or identifier or numeric/string literal))
      */
     function getTouchingPropertyName(sourceFile, position) {
         return getTouchingToken(sourceFile, position, function (n) { return isPropertyName(n.kind); });
@@ -45123,7 +45144,7 @@ var ts;
                     // readTokenInfo was called before with the same expected scan action.
                     // No need to re-scan text, return existing 'lastTokenInfo'
                     // it is ok to call fixTokenKind here since it does not affect
-                    // what portion of text is consumed. In opposize rescanning can change it,
+                    // what portion of text is consumed. In contrast rescanning can change it,
                     // i.e. for '>=' when originally scanner eats just one character
                     // and rescanning forces it to consume more.
                     return fixTokenKind(lastTokenInfo, n);
@@ -45750,13 +45771,13 @@ var ts;
                 //// Ex: 
                 //// if (1)
                 //// { ... }
-                ////      * ) and { are on differnet lines. We only need to format if the block is multiline context. So in this case we don't format.
+                ////      * ) and { are on different lines. We only need to format if the block is multiline context. So in this case we don't format.
                 ////
                 //// Ex:
                 //// if (1) 
                 //// { ...
                 //// }
-                ////      * ) and { are on differnet lines. We only need to format if the block is multiline context. So in this case we format.
+                ////      * ) and { are on different lines. We only need to format if the block is multiline context. So in this case we format.
                 return context.TokensAreOnSameLine() || Rules.IsBeforeMultilineBlockContext(context);
             };
             // This check is done before an open brace in a control construct, a function, or a typescript block declaration
@@ -46526,7 +46547,7 @@ var ts;
                 // no preceding token found - start from the beginning of enclosing node
                 return enclosingNode.pos;
             }
-            // preceding token ends after the start of original range (i.e when originaRange.pos falls in the middle of literal)
+            // preceding token ends after the start of original range (i.e when originalRange.pos falls in the middle of literal)
             // start from the beginning of enclosingNode to handle the entire 'originalRange'
             if (precedingToken.end >= originalRange.pos) {
                 return enclosingNode.pos;
@@ -54566,17 +54587,17 @@ var ts;
                     // Default action is to set on first statement
                     return spanInNode(block.statements[0]);
                 }
-                function spanInInitializerOfForLike(forLikeStaement) {
-                    if (forLikeStaement.initializer.kind === 216 /* VariableDeclarationList */) {
+                function spanInInitializerOfForLike(forLikeStatement) {
+                    if (forLikeStatement.initializer.kind === 216 /* VariableDeclarationList */) {
                         // declaration list, set breakpoint in first declaration
-                        var variableDeclarationList = forLikeStaement.initializer;
+                        var variableDeclarationList = forLikeStatement.initializer;
                         if (variableDeclarationList.declarations.length > 0) {
                             return spanInNode(variableDeclarationList.declarations[0]);
                         }
                     }
                     else {
                         // Expression - set breakpoint in it
-                        return spanInNode(forLikeStaement.initializer);
+                        return spanInNode(forLikeStatement.initializer);
                     }
                 }
                 function spanInForStatement(forStatement) {
@@ -55193,7 +55214,7 @@ var ts;
             var _this = this;
             return this.forwardJSONCall("getDocumentHighlights('" + fileName + "', " + position + ")", function () {
                 var results = _this.languageService.getDocumentHighlights(fileName, position, JSON.parse(filesToSearch));
-                // workaround for VS document higlighting issue - keep only items from the initial file
+                // workaround for VS document highlighting issue - keep only items from the initial file
                 var normalizedName = ts.normalizeSlashes(fileName).toLowerCase();
                 return ts.filter(results, function (r) { return ts.normalizeSlashes(r.fileName).toLowerCase() === normalizedName; });
             });
