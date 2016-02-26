@@ -4317,7 +4317,7 @@ declare var ANGLE_instanced_arrays: {
     VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE: number;
 }
 
-interface AnalyzerNode extends AudioNode {
+interface AnalyserNode extends AudioNode {
     fftSize: number;
     frequencyBinCount: number;
     maxDecibels: number;
@@ -4329,9 +4329,9 @@ interface AnalyzerNode extends AudioNode {
     getFloatTimeDomainData(array: Float32Array): void;
 }
 
-declare var AnalyzerNode: {
-    prototype: AnalyzerNode;
-    new(): AnalyzerNode;
+declare var AnalyserNode: {
+    prototype: AnalyserNode;
+    new(): AnalyserNode;
 }
 
 interface AnimationEvent extends Event {
@@ -4445,7 +4445,7 @@ interface AudioContext extends EventTarget {
     listener: AudioListener;
     sampleRate: number;
     state: string;
-    createAnalyzer(): AnalyzerNode;
+    createAnalyser(): AnalyserNode;
     createBiquadFilter(): BiquadFilterNode;
     createBuffer(numberOfChannels: number, length: number, sampleRate: number): AudioBuffer;
     createBufferSource(): AudioBufferSourceNode;

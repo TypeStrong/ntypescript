@@ -16653,7 +16653,12 @@ var ts;
                 if (ts.isRestParameter(parameterNode)) {
                     writePunctuation(writer, 22 /* DotDotDotToken */);
                 }
-                appendSymbolNameOnly(p, writer);
+                if (ts.isBindingPattern(parameterNode.name)) {
+                    buildBindingPatternDisplay(parameterNode.name, writer, enclosingDeclaration, flags, symbolStack);
+                }
+                else {
+                    appendSymbolNameOnly(p, writer);
+                }
                 if (isOptionalParameter(parameterNode)) {
                     writePunctuation(writer, 53 /* QuestionToken */);
                 }
@@ -16661,17 +16666,57 @@ var ts;
                 writeSpace(writer);
                 buildTypeDisplay(getTypeOfSymbol(p), writer, enclosingDeclaration, flags, symbolStack);
             }
+            function buildBindingPatternDisplay(bindingPattern, writer, enclosingDeclaration, flags, symbolStack) {
+                // We have to explicitly emit square bracket and bracket because these tokens are not stored inside the node.
+                if (bindingPattern.kind === 165 /* ObjectBindingPattern */) {
+                    writePunctuation(writer, 15 /* OpenBraceToken */);
+                    buildDisplayForCommaSeparatedList(bindingPattern.elements, writer, function (e) { return buildBindingElementDisplay(e, writer, enclosingDeclaration, flags, symbolStack); });
+                    writePunctuation(writer, 16 /* CloseBraceToken */);
+                }
+                else if (bindingPattern.kind === 166 /* ArrayBindingPattern */) {
+                    writePunctuation(writer, 19 /* OpenBracketToken */);
+                    var elements = bindingPattern.elements;
+                    buildDisplayForCommaSeparatedList(elements, writer, function (e) { return buildBindingElementDisplay(e, writer, enclosingDeclaration, flags, symbolStack); });
+                    if (elements && elements.hasTrailingComma) {
+                        writePunctuation(writer, 24 /* CommaToken */);
+                    }
+                    writePunctuation(writer, 20 /* CloseBracketToken */);
+                }
+            }
+            function buildBindingElementDisplay(bindingElement, writer, enclosingDeclaration, flags, symbolStack) {
+                if (bindingElement.kind === 191 /* OmittedExpression */) {
+                    return;
+                }
+                ts.Debug.assert(bindingElement.kind === 167 /* BindingElement */);
+                if (bindingElement.propertyName) {
+                    writer.writeSymbol(ts.getTextOfNode(bindingElement.propertyName), bindingElement.symbol);
+                    writePunctuation(writer, 54 /* ColonToken */);
+                    writeSpace(writer);
+                }
+                if (ts.isBindingPattern(bindingElement.name)) {
+                    buildBindingPatternDisplay(bindingElement.name, writer, enclosingDeclaration, flags, symbolStack);
+                }
+                else {
+                    if (bindingElement.dotDotDotToken) {
+                        writePunctuation(writer, 22 /* DotDotDotToken */);
+                    }
+                    appendSymbolNameOnly(bindingElement.symbol, writer);
+                }
+            }
             function buildDisplayForTypeParametersAndDelimiters(typeParameters, writer, enclosingDeclaration, flags, symbolStack) {
                 if (typeParameters && typeParameters.length) {
                     writePunctuation(writer, 25 /* LessThanToken */);
-                    for (var i = 0; i < typeParameters.length; i++) {
-                        if (i > 0) {
-                            writePunctuation(writer, 24 /* CommaToken */);
-                            writeSpace(writer);
-                        }
-                        buildTypeParameterDisplay(typeParameters[i], writer, enclosingDeclaration, flags, symbolStack);
-                    }
+                    buildDisplayForCommaSeparatedList(typeParameters, writer, function (p) { return buildTypeParameterDisplay(p, writer, enclosingDeclaration, flags, symbolStack); });
                     writePunctuation(writer, 27 /* GreaterThanToken */);
+                }
+            }
+            function buildDisplayForCommaSeparatedList(list, writer, action) {
+                for (var i = 0; i < list.length; i++) {
+                    if (i > 0) {
+                        writePunctuation(writer, 24 /* CommaToken */);
+                        writeSpace(writer);
+                    }
+                    action(list[i]);
                 }
             }
             function buildDisplayForTypeArgumentsAndDelimiters(typeParameters, mapper, writer, enclosingDeclaration, flags, symbolStack) {
@@ -39423,8 +39468,8 @@ var ts;
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);
-                emitTempDeclarations(/*newLine*/ true);
                 emitExportEquals(/*emitAsReturn*/ true);
+                emitTempDeclarations(/*newLine*/ true);
                 decreaseIndent();
                 writeLine();
                 write("});");
@@ -39436,8 +39481,8 @@ var ts;
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);
-                emitTempDeclarations(/*newLine*/ true);
                 emitExportEquals(/*emitAsReturn*/ false);
+                emitTempDeclarations(/*newLine*/ true);
             }
             function emitUMDModule(node) {
                 emitEmitHelpers(node);
@@ -39454,8 +39499,8 @@ var ts;
                 emitExportStarHelper();
                 emitCaptureThisForNodeIfNecessary(node);
                 emitLinesStartingAt(node.statements, startIndex);
-                emitTempDeclarations(/*newLine*/ true);
                 emitExportEquals(/*emitAsReturn*/ true);
+                emitTempDeclarations(/*newLine*/ true);
                 decreaseIndent();
                 writeLine();
                 write("});");
