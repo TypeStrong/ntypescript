@@ -356,7 +356,7 @@ declare namespace ts {
         BlockScoped = 3072,
         ReachabilityCheckFlags = 98304,
         EmitHelperFlags = 3932160,
-        ContextFlags = 62914560,
+        ContextFlags = 197132288,
         TypeExcludesFlags = 41943040,
     }
     const enum JsxFlags {

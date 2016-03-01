@@ -380,7 +380,7 @@ var ts;
         NodeFlags[NodeFlags["ReachabilityCheckFlags"] = 98304] = "ReachabilityCheckFlags";
         NodeFlags[NodeFlags["EmitHelperFlags"] = 3932160] = "EmitHelperFlags";
         // Parsing context flags
-        NodeFlags[NodeFlags["ContextFlags"] = 62914560] = "ContextFlags";
+        NodeFlags[NodeFlags["ContextFlags"] = 197132288] = "ContextFlags";
         // Exclude these flags when parsing a Type
         NodeFlags[NodeFlags["TypeExcludesFlags"] = 41943040] = "TypeExcludesFlags";
     })(ts.NodeFlags || (ts.NodeFlags = {}));
@@ -8526,7 +8526,7 @@ var ts;
             // differently depending on what mode it is in.
             //
             // This also applies to all our other context flags as well.
-            var nodeContextFlags = node.flags & 62914560 /* ContextFlags */;
+            var nodeContextFlags = node.flags & 197132288 /* ContextFlags */;
             if (nodeContextFlags !== contextFlags) {
                 return undefined;
             }
@@ -22717,18 +22717,20 @@ var ts;
                     if (!elemClassType || !isTypeAssignableTo(elemInstanceType, elemClassType)) {
                         // Is this is a stateless function component? See if its single signature's return type is
                         // assignable to the JSX Element Type
-                        var elemType = checkExpression(node.tagName);
-                        var callSignatures = elemType && getSignaturesOfType(elemType, 0 /* Call */);
-                        var callSignature = callSignatures && callSignatures.length > 0 && callSignatures[0];
-                        var callReturnType = callSignature && getReturnTypeOfSignature(callSignature);
-                        var paramType = callReturnType && (callSignature.parameters.length === 0 ? emptyObjectType : getTypeOfSymbol(callSignature.parameters[0]));
-                        if (callReturnType && isTypeAssignableTo(callReturnType, jsxElementType)) {
-                            // Intersect in JSX.IntrinsicAttributes if it exists
-                            var intrinsicAttributes = getJsxType(JsxNames.IntrinsicAttributes);
-                            if (intrinsicAttributes !== unknownType) {
-                                paramType = intersectTypes(intrinsicAttributes, paramType);
+                        if (jsxElementType) {
+                            var elemType = checkExpression(node.tagName);
+                            var callSignatures = elemType && getSignaturesOfType(elemType, 0 /* Call */);
+                            var callSignature = callSignatures && callSignatures.length > 0 && callSignatures[0];
+                            var callReturnType = callSignature && getReturnTypeOfSignature(callSignature);
+                            var paramType = callReturnType && (callSignature.parameters.length === 0 ? emptyObjectType : getTypeOfSymbol(callSignature.parameters[0]));
+                            if (callReturnType && isTypeAssignableTo(callReturnType, jsxElementType)) {
+                                // Intersect in JSX.IntrinsicAttributes if it exists
+                                var intrinsicAttributes = getJsxType(JsxNames.IntrinsicAttributes);
+                                if (intrinsicAttributes !== unknownType) {
+                                    paramType = intersectTypes(intrinsicAttributes, paramType);
+                                }
+                                return links.resolvedJsxType = paramType;
                             }
-                            return links.resolvedJsxType = paramType;
                         }
                     }
                     // Issue an error if this return type isn't assignable to JSX.ElementClass
@@ -35753,7 +35755,8 @@ var ts;
                 }
                 // loop is considered simple if it does not have any return statements or break\continue that transfer control outside of the loop
                 // simple loops are emitted as just 'loop()';
-                var isSimpleLoop = !loop.state.nonLocalJumps &&
+                // NOTE: if loop uses only 'continue' it still will be emitted as simple loop
+                var isSimpleLoop = !(loop.state.nonLocalJumps & ~4 /* Continue */) &&
                     !loop.state.labeledNonLocalBreaks &&
                     !loop.state.labeledNonLocalContinues;
                 var loopResult = makeUniqueName("state");
@@ -35786,10 +35789,6 @@ var ts;
                     }
                     if (loop.state.nonLocalJumps & 2 /* Break */) {
                         write("if (" + loopResult + " === \"break\") break;");
-                        writeLine();
-                    }
-                    if (loop.state.nonLocalJumps & 4 /* Continue */) {
-                        write("if (" + loopResult + " === \"continue\") continue;");
                         writeLine();
                     }
                     // in case of labeled breaks emit code that either breaks to some known label inside outer loop or delegates jump decision to outer loop
@@ -36055,6 +36054,7 @@ var ts;
                             }
                             else {
                                 convertedLoopState.nonLocalJumps |= 4 /* Continue */;
+                                // note: return value is emitted only to simplify debugging, call to converted loop body does not do any dispatching on it.     
                                 write("\"continue\";");
                             }
                         }
@@ -49959,7 +49959,7 @@ var ts;
             else if (isRightOfOpenTag) {
                 var tagSymbols = typeChecker.getJsxIntrinsicTagNames();
                 if (tryGetGlobalSymbols()) {
-                    symbols = tagSymbols.concat(symbols.filter(function (s) { return !!(s.flags & 107455 /* Value */); }));
+                    symbols = tagSymbols.concat(symbols.filter(function (s) { return !!(s.flags & (107455 /* Value */ | 8388608 /* Alias */)); }));
                 }
                 else {
                     symbols = tagSymbols;
