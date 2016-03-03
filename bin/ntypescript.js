@@ -1105,6 +1105,14 @@ var ts;
         return hasOwnProperty.call(map, key);
     }
     ts.hasProperty = hasProperty;
+    function getKeys(map) {
+        var keys = [];
+        for (var key in map) {
+            keys.push(key);
+        }
+        return keys;
+    }
+    ts.getKeys = getKeys;
     function getProperty(map, key) {
         return hasOwnProperty.call(map, key) ? map[key] : undefined;
     }
@@ -1571,6 +1579,32 @@ var ts;
         return pathLen > extLen && path.substr(pathLen - extLen, extLen) === extension;
     }
     ts.fileExtensionIs = fileExtensionIs;
+    function ensureScriptKind(fileName, scriptKind) {
+        // Using scriptKind as a condition handles both:
+        // - 'scriptKind' is unspecified and thus it is `undefined`
+        // - 'scriptKind' is set and it is `Unknown` (0)
+        // If the 'scriptKind' is 'undefined' or 'Unknown' then we attempt
+        // to get the ScriptKind from the file name. If it cannot be resolved
+        // from the file name then the default 'TS' script kind is returned.
+        return (scriptKind || getScriptKindFromFileName(fileName)) || 3 /* TS */;
+    }
+    ts.ensureScriptKind = ensureScriptKind;
+    function getScriptKindFromFileName(fileName) {
+        var ext = fileName.substr(fileName.lastIndexOf("."));
+        switch (ext.toLowerCase()) {
+            case ".js":
+                return 1 /* JS */;
+            case ".jsx":
+                return 2 /* JSX */;
+            case ".ts":
+                return 3 /* TS */;
+            case ".tsx":
+                return 4 /* TSX */;
+            default:
+                return 0 /* Unknown */;
+        }
+    }
+    ts.getScriptKindFromFileName = getScriptKindFromFileName;
     /**
      *  List of supported extensions in order of file resolution precedence.
      */
@@ -5326,6 +5360,7 @@ var ts;
         Constructor_of_class_0_is_protected_and_only_accessible_within_the_class_declaration: { code: 2674, category: ts.DiagnosticCategory.Error, key: "Constructor_of_class_0_is_protected_and_only_accessible_within_the_class_declaration_2674", message: "Constructor of class '{0}' is protected and only accessible within the class declaration." },
         Cannot_extend_a_class_0_Class_constructor_is_marked_as_private: { code: 2675, category: ts.DiagnosticCategory.Error, key: "Cannot_extend_a_class_0_Class_constructor_is_marked_as_private_2675", message: "Cannot extend a class '{0}'. Class constructor is marked as private." },
         Accessors_must_both_be_abstract_or_non_abstract: { code: 2676, category: ts.DiagnosticCategory.Error, key: "Accessors_must_both_be_abstract_or_non_abstract_2676", message: "Accessors must both be abstract or non-abstract." },
+        A_type_predicate_s_type_must_be_assignable_to_its_parameter_s_type: { code: 2677, category: ts.DiagnosticCategory.Error, key: "A_type_predicate_s_type_must_be_assignable_to_its_parameter_s_type_2677", message: "A type predicate's type must be assignable to its parameter's type." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -5565,6 +5600,7 @@ var ts;
         A_type_assertion_expression_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_expression_Consider_enclosing_the_expression_in_parentheses: { code: 17007, category: ts.DiagnosticCategory.Error, key: "A_type_assertion_expression_is_not_allowed_in_the_left_hand_side_of_an_exponentiation_expression_Con_17007", message: "A type assertion expression is not allowed in the left-hand side of an exponentiation expression. Consider enclosing the expression in parentheses." },
         JSX_element_0_has_no_corresponding_closing_tag: { code: 17008, category: ts.DiagnosticCategory.Error, key: "JSX_element_0_has_no_corresponding_closing_tag_17008", message: "JSX element '{0}' has no corresponding closing tag." },
         super_must_be_called_before_accessing_this_in_the_constructor_of_a_derived_class: { code: 17009, category: ts.DiagnosticCategory.Error, key: "super_must_be_called_before_accessing_this_in_the_constructor_of_a_derived_class_17009", message: "'super' must be called before accessing 'this' in the constructor of a derived class." },
+        Unknown_typing_option_0: { code: 17010, category: ts.DiagnosticCategory.Error, key: "Unknown_typing_option_0_17010", message: "Unknown typing option '{0}'." },
     };
 })(ts || (ts = {}));
 /// <reference path="core.ts"/>
@@ -7610,23 +7646,6 @@ var ts;
         return result;
     }
     ts.createSourceFile = createSourceFile;
-    /* @internal */
-    function getScriptKindFromFileName(fileName) {
-        var ext = fileName.substr(fileName.lastIndexOf("."));
-        switch (ext.toLowerCase()) {
-            case ".js":
-                return 1 /* JS */;
-            case ".jsx":
-                return 2 /* JSX */;
-            case ".ts":
-                return 3 /* TS */;
-            case ".tsx":
-                return 4 /* TSX */;
-            default:
-                return 3 /* TS */;
-        }
-    }
-    ts.getScriptKindFromFileName = getScriptKindFromFileName;
     // Produces a new SourceFile for the 'newText' provided. The 'textChangeRange' parameter
     // indicates what changed between the 'text' that this SourceFile has and the 'newText'.
     // The SourceFile will be created with the compiler attempting to reuse as many nodes from
@@ -7748,12 +7767,7 @@ var ts;
         // attached to the EOF token.
         var parseErrorBeforeNextFinishedNode = false;
         function parseSourceFile(fileName, _sourceText, languageVersion, _syntaxCursor, setParentNodes, scriptKind) {
-            // Using scriptKind as a condition handles both:
-            // - 'scriptKind' is unspecified and thus it is `undefined`
-            // - 'scriptKind' is set and it is `Unknown` (0)
-            // If the 'scriptKind' is 'undefined' or 'Unknown' then attempt
-            // to get the ScriptKind from the file name.
-            scriptKind = scriptKind ? scriptKind : getScriptKindFromFileName(fileName);
+            scriptKind = ts.ensureScriptKind(fileName, scriptKind);
             initializeState(fileName, _sourceText, languageVersion, _syntaxCursor, scriptKind);
             var result = parseSourceFileWorker(fileName, languageVersion, setParentNodes, scriptKind);
             clearState();
@@ -13766,11 +13780,14 @@ var ts;
         }
         function bindCaseBlock(n) {
             var startState = currentReachabilityState;
-            for (var _i = 0, _a = n.clauses; _i < _a.length; _i++) {
-                var clause = _a[_i];
+            for (var i = 0; i < n.clauses.length; i++) {
+                var clause = n.clauses[i];
                 currentReachabilityState = startState;
                 bind(clause);
-                if (clause.statements.length && currentReachabilityState === 2 /* Reachable */ && options.noFallthroughCasesInSwitch) {
+                if (clause.statements.length &&
+                    i !== n.clauses.length - 1 &&
+                    currentReachabilityState === 2 /* Reachable */ &&
+                    options.noFallthroughCasesInSwitch) {
                     errorOnFirstToken(clause, ts.Diagnostics.Fallthrough_case_in_switch);
                 }
             }
@@ -19543,7 +19560,7 @@ var ts;
             for (var i = 0; i < checkCount; i++) {
                 var s = i < sourceMax ? getTypeOfSymbol(sourceParams[i]) : getRestTypeOfSignature(source);
                 var t = i < targetMax ? getTypeOfSymbol(targetParams[i]) : getRestTypeOfSignature(target);
-                var related = compareTypes(t, s, /*reportErrors*/ false) || compareTypes(s, t, reportErrors);
+                var related = compareTypes(s, t, /*reportErrors*/ false) || compareTypes(t, s, reportErrors);
                 if (!related) {
                     if (reportErrors) {
                         errorReporter(ts.Diagnostics.Types_of_parameters_0_and_1_are_incompatible, sourceParams[i < sourceMax ? i : sourceMax].name, targetParams[i < targetMax ? i : targetMax].name);
@@ -25407,7 +25424,9 @@ var ts;
                         error(parameterName, ts.Diagnostics.A_type_predicate_cannot_reference_a_rest_parameter);
                     }
                     else {
-                        checkTypeAssignableTo(typePredicate.type, getTypeOfNode(parent.parameters[typePredicate.parameterIndex]), node.type);
+                        var leadingError = ts.chainDiagnosticMessages(undefined, ts.Diagnostics.A_type_predicate_s_type_must_be_assignable_to_its_parameter_s_type);
+                        checkTypeAssignableTo(typePredicate.type, getTypeOfNode(parent.parameters[typePredicate.parameterIndex]), node.type, 
+                        /*headMessage*/ undefined, leadingError);
                     }
                 }
                 else if (parameterName) {
@@ -30989,6 +31008,7 @@ var ts;
         return {
             options: options,
             fileNames: getFileNames(),
+            typingOptions: getTypingOptions(),
             errors: errors
         };
         function getFileNames() {
@@ -31048,6 +31068,34 @@ var ts;
             }
             return fileNames;
         }
+        function getTypingOptions() {
+            var options = ts.getBaseFileName(configFileName) === "jsconfig.json"
+                ? { enableAutoDiscovery: true, include: [], exclude: [] }
+                : { enableAutoDiscovery: false, include: [], exclude: [] };
+            var jsonTypingOptions = json["typingOptions"];
+            if (jsonTypingOptions) {
+                for (var id in jsonTypingOptions) {
+                    if (id === "enableAutoDiscovery") {
+                        if (typeof jsonTypingOptions[id] === "boolean") {
+                            options.enableAutoDiscovery = jsonTypingOptions[id];
+                        }
+                        else {
+                            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_typing_option_0, id));
+                        }
+                    }
+                    else if (id === "include") {
+                        options.include = convertJsonOptionToStringArray(id, jsonTypingOptions[id], errors);
+                    }
+                    else if (id === "exclude") {
+                        options.exclude = convertJsonOptionToStringArray(id, jsonTypingOptions[id], errors);
+                    }
+                    else {
+                        errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_typing_option_0, id));
+                    }
+                }
+            }
+            return options;
+        }
     }
     ts.parseJsonConfigFileContent = parseJsonConfigFileContent;
     function convertCompilerOptionsFromJson(jsonOptions, basePath, configFileName) {
@@ -31084,29 +31132,7 @@ var ts;
                                 break;
                             case "object":
                                 // "object" options with 'isFilePath' = true expected to be string arrays
-                                var paths = [];
-                                var invalidOptionType = false;
-                                if (!ts.isArray(value)) {
-                                    invalidOptionType = true;
-                                }
-                                else {
-                                    for (var _i = 0, _a = value; _i < _a.length; _i++) {
-                                        var element = _a[_i];
-                                        if (typeof element === "string") {
-                                            paths.push(ts.normalizePath(ts.combinePaths(basePath, element)));
-                                        }
-                                        else {
-                                            invalidOptionType = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                                if (invalidOptionType) {
-                                    errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_should_have_array_of_strings_as_a_value, opt.name));
-                                }
-                                else {
-                                    value = paths;
-                                }
+                                value = convertJsonOptionToStringArray(opt.name, value, errors, function (element) { return ts.normalizePath(ts.combinePaths(basePath, element)); });
                                 break;
                         }
                         if (value === "") {
@@ -31126,6 +31152,30 @@ var ts;
         return { options: options, errors: errors };
     }
     ts.convertCompilerOptionsFromJson = convertCompilerOptionsFromJson;
+    function convertJsonOptionToStringArray(optionName, optionJson, errors, func) {
+        var items = [];
+        var invalidOptionType = false;
+        if (!ts.isArray(optionJson)) {
+            invalidOptionType = true;
+        }
+        else {
+            for (var _i = 0, _a = optionJson; _i < _a.length; _i++) {
+                var element = _a[_i];
+                if (typeof element === "string") {
+                    var item = func ? func(element) : element;
+                    items.push(item);
+                }
+                else {
+                    invalidOptionType = true;
+                    break;
+                }
+            }
+        }
+        if (invalidOptionType) {
+            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_should_have_array_of_strings_as_a_value, optionName));
+        }
+        return items;
+    }
 })(ts || (ts = {}));
 /// <reference path="checker.ts"/>
 /* @internal */
@@ -45068,6 +45118,214 @@ var ts;
         return name;
     }
     ts.stripQuotes = stripQuotes;
+    function scriptKindIs(fileName, host) {
+        var scriptKinds = [];
+        for (var _i = 2; _i < arguments.length; _i++) {
+            scriptKinds[_i - 2] = arguments[_i];
+        }
+        var scriptKind = getScriptKind(fileName, host);
+        return ts.forEach(scriptKinds, function (k) { return k === scriptKind; });
+    }
+    ts.scriptKindIs = scriptKindIs;
+    function getScriptKind(fileName, host) {
+        // First check to see if the script kind can be determined from the file name
+        var scriptKind = ts.getScriptKindFromFileName(fileName);
+        if (scriptKind === 0 /* Unknown */ && host && host.getScriptKind) {
+            // Next check to see if the host can resolve the script kind
+            scriptKind = host.getScriptKind(fileName);
+        }
+        return ts.ensureScriptKind(fileName, scriptKind);
+    }
+    ts.getScriptKind = getScriptKind;
+})(ts || (ts = {}));
+// Copyright (c) Microsoft. All rights reserved. Licensed under the Apache License, Version 2.0.
+// See LICENSE.txt in the project root for complete license information.
+/// <reference path='services.ts' />
+/* @internal */
+var ts;
+(function (ts) {
+    var JsTyping;
+    (function (JsTyping) {
+        ;
+        ;
+        // A map of loose file names to library names
+        // that we are confident require typings
+        var safeList;
+        /**
+         * @param host is the object providing I/O related operations.
+         * @param fileNames are the file names that belong to the same project
+         * @param cachePath is the path to the typings cache
+         * @param projectRootPath is the path to the project root directory
+         * @param safeListPath is the path used to retrieve the safe list
+         * @param packageNameToTypingLocation is the map of package names to their cached typing locations
+         * @param typingOptions are used to customize the typing inference process
+         * @param compilerOptions are used as a source for typing inference
+         */
+        function discoverTypings(host, fileNames, cachePath, projectRootPath, safeListPath, packageNameToTypingLocation, typingOptions, compilerOptions) {
+            // A typing name to typing file path mapping
+            var inferredTypings = {};
+            if (!typingOptions || !typingOptions.enableAutoDiscovery) {
+                return { cachedTypingPaths: [], newTypingNames: [], filesToWatch: [] };
+            }
+            // Only infer typings for .js and .jsx files
+            fileNames = ts.filter(ts.map(fileNames, ts.normalizePath), function (f) { return ts.scriptKindIs(f, /*LanguageServiceHost*/ undefined, 1 /* JS */, 2 /* JSX */); });
+            if (!safeList) {
+                var result = ts.readConfigFile(safeListPath, function (path) { return host.readFile(path); });
+                if (result.config) {
+                    safeList = result.config;
+                }
+                else {
+                    safeList = {};
+                }
+                ;
+            }
+            var filesToWatch = [];
+            // Directories to search for package.json, bower.json and other typing information
+            var searchDirs = [];
+            var exclude = [];
+            mergeTypings(typingOptions.include);
+            exclude = typingOptions.exclude || [];
+            var possibleSearchDirs = ts.map(fileNames, ts.getDirectoryPath);
+            if (projectRootPath !== undefined) {
+                possibleSearchDirs.push(projectRootPath);
+            }
+            searchDirs = ts.deduplicate(possibleSearchDirs);
+            for (var _i = 0, searchDirs_1 = searchDirs; _i < searchDirs_1.length; _i++) {
+                var searchDir = searchDirs_1[_i];
+                var packageJsonPath = ts.combinePaths(searchDir, "package.json");
+                getTypingNamesFromJson(packageJsonPath, filesToWatch);
+                var bowerJsonPath = ts.combinePaths(searchDir, "bower.json");
+                getTypingNamesFromJson(bowerJsonPath, filesToWatch);
+                var nodeModulesPath = ts.combinePaths(searchDir, "node_modules");
+                getTypingNamesFromNodeModuleFolder(nodeModulesPath);
+            }
+            getTypingNamesFromSourceFileNames(fileNames);
+            // Add the cached typing locations for inferred typings that are already installed
+            for (var name_36 in packageNameToTypingLocation) {
+                if (ts.hasProperty(inferredTypings, name_36) && !inferredTypings[name_36]) {
+                    inferredTypings[name_36] = packageNameToTypingLocation[name_36];
+                }
+            }
+            // Remove typings that the user has added to the exclude list
+            for (var _a = 0, exclude_1 = exclude; _a < exclude_1.length; _a++) {
+                var excludeTypingName = exclude_1[_a];
+                delete inferredTypings[excludeTypingName];
+            }
+            var newTypingNames = [];
+            var cachedTypingPaths = [];
+            for (var typing in inferredTypings) {
+                if (inferredTypings[typing] !== undefined) {
+                    cachedTypingPaths.push(inferredTypings[typing]);
+                }
+                else {
+                    newTypingNames.push(typing);
+                }
+            }
+            return { cachedTypingPaths: cachedTypingPaths, newTypingNames: newTypingNames, filesToWatch: filesToWatch };
+            /**
+             * Merge a given list of typingNames to the inferredTypings map
+             */
+            function mergeTypings(typingNames) {
+                if (!typingNames) {
+                    return;
+                }
+                for (var _i = 0, typingNames_1 = typingNames; _i < typingNames_1.length; _i++) {
+                    var typing = typingNames_1[_i];
+                    if (!ts.hasProperty(inferredTypings, typing)) {
+                        inferredTypings[typing] = undefined;
+                    }
+                }
+            }
+            /**
+             * Get the typing info from common package manager json files like package.json or bower.json
+             */
+            function getTypingNamesFromJson(jsonPath, filesToWatch) {
+                var result = ts.readConfigFile(jsonPath, function (path) { return host.readFile(path); });
+                if (result.config) {
+                    var jsonConfig = result.config;
+                    filesToWatch.push(jsonPath);
+                    if (jsonConfig.dependencies) {
+                        mergeTypings(ts.getKeys(jsonConfig.dependencies));
+                    }
+                    if (jsonConfig.devDependencies) {
+                        mergeTypings(ts.getKeys(jsonConfig.devDependencies));
+                    }
+                    if (jsonConfig.optionalDependencies) {
+                        mergeTypings(ts.getKeys(jsonConfig.optionalDependencies));
+                    }
+                    if (jsonConfig.peerDependencies) {
+                        mergeTypings(ts.getKeys(jsonConfig.peerDependencies));
+                    }
+                }
+            }
+            /**
+             * Infer typing names from given file names. For example, the file name "jquery-min.2.3.4.js"
+             * should be inferred to the 'jquery' typing name; and "angular-route.1.2.3.js" should be inferred
+             * to the 'angular-route' typing name.
+             * @param fileNames are the names for source files in the project
+             */
+            function getTypingNamesFromSourceFileNames(fileNames) {
+                var jsFileNames = ts.filter(fileNames, ts.hasJavaScriptFileExtension);
+                var inferredTypingNames = ts.map(jsFileNames, function (f) { return ts.removeFileExtension(ts.getBaseFileName(f.toLowerCase())); });
+                var cleanedTypingNames = ts.map(inferredTypingNames, function (f) { return f.replace(/((?:\.|-)min(?=\.|$))|((?:-|\.)\d+)/g, ""); });
+                if (safeList === undefined) {
+                    mergeTypings(cleanedTypingNames);
+                }
+                else {
+                    mergeTypings(ts.filter(cleanedTypingNames, function (f) { return ts.hasProperty(safeList, f); }));
+                }
+                var hasJsxFile = ts.forEach(fileNames, function (f) { return ts.scriptKindIs(f, /*LanguageServiceHost*/ undefined, 2 /* JSX */); });
+                if (hasJsxFile) {
+                    mergeTypings(["react"]);
+                }
+            }
+            /**
+             * Infer typing names from node_module folder
+             * @param nodeModulesPath is the path to the "node_modules" folder
+             */
+            function getTypingNamesFromNodeModuleFolder(nodeModulesPath) {
+                // Todo: add support for ModuleResolutionHost too
+                if (!host.directoryExists(nodeModulesPath)) {
+                    return;
+                }
+                var typingNames = [];
+                var fileNames = host.readDirectory(nodeModulesPath, "*.json", /*exclude*/ undefined, /*depth*/ 2);
+                for (var _i = 0, fileNames_1 = fileNames; _i < fileNames_1.length; _i++) {
+                    var fileName = fileNames_1[_i];
+                    var normalizedFileName = ts.normalizePath(fileName);
+                    if (ts.getBaseFileName(normalizedFileName) !== "package.json") {
+                        continue;
+                    }
+                    var result = ts.readConfigFile(normalizedFileName, function (path) { return host.readFile(path); });
+                    if (!result.config) {
+                        continue;
+                    }
+                    var packageJson = result.config;
+                    // npm 3's package.json contains a "_requiredBy" field
+                    // we should include all the top level module names for npm 2, and only module names whose
+                    // "_requiredBy" field starts with "#" or equals "/" for npm 3.
+                    if (packageJson._requiredBy &&
+                        ts.filter(packageJson._requiredBy, function (r) { return r[0] === "#" || r === "/"; }).length === 0) {
+                        continue;
+                    }
+                    // If the package has its own d.ts typings, those will take precedence. Otherwise the package name will be used
+                    // to download d.ts files from DefinitelyTyped
+                    if (!packageJson.name) {
+                        continue;
+                    }
+                    if (packageJson.typings) {
+                        var absolutePath = ts.getNormalizedAbsolutePath(packageJson.typings, ts.getDirectoryPath(normalizedFileName));
+                        inferredTypings[packageJson.name] = absolutePath;
+                    }
+                    else {
+                        typingNames.push(packageJson.name);
+                    }
+                }
+                mergeTypings(typingNames);
+            }
+        }
+        JsTyping.discoverTypings = discoverTypings;
+    })(JsTyping = ts.JsTyping || (ts.JsTyping = {}));
 })(ts || (ts = {}));
 /// <reference path="formatting.ts"/>
 /// <reference path="..\..\compiler\scanner.ts"/>
@@ -45778,9 +46036,9 @@ var ts;
             }
             Rules.prototype.getRuleName = function (rule) {
                 var o = this;
-                for (var name_36 in o) {
-                    if (o[name_36] === rule) {
-                        return name_36;
+                for (var name_37 in o) {
+                    if (o[name_37] === rule) {
+                        return name_37;
                     }
                 }
                 throw new Error("Unknown rule");
@@ -47782,6 +48040,7 @@ var ts;
 /// <reference path='patternMatcher.ts' />
 /// <reference path='signatureHelp.ts' />
 /// <reference path='utilities.ts' />
+/// <reference path='jsTyping.ts' />
 /// <reference path='formatting\formatting.ts' />
 /// <reference path='formatting\smartIndenter.ts' />
 var ts;
@@ -48770,14 +49029,13 @@ var ts;
         };
         HostCache.prototype.createEntry = function (fileName, path) {
             var entry;
-            var scriptKind = this.host.getScriptKind ? this.host.getScriptKind(fileName) : 0 /* Unknown */;
             var scriptSnapshot = this.host.getScriptSnapshot(fileName);
             if (scriptSnapshot) {
                 entry = {
                     hostFileName: fileName,
                     version: this.host.getScriptVersion(fileName),
                     scriptSnapshot: scriptSnapshot,
-                    scriptKind: scriptKind ? scriptKind : ts.getScriptKindFromFileName(fileName)
+                    scriptKind: ts.getScriptKind(fileName, this.host)
                 };
             }
             this.fileNameToEntry.set(path, entry);
@@ -48825,7 +49083,7 @@ var ts;
                 // The host does not know about this file.
                 throw new Error("Could not find file: '" + fileName + "'.");
             }
-            var scriptKind = this.host.getScriptKind ? this.host.getScriptKind(fileName) : 0 /* Unknown */;
+            var scriptKind = ts.getScriptKind(fileName, this.host);
             var version = this.host.getScriptVersion(fileName);
             var sourceFile;
             if (this.currentFileName !== fileName) {
@@ -50489,8 +50747,8 @@ var ts;
                     if (element.getStart() <= position && position <= element.getEnd()) {
                         continue;
                     }
-                    var name_37 = element.propertyName || element.name;
-                    existingImportsOrExports[name_37.text] = true;
+                    var name_38 = element.propertyName || element.name;
+                    existingImportsOrExports[name_38.text] = true;
                 }
                 if (ts.isEmpty(existingImportsOrExports)) {
                     return exportsOfModule;
@@ -50607,14 +50865,14 @@ var ts;
                 var entries = [];
                 var target = program.getCompilerOptions().target;
                 var nameTable = getNameTable(sourceFile);
-                for (var name_38 in nameTable) {
+                for (var name_39 in nameTable) {
                     // Skip identifiers produced only from the current location
-                    if (nameTable[name_38] === position) {
+                    if (nameTable[name_39] === position) {
                         continue;
                     }
-                    if (!uniqueNames[name_38]) {
-                        uniqueNames[name_38] = name_38;
-                        var displayName = getCompletionEntryDisplayName(name_38, target, /*performCharacterChecks*/ true);
+                    if (!uniqueNames[name_39]) {
+                        uniqueNames[name_39] = name_39;
+                        var displayName = getCompletionEntryDisplayName(name_39, target, /*performCharacterChecks*/ true);
                         if (displayName) {
                             var entry = {
                                 name: displayName,
@@ -52573,19 +52831,19 @@ var ts;
                 if (isNameOfPropertyAssignment(node)) {
                     var objectLiteral = node.parent.parent;
                     var contextualType = typeChecker.getContextualType(objectLiteral);
-                    var name_39 = node.text;
+                    var name_40 = node.text;
                     if (contextualType) {
                         if (contextualType.flags & 16384 /* Union */) {
                             // This is a union type, first see if the property we are looking for is a union property (i.e. exists in all types)
                             // if not, search the constituent types for the property
-                            var unionProperty = contextualType.getProperty(name_39);
+                            var unionProperty = contextualType.getProperty(name_40);
                             if (unionProperty) {
                                 return [unionProperty];
                             }
                             else {
                                 var result_5 = [];
                                 ts.forEach(contextualType.types, function (t) {
-                                    var symbol = t.getProperty(name_39);
+                                    var symbol = t.getProperty(name_40);
                                     if (symbol) {
                                         result_5.push(symbol);
                                     }
@@ -52594,7 +52852,7 @@ var ts;
                             }
                         }
                         else {
-                            var symbol_1 = contextualType.getProperty(name_39);
+                            var symbol_1 = contextualType.getProperty(name_40);
                             if (symbol_1) {
                                 return [symbol_1];
                             }
@@ -55037,8 +55295,16 @@ var ts;
                 this.directoryExists = function (directoryName) { return _this.shimHost.directoryExists(directoryName); };
             }
         }
-        CoreServicesShimHostAdapter.prototype.readDirectory = function (rootDir, extension, exclude) {
-            var encoded = this.shimHost.readDirectory(rootDir, extension, JSON.stringify(exclude));
+        CoreServicesShimHostAdapter.prototype.readDirectory = function (rootDir, extension, exclude, depth) {
+            // Wrap the API changes for 2.0 release. This try/catch
+            // should be removed once TypeScript 2.0 has shipped.
+            var encoded;
+            try {
+                encoded = this.shimHost.readDirectory(rootDir, extension, JSON.stringify(exclude), depth);
+            }
+            catch (e) {
+                encoded = this.shimHost.readDirectory(rootDir, extension, JSON.stringify(exclude));
+            }
             return JSON.parse(encoded);
         };
         CoreServicesShimHostAdapter.prototype.fileExists = function (fileName) {
@@ -55441,6 +55707,7 @@ var ts;
                 if (result.error) {
                     return {
                         options: {},
+                        typingOptions: {},
                         files: [],
                         errors: [realizeDiagnostic(result.error, "\r\n")]
                     };
@@ -55449,6 +55716,7 @@ var ts;
                 var configFile = ts.parseJsonConfigFileContent(result.config, _this.host, ts.getDirectoryPath(normalizedFileName), /*existingOptions*/ {}, normalizedFileName);
                 return {
                     options: configFile.options,
+                    typingOptions: configFile.typingOptions,
                     files: configFile.fileNames,
                     errors: realizeDiagnostics(configFile.errors, "\r\n")
                 };
@@ -55456,6 +55724,14 @@ var ts;
         };
         CoreServicesShimObject.prototype.getDefaultCompilationSettings = function () {
             return this.forwardJSONCall("getDefaultCompilationSettings()", function () { return ts.getDefaultCompilerOptions(); });
+        };
+        CoreServicesShimObject.prototype.discoverTypings = function (discoverTypingsJson) {
+            var _this = this;
+            var getCanonicalFileName = ts.createGetCanonicalFileName(/*useCaseSensitivefileNames:*/ false);
+            return this.forwardJSONCall("discoverTypings()", function () {
+                var info = JSON.parse(discoverTypingsJson);
+                return ts.JsTyping.discoverTypings(_this.host, info.fileNames, ts.toPath(info.cachePath, info.cachePath, getCanonicalFileName), ts.toPath(info.projectRootPath, info.projectRootPath, getCanonicalFileName), ts.toPath(info.safeListPath, info.safeListPath, getCanonicalFileName), info.packageNameToTypingLocation, info.typingOptions, info.compilerOptions);
+            });
         };
         return CoreServicesShimObject;
     }(ShimBase));

@@ -5337,7 +5337,7 @@ namespace ts {
             for (let i = 0; i < checkCount; i++) {
                 const s = i < sourceMax ? getTypeOfSymbol(sourceParams[i]) : getRestTypeOfSignature(source);
                 const t = i < targetMax ? getTypeOfSymbol(targetParams[i]) : getRestTypeOfSignature(target);
-                const related = compareTypes(t, s, /*reportErrors*/ false) || compareTypes(s, t, reportErrors);
+                const related = compareTypes(s, t, /*reportErrors*/ false) || compareTypes(t, s, reportErrors);
                 if (!related) {
                     if (reportErrors) {
                         errorReporter(Diagnostics.Types_of_parameters_0_and_1_are_incompatible,
@@ -11815,9 +11815,12 @@ namespace ts {
                             Diagnostics.A_type_predicate_cannot_reference_a_rest_parameter);
                     }
                     else {
+                        const leadingError = chainDiagnosticMessages(undefined, Diagnostics.A_type_predicate_s_type_must_be_assignable_to_its_parameter_s_type);
                         checkTypeAssignableTo(typePredicate.type,
                             getTypeOfNode(parent.parameters[typePredicate.parameterIndex]),
-                            node.type);
+                            node.type,
+                            /*headMessage*/ undefined,
+                            leadingError);
                     }
                 }
                 else if (parameterName) {

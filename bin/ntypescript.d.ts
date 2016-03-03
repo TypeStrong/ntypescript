@@ -1731,6 +1731,21 @@ declare namespace ts {
         suppressOutputPathCheck?: boolean;
         [option: string]: string | number | boolean | TsConfigOnlyOptions;
     }
+    interface TypingOptions {
+        enableAutoDiscovery?: boolean;
+        include?: string[];
+        exclude?: string[];
+        [option: string]: string[] | boolean;
+    }
+    interface DiscoverTypingsInfo {
+        fileNames: string[];
+        cachePath: string;
+        projectRootPath: string;
+        safeListPath: string;
+        packageNameToTypingLocation: Map<string>;
+        typingOptions: TypingOptions;
+        compilerOptions: CompilerOptions;
+    }
     enum ModuleKind {
         None = 0,
         CommonJS = 1,
@@ -1777,6 +1792,7 @@ declare namespace ts {
     }
     interface ParsedCommandLine {
         options: CompilerOptions;
+        typingOptions?: TypingOptions;
         fileNames: string[];
         errors: Diagnostic[];
     }
@@ -2023,6 +2039,7 @@ declare namespace ts {
     function reduceRight<T>(array: T[], f: (a: T, x: T) => T): T;
     function reduceRight<T, U>(array: T[], f: (a: U, x: T) => U, initial: U): U;
     function hasProperty<T>(map: Map<T>, key: string): boolean;
+    function getKeys<T>(map: Map<T>): string[];
     function getProperty<T>(map: Map<T>, key: string): T;
     function isEmpty<T>(map: Map<T>): boolean;
     function clone<T>(object: T): T;
@@ -2081,6 +2098,8 @@ declare namespace ts {
     function getBaseFileName(path: string): string;
     function combinePaths(path1: string, path2: string): string;
     function fileExtensionIs(path: string, extension: string): boolean;
+    function ensureScriptKind(fileName: string, scriptKind?: ScriptKind): ScriptKind;
+    function getScriptKindFromFileName(fileName: string): ScriptKind;
     /**
      *  List of supported extensions in order of file resolution precedence.
      */
@@ -5233,6 +5252,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        A_type_predicate_s_type_must_be_assignable_to_its_parameter_s_type: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;
@@ -6667,6 +6692,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Unknown_typing_option_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
     };
 }
 declare namespace ts {
@@ -6737,7 +6768,6 @@ declare namespace ts {
     function createNode(kind: SyntaxKind, pos?: number, end?: number): Node;
     function forEachChild<T>(node: Node, cbNode: (node: Node) => T, cbNodeArray?: (nodes: Node[]) => T): T;
     function createSourceFile(fileName: string, sourceText: string, languageVersion: ScriptTarget, setParentNodes?: boolean, scriptKind?: ScriptKind): SourceFile;
-    function getScriptKindFromFileName(fileName: string): ScriptKind;
     function updateSourceFile(sourceFile: SourceFile, newText: string, textChangeRange: TextChangeRange, aggressiveChecks?: boolean): SourceFile;
     function parseIsolatedJSDocComment(content: string, start?: number, length?: number): {
         jsDocComment: JSDocComment;
@@ -6973,6 +7003,31 @@ declare namespace ts {
      * @return non-quoted string
      */
     function stripQuotes(name: string): string;
+    function scriptKindIs(fileName: string, host: LanguageServiceHost, ...scriptKinds: ScriptKind[]): boolean;
+    function getScriptKind(fileName: string, host?: LanguageServiceHost): ScriptKind;
+}
+declare namespace ts.JsTyping {
+    interface TypingResolutionHost {
+        directoryExists: (path: string) => boolean;
+        fileExists: (fileName: string) => boolean;
+        readFile: (path: string, encoding?: string) => string;
+        readDirectory: (path: string, extension?: string, exclude?: string[], depth?: number) => string[];
+    }
+    /**
+     * @param host is the object providing I/O related operations.
+     * @param fileNames are the file names that belong to the same project
+     * @param cachePath is the path to the typings cache
+     * @param projectRootPath is the path to the project root directory
+     * @param safeListPath is the path used to retrieve the safe list
+     * @param packageNameToTypingLocation is the map of package names to their cached typing locations
+     * @param typingOptions are used to customize the typing inference process
+     * @param compilerOptions are used as a source for typing inference
+     */
+    function discoverTypings(host: TypingResolutionHost, fileNames: string[], cachePath: Path, projectRootPath: Path, safeListPath: Path, packageNameToTypingLocation: Map<string>, typingOptions: TypingOptions, compilerOptions: CompilerOptions): {
+        cachedTypingPaths: string[];
+        newTypingNames: string[];
+        filesToWatch: string[];
+    };
 }
 declare namespace ts.formatting {
     interface FormattingScanner {
@@ -8030,7 +8085,7 @@ declare namespace ts {
          * @param exclude A JSON encoded string[] containing the paths to exclude
          *  when enumerating the directory.
          */
-        readDirectory(rootDir: string, extension: string, exclude?: string): string;
+        readDirectory(rootDir: string, extension: string, exclude?: string, depth?: number): string;
         trace(s: string): void;
     }
     interface IFileReference {
@@ -8147,6 +8202,7 @@ declare namespace ts {
         getPreProcessedFileInfo(fileName: string, sourceText: IScriptSnapshot): string;
         getTSConfigFileInfo(fileName: string, sourceText: IScriptSnapshot): string;
         getDefaultCompilationSettings(): string;
+        discoverTypings(discoverTypingsJson: string): string;
     }
     class LanguageServiceShimHostAdapter implements LanguageServiceHost {
         private shimHost;
@@ -8175,7 +8231,7 @@ declare namespace ts {
         private shimHost;
         directoryExists: (directoryName: string) => boolean;
         constructor(shimHost: CoreServicesShimHost);
-        readDirectory(rootDir: string, extension: string, exclude: string[]): string[];
+        readDirectory(rootDir: string, extension: string, exclude: string[], depth?: number): string[];
         fileExists(fileName: string): boolean;
         readFile(fileName: string): string;
     }
