@@ -10708,7 +10708,7 @@ var ts;
         }
         function tryParseAccessorDeclaration(fullStart, decorators, modifiers) {
             if (parseContextualModifier(123 /* GetKeyword */)) {
-                return parseAccessorDeclaration(147 /* GetAccessor */, fullStart, decorators, modifiers);
+                return addJSDocComment(parseAccessorDeclaration(147 /* GetAccessor */, fullStart, decorators, modifiers));
             }
             else if (parseContextualModifier(130 /* SetKeyword */)) {
                 return parseAccessorDeclaration(148 /* SetAccessor */, fullStart, decorators, modifiers);
@@ -17377,11 +17377,17 @@ var ts;
         function getTypeOfAccessors(symbol) {
             var links = getSymbolLinks(symbol);
             if (!links.type) {
+                var getter = ts.getDeclarationOfKind(symbol, 147 /* GetAccessor */);
+                var setter = ts.getDeclarationOfKind(symbol, 148 /* SetAccessor */);
+                if (getter && getter.flags & 134217728 /* JavaScriptFile */) {
+                    var jsDocType = getTypeForVariableLikeDeclarationFromJSDocComment(getter);
+                    if (jsDocType) {
+                        return links.type = jsDocType;
+                    }
+                }
                 if (!pushTypeResolution(symbol, 0 /* Type */)) {
                     return unknownType;
                 }
-                var getter = ts.getDeclarationOfKind(symbol, 147 /* GetAccessor */);
-                var setter = ts.getDeclarationOfKind(symbol, 148 /* SetAccessor */);
                 var type = void 0;
                 // First try to see if the user specified a return type on the get-accessor.
                 var getterReturnType = getAnnotatedAccessorType(getter);
@@ -20718,6 +20724,7 @@ var ts;
         function inferTypes(context, source, target) {
             var sourceStack;
             var targetStack;
+            var maxDepth = 5;
             var depth = 0;
             var inferiority = 0;
             var visited = {};
@@ -20844,6 +20851,11 @@ var ts;
                         // If source is an object type, and target is a type reference with type arguments, a tuple type,
                         // the type of a method, or a type literal, infer from members
                         if (isInProcess(source, target)) {
+                            return;
+                        }
+                        // we delibirately limit the depth we examine to infer types: this speeds up the overall inference process
+                        // and user rarely expects inferences to be made from the deeply nested constituents.
+                        if (depth > maxDepth) {
                             return;
                         }
                         if (isDeeplyNestedGeneric(source, sourceStack, depth) && isDeeplyNestedGeneric(target, targetStack, depth)) {
@@ -27189,11 +27201,11 @@ var ts;
                     grammarErrorOnFirstToken(node, ts.Diagnostics.A_return_statement_can_only_be_used_within_a_function_body);
                 }
             }
-            if (node.expression) {
-                var func = ts.getContainingFunction(node);
-                if (func) {
-                    var signature = getSignatureFromDeclaration(func);
-                    var returnType = getReturnTypeOfSignature(signature);
+            var func = ts.getContainingFunction(node);
+            if (func) {
+                var signature = getSignatureFromDeclaration(func);
+                var returnType = getReturnTypeOfSignature(signature);
+                if (node.expression) {
                     var exprType = checkExpressionCached(node.expression);
                     if (func.asteriskToken) {
                         // A generator does not need its return expressions checked against its return type.
@@ -27225,6 +27237,10 @@ var ts;
                             checkTypeAssignableTo(exprType, returnType, node.expression);
                         }
                     }
+                }
+                else if (compilerOptions.noImplicitReturns && !maybeTypeOfKind(returnType, 16 /* Void */ | 1 /* Any */)) {
+                    // The function has a return type, but the return statement doesn't have an expression.
+                    error(node, ts.Diagnostics.Not_all_code_paths_return_a_value);
                 }
             }
         }
@@ -42123,6 +42139,10 @@ var ts;
                 ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                 return;
             }
+            if (isWatchSet(configParseResult.options) && !ts.sys.watchFile) {
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* compilerHost */ undefined);
+                ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
+            }
             return configParseResult;
         }
         // Invoked to perform initial compilation or re-compilation in watch mode
@@ -42172,7 +42192,7 @@ var ts;
             }
             // Use default host function
             var sourceFile = hostGetSourceFile(fileName, languageVersion, onError);
-            if (sourceFile && isWatchSet(compilerOptions)) {
+            if (sourceFile && isWatchSet(compilerOptions) && ts.sys.watchFile) {
                 // Attach a file watcher
                 var filePath = ts.toPath(sourceFile.fileName, ts.sys.getCurrentDirectory(), ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames));
                 sourceFile.fileWatcher = ts.sys.watchFile(filePath, function (fileName, removed) { return sourceFileChanged(sourceFile, removed); });
@@ -45154,14 +45174,13 @@ var ts;
         /**
          * @param host is the object providing I/O related operations.
          * @param fileNames are the file names that belong to the same project
-         * @param cachePath is the path to the typings cache
          * @param projectRootPath is the path to the project root directory
          * @param safeListPath is the path used to retrieve the safe list
          * @param packageNameToTypingLocation is the map of package names to their cached typing locations
          * @param typingOptions are used to customize the typing inference process
          * @param compilerOptions are used as a source for typing inference
          */
-        function discoverTypings(host, fileNames, cachePath, projectRootPath, safeListPath, packageNameToTypingLocation, typingOptions, compilerOptions) {
+        function discoverTypings(host, fileNames, projectRootPath, safeListPath, packageNameToTypingLocation, typingOptions, compilerOptions) {
             // A typing name to typing file path mapping
             var inferredTypings = {};
             if (!typingOptions || !typingOptions.enableAutoDiscovery) {
@@ -55730,7 +55749,7 @@ var ts;
             var getCanonicalFileName = ts.createGetCanonicalFileName(/*useCaseSensitivefileNames:*/ false);
             return this.forwardJSONCall("discoverTypings()", function () {
                 var info = JSON.parse(discoverTypingsJson);
-                return ts.JsTyping.discoverTypings(_this.host, info.fileNames, ts.toPath(info.cachePath, info.cachePath, getCanonicalFileName), ts.toPath(info.projectRootPath, info.projectRootPath, getCanonicalFileName), ts.toPath(info.safeListPath, info.safeListPath, getCanonicalFileName), info.packageNameToTypingLocation, info.typingOptions, info.compilerOptions);
+                return ts.JsTyping.discoverTypings(_this.host, info.fileNames, ts.toPath(info.projectRootPath, info.projectRootPath, getCanonicalFileName), ts.toPath(info.safeListPath, info.safeListPath, getCanonicalFileName), info.packageNameToTypingLocation, info.typingOptions, info.compilerOptions);
             });
         };
         return CoreServicesShimObject;
