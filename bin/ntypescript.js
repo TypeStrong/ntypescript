@@ -16179,7 +16179,7 @@ var ts;
         function isEntityNameVisible(entityName, enclosingDeclaration) {
             // get symbol of the first identifier of the entityName
             var meaning;
-            if (entityName.parent.kind === 156 /* TypeQuery */) {
+            if (entityName.parent.kind === 156 /* TypeQuery */ || ts.isExpressionWithTypeArgumentsInClassExtendsClause(entityName.parent)) {
                 // Typeof value
                 meaning = 107455 /* Value */ | 1048576 /* ExportValue */;
             }
@@ -16899,7 +16899,7 @@ var ts;
                     case 231 /* ExportAssignment */:
                         return false;
                     default:
-                        ts.Debug.fail("isDeclarationVisible unknown: SyntaxKind: " + node.kind);
+                        return false;
                 }
             }
         }
@@ -29346,8 +29346,14 @@ var ts;
             getSymbolDisplayBuilder().buildTypeDisplay(getReturnTypeOfSignature(signature), writer, enclosingDeclaration, flags);
         }
         function writeTypeOfExpression(expr, enclosingDeclaration, flags, writer) {
-            var type = getTypeOfExpression(expr);
+            var type = getWidenedType(getTypeOfExpression(expr));
             getSymbolDisplayBuilder().buildTypeDisplay(type, writer, enclosingDeclaration, flags);
+        }
+        function writeBaseConstructorTypeOfClass(node, enclosingDeclaration, flags, writer) {
+            var classType = getDeclaredTypeOfSymbol(getSymbolOfNode(node));
+            resolveBaseTypesOfClass(classType);
+            var baseType = classType.resolvedBaseTypes.length ? classType.resolvedBaseTypes[0] : unknownType;
+            getSymbolDisplayBuilder().buildTypeDisplay(baseType, writer, enclosingDeclaration, flags);
         }
         function hasGlobalName(name) {
             return ts.hasProperty(globals, name);
@@ -29378,6 +29384,7 @@ var ts;
                 writeTypeOfDeclaration: writeTypeOfDeclaration,
                 writeReturnTypeOfSignatureDeclaration: writeReturnTypeOfSignatureDeclaration,
                 writeTypeOfExpression: writeTypeOfExpression,
+                writeBaseConstructorTypeOfClass: writeBaseConstructorTypeOfClass,
                 isSymbolAccessible: isSymbolAccessible,
                 isEntityNameVisible: isEntityNameVisible,
                 getConstantValue: getConstantValue,
@@ -32055,6 +32062,10 @@ var ts;
                 }
                 else if (!isImplementsList && node.expression.kind === 93 /* NullKeyword */) {
                     write("null");
+                }
+                else {
+                    writer.getSymbolAccessibilityDiagnostic = getHeritageClauseVisibilityError;
+                    resolver.writeBaseConstructorTypeOfClass(enclosingDeclaration, enclosingDeclaration, 2 /* UseTypeOfFunction */, writer);
                 }
                 function getHeritageClauseVisibilityError(symbolAccessibilityResult) {
                     var diagnosticMessage;
