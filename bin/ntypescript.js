@@ -2477,9 +2477,9 @@ var ts;
         }
         switch (node.parent.kind) {
             case 252 /* SourceFile */:
-                return isExternalModule(node.parent);
+                return ts.isExternalModule(node.parent);
             case 223 /* ModuleBlock */:
-                return isAmbientModule(node.parent.parent) && !isExternalModule(node.parent.parent.parent);
+                return isAmbientModule(node.parent.parent) && !ts.isExternalModule(node.parent.parent.parent);
         }
         return false;
     }
@@ -2592,10 +2592,6 @@ var ts;
         return ts.createTextSpanFromBounds(pos, errorNode.end);
     }
     ts.getErrorSpanForNode = getErrorSpanForNode;
-    function isExternalModule(file) {
-        return file.externalModuleIndicator !== undefined;
-    }
-    ts.isExternalModule = isExternalModule;
     function isExternalOrCommonJsModule(file) {
         return (file.externalModuleIndicator || file.commonJsModuleIndicator) !== undefined;
     }
@@ -4164,7 +4160,7 @@ var ts;
             // Can emit only sources that are not declaration file and are either non module code or module with --module or --target es6 specified
             var bundledSources = ts.filter(host.getSourceFiles(), function (sourceFile) {
                 return !isDeclarationFile(sourceFile) // Not a declaration file
-                    && (!isExternalModule(sourceFile) || !!getEmitModuleKind(options));
+                    && (!ts.isExternalModule(sourceFile) || !!getEmitModuleKind(options));
             }); // and not a module, unless module emit enabled
             if (bundledSources.length) {
                 var jsFilePath = options.outFile || options.out;
@@ -7646,6 +7642,10 @@ var ts;
         return result;
     }
     ts.createSourceFile = createSourceFile;
+    function isExternalModule(file) {
+        return file.externalModuleIndicator !== undefined;
+    }
+    ts.isExternalModule = isExternalModule;
     // Produces a new SourceFile for the 'newText' provided. The 'textChangeRange' parameter
     // indicates what changed between the 'text' that this SourceFile has and the 'newText'.
     // The SourceFile will be created with the compiler attempting to reuse as many nodes from
