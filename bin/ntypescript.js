@@ -13821,6 +13821,7 @@ var ts;
                 case 147 /* GetAccessor */:
                 case 148 /* SetAccessor */:
                 case 154 /* FunctionType */:
+                case 265 /* JSDocFunctionType */:
                 case 155 /* ConstructorType */:
                 case 177 /* FunctionExpression */:
                 case 178 /* ArrowFunction */:
@@ -13952,7 +13953,12 @@ var ts;
                 if (node.flags & 1 /* Export */) {
                     errorOnFirstToken(node, ts.Diagnostics.export_modifier_cannot_be_applied_to_ambient_modules_and_module_augmentations_since_they_are_always_visible);
                 }
-                declareSymbolAndAddToSymbolTable(node, 512 /* ValueModule */, 106639 /* ValueModuleExcludes */);
+                if (ts.isExternalModuleAugmentation(node)) {
+                    declareSymbolAndAddToSymbolTable(node, 1024 /* NamespaceModule */, 0 /* NamespaceModuleExcludes */);
+                }
+                else {
+                    declareSymbolAndAddToSymbolTable(node, 512 /* ValueModule */, 106639 /* ValueModuleExcludes */);
+                }
             }
             else {
                 var state = getModuleInstanceState(node);
@@ -15054,7 +15060,7 @@ var ts;
         }
         function mergeModuleAugmentation(moduleName) {
             var moduleAugmentation = moduleName.parent;
-            if (moduleAugmentation.symbol.valueDeclaration !== moduleAugmentation) {
+            if (moduleAugmentation.symbol.declarations[0] !== moduleAugmentation) {
                 // this is a combined symbol for multiple augmentations within the same file.
                 // its symbol already has accumulated information for all declarations
                 // so we need to add it just once - do the work only for first declaration
@@ -18813,7 +18819,7 @@ var ts;
         }
         // Get type from reference to class or interface
         function getTypeFromClassOrInterfaceReference(node, symbol) {
-            var type = getDeclaredTypeOfSymbol(symbol);
+            var type = getDeclaredTypeOfSymbol(getMergedSymbol(symbol));
             var typeParameters = type.localTypeParameters;
             if (typeParameters) {
                 if (!node.typeArguments || node.typeArguments.length !== typeParameters.length) {
@@ -19305,40 +19311,26 @@ var ts;
         function createBinaryTypeMapper(source1, target1, source2, target2) {
             return function (t) { return t === source1 ? target1 : t === source2 ? target2 : t; };
         }
-        function createTypeMapper(sources, targets) {
-            switch (sources.length) {
-                case 1: return createUnaryTypeMapper(sources[0], targets[0]);
-                case 2: return createBinaryTypeMapper(sources[0], targets[0], sources[1], targets[1]);
-            }
+        function createArrayTypeMapper(sources, targets) {
             return function (t) {
                 for (var i = 0; i < sources.length; i++) {
                     if (t === sources[i]) {
-                        return targets[i];
+                        return targets ? targets[i] : anyType;
                     }
                 }
                 return t;
             };
         }
-        function createUnaryTypeEraser(source) {
-            return function (t) { return t === source ? anyType : t; };
-        }
-        function createBinaryTypeEraser(source1, source2) {
-            return function (t) { return t === source1 || t === source2 ? anyType : t; };
+        function createTypeMapper(sources, targets) {
+            var count = sources.length;
+            var mapper = count == 1 ? createUnaryTypeMapper(sources[0], targets ? targets[0] : anyType) :
+                count == 2 ? createBinaryTypeMapper(sources[0], targets ? targets[0] : anyType, sources[1], targets ? targets[1] : anyType) :
+                    createArrayTypeMapper(sources, targets);
+            mapper.mappedTypes = sources;
+            return mapper;
         }
         function createTypeEraser(sources) {
-            switch (sources.length) {
-                case 1: return createUnaryTypeEraser(sources[0]);
-                case 2: return createBinaryTypeEraser(sources[0], sources[1]);
-            }
-            return function (t) {
-                for (var _i = 0, sources_1 = sources; _i < sources_1.length; _i++) {
-                    var source = sources_1[_i];
-                    if (t === source) {
-                        return anyType;
-                    }
-                }
-                return t;
-            };
+            return createTypeMapper(sources, undefined);
         }
         function getInferenceMapper(context) {
             if (!context.mapper) {
@@ -19352,6 +19344,7 @@ var ts;
                     }
                     return t;
                 };
+                mapper.mappedTypes = context.typeParameters;
                 mapper.context = context;
                 context.mapper = mapper;
             }
@@ -19361,7 +19354,9 @@ var ts;
             return type;
         }
         function combineTypeMappers(mapper1, mapper2) {
-            return function (t) { return instantiateType(mapper1(t), mapper2); };
+            var mapper = function (t) { return instantiateType(mapper1(t), mapper2); };
+            mapper.mappedTypes = mapper1.mappedTypes;
+            return mapper;
         }
         function cloneTypeParameter(typeParameter) {
             var result = createType(512 /* TypeParameter */);
@@ -19445,13 +19440,70 @@ var ts;
             mapper.instantiations[type.id] = result;
             return result;
         }
+        function isSymbolInScopeOfMappedTypeParameter(symbol, mapper) {
+            var mappedTypes = mapper.mappedTypes;
+            // Starting with the parent of the symbol's declaration, check if the mapper maps any of
+            // the type parameters introduced by enclosing declarations. We just pick the first
+            // declaration since multiple declarations will all have the same parent anyway.
+            var node = symbol.declarations[0].parent;
+            while (node) {
+                switch (node.kind) {
+                    case 154 /* FunctionType */:
+                    case 155 /* ConstructorType */:
+                    case 217 /* FunctionDeclaration */:
+                    case 145 /* MethodDeclaration */:
+                    case 144 /* MethodSignature */:
+                    case 146 /* Constructor */:
+                    case 149 /* CallSignature */:
+                    case 150 /* ConstructSignature */:
+                    case 151 /* IndexSignature */:
+                    case 147 /* GetAccessor */:
+                    case 148 /* SetAccessor */:
+                    case 177 /* FunctionExpression */:
+                    case 178 /* ArrowFunction */:
+                    case 218 /* ClassDeclaration */:
+                    case 190 /* ClassExpression */:
+                    case 219 /* InterfaceDeclaration */:
+                    case 220 /* TypeAliasDeclaration */:
+                        var declaration = node;
+                        if (declaration.typeParameters) {
+                            for (var _i = 0, _a = declaration.typeParameters; _i < _a.length; _i++) {
+                                var d = _a[_i];
+                                if (ts.contains(mappedTypes, getDeclaredTypeOfTypeParameter(d.symbol))) {
+                                    return true;
+                                }
+                            }
+                        }
+                        if (ts.isClassLike(node) || node.kind === 219 /* InterfaceDeclaration */) {
+                            var thisType = getDeclaredTypeOfClassOrInterface(getSymbolOfNode(node)).thisType;
+                            if (thisType && ts.contains(mappedTypes, thisType)) {
+                                return true;
+                            }
+                        }
+                        break;
+                    case 222 /* ModuleDeclaration */:
+                    case 252 /* SourceFile */:
+                        return false;
+                }
+                node = node.parent;
+            }
+            return false;
+        }
         function instantiateType(type, mapper) {
             if (type && mapper !== identityMapper) {
                 if (type.flags & 512 /* TypeParameter */) {
                     return mapper(type);
                 }
                 if (type.flags & 65536 /* Anonymous */) {
-                    return type.symbol && type.symbol.flags & (16 /* Function */ | 8192 /* Method */ | 32 /* Class */ | 2048 /* TypeLiteral */ | 4096 /* ObjectLiteral */) ?
+                    // If the anonymous type originates in a declaration of a function, method, class, or
+                    // interface, in an object type literal, or in an object literal expression, we may need
+                    // to instantiate the type because it might reference a type parameter. We skip instantiation
+                    // if none of the type parameters that are in scope in the type's declaration are mapped by
+                    // the given mapper, however we can only do that analysis if the type isn't itself an
+                    // instantiation.
+                    return type.symbol &&
+                        type.symbol.flags & (16 /* Function */ | 8192 /* Method */ | 32 /* Class */ | 2048 /* TypeLiteral */ | 4096 /* ObjectLiteral */) &&
+                        (type.flags & 131072 /* Instantiated */ || isSymbolInScopeOfMappedTypeParameter(type.symbol, mapper)) ?
                         instantiateAnonymousType(type, mapper) : type;
                 }
                 if (type.flags & 4096 /* Reference */) {
@@ -24511,10 +24563,11 @@ var ts;
                     // If return type annotation is omitted check if function has any explicit return statements.
                     // If it does not have any - its inferred return type is void - don't do any checks.
                     // Otherwise get inferred return type from function body and report error only if it is not void / anytype
-                    var inferredReturnType = hasExplicitReturn
-                        ? getReturnTypeOfSignature(getSignatureFromDeclaration(func))
-                        : voidType;
-                    if (inferredReturnType === voidType || isTypeAny(inferredReturnType)) {
+                    if (!hasExplicitReturn) {
+                        return;
+                    }
+                    var inferredReturnType = getReturnTypeOfSignature(getSignatureFromDeclaration(func));
+                    if (isUnwrappedReturnTypeVoidOrAny(func, inferredReturnType)) {
                         return;
                     }
                 }
@@ -26197,7 +26250,7 @@ var ts;
                         return checkNonThenableType(type, location, message);
                     }
                     else {
-                        if (type.id === promisedType.id || awaitedTypeStack.indexOf(promisedType.id) >= 0) {
+                        if (type.id === promisedType.id || ts.indexOf(awaitedTypeStack, promisedType.id) >= 0) {
                             // We have a bad actor in the form of a promise whose promised type is
                             // the same promise type, or a mutually recursive promise. Return the
                             // unknown type as we cannot guess the shape. If this were the actual
@@ -27193,6 +27246,10 @@ var ts;
         function isGetAccessorWithAnnotatedSetAccessor(node) {
             return !!(node.kind === 147 /* GetAccessor */ && ts.getSetAccessorTypeAnnotationNode(ts.getDeclarationOfKind(node.symbol, 148 /* SetAccessor */)));
         }
+        function isUnwrappedReturnTypeVoidOrAny(func, returnType) {
+            var unwrappedReturnType = ts.isAsyncFunctionLike(func) ? getPromisedType(returnType) : returnType;
+            return maybeTypeOfKind(unwrappedReturnType, 16 /* Void */ | 1 /* Any */);
+        }
         function checkReturnStatement(node) {
             // Grammar checking
             if (!checkGrammarStatementInAmbientContext(node)) {
@@ -27238,7 +27295,7 @@ var ts;
                         }
                     }
                 }
-                else if (compilerOptions.noImplicitReturns && !maybeTypeOfKind(returnType, 16 /* Void */ | 1 /* Any */)) {
+                else if (compilerOptions.noImplicitReturns && !isUnwrappedReturnTypeVoidOrAny(func, returnType)) {
                     // The function has a return type, but the return statement doesn't have an expression.
                     error(node, ts.Diagnostics.Not_all_code_paths_return_a_value);
                 }
@@ -28170,7 +28227,7 @@ var ts;
                             }
                             else {
                                 // symbol should not originate in augmentation
-                                reportError = ts.isExternalModuleAugmentation(symbol.parent.valueDeclaration);
+                                reportError = ts.isExternalModuleAugmentation(symbol.parent.declarations[0]);
                             }
                         }
                         if (reportError) {
@@ -34860,6 +34917,11 @@ var ts;
                 var container = resolver.getReferencedExportContainer(node);
                 return container && container.kind !== 252 /* SourceFile */;
             }
+            // Return true if identifier resolves to an imported identifier
+            function isImportedReference(node) {
+                var declaration = resolver.getReferencedImportDeclaration(node);
+                return declaration && (declaration.kind === 227 /* ImportClause */ || declaration.kind === 230 /* ImportSpecifier */);
+            }
             function emitShorthandPropertyAssignment(node) {
                 // The name property of a short-hand property assignment is considered an expression position, so here
                 // we manually emit the identifier to avoid rewriting.
@@ -34873,7 +34935,18 @@ var ts;
                 //       let obj = { y };
                 //   }
                 // Here we need to emit obj = { y : m.y } regardless of the output target.
-                if (modulekind !== ts.ModuleKind.ES6 || isNamespaceExportReference(node.name)) {
+                // The same rules apply for imported identifiers when targeting module formats with indirect access to
+                // the imported identifiers. For example, when targeting CommonJS:
+                //
+                //   import {foo} from './foo';
+                //   export const baz = { foo };
+                //
+                // Must be transformed into:
+                //
+                //   const foo_1 = require('./foo');
+                //   exports.baz = { foo: foo_1.foo };
+                //
+                if (languageVersion < 2 /* ES6 */ || (modulekind !== ts.ModuleKind.ES6 && isImportedReference(node.name)) || isNamespaceExportReference(node.name)) {
                     // Emit identifier as an identifier
                     write(": ");
                     emit(node.name);
@@ -35684,7 +35757,7 @@ var ts;
                     emit(node.statement);
                 }
                 writeLine();
-                // end of loop body -> copy out parameter 
+                // end of loop body -> copy out parameter
                 copyLoopOutParameters(convertedLoopState, 1 /* ToOutParameter */, /*emitAsStatements*/ true);
                 decreaseIndent();
                 writeLine();
@@ -36131,7 +36204,7 @@ var ts;
                             }
                             else {
                                 convertedLoopState.nonLocalJumps |= 4 /* Continue */;
-                                // note: return value is emitted only to simplify debugging, call to converted loop body does not do any dispatching on it.     
+                                // note: return value is emitted only to simplify debugging, call to converted loop body does not do any dispatching on it.
                                 write("\"continue\";");
                             }
                         }
@@ -39454,7 +39527,7 @@ var ts;
                         continue;
                     }
                     // text should be quoted string
-                    // for deduplication purposes in key remove leading and trailing quotes so 'a' and "a" will be considered the same                     
+                    // for deduplication purposes in key remove leading and trailing quotes so 'a' and "a" will be considered the same
                     var key = text.substr(1, text.length - 2);
                     if (ts.hasProperty(groupIndices, key)) {
                         // deduplicate/group entries in dependency list by the dependency name
@@ -41105,7 +41178,11 @@ var ts;
                     declarationDiagnostics = program.getDeclarationDiagnostics(/*sourceFile*/ undefined, cancellationToken);
                 }
                 if (diagnostics.length > 0 || declarationDiagnostics.length > 0) {
-                    return { diagnostics: diagnostics, sourceMaps: undefined, emitSkipped: true };
+                    return {
+                        diagnostics: ts.concatenate(diagnostics, declarationDiagnostics),
+                        sourceMaps: undefined,
+                        emitSkipped: true
+                    };
                 }
             }
             // Create the emit resolver outside of the "emitTime" tracking code below.  That way

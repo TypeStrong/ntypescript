@@ -853,6 +853,7 @@ declare namespace ts {
         variableDeclaration: VariableDeclaration;
         block: Block;
     }
+    type DeclarationWithTypeParameters = SignatureDeclaration | ClassLikeDeclaration | InterfaceDeclaration | TypeAliasDeclaration;
     interface ClassLikeDeclaration extends Declaration {
         name?: Identifier;
         typeParameters?: NodeArray<TypeParameterDeclaration>;
@@ -1610,6 +1611,7 @@ declare namespace ts {
     }
     interface TypeMapper {
         (t: TypeParameter): Type;
+        mappedTypes?: Type[];
         instantiations?: Type[];
         context?: InferenceContext;
     }
