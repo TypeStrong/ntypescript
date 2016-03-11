@@ -243,58 +243,59 @@ declare namespace ts {
         ModuleDeclaration = 222,
         ModuleBlock = 223,
         CaseBlock = 224,
-        ImportEqualsDeclaration = 225,
-        ImportDeclaration = 226,
-        ImportClause = 227,
-        NamespaceImport = 228,
-        NamedImports = 229,
-        ImportSpecifier = 230,
-        ExportAssignment = 231,
-        ExportDeclaration = 232,
-        NamedExports = 233,
-        ExportSpecifier = 234,
-        MissingDeclaration = 235,
-        ExternalModuleReference = 236,
-        JsxElement = 237,
-        JsxSelfClosingElement = 238,
-        JsxOpeningElement = 239,
-        JsxText = 240,
-        JsxClosingElement = 241,
-        JsxAttribute = 242,
-        JsxSpreadAttribute = 243,
-        JsxExpression = 244,
-        CaseClause = 245,
-        DefaultClause = 246,
-        HeritageClause = 247,
-        CatchClause = 248,
-        PropertyAssignment = 249,
-        ShorthandPropertyAssignment = 250,
-        EnumMember = 251,
-        SourceFile = 252,
-        JSDocTypeExpression = 253,
-        JSDocAllType = 254,
-        JSDocUnknownType = 255,
-        JSDocArrayType = 256,
-        JSDocUnionType = 257,
-        JSDocTupleType = 258,
-        JSDocNullableType = 259,
-        JSDocNonNullableType = 260,
-        JSDocRecordType = 261,
-        JSDocRecordMember = 262,
-        JSDocTypeReference = 263,
-        JSDocOptionalType = 264,
-        JSDocFunctionType = 265,
-        JSDocVariadicType = 266,
-        JSDocConstructorType = 267,
-        JSDocThisType = 268,
-        JSDocComment = 269,
-        JSDocTag = 270,
-        JSDocParameterTag = 271,
-        JSDocReturnTag = 272,
-        JSDocTypeTag = 273,
-        JSDocTemplateTag = 274,
-        SyntaxList = 275,
-        Count = 276,
+        GlobalModuleExportDeclaration = 225,
+        ImportEqualsDeclaration = 226,
+        ImportDeclaration = 227,
+        ImportClause = 228,
+        NamespaceImport = 229,
+        NamedImports = 230,
+        ImportSpecifier = 231,
+        ExportAssignment = 232,
+        ExportDeclaration = 233,
+        NamedExports = 234,
+        ExportSpecifier = 235,
+        MissingDeclaration = 236,
+        ExternalModuleReference = 237,
+        JsxElement = 238,
+        JsxSelfClosingElement = 239,
+        JsxOpeningElement = 240,
+        JsxText = 241,
+        JsxClosingElement = 242,
+        JsxAttribute = 243,
+        JsxSpreadAttribute = 244,
+        JsxExpression = 245,
+        CaseClause = 246,
+        DefaultClause = 247,
+        HeritageClause = 248,
+        CatchClause = 249,
+        PropertyAssignment = 250,
+        ShorthandPropertyAssignment = 251,
+        EnumMember = 252,
+        SourceFile = 253,
+        JSDocTypeExpression = 254,
+        JSDocAllType = 255,
+        JSDocUnknownType = 256,
+        JSDocArrayType = 257,
+        JSDocUnionType = 258,
+        JSDocTupleType = 259,
+        JSDocNullableType = 260,
+        JSDocNonNullableType = 261,
+        JSDocRecordType = 262,
+        JSDocRecordMember = 263,
+        JSDocTypeReference = 264,
+        JSDocOptionalType = 265,
+        JSDocFunctionType = 266,
+        JSDocVariadicType = 267,
+        JSDocConstructorType = 268,
+        JSDocThisType = 269,
+        JSDocComment = 270,
+        JSDocTag = 271,
+        JSDocParameterTag = 272,
+        JSDocReturnTag = 273,
+        JSDocTypeTag = 274,
+        JSDocTemplateTag = 275,
+        SyntaxList = 276,
+        Count = 277,
         FirstAssignment = 56,
         LastAssignment = 68,
         FirstReservedWord = 70,
@@ -923,6 +924,10 @@ declare namespace ts {
     interface NamespaceImport extends Declaration {
         name: Identifier;
     }
+    interface GlobalModuleExportDeclaration extends DeclarationStatement {
+        name: Identifier;
+        moduleReference: LiteralLikeNode;
+    }
     interface ExportDeclaration extends DeclarationStatement {
         exportClause?: NamedExports;
         moduleSpecifier?: Expression;
@@ -1060,6 +1065,7 @@ declare namespace ts {
         scriptKind: ScriptKind;
         externalModuleIndicator: Node;
         commonJsModuleIndicator: Node;
+        wasReferenced?: boolean;
         identifiers: Map<string>;
         nodeCount: number;
         identifierCount: number;
@@ -1404,6 +1410,7 @@ declare namespace ts {
         valueDeclaration?: Declaration;
         members?: SymbolTable;
         exports?: SymbolTable;
+        globalExports?: SymbolTable;
         id?: number;
         mergeId?: number;
         parent?: Symbol;
@@ -3724,6 +3731,24 @@ declare namespace ts {
             message: string;
         };
         The_body_of_an_if_statement_cannot_be_the_empty_statement: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Global_module_exports_may_only_appear_in_module_files: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Global_module_exports_may_only_appear_in_declaration_files: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Global_module_exports_may_only_appear_at_top_level: {
             code: number;
             category: DiagnosticCategory;
             key: string;
