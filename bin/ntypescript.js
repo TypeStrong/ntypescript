@@ -41917,21 +41917,7 @@ var ts;
                     programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_find_the_common_subdirectory_path_for_the_input_files));
                 }
             }
-            if (options.noEmit) {
-                if (options.out) {
-                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "out"));
-                }
-                if (options.outFile) {
-                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "outFile"));
-                }
-                if (options.outDir) {
-                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "outDir"));
-                }
-                if (options.declaration) {
-                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "noEmit", "declaration"));
-                }
-            }
-            else if (options.allowJs && options.declaration) {
+            if (!options.noEmit && options.allowJs && options.declaration) {
                 programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "allowJs", "declaration"));
             }
             if (options.emitDecoratorMetadata &&
