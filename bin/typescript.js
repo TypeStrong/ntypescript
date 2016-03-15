@@ -27361,7 +27361,7 @@ var ts;
                         }
                     }
                 }
-                else if (compilerOptions.noImplicitReturns && !isUnwrappedReturnTypeVoidOrAny(func, returnType)) {
+                else if (func.kind !== 146 /* Constructor */ && compilerOptions.noImplicitReturns && !isUnwrappedReturnTypeVoidOrAny(func, returnType)) {
                     // The function has a return type, but the return statement doesn't have an expression.
                     error(node, ts.Diagnostics.Not_all_code_paths_return_a_value);
                 }
@@ -49524,6 +49524,20 @@ var ts;
         var importedFiles = [];
         var ambientExternalModules;
         var isNoDefaultLib = false;
+        var braceNesting = 0;
+        // assume that text represent an external module if it contains at least one top level import/export
+        // ambient modules that are found inside external modules are interpreted as module augmentations
+        var externalModule = false;
+        function nextToken() {
+            var token = scanner.scan();
+            if (token === 15 /* OpenBraceToken */) {
+                braceNesting++;
+            }
+            else if (token === 16 /* CloseBraceToken */) {
+                braceNesting--;
+            }
+            return token;
+        }
         function processTripleSlashDirectives() {
             var commentRanges = ts.getLeadingCommentRanges(sourceText, 0);
             ts.forEach(commentRanges, function (commentRange) {
@@ -49538,20 +49552,29 @@ var ts;
                 }
             });
         }
+        function getFileReference() {
+            var file = scanner.getTokenValue();
+            var pos = scanner.getTokenPos();
+            return {
+                fileName: file,
+                pos: pos,
+                end: pos + file.length
+            };
+        }
         function recordAmbientExternalModule() {
             if (!ambientExternalModules) {
                 ambientExternalModules = [];
             }
-            ambientExternalModules.push(scanner.getTokenValue());
+            ambientExternalModules.push({ ref: getFileReference(), depth: braceNesting });
         }
         function recordModuleName() {
-            var importPath = scanner.getTokenValue();
-            var pos = scanner.getTokenPos();
-            importedFiles.push({
-                fileName: importPath,
-                pos: pos,
-                end: pos + importPath.length
-            });
+            importedFiles.push(getFileReference());
+            markAsExternalModuleIfTopLevel();
+        }
+        function markAsExternalModuleIfTopLevel() {
+            if (braceNesting === 0) {
+                externalModule = true;
+            }
         }
         /**
          * Returns true if at least one token was consumed from the stream
@@ -49560,9 +49583,9 @@ var ts;
             var token = scanner.getToken();
             if (token === 122 /* DeclareKeyword */) {
                 // declare module "mod"
-                token = scanner.scan();
+                token = nextToken();
                 if (token === 125 /* ModuleKeyword */) {
-                    token = scanner.scan();
+                    token = nextToken();
                     if (token === 9 /* StringLiteral */) {
                         recordAmbientExternalModule();
                     }
@@ -49577,7 +49600,7 @@ var ts;
         function tryConsumeImport() {
             var token = scanner.getToken();
             if (token === 89 /* ImportKeyword */) {
-                token = scanner.scan();
+                token = nextToken();
                 if (token === 9 /* StringLiteral */) {
                     // import "mod";
                     recordModuleName();
@@ -49585,9 +49608,9 @@ var ts;
                 }
                 else {
                     if (token === 69 /* Identifier */ || ts.isKeyword(token)) {
-                        token = scanner.scan();
+                        token = nextToken();
                         if (token === 134 /* FromKeyword */) {
-                            token = scanner.scan();
+                            token = nextToken();
                             if (token === 9 /* StringLiteral */) {
                                 // import d from "mod";
                                 recordModuleName();
@@ -49601,7 +49624,7 @@ var ts;
                         }
                         else if (token === 24 /* CommaToken */) {
                             // consume comma and keep going
-                            token = scanner.scan();
+                            token = nextToken();
                         }
                         else {
                             // unknown syntax
@@ -49609,16 +49632,16 @@ var ts;
                         }
                     }
                     if (token === 15 /* OpenBraceToken */) {
-                        token = scanner.scan();
+                        token = nextToken();
                         // consume "{ a as B, c, d as D}" clauses
                         // make sure that it stops on EOF
                         while (token !== 16 /* CloseBraceToken */ && token !== 1 /* EndOfFileToken */) {
-                            token = scanner.scan();
+                            token = nextToken();
                         }
                         if (token === 16 /* CloseBraceToken */) {
-                            token = scanner.scan();
+                            token = nextToken();
                             if (token === 134 /* FromKeyword */) {
-                                token = scanner.scan();
+                                token = nextToken();
                                 if (token === 9 /* StringLiteral */) {
                                     // import {a as A} from "mod";
                                     // import d, {a, b as B} from "mod"
@@ -49628,13 +49651,13 @@ var ts;
                         }
                     }
                     else if (token === 37 /* AsteriskToken */) {
-                        token = scanner.scan();
+                        token = nextToken();
                         if (token === 116 /* AsKeyword */) {
-                            token = scanner.scan();
+                            token = nextToken();
                             if (token === 69 /* Identifier */ || ts.isKeyword(token)) {
-                                token = scanner.scan();
+                                token = nextToken();
                                 if (token === 134 /* FromKeyword */) {
-                                    token = scanner.scan();
+                                    token = nextToken();
                                     if (token === 9 /* StringLiteral */) {
                                         // import * as NS from "mod"
                                         // import d, * as NS from "mod"
@@ -49652,18 +49675,19 @@ var ts;
         function tryConsumeExport() {
             var token = scanner.getToken();
             if (token === 82 /* ExportKeyword */) {
-                token = scanner.scan();
+                markAsExternalModuleIfTopLevel();
+                token = nextToken();
                 if (token === 15 /* OpenBraceToken */) {
-                    token = scanner.scan();
+                    token = nextToken();
                     // consume "{ a as B, c, d as D}" clauses
                     // make sure it stops on EOF
                     while (token !== 16 /* CloseBraceToken */ && token !== 1 /* EndOfFileToken */) {
-                        token = scanner.scan();
+                        token = nextToken();
                     }
                     if (token === 16 /* CloseBraceToken */) {
-                        token = scanner.scan();
+                        token = nextToken();
                         if (token === 134 /* FromKeyword */) {
-                            token = scanner.scan();
+                            token = nextToken();
                             if (token === 9 /* StringLiteral */) {
                                 // export {a as A} from "mod";
                                 // export {a, b as B} from "mod"
@@ -49673,9 +49697,9 @@ var ts;
                     }
                 }
                 else if (token === 37 /* AsteriskToken */) {
-                    token = scanner.scan();
+                    token = nextToken();
                     if (token === 134 /* FromKeyword */) {
-                        token = scanner.scan();
+                        token = nextToken();
                         if (token === 9 /* StringLiteral */) {
                             // export * from "mod"
                             recordModuleName();
@@ -49683,9 +49707,9 @@ var ts;
                     }
                 }
                 else if (token === 89 /* ImportKeyword */) {
-                    token = scanner.scan();
+                    token = nextToken();
                     if (token === 69 /* Identifier */ || ts.isKeyword(token)) {
-                        token = scanner.scan();
+                        token = nextToken();
                         if (token === 56 /* EqualsToken */) {
                             if (tryConsumeRequireCall(/*skipCurrentToken*/ true)) {
                                 return true;
@@ -49698,11 +49722,11 @@ var ts;
             return false;
         }
         function tryConsumeRequireCall(skipCurrentToken) {
-            var token = skipCurrentToken ? scanner.scan() : scanner.getToken();
+            var token = skipCurrentToken ? nextToken() : scanner.getToken();
             if (token === 128 /* RequireKeyword */) {
-                token = scanner.scan();
+                token = nextToken();
                 if (token === 17 /* OpenParenToken */) {
-                    token = scanner.scan();
+                    token = nextToken();
                     if (token === 9 /* StringLiteral */) {
                         //  require("mod");
                         recordModuleName();
@@ -49715,16 +49739,16 @@ var ts;
         function tryConsumeDefine() {
             var token = scanner.getToken();
             if (token === 69 /* Identifier */ && scanner.getTokenValue() === "define") {
-                token = scanner.scan();
+                token = nextToken();
                 if (token !== 17 /* OpenParenToken */) {
                     return true;
                 }
-                token = scanner.scan();
+                token = nextToken();
                 if (token === 9 /* StringLiteral */) {
                     // looks like define ("modname", ... - skip string literal and comma
-                    token = scanner.scan();
+                    token = nextToken();
                     if (token === 24 /* CommaToken */) {
-                        token = scanner.scan();
+                        token = nextToken();
                     }
                     else {
                         // unexpected token
@@ -49736,7 +49760,7 @@ var ts;
                     return true;
                 }
                 // skip open bracket
-                token = scanner.scan();
+                token = nextToken();
                 var i = 0;
                 // scan until ']' or EOF
                 while (token !== 20 /* CloseBracketToken */ && token !== 1 /* EndOfFileToken */) {
@@ -49745,7 +49769,7 @@ var ts;
                         recordModuleName();
                         i++;
                     }
-                    token = scanner.scan();
+                    token = nextToken();
                 }
                 return true;
             }
@@ -49753,7 +49777,7 @@ var ts;
         }
         function processImports() {
             scanner.setText(sourceText);
-            scanner.scan();
+            nextToken();
             // Look for:
             //    import "mod";
             //    import d from "mod"
@@ -49778,7 +49802,7 @@ var ts;
                     continue;
                 }
                 else {
-                    scanner.scan();
+                    nextToken();
                 }
             }
             scanner.setText(undefined);
@@ -49787,7 +49811,36 @@ var ts;
             processImports();
         }
         processTripleSlashDirectives();
-        return { referencedFiles: referencedFiles, importedFiles: importedFiles, isLibFile: isNoDefaultLib, ambientExternalModules: ambientExternalModules };
+        if (externalModule) {
+            // for external modules module all nested ambient modules are augmentations
+            if (ambientExternalModules) {
+                // move all detected ambient modules to imported files since they need to be resolved
+                for (var _i = 0, ambientExternalModules_1 = ambientExternalModules; _i < ambientExternalModules_1.length; _i++) {
+                    var decl = ambientExternalModules_1[_i];
+                    importedFiles.push(decl.ref);
+                }
+            }
+            return { referencedFiles: referencedFiles, importedFiles: importedFiles, isLibFile: isNoDefaultLib, ambientExternalModules: undefined };
+        }
+        else {
+            // for global scripts ambient modules still can have augmentations - look for ambient modules with depth > 0
+            var ambientModuleNames = void 0;
+            if (ambientExternalModules) {
+                for (var _a = 0, ambientExternalModules_2 = ambientExternalModules; _a < ambientExternalModules_2.length; _a++) {
+                    var decl = ambientExternalModules_2[_a];
+                    if (decl.depth === 0) {
+                        if (!ambientModuleNames) {
+                            ambientModuleNames = [];
+                        }
+                        ambientModuleNames.push(decl.ref.fileName);
+                    }
+                    else {
+                        importedFiles.push(decl.ref);
+                    }
+                }
+            }
+            return { referencedFiles: referencedFiles, importedFiles: importedFiles, isLibFile: isNoDefaultLib, ambientExternalModules: ambientModuleNames };
+        }
     }
     ts.preProcessFile = preProcessFile;
     /// Helpers
