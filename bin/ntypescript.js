@@ -4188,10 +4188,10 @@ var ts;
         return ts.combinePaths(newDirPath, sourceFilePath);
     }
     ts.getSourceFilePathInNewDir = getSourceFilePathInNewDir;
-    function writeFile(host, diagnostics, fileName, data, writeByteOrderMark) {
+    function writeFile(host, diagnostics, fileName, data, writeByteOrderMark, sourceFiles) {
         host.writeFile(fileName, data, writeByteOrderMark, function (hostErrorMessage) {
             diagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Could_not_write_file_0_Colon_1, fileName, hostErrorMessage));
-        });
+        }, sourceFiles);
     }
     ts.writeFile = writeFile;
     function getLineOfLocalPosition(currentSourceFile, pos) {
@@ -33623,7 +33623,7 @@ var ts;
                 if (sourceMappingURL) {
                     write("//# sourceMappingURL=" + sourceMappingURL);
                 }
-                writeEmittedFiles(writer.getText(), jsFilePath, sourceMapFilePath, /*writeByteOrderMark*/ compilerOptions.emitBOM);
+                writeEmittedFiles(writer.getText(), jsFilePath, sourceMapFilePath, /*writeByteOrderMark*/ compilerOptions.emitBOM, sourceFiles);
                 // reset the state
                 sourceMap.reset();
                 writer.reset();
@@ -33753,14 +33753,14 @@ var ts;
                 return nodeToGeneratedName[id] || (nodeToGeneratedName[id] = ts.unescapeIdentifier(generateNameForNode(node)));
             }
             /** Write emitted output to disk */
-            function writeEmittedFiles(emitOutput, jsFilePath, sourceMapFilePath, writeByteOrderMark) {
+            function writeEmittedFiles(emitOutput, jsFilePath, sourceMapFilePath, writeByteOrderMark, sourceFiles) {
                 if (compilerOptions.sourceMap && !compilerOptions.inlineSourceMap) {
-                    ts.writeFile(host, emitterDiagnostics, sourceMapFilePath, sourceMap.getText(), /*writeByteOrderMark*/ false);
+                    ts.writeFile(host, emitterDiagnostics, sourceMapFilePath, sourceMap.getText(), /*writeByteOrderMark*/ false, sourceFiles);
                 }
                 if (sourceMapDataList) {
                     sourceMapDataList.push(sourceMap.getSourceMapData());
                 }
-                ts.writeFile(host, emitterDiagnostics, jsFilePath, emitOutput, writeByteOrderMark);
+                ts.writeFile(host, emitterDiagnostics, jsFilePath, emitOutput, writeByteOrderMark, sourceFiles);
             }
             // Create a temporary variable with a unique unused name.
             function createTempVariable(flags) {
@@ -41216,7 +41216,7 @@ var ts;
                 getNewLine: function () { return host.getNewLine(); },
                 getSourceFile: program.getSourceFile,
                 getSourceFiles: program.getSourceFiles,
-                writeFile: writeFileCallback || (function (fileName, data, writeByteOrderMark, onError) { return host.writeFile(fileName, data, writeByteOrderMark, onError); }),
+                writeFile: writeFileCallback || (function (fileName, data, writeByteOrderMark, onError, sourceFiles) { return host.writeFile(fileName, data, writeByteOrderMark, onError, sourceFiles); }),
                 isEmitBlocked: isEmitBlocked,
             };
         }
@@ -42962,6 +42962,11 @@ var ts;
     var NavigationBar;
     (function (NavigationBar) {
         function getNavigationBarItems(sourceFile, compilerOptions) {
+            // TODO: Handle JS files differently in 'navbar' calls for now, but ideally we should unify
+            // the 'navbar' and 'navto' logic for TypeScript and JavaScript.
+            if (ts.isSourceFileJavaScript(sourceFile)) {
+                return getJsNavigationBarItems(sourceFile, compilerOptions);
+            }
             // If the source file has any child items, then it included in the tree
             // and takes lexical ownership of all other top-level items.
             var hasGlobalNode = false;
@@ -43113,8 +43118,8 @@ var ts;
             }
             function isTopLevelFunctionDeclaration(functionDeclaration) {
                 if (functionDeclaration.kind === 217 /* FunctionDeclaration */) {
-                    // A function declaration is 'top level' if it contains any function declarations 
-                    // within it. 
+                    // A function declaration is 'top level' if it contains any function declarations
+                    // within it.
                     if (functionDeclaration.body && functionDeclaration.body.kind === 196 /* Block */) {
                         // Proper function declarations can only have identifier names
                         if (ts.forEach(functionDeclaration.body.statements, function (s) { return s.kind === 217 /* FunctionDeclaration */ && !isEmpty(s.name.text); })) {
@@ -43372,6 +43377,188 @@ var ts;
             }
         }
         NavigationBar.getNavigationBarItems = getNavigationBarItems;
+        function getJsNavigationBarItems(sourceFile, compilerOptions) {
+            var anonFnText = "<function>";
+            var anonClassText = "<class>";
+            var indent = 0;
+            var rootName = ts.isExternalModule(sourceFile) ?
+                "\"" + ts.escapeString(ts.getBaseFileName(ts.removeFileExtension(ts.normalizePath(sourceFile.fileName)))) + "\""
+                : "<global>";
+            var sourceFileItem = getNavBarItem(rootName, ts.ScriptElementKind.moduleElement, [getNodeSpan(sourceFile)]);
+            var topItem = sourceFileItem;
+            // Walk the whole file, because we want to also find function expressions - which may be in variable initializer,
+            // call arguments, expressions, etc...
+            ts.forEachChild(sourceFile, visitNode);
+            function visitNode(node) {
+                var newItem = createNavBarItem(node);
+                if (newItem) {
+                    topItem.childItems.push(newItem);
+                }
+                // Add a level if traversing into a container
+                if (newItem && (ts.isFunctionLike(node) || ts.isClassLike(node))) {
+                    var lastTop = topItem;
+                    indent++;
+                    topItem = newItem;
+                    ts.forEachChild(node, visitNode);
+                    topItem = lastTop;
+                    indent--;
+                    // If the last item added was an anonymous function expression, and it had no children, discard it.
+                    if (newItem && newItem.text === anonFnText && newItem.childItems.length === 0) {
+                        topItem.childItems.pop();
+                    }
+                }
+                else {
+                    ts.forEachChild(node, visitNode);
+                }
+            }
+            function createNavBarItem(node) {
+                switch (node.kind) {
+                    case 215 /* VariableDeclaration */:
+                        // Only add to the navbar if at the top-level of the file
+                        // Note: "const" and "let" are also SyntaxKind.VariableDeclarations
+                        if (node.parent /*VariableDeclarationList*/.parent /*VariableStatement*/
+                            .parent /*SourceFile*/.kind !== 253 /* SourceFile */) {
+                            return undefined;
+                        }
+                        // If it is initialized with a function expression, handle it when we reach the function expression node
+                        var varDecl = node;
+                        if (varDecl.initializer && (varDecl.initializer.kind === 177 /* FunctionExpression */ ||
+                            varDecl.initializer.kind === 178 /* ArrowFunction */ ||
+                            varDecl.initializer.kind === 190 /* ClassExpression */)) {
+                            return undefined;
+                        }
+                    // Fall through
+                    case 217 /* FunctionDeclaration */:
+                    case 218 /* ClassDeclaration */:
+                    case 146 /* Constructor */:
+                    case 147 /* GetAccessor */:
+                    case 148 /* SetAccessor */:
+                        // "export default function().." looks just like a regular function/class declaration, except with the 'default' flag
+                        var name_36 = node.flags && (node.flags & 512 /* Default */) && !node.name ? "default" :
+                            node.kind === 146 /* Constructor */ ? "constructor" :
+                                ts.declarationNameToString(node.name);
+                        return getNavBarItem(name_36, getScriptKindForElementKind(node.kind), [getNodeSpan(node)]);
+                    case 177 /* FunctionExpression */:
+                    case 178 /* ArrowFunction */:
+                    case 190 /* ClassExpression */:
+                        return getDefineModuleItem(node) || getFunctionOrClassExpressionItem(node);
+                    case 145 /* MethodDeclaration */:
+                        var methodDecl = node;
+                        return getNavBarItem(ts.declarationNameToString(methodDecl.name), ts.ScriptElementKind.memberFunctionElement, [getNodeSpan(node)]);
+                    case 232 /* ExportAssignment */:
+                        // e.g. "export default <expr>"
+                        return getNavBarItem("default", ts.ScriptElementKind.variableElement, [getNodeSpan(node)]);
+                    case 228 /* ImportClause */:
+                        if (!node.name) {
+                            // No default import (this node is still a parent of named & namespace imports, which are handled below)
+                            return undefined;
+                        }
+                    // fall through
+                    case 231 /* ImportSpecifier */: // e.g. 'id' in: import {id} from 'mod' (in NamedImports, in ImportClause)
+                    case 229 /* NamespaceImport */: // e.g. '* as ns' in: import * as ns from 'mod' (in ImportClause)
+                    case 235 /* ExportSpecifier */:
+                        // Export specifiers are only interesting if they are reexports from another module, or renamed, else they are already globals
+                        if (node.kind === 235 /* ExportSpecifier */) {
+                            if (!node.parent.parent.moduleSpecifier && !node.propertyName) {
+                                return undefined;
+                            }
+                        }
+                        var decl = node;
+                        if (!decl.name) {
+                            return undefined;
+                        }
+                        var declName = ts.declarationNameToString(decl.name);
+                        return getNavBarItem(declName, ts.ScriptElementKind.constElement, [getNodeSpan(node)]);
+                    default:
+                        return undefined;
+                }
+            }
+            function getNavBarItem(text, kind, spans, kindModifiers) {
+                if (kindModifiers === void 0) { kindModifiers = ts.ScriptElementKindModifier.none; }
+                return {
+                    text: text, kind: kind, kindModifiers: kindModifiers, spans: spans, childItems: [], indent: indent, bolded: false, grayed: false
+                };
+            }
+            function getDefineModuleItem(node) {
+                if (node.kind !== 177 /* FunctionExpression */ && node.kind !== 178 /* ArrowFunction */) {
+                    return undefined;
+                }
+                // No match if this is not a call expression to an identifier named 'define'
+                if (node.parent.kind !== 172 /* CallExpression */) {
+                    return undefined;
+                }
+                var callExpr = node.parent;
+                if (callExpr.expression.kind !== 69 /* Identifier */ || callExpr.expression.getText() !== 'define') {
+                    return undefined;
+                }
+                // Return a module of either the given text in the first argument, or of the source file path
+                var defaultName = node.getSourceFile().fileName;
+                if (callExpr.arguments[0].kind === 9 /* StringLiteral */) {
+                    defaultName = (callExpr.arguments[0]).text;
+                }
+                return getNavBarItem(defaultName, ts.ScriptElementKind.moduleElement, [getNodeSpan(node.parent)]);
+            }
+            function getFunctionOrClassExpressionItem(node) {
+                if (node.kind !== 177 /* FunctionExpression */ &&
+                    node.kind !== 178 /* ArrowFunction */ &&
+                    node.kind !== 190 /* ClassExpression */) {
+                    return undefined;
+                }
+                var fnExpr = node;
+                var fnName;
+                if (fnExpr.name && ts.getFullWidth(fnExpr.name) > 0) {
+                    // The expression has an identifier, so use that as the name
+                    fnName = ts.declarationNameToString(fnExpr.name);
+                }
+                else {
+                    // See if it is a var initializer. If so, use the var name.
+                    if (fnExpr.parent.kind === 215 /* VariableDeclaration */) {
+                        fnName = ts.declarationNameToString(fnExpr.parent.name);
+                    }
+                    else if (fnExpr.parent.kind === 185 /* BinaryExpression */ &&
+                        fnExpr.parent.operatorToken.kind === 56 /* EqualsToken */) {
+                        fnName = fnExpr.parent.left.getText();
+                        if (fnName.length > 20) {
+                            fnName = fnName.substring(0, 17) + "...";
+                        }
+                    }
+                    else if (fnExpr.parent.kind === 250 /* PropertyAssignment */ &&
+                        fnExpr.parent.name) {
+                        fnName = fnExpr.parent.name.getText();
+                    }
+                    else {
+                        fnName = node.kind === 190 /* ClassExpression */ ? anonClassText : anonFnText;
+                    }
+                }
+                var scriptKind = node.kind === 190 /* ClassExpression */ ? ts.ScriptElementKind.classElement : ts.ScriptElementKind.functionElement;
+                return getNavBarItem(fnName, scriptKind, [getNodeSpan(node)]);
+            }
+            function getNodeSpan(node) {
+                return node.kind === 253 /* SourceFile */
+                    ? ts.createTextSpanFromBounds(node.getFullStart(), node.getEnd())
+                    : ts.createTextSpanFromBounds(node.getStart(), node.getEnd());
+            }
+            function getScriptKindForElementKind(kind) {
+                switch (kind) {
+                    case 215 /* VariableDeclaration */:
+                        return ts.ScriptElementKind.variableElement;
+                    case 217 /* FunctionDeclaration */:
+                        return ts.ScriptElementKind.functionElement;
+                    case 218 /* ClassDeclaration */:
+                        return ts.ScriptElementKind.classElement;
+                    case 146 /* Constructor */:
+                        return ts.ScriptElementKind.constructorImplementationElement;
+                    case 147 /* GetAccessor */:
+                        return ts.ScriptElementKind.memberGetAccessorElement;
+                    case 148 /* SetAccessor */:
+                        return ts.ScriptElementKind.memberSetAccessorElement;
+                    default:
+                        return "unknown";
+                }
+            }
+            return sourceFileItem.childItems;
+        }
+        NavigationBar.getJsNavigationBarItems = getJsNavigationBarItems;
     })(NavigationBar = ts.NavigationBar || (ts.NavigationBar = {}));
 })(ts || (ts = {}));
 /* @internal */
@@ -45370,9 +45557,9 @@ var ts;
             }
             getTypingNamesFromSourceFileNames(fileNames);
             // Add the cached typing locations for inferred typings that are already installed
-            for (var name_36 in packageNameToTypingLocation) {
-                if (ts.hasProperty(inferredTypings, name_36) && !inferredTypings[name_36]) {
-                    inferredTypings[name_36] = packageNameToTypingLocation[name_36];
+            for (var name_37 in packageNameToTypingLocation) {
+                if (ts.hasProperty(inferredTypings, name_37) && !inferredTypings[name_37]) {
+                    inferredTypings[name_37] = packageNameToTypingLocation[name_37];
                 }
             }
             // Remove typings that the user has added to the exclude list
@@ -46205,9 +46392,9 @@ var ts;
             }
             Rules.prototype.getRuleName = function (rule) {
                 var o = this;
-                for (var name_37 in o) {
-                    if (o[name_37] === rule) {
-                        return name_37;
+                for (var name_38 in o) {
+                    if (o[name_38] === rule) {
+                        return name_38;
                     }
                 }
                 throw new Error("Unknown rule");
@@ -50977,8 +51164,8 @@ var ts;
                     if (element.getStart() <= position && position <= element.getEnd()) {
                         continue;
                     }
-                    var name_38 = element.propertyName || element.name;
-                    existingImportsOrExports[name_38.text] = true;
+                    var name_39 = element.propertyName || element.name;
+                    existingImportsOrExports[name_39.text] = true;
                 }
                 if (ts.isEmpty(existingImportsOrExports)) {
                     return exportsOfModule;
@@ -51095,14 +51282,14 @@ var ts;
                 var entries = [];
                 var target = program.getCompilerOptions().target;
                 var nameTable = getNameTable(sourceFile);
-                for (var name_39 in nameTable) {
+                for (var name_40 in nameTable) {
                     // Skip identifiers produced only from the current location
-                    if (nameTable[name_39] === position) {
+                    if (nameTable[name_40] === position) {
                         continue;
                     }
-                    if (!uniqueNames[name_39]) {
-                        uniqueNames[name_39] = name_39;
-                        var displayName = getCompletionEntryDisplayName(name_39, target, /*performCharacterChecks*/ true);
+                    if (!uniqueNames[name_40]) {
+                        uniqueNames[name_40] = name_40;
+                        var displayName = getCompletionEntryDisplayName(name_40, target, /*performCharacterChecks*/ true);
                         if (displayName) {
                             var entry = {
                                 name: displayName,
@@ -53061,19 +53248,19 @@ var ts;
                 if (isNameOfPropertyAssignment(node)) {
                     var objectLiteral = node.parent.parent;
                     var contextualType = typeChecker.getContextualType(objectLiteral);
-                    var name_40 = node.text;
+                    var name_41 = node.text;
                     if (contextualType) {
                         if (contextualType.flags & 16384 /* Union */) {
                             // This is a union type, first see if the property we are looking for is a union property (i.e. exists in all types)
                             // if not, search the constituent types for the property
-                            var unionProperty = contextualType.getProperty(name_40);
+                            var unionProperty = contextualType.getProperty(name_41);
                             if (unionProperty) {
                                 return [unionProperty];
                             }
                             else {
                                 var result_5 = [];
                                 ts.forEach(contextualType.types, function (t) {
-                                    var symbol = t.getProperty(name_40);
+                                    var symbol = t.getProperty(name_41);
                                     if (symbol) {
                                         result_5.push(symbol);
                                     }
@@ -53082,7 +53269,7 @@ var ts;
                             }
                         }
                         else {
-                            var symbol_1 = contextualType.getProperty(name_40);
+                            var symbol_1 = contextualType.getProperty(name_41);
                             if (symbol_1) {
                                 return [symbol_1];
                             }
