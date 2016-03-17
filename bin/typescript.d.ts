@@ -1680,6 +1680,7 @@ declare namespace ts {
     type RootPaths = string[];
     type PathSubstitutions = Map<string[]>;
     type TsConfigOnlyOptions = RootPaths | PathSubstitutions;
+    type CompilerOptionsValue = string | number | boolean | (string | number)[] | TsConfigOnlyOptions;
     interface CompilerOptions {
         allowNonTsExtensions?: boolean;
         charset?: string;
@@ -1736,10 +1737,12 @@ declare namespace ts {
         allowSyntheticDefaultImports?: boolean;
         allowJs?: boolean;
         noImplicitUseStrict?: boolean;
+        lib?: string[];
         stripInternal?: boolean;
         skipDefaultLibCheck?: boolean;
         suppressOutputPathCheck?: boolean;
-        [option: string]: string | number | boolean | TsConfigOnlyOptions;
+        list?: string[];
+        [option: string]: CompilerOptionsValue;
     }
     interface TypingOptions {
         enableAutoDiscovery?: boolean;
@@ -1807,7 +1810,7 @@ declare namespace ts {
     }
     interface CommandLineOptionBase {
         name: string;
-        type: "string" | "number" | "boolean" | "object" | Map<number>;
+        type: "string" | "number" | "boolean" | "object" | "list" | Map<number | string>;
         isFilePath?: boolean;
         shortName?: string;
         description?: DiagnosticMessage;
@@ -1819,13 +1822,16 @@ declare namespace ts {
         type: "string" | "number" | "boolean";
     }
     interface CommandLineOptionOfCustomType extends CommandLineOptionBase {
-        type: Map<number>;
-        error: DiagnosticMessage;
+        type: Map<number | string>;
     }
     interface TsConfigOnlyOption extends CommandLineOptionBase {
         type: "object";
     }
-    type CommandLineOption = CommandLineOptionOfCustomType | CommandLineOptionOfPrimitiveType | TsConfigOnlyOption;
+    interface CommandLineOptionOfListType extends CommandLineOptionBase {
+        type: "list";
+        element: CommandLineOptionOfCustomType | CommandLineOptionOfPrimitiveType;
+    }
+    type CommandLineOption = CommandLineOptionOfCustomType | CommandLineOptionOfPrimitiveType | TsConfigOnlyOption | CommandLineOptionOfListType;
     const enum CharacterCodes {
         nullCharacter = 0,
         maxAsciiCharacter = 127,
@@ -5848,13 +5854,13 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Specifies_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations: {
+        Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations: {
             code: number;
             category: DiagnosticCategory;
             key: string;
             message: string;
         };
-        Specifies_the_location_where_debugger_should_locate_TypeScript_files_instead_of_source_locations: {
+        Specify_the_location_where_debugger_should_locate_TypeScript_files_instead_of_source_locations: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5902,7 +5908,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015_experimental: {
+        Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6034,13 +6040,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Argument_for_module_option_must_be_commonjs_amd_system_umd_es2015_or_none: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
-        Argument_for_target_option_must_be_ES3_ES5_or_ES2015: {
+        Argument_for_0_option_must_be_Colon_1: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6100,7 +6100,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Specifies_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDir: {
+        Specify_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDir: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6112,25 +6112,13 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Specifies_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix: {
+        Specify_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix: {
             code: number;
             category: DiagnosticCategory;
             key: string;
             message: string;
         };
         NEWLINE: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
-        Argument_for_newLine_option_must_be_CRLF_or_LF: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
-        Argument_for_moduleResolution_option_must_be_node_or_classic: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6160,7 +6148,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Specifies_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6: {
+        Specify_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6226,12 +6214,6 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Argument_for_jsx_must_be_preserve_or_react: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
         Only_amd_and_system_modules_are_supported_alongside_0: {
             code: number;
             category: DiagnosticCategory;
@@ -6244,7 +6226,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Specifies_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit: {
+        Specify_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6823,11 +6805,13 @@ declare namespace ts {
 }
 declare namespace ts {
     let optionDeclarations: CommandLineOption[];
+    let typingOptionDeclarations: CommandLineOption[];
     interface OptionNameMap {
         optionNameMap: Map<CommandLineOption>;
         shortOptionNames: Map<string>;
     }
     function getOptionNameMap(): OptionNameMap;
+    function createCompilerDiagnosticForInvalidCustomType(opt: CommandLineOptionOfCustomType): Diagnostic;
     function parseCommandLine(commandLine: string[], readFile?: (path: string) => string): ParsedCommandLine;
     /**
       * Read tsconfig.json file
@@ -6854,10 +6838,8 @@ declare namespace ts {
       *    file to. e.g. outDir
       */
     function parseJsonConfigFileContent(json: any, host: ParseConfigHost, basePath: string, existingOptions?: CompilerOptions, configFileName?: string): ParsedCommandLine;
-    function convertCompilerOptionsFromJson(jsonOptions: any, basePath: string, configFileName?: string): {
-        options: CompilerOptions;
-        errors: Diagnostic[];
-    };
+    function convertCompilerOptionsFromJson(optionsDeclarations: CommandLineOption[], jsonOptions: any, basePath: string, errors: Diagnostic[], configFileName?: string): CompilerOptions;
+    function convertTypingOptionsFromJson(optionsDeclarations: CommandLineOption[], jsonOptions: any, basePath: string, errors: Diagnostic[], configFileName?: string): TypingOptions;
 }
 declare namespace ts {
     function getDeclarationDiagnostics(host: EmitHost, resolver: EmitResolver, targetSourceFile: SourceFile): Diagnostic[];

@@ -5459,8 +5459,8 @@ var ts;
         Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character: { code: 5062, category: ts.DiagnosticCategory.Error, key: "Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character_5062", message: "Substitution '{0}' in pattern '{1}' in can have at most one '*' character" },
         Concatenate_and_emit_output_to_single_file: { code: 6001, category: ts.DiagnosticCategory.Message, key: "Concatenate_and_emit_output_to_single_file_6001", message: "Concatenate and emit output to single file." },
         Generates_corresponding_d_ts_file: { code: 6002, category: ts.DiagnosticCategory.Message, key: "Generates_corresponding_d_ts_file_6002", message: "Generates corresponding '.d.ts' file." },
-        Specifies_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations: { code: 6003, category: ts.DiagnosticCategory.Message, key: "Specifies_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations_6003", message: "Specifies the location where debugger should locate map files instead of generated locations." },
-        Specifies_the_location_where_debugger_should_locate_TypeScript_files_instead_of_source_locations: { code: 6004, category: ts.DiagnosticCategory.Message, key: "Specifies_the_location_where_debugger_should_locate_TypeScript_files_instead_of_source_locations_6004", message: "Specifies the location where debugger should locate TypeScript files instead of source locations." },
+        Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations: { code: 6003, category: ts.DiagnosticCategory.Message, key: "Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations_6003", message: "Specify the location where debugger should locate map files instead of generated locations." },
+        Specify_the_location_where_debugger_should_locate_TypeScript_files_instead_of_source_locations: { code: 6004, category: ts.DiagnosticCategory.Message, key: "Specify_the_location_where_debugger_should_locate_TypeScript_files_instead_of_source_locations_6004", message: "Specify the location where debugger should locate TypeScript files instead of source locations." },
         Watch_input_files: { code: 6005, category: ts.DiagnosticCategory.Message, key: "Watch_input_files_6005", message: "Watch input files." },
         Redirect_output_structure_to_the_directory: { code: 6006, category: ts.DiagnosticCategory.Message, key: "Redirect_output_structure_to_the_directory_6006", message: "Redirect output structure to the directory." },
         Do_not_erase_const_enum_declarations_in_generated_code: { code: 6007, category: ts.DiagnosticCategory.Message, key: "Do_not_erase_const_enum_declarations_in_generated_code_6007", message: "Do not erase const enum declarations in generated code." },
@@ -5468,7 +5468,7 @@ var ts;
         Do_not_emit_comments_to_output: { code: 6009, category: ts.DiagnosticCategory.Message, key: "Do_not_emit_comments_to_output_6009", message: "Do not emit comments to output." },
         Do_not_emit_outputs: { code: 6010, category: ts.DiagnosticCategory.Message, key: "Do_not_emit_outputs_6010", message: "Do not emit outputs." },
         Allow_default_imports_from_modules_with_no_default_export_This_does_not_affect_code_emit_just_typechecking: { code: 6011, category: ts.DiagnosticCategory.Message, key: "Allow_default_imports_from_modules_with_no_default_export_This_does_not_affect_code_emit_just_typech_6011", message: "Allow default imports from modules with no default export. This does not affect code emit, just typechecking." },
-        Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015_experimental: { code: 6015, category: ts.DiagnosticCategory.Message, key: "Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015_experimental_6015", message: "Specify ECMAScript target version: 'ES3' (default), 'ES5', or 'ES2015' (experimental)" },
+        Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015: { code: 6015, category: ts.DiagnosticCategory.Message, key: "Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015_6015", message: "Specify ECMAScript target version: 'ES3' (default), 'ES5', or 'ES2015'" },
         Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es2015: { code: 6016, category: ts.DiagnosticCategory.Message, key: "Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es2015_6016", message: "Specify module code generation: 'commonjs', 'amd', 'system', 'umd' or 'es2015'" },
         Print_this_message: { code: 6017, category: ts.DiagnosticCategory.Message, key: "Print_this_message_6017", message: "Print this message." },
         Print_the_compiler_s_version: { code: 6019, category: ts.DiagnosticCategory.Message, key: "Print_the_compiler_s_version_6019", message: "Print the compiler's version." },
@@ -5490,8 +5490,7 @@ var ts;
         Generates_corresponding_map_file: { code: 6043, category: ts.DiagnosticCategory.Message, key: "Generates_corresponding_map_file_6043", message: "Generates corresponding '.map' file." },
         Compiler_option_0_expects_an_argument: { code: 6044, category: ts.DiagnosticCategory.Error, key: "Compiler_option_0_expects_an_argument_6044", message: "Compiler option '{0}' expects an argument." },
         Unterminated_quoted_string_in_response_file_0: { code: 6045, category: ts.DiagnosticCategory.Error, key: "Unterminated_quoted_string_in_response_file_0_6045", message: "Unterminated quoted string in response file '{0}'." },
-        Argument_for_module_option_must_be_commonjs_amd_system_umd_es2015_or_none: { code: 6046, category: ts.DiagnosticCategory.Error, key: "Argument_for_module_option_must_be_commonjs_amd_system_umd_es2015_or_none_6046", message: "Argument for '--module' option must be 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'none'." },
-        Argument_for_target_option_must_be_ES3_ES5_or_ES2015: { code: 6047, category: ts.DiagnosticCategory.Error, key: "Argument_for_target_option_must_be_ES3_ES5_or_ES2015_6047", message: "Argument for '--target' option must be 'ES3', 'ES5', or 'ES2015'." },
+        Argument_for_0_option_must_be_Colon_1: { code: 6046, category: ts.DiagnosticCategory.Error, key: "Argument_for_0_option_must_be_Colon_1_6046", message: "Argument for '{0}' option must be: {1}" },
         Locale_must_be_of_the_form_language_or_language_territory_For_example_0_or_1: { code: 6048, category: ts.DiagnosticCategory.Error, key: "Locale_must_be_of_the_form_language_or_language_territory_For_example_0_or_1_6048", message: "Locale must be of the form <language> or <language>-<territory>. For example '{0}' or '{1}'." },
         Unsupported_locale_0: { code: 6049, category: ts.DiagnosticCategory.Error, key: "Unsupported_locale_0_6049", message: "Unsupported locale '{0}'." },
         Unable_to_open_file_0: { code: 6050, category: ts.DiagnosticCategory.Error, key: "Unable_to_open_file_0_6050", message: "Unable to open file '{0}'." },
@@ -5501,17 +5500,15 @@ var ts;
         File_0_has_unsupported_extension_The_only_supported_extensions_are_1: { code: 6054, category: ts.DiagnosticCategory.Error, key: "File_0_has_unsupported_extension_The_only_supported_extensions_are_1_6054", message: "File '{0}' has unsupported extension. The only supported extensions are {1}." },
         Suppress_noImplicitAny_errors_for_indexing_objects_lacking_index_signatures: { code: 6055, category: ts.DiagnosticCategory.Message, key: "Suppress_noImplicitAny_errors_for_indexing_objects_lacking_index_signatures_6055", message: "Suppress noImplicitAny errors for indexing objects lacking index signatures." },
         Do_not_emit_declarations_for_code_that_has_an_internal_annotation: { code: 6056, category: ts.DiagnosticCategory.Message, key: "Do_not_emit_declarations_for_code_that_has_an_internal_annotation_6056", message: "Do not emit declarations for code that has an '@internal' annotation." },
-        Specifies_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDir: { code: 6058, category: ts.DiagnosticCategory.Message, key: "Specifies_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDi_6058", message: "Specifies the root directory of input files. Use to control the output directory structure with --outDir." },
+        Specify_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDir: { code: 6058, category: ts.DiagnosticCategory.Message, key: "Specify_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDir_6058", message: "Specify the root directory of input files. Use to control the output directory structure with --outDir." },
         File_0_is_not_under_rootDir_1_rootDir_is_expected_to_contain_all_source_files: { code: 6059, category: ts.DiagnosticCategory.Error, key: "File_0_is_not_under_rootDir_1_rootDir_is_expected_to_contain_all_source_files_6059", message: "File '{0}' is not under 'rootDir' '{1}'. 'rootDir' is expected to contain all source files." },
-        Specifies_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix: { code: 6060, category: ts.DiagnosticCategory.Message, key: "Specifies_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix_6060", message: "Specifies the end of line sequence to be used when emitting files: 'CRLF' (dos) or 'LF' (unix)." },
+        Specify_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix: { code: 6060, category: ts.DiagnosticCategory.Message, key: "Specify_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix_6060", message: "Specify the end of line sequence to be used when emitting files: 'CRLF' (dos) or 'LF' (unix)." },
         NEWLINE: { code: 6061, category: ts.DiagnosticCategory.Message, key: "NEWLINE_6061", message: "NEWLINE" },
-        Argument_for_newLine_option_must_be_CRLF_or_LF: { code: 6062, category: ts.DiagnosticCategory.Error, key: "Argument_for_newLine_option_must_be_CRLF_or_LF_6062", message: "Argument for '--newLine' option must be 'CRLF' or 'LF'." },
-        Argument_for_moduleResolution_option_must_be_node_or_classic: { code: 6063, category: ts.DiagnosticCategory.Error, key: "Argument_for_moduleResolution_option_must_be_node_or_classic_6063", message: "Argument for '--moduleResolution' option must be 'node' or 'classic'." },
         Option_0_can_only_be_specified_in_tsconfig_json_file: { code: 6064, category: ts.DiagnosticCategory.Error, key: "Option_0_can_only_be_specified_in_tsconfig_json_file_6064", message: "Option '{0}' can only be specified in 'tsconfig.json' file." },
         Enables_experimental_support_for_ES7_decorators: { code: 6065, category: ts.DiagnosticCategory.Message, key: "Enables_experimental_support_for_ES7_decorators_6065", message: "Enables experimental support for ES7 decorators." },
         Enables_experimental_support_for_emitting_type_metadata_for_decorators: { code: 6066, category: ts.DiagnosticCategory.Message, key: "Enables_experimental_support_for_emitting_type_metadata_for_decorators_6066", message: "Enables experimental support for emitting type metadata for decorators." },
         Enables_experimental_support_for_ES7_async_functions: { code: 6068, category: ts.DiagnosticCategory.Message, key: "Enables_experimental_support_for_ES7_async_functions_6068", message: "Enables experimental support for ES7 async functions." },
-        Specifies_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6: { code: 6069, category: ts.DiagnosticCategory.Message, key: "Specifies_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6_6069", message: "Specifies module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6)." },
+        Specify_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6: { code: 6069, category: ts.DiagnosticCategory.Message, key: "Specify_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6_6069", message: "Specify module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6)." },
         Initializes_a_TypeScript_project_and_creates_a_tsconfig_json_file: { code: 6070, category: ts.DiagnosticCategory.Message, key: "Initializes_a_TypeScript_project_and_creates_a_tsconfig_json_file_6070", message: "Initializes a TypeScript project and creates a tsconfig.json file." },
         Successfully_created_a_tsconfig_json_file: { code: 6071, category: ts.DiagnosticCategory.Message, key: "Successfully_created_a_tsconfig_json_file_6071", message: "Successfully created a tsconfig.json file." },
         Suppress_excess_property_checks_for_object_literals: { code: 6072, category: ts.DiagnosticCategory.Message, key: "Suppress_excess_property_checks_for_object_literals_6072", message: "Suppress excess property checks for object literals." },
@@ -5522,10 +5519,9 @@ var ts;
         Do_not_report_errors_on_unreachable_code: { code: 6077, category: ts.DiagnosticCategory.Message, key: "Do_not_report_errors_on_unreachable_code_6077", message: "Do not report errors on unreachable code." },
         Disallow_inconsistently_cased_references_to_the_same_file: { code: 6078, category: ts.DiagnosticCategory.Message, key: "Disallow_inconsistently_cased_references_to_the_same_file_6078", message: "Disallow inconsistently-cased references to the same file." },
         Specify_JSX_code_generation_Colon_preserve_or_react: { code: 6080, category: ts.DiagnosticCategory.Message, key: "Specify_JSX_code_generation_Colon_preserve_or_react_6080", message: "Specify JSX code generation: 'preserve' or 'react'" },
-        Argument_for_jsx_must_be_preserve_or_react: { code: 6081, category: ts.DiagnosticCategory.Message, key: "Argument_for_jsx_must_be_preserve_or_react_6081", message: "Argument for '--jsx' must be 'preserve' or 'react'." },
         Only_amd_and_system_modules_are_supported_alongside_0: { code: 6082, category: ts.DiagnosticCategory.Error, key: "Only_amd_and_system_modules_are_supported_alongside_0_6082", message: "Only 'amd' and 'system' modules are supported alongside --{0}." },
         Base_directory_to_resolve_non_absolute_module_names: { code: 6083, category: ts.DiagnosticCategory.Message, key: "Base_directory_to_resolve_non_absolute_module_names_6083", message: "Base directory to resolve non-absolute module names." },
-        Specifies_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit: { code: 6084, category: ts.DiagnosticCategory.Message, key: "Specifies_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit_6084", message: "Specifies the object invoked for createElement and __spread when targeting 'react' JSX emit" },
+        Specify_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit: { code: 6084, category: ts.DiagnosticCategory.Message, key: "Specify_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit_6084", message: "Specify the object invoked for createElement and __spread when targeting 'react' JSX emit" },
         Enable_tracing_of_the_module_resolution_process: { code: 6085, category: ts.DiagnosticCategory.Message, key: "Enable_tracing_of_the_module_resolution_process_6085", message: "Enable tracing of the module resolution process." },
         Resolving_module_0_from_1: { code: 6086, category: ts.DiagnosticCategory.Message, key: "Resolving_module_0_from_1_6086", message: "======== Resolving module '{0}' from '{1}'. ========" },
         Explicitly_specified_module_resolution_kind_Colon_0: { code: 6087, category: ts.DiagnosticCategory.Message, key: "Explicitly_specified_module_resolution_kind_Colon_0_6087", message: "Explicitly specified module resolution kind: '{0}'." },
@@ -30689,12 +30685,11 @@ var ts;
             },
             paramType: ts.Diagnostics.KIND,
             description: ts.Diagnostics.Specify_JSX_code_generation_Colon_preserve_or_react,
-            error: ts.Diagnostics.Argument_for_jsx_must_be_preserve_or_react
         },
         {
             name: "reactNamespace",
             type: "string",
-            description: ts.Diagnostics.Specifies_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit
+            description: ts.Diagnostics.Specify_the_object_invoked_for_createElement_and_spread_when_targeting_react_JSX_emit
         },
         {
             name: "listFiles",
@@ -30708,7 +30703,7 @@ var ts;
             name: "mapRoot",
             type: "string",
             isFilePath: true,
-            description: ts.Diagnostics.Specifies_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations,
+            description: ts.Diagnostics.Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations,
             paramType: ts.Diagnostics.LOCATION,
         },
         {
@@ -30725,7 +30720,6 @@ var ts;
             },
             description: ts.Diagnostics.Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es2015,
             paramType: ts.Diagnostics.KIND,
-            error: ts.Diagnostics.Argument_for_module_option_must_be_commonjs_amd_system_umd_es2015_or_none
         },
         {
             name: "newLine",
@@ -30733,9 +30727,8 @@ var ts;
                 "crlf": 0 /* CarriageReturnLineFeed */,
                 "lf": 1 /* LineFeed */
             },
-            description: ts.Diagnostics.Specifies_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix,
+            description: ts.Diagnostics.Specify_the_end_of_line_sequence_to_be_used_when_emitting_files_Colon_CRLF_dos_or_LF_unix,
             paramType: ts.Diagnostics.NEWLINE,
-            error: ts.Diagnostics.Argument_for_newLine_option_must_be_CRLF_or_LF
         },
         {
             name: "noEmit",
@@ -30817,8 +30810,8 @@ var ts;
             name: "rootDir",
             type: "string",
             isFilePath: true,
-            description: ts.Diagnostics.Specifies_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDir,
             paramType: ts.Diagnostics.LOCATION,
+            description: ts.Diagnostics.Specify_the_root_directory_of_input_files_Use_to_control_the_output_directory_structure_with_outDir,
         },
         {
             name: "isolatedModules",
@@ -30833,7 +30826,7 @@ var ts;
             name: "sourceRoot",
             type: "string",
             isFilePath: true,
-            description: ts.Diagnostics.Specifies_the_location_where_debugger_should_locate_TypeScript_files_instead_of_source_locations,
+            description: ts.Diagnostics.Specify_the_location_where_debugger_should_locate_TypeScript_files_instead_of_source_locations,
             paramType: ts.Diagnostics.LOCATION,
         },
         {
@@ -30862,9 +30855,8 @@ var ts;
                 "es6": 2 /* ES6 */,
                 "es2015": 2 /* ES2015 */,
             },
-            description: ts.Diagnostics.Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015_experimental,
+            description: ts.Diagnostics.Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015,
             paramType: ts.Diagnostics.VERSION,
-            error: ts.Diagnostics.Argument_for_target_option_must_be_ES3_ES5_or_ES2015
         },
         {
             name: "version",
@@ -30895,8 +30887,7 @@ var ts;
                 "node": ts.ModuleResolutionKind.NodeJs,
                 "classic": ts.ModuleResolutionKind.Classic,
             },
-            description: ts.Diagnostics.Specifies_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6,
-            error: ts.Diagnostics.Argument_for_moduleResolution_option_must_be_node_or_classic,
+            description: ts.Diagnostics.Specify_module_resolution_strategy_Colon_node_Node_js_or_classic_TypeScript_pre_1_6,
         },
         {
             name: "allowUnusedLabels",
@@ -30940,9 +30931,13 @@ var ts;
             // this option can only be specified in tsconfig.json
             // use type = object to copy the value as-is
             name: "rootDirs",
-            type: "object",
+            type: "list",
             isTSConfigOnly: true,
-            isFilePath: true
+            element: {
+                name: "rootDirs",
+                type: "string",
+                isFilePath: true
+            }
         },
         {
             name: "traceModuleResolution",
@@ -30965,6 +30960,29 @@ var ts;
             description: ts.Diagnostics.Do_not_emit_use_strict_directives_in_module_output
         }
     ];
+    /* @internal */
+    ts.typingOptionDeclarations = [
+        {
+            name: "enableAutoDiscovery",
+            type: "boolean",
+        },
+        {
+            name: "include",
+            type: "list",
+            element: {
+                name: "include",
+                type: "string"
+            }
+        },
+        {
+            name: "exclude",
+            type: "list",
+            element: {
+                name: "exclude",
+                type: "string"
+            }
+        }
+    ];
     var optionNameMapCache;
     /* @internal */
     function getOptionNameMap() {
@@ -30983,6 +31001,15 @@ var ts;
         return optionNameMapCache;
     }
     ts.getOptionNameMap = getOptionNameMap;
+    /* @internal */
+    function createCompilerDiagnosticForInvalidCustomType(opt) {
+        var namesOfType = [];
+        ts.forEachKey(opt.type, function (key) {
+            namesOfType.push(" '" + key + "'");
+        });
+        return ts.createCompilerDiagnostic(ts.Diagnostics.Argument_for_0_option_must_be_Colon_1, "--" + opt.name, namesOfType);
+    }
+    ts.createCompilerDiagnosticForInvalidCustomType = createCompilerDiagnosticForInvalidCustomType;
     function parseCommandLine(commandLine, readFile) {
         var options = {};
         var fileNames = [];
@@ -31030,17 +31057,15 @@ var ts;
                                     options[opt.name] = args[i] || "";
                                     i++;
                                     break;
+                                case "list":
+                                    options[opt.name] = parseListTypeOption(opt, args[i]);
+                                    i++;
+                                    break;
                                 // If not a primitive, the possible types are specified in what is effectively a map of options.
                                 default:
-                                    var map_1 = opt.type;
-                                    var key = (args[i] || "").toLowerCase();
+                                    options[opt.name] = parseCustomTypeOption(opt, args[i]);
                                     i++;
-                                    if (ts.hasProperty(map_1, key)) {
-                                        options[opt.name] = map_1[key];
-                                    }
-                                    else {
-                                        errors.push(ts.createCompilerDiagnostic(opt.error));
-                                    }
+                                    break;
                             }
                         }
                     }
@@ -31050,6 +31075,27 @@ var ts;
                 }
                 else {
                     fileNames.push(s);
+                }
+                function parseCustomTypeOption(opt, value) {
+                    var key = (value || "").trim().toLowerCase();
+                    var map = opt.type;
+                    if (ts.hasProperty(map, key)) {
+                        return map[key];
+                    }
+                    else {
+                        errors.push(createCompilerDiagnosticForInvalidCustomType(opt));
+                    }
+                }
+                function parseListTypeOption(opt, value) {
+                    var values = (value || "").trim().split(",");
+                    switch (opt.element.type) {
+                        case "number":
+                            return ts.map(values, parseInt);
+                        case "string":
+                            return ts.map(values, function (v) { return v || ""; });
+                        default:
+                            return ts.filter(ts.map(values, function (v) { return parseCustomTypeOption(opt.element, v); }), function (v) { return !!v; });
+                    }
                 }
             }
         }
@@ -31152,18 +31198,21 @@ var ts;
       */
     function parseJsonConfigFileContent(json, host, basePath, existingOptions, configFileName) {
         if (existingOptions === void 0) { existingOptions = {}; }
-        var _a = convertCompilerOptionsFromJson(json["compilerOptions"], basePath, configFileName), optionsFromJsonConfigFile = _a.options, errors = _a.errors;
-        var options = ts.extend(existingOptions, optionsFromJsonConfigFile);
+        var errors = [];
+        var compilerOptions = convertCompilerOptionsFromJson(ts.optionDeclarations, json["compilerOptions"], basePath, errors, configFileName);
+        var options = ts.extend(existingOptions, compilerOptions);
+        var typingOptions = convertTypingOptionsFromJson(ts.typingOptionDeclarations, json["typingOptions"], basePath, errors, configFileName);
+        var fileNames = getFileNames(errors);
         return {
             options: options,
-            fileNames: getFileNames(),
-            typingOptions: getTypingOptions(),
+            fileNames: fileNames,
+            typingOptions: typingOptions,
             errors: errors
         };
-        function getFileNames() {
+        function getFileNames(errors) {
             var fileNames = [];
             if (ts.hasProperty(json, "files")) {
-                if (json["files"] instanceof Array) {
+                if (ts.isArray(json["files"])) {
                     fileNames = ts.map(json["files"], function (s) { return ts.combinePaths(basePath, s); });
                 }
                 else {
@@ -31173,7 +31222,7 @@ var ts;
             else {
                 var filesSeen = {};
                 var exclude = [];
-                if (json["exclude"] instanceof Array) {
+                if (ts.isArray(json["exclude"])) {
                     exclude = json["exclude"];
                 }
                 else {
@@ -31217,113 +31266,74 @@ var ts;
             }
             return fileNames;
         }
-        function getTypingOptions() {
-            var options = ts.getBaseFileName(configFileName) === "jsconfig.json"
-                ? { enableAutoDiscovery: true, include: [], exclude: [] }
-                : { enableAutoDiscovery: false, include: [], exclude: [] };
-            var jsonTypingOptions = json["typingOptions"];
-            if (jsonTypingOptions) {
-                for (var id in jsonTypingOptions) {
-                    if (id === "enableAutoDiscovery") {
-                        if (typeof jsonTypingOptions[id] === "boolean") {
-                            options.enableAutoDiscovery = jsonTypingOptions[id];
-                        }
-                        else {
-                            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_typing_option_0, id));
-                        }
-                    }
-                    else if (id === "include") {
-                        options.include = convertJsonOptionToStringArray(id, jsonTypingOptions[id], errors);
-                    }
-                    else if (id === "exclude") {
-                        options.exclude = convertJsonOptionToStringArray(id, jsonTypingOptions[id], errors);
-                    }
-                    else {
-                        errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_typing_option_0, id));
-                    }
-                }
-            }
-            return options;
-        }
     }
     ts.parseJsonConfigFileContent = parseJsonConfigFileContent;
-    function convertCompilerOptionsFromJson(jsonOptions, basePath, configFileName) {
-        var options = {};
-        var errors = [];
-        if (configFileName && ts.getBaseFileName(configFileName) === "jsconfig.json") {
-            options.allowJs = true;
-        }
+    /* @internal */
+    function convertCompilerOptionsFromJson(optionsDeclarations, jsonOptions, basePath, errors, configFileName) {
+        var options = ts.getBaseFileName(configFileName) === "jsconfig.json" ? { allowJs: true } : {};
+        convertOptionsFromJson(ts.optionDeclarations, jsonOptions, basePath, options, ts.Diagnostics.Unknown_compiler_option_0, errors);
+        return options;
+    }
+    ts.convertCompilerOptionsFromJson = convertCompilerOptionsFromJson;
+    /* @internal */
+    function convertTypingOptionsFromJson(optionsDeclarations, jsonOptions, basePath, errors, configFileName) {
+        var options = ts.getBaseFileName(configFileName) === "jsconfig.json"
+            ? { enableAutoDiscovery: true, include: [], exclude: [] }
+            : { enableAutoDiscovery: false, include: [], exclude: [] };
+        convertOptionsFromJson(ts.typingOptionDeclarations, jsonOptions, basePath, options, ts.Diagnostics.Unknown_typing_option_0, errors);
+        return options;
+    }
+    ts.convertTypingOptionsFromJson = convertTypingOptionsFromJson;
+    function convertOptionsFromJson(optionDeclarations, jsonOptions, basePath, defaultOptions, diagnosticMessage, errors) {
         if (!jsonOptions) {
-            return { options: options, errors: errors };
+            return;
         }
-        var optionNameMap = ts.arrayToMap(ts.optionDeclarations, function (opt) { return opt.name; });
+        var optionNameMap = ts.arrayToMap(optionDeclarations, function (opt) { return opt.name; });
         for (var id in jsonOptions) {
             if (ts.hasProperty(optionNameMap, id)) {
                 var opt = optionNameMap[id];
-                var optType = opt.type;
-                var value = jsonOptions[id];
-                var expectedType = typeof optType === "string" ? optType : "string";
-                if (typeof value === expectedType) {
-                    if (typeof optType !== "string") {
-                        var key = value.toLowerCase();
-                        if (ts.hasProperty(optType, key)) {
-                            value = optType[key];
-                        }
-                        else {
-                            errors.push(ts.createCompilerDiagnostic(opt.error));
-                            value = 0;
-                        }
-                    }
-                    if (opt.isFilePath) {
-                        switch (typeof value) {
-                            case "string":
-                                value = ts.normalizePath(ts.combinePaths(basePath, value));
-                                break;
-                            case "object":
-                                // "object" options with 'isFilePath' = true expected to be string arrays
-                                value = convertJsonOptionToStringArray(opt.name, value, errors, function (element) { return ts.normalizePath(ts.combinePaths(basePath, element)); });
-                                break;
-                        }
-                        if (value === "") {
-                            value = ".";
-                        }
-                    }
-                    options[opt.name] = value;
-                }
-                else {
-                    errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, id, expectedType));
-                }
+                defaultOptions[opt.name] = convertJsonOption(opt, jsonOptions[id], basePath, errors);
             }
             else {
-                errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_compiler_option_0, id));
+                errors.push(ts.createCompilerDiagnostic(diagnosticMessage, id));
             }
         }
-        return { options: options, errors: errors };
     }
-    ts.convertCompilerOptionsFromJson = convertCompilerOptionsFromJson;
-    function convertJsonOptionToStringArray(optionName, optionJson, errors, func) {
-        var items = [];
-        var invalidOptionType = false;
-        if (!ts.isArray(optionJson)) {
-            invalidOptionType = true;
+    function convertJsonOption(opt, value, basePath, errors) {
+        var optType = opt.type;
+        var expectedType = typeof optType === "string" ? optType : "string";
+        if (optType === "list" && ts.isArray(value)) {
+            return convertJsonOptionOfListType(opt, value, basePath, errors);
+        }
+        else if (typeof value === expectedType) {
+            if (typeof optType !== "string") {
+                return convertJsonOptionOfCustomType(opt, value, errors);
+            }
+            else {
+                if (opt.isFilePath) {
+                    value = ts.normalizePath(ts.combinePaths(basePath, value));
+                    if (value === "") {
+                        value = ".";
+                    }
+                }
+            }
+            return value;
         }
         else {
-            for (var _i = 0, _a = optionJson; _i < _a.length; _i++) {
-                var element = _a[_i];
-                if (typeof element === "string") {
-                    var item = func ? func(element) : element;
-                    items.push(item);
-                }
-                else {
-                    invalidOptionType = true;
-                    break;
-                }
-            }
+            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, opt.name, expectedType));
         }
-        if (invalidOptionType) {
-            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_should_have_array_of_strings_as_a_value, optionName));
+    }
+    function convertJsonOptionOfCustomType(opt, value, errors) {
+        var key = value.toLowerCase();
+        if (ts.hasProperty(opt.type, key)) {
+            return opt.type[key];
         }
-        return items;
+        else {
+            errors.push(createCompilerDiagnosticForInvalidCustomType(opt));
+        }
+    }
+    function convertJsonOptionOfListType(option, values, basePath, errors) {
+        return ts.filter(ts.map(values, function (v) { return convertJsonOption(option.element, v, basePath, errors); }), function (v) { return !!v; });
     }
 })(ts || (ts = {}));
 /// <reference path="checker.ts"/>
