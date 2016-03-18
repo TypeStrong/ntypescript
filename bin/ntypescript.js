@@ -16059,12 +16059,6 @@ var ts;
                             return result;
                         }
                         break;
-                    case 218 /* ClassDeclaration */:
-                    case 219 /* InterfaceDeclaration */:
-                        if (result = callback(getSymbolOfNode(location_1).members)) {
-                            return result;
-                        }
-                        break;
                 }
             }
             return callback(globals);
@@ -16120,7 +16114,9 @@ var ts;
                 });
             }
             if (symbol) {
-                return forEachSymbolTableInScope(enclosingDeclaration, getAccessibleSymbolChainFromSymbolTable);
+                if (!(isPropertyOrMethodDeclarationSymbol(symbol))) {
+                    return forEachSymbolTableInScope(enclosingDeclaration, getAccessibleSymbolChainFromSymbolTable);
+                }
             }
         }
         function needsQualification(symbol, enclosingDeclaration, meaning) {
@@ -16147,6 +16143,24 @@ var ts;
                 return false;
             });
             return qualify;
+        }
+        function isPropertyOrMethodDeclarationSymbol(symbol) {
+            if (symbol.declarations && symbol.declarations.length) {
+                for (var _i = 0, _a = symbol.declarations; _i < _a.length; _i++) {
+                    var declaration = _a[_i];
+                    switch (declaration.kind) {
+                        case 143 /* PropertyDeclaration */:
+                        case 145 /* MethodDeclaration */:
+                        case 147 /* GetAccessor */:
+                        case 148 /* SetAccessor */:
+                            continue;
+                        default:
+                            return false;
+                    }
+                }
+                return true;
+            }
+            return false;
         }
         function isSymbolAccessible(symbol, enclosingDeclaration, meaning) {
             if (symbol && enclosingDeclaration && !(symbol.flags & 262144 /* TypeParameter */)) {
@@ -36849,12 +36863,26 @@ var ts;
             }
             function emitVariableDeclaration(node) {
                 if (ts.isBindingPattern(node.name)) {
-                    if (languageVersion < 2 /* ES6 */) {
-                        emitDestructuring(node, /*isAssignmentExpressionStatement*/ false);
-                    }
-                    else {
+                    var isExported = ts.getCombinedNodeFlags(node) & 1 /* Export */;
+                    if (languageVersion >= 2 /* ES6 */ && (!isExported || modulekind === ts.ModuleKind.ES6)) {
+                        // emit ES6 destructuring only if target module is ES6 or variable is not exported
+                        // exported variables in CJS/AMD are prefixed with 'exports.' so result javascript { exports.toString } = 1; is illegal
+                        var isTopLevelDeclarationInSystemModule = modulekind === ts.ModuleKind.System &&
+                            shouldHoistVariable(node, /*checkIfSourceFileLevelDecl*/ true);
+                        if (isTopLevelDeclarationInSystemModule) {
+                            // In System modules top level variables are hoisted
+                            // so variable declarations with destructuring are turned into destructuring assignments.
+                            // As a result, they will need parentheses to disambiguate object binding assignments from blocks.
+                            write("(");
+                        }
                         emit(node.name);
                         emitOptional(" = ", node.initializer);
+                        if (isTopLevelDeclarationInSystemModule) {
+                            write(")");
+                        }
+                    }
+                    else {
+                        emitDestructuring(node, /*isAssignmentExpressionStatement*/ false);
                     }
                 }
                 else {
@@ -37798,9 +37826,11 @@ var ts;
             }
             function emitClassLikeDeclarationForES6AndHigher(node) {
                 var decoratedClassAlias;
-                var thisNodeIsDecorated = ts.nodeIsDecorated(node);
+                var isHoistedDeclarationInSystemModule = shouldHoistDeclarationInSystemJsModule(node);
+                var isDecorated = ts.nodeIsDecorated(node);
+                var rewriteAsClassExpression = isDecorated || isHoistedDeclarationInSystemModule;
                 if (node.kind === 218 /* ClassDeclaration */) {
-                    if (thisNodeIsDecorated) {
+                    if (rewriteAsClassExpression) {
                         // When we emit an ES6 class that has a class decorator, we must tailor the
                         // emit to certain specific cases.
                         //
@@ -37880,7 +37910,10 @@ var ts;
                         //  ---------------------------------------------------------------------
                         //  [Example 4]
                         //
-                        if (resolver.getNodeCheckFlags(node) & 524288 /* ClassWithBodyScopedClassBinding */) {
+                        // NOTE: we reuse the same rewriting logic for cases when targeting ES6 and module kind is System.
+                        // Because of hoisting top level class declaration need to be emitted as class expressions. 
+                        // Double bind case is only required if node is decorated.
+                        if (isDecorated && resolver.getNodeCheckFlags(node) & 524288 /* ClassWithBodyScopedClassBinding */) {
                             decoratedClassAlias = ts.unescapeIdentifier(makeUniqueName(node.name ? node.name.text : "default"));
                             decoratedClassAliases[ts.getNodeId(node)] = decoratedClassAlias;
                             write("let " + decoratedClassAlias + ";");
@@ -37889,7 +37922,9 @@ var ts;
                         if (isES6ExportedDeclaration(node) && !(node.flags & 512 /* Default */)) {
                             write("export ");
                         }
-                        write("let ");
+                        if (!isHoistedDeclarationInSystemModule) {
+                            write("let ");
+                        }
                         emitDeclarationName(node);
                         if (decoratedClassAlias !== undefined) {
                             write(" = " + decoratedClassAlias);
@@ -37928,7 +37963,7 @@ var ts;
                 // emit name if
                 // - node has a name
                 // - this is default export with static initializers
-                if (node.name || (node.flags & 512 /* Default */ && (staticProperties.length > 0 || modulekind !== ts.ModuleKind.ES6) && !thisNodeIsDecorated)) {
+                if (node.name || (node.flags & 512 /* Default */ && (staticProperties.length > 0 || modulekind !== ts.ModuleKind.ES6) && !rewriteAsClassExpression)) {
                     write(" ");
                     emitDeclarationName(node);
                 }
@@ -37945,7 +37980,7 @@ var ts;
                 decreaseIndent();
                 writeLine();
                 emitToken(16 /* CloseBraceToken */, node.members.end);
-                if (thisNodeIsDecorated) {
+                if (rewriteAsClassExpression) {
                     decoratedClassAliases[ts.getNodeId(node)] = undefined;
                     write(";");
                 }
@@ -37983,7 +38018,7 @@ var ts;
                     // module), export it
                     if (node.flags & 512 /* Default */) {
                         // if this is a top level default export of decorated class, write the export after the declaration.
-                        if (thisNodeIsDecorated) {
+                        if (isDecorated) {
                             writeLine();
                             write("export default ");
                             emitDeclarationName(node);
@@ -50913,7 +50948,18 @@ var ts;
                         // We don't want to complete using the type acquired by the shape
                         // of the binding pattern; we are only interested in types acquired
                         // through type declaration or inference.
-                        if (rootDeclaration.initializer || rootDeclaration.type) {
+                        // Also proceed if rootDeclaration is parameter and if its containing function expression\arrow function is contextually typed -
+                        // type of parameter will flow in from the contextual type of the function
+                        var canGetType = !!(rootDeclaration.initializer || rootDeclaration.type);
+                        if (!canGetType && rootDeclaration.kind === 140 /* Parameter */) {
+                            if (ts.isExpression(rootDeclaration.parent)) {
+                                canGetType = !!typeChecker.getContextualType(rootDeclaration.parent);
+                            }
+                            else if (rootDeclaration.parent.kind === 145 /* MethodDeclaration */ || rootDeclaration.parent.kind === 148 /* SetAccessor */) {
+                                canGetType = ts.isExpression(rootDeclaration.parent.parent) && !!typeChecker.getContextualType(rootDeclaration.parent.parent);
+                            }
+                        }
+                        if (canGetType) {
                             typeForObject = typeChecker.getTypeAtLocation(objectLikeContainer);
                             existingMembers = objectLikeContainer.elements;
                         }
