@@ -28359,9 +28359,15 @@ var ts;
             var symbol = getSymbolOfNode(node);
             var target = resolveAlias(symbol);
             if (target !== unknownSymbol) {
-                var excludedMeanings = (symbol.flags & 107455 /* Value */ ? 107455 /* Value */ : 0) |
-                    (symbol.flags & 793056 /* Type */ ? 793056 /* Type */ : 0) |
-                    (symbol.flags & 1536 /* Namespace */ ? 1536 /* Namespace */ : 0);
+                // For external modules symbol represent local symbol for an alias. 
+                // This local symbol will merge any other local declarations (excluding other aliases)
+                // and symbol.flags will contains combined representation for all merged declaration.
+                // Based on symbol.flags we can compute a set of excluded meanings (meaning that resolved alias should not have,
+                // otherwise it will conflict with some local declaration). Note that in addition to normal flags we include matching SymbolFlags.Export* 
+                // in order to prevent collisions with declarations that were exported from the current module (they still contribute to local names). 
+                var excludedMeanings = (symbol.flags & (107455 /* Value */ | 1048576 /* ExportValue */) ? 107455 /* Value */ : 0) |
+                    (symbol.flags & (793056 /* Type */ | 2097152 /* ExportType */) ? 793056 /* Type */ : 0) |
+                    (symbol.flags & (1536 /* Namespace */ | 4194304 /* ExportNamespace */) ? 1536 /* Namespace */ : 0);
                 if (target.flags & excludedMeanings) {
                     var message = node.kind === 235 /* ExportSpecifier */ ?
                         ts.Diagnostics.Export_declaration_conflicts_with_exported_declaration_of_0 :
