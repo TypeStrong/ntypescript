@@ -21884,7 +21884,7 @@ var ts;
                 return;
             }
             var declaration = symbol.valueDeclaration;
-            if (!declaration || declaration.kind !== 217 /* VariableDeclaration */ || declaration.initializer) {
+            if (!declaration || declaration.kind !== 217 /* VariableDeclaration */ || declaration.initializer || ts.isInAmbientContext(declaration)) {
                 return;
             }
             var parentParentKind = declaration.parent.parent.kind;
