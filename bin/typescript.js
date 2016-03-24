@@ -3129,6 +3129,16 @@ var ts;
         return node.kind === 172 /* ElementAccessExpression */;
     }
     ts.isElementAccessExpression = isElementAccessExpression;
+    function isJSXTagName(node) {
+        var parent = node.parent;
+        if (parent.kind === 242 /* JsxOpeningElement */ ||
+            parent.kind === 241 /* JsxSelfClosingElement */ ||
+            parent.kind === 244 /* JsxClosingElement */) {
+            return parent.tagName === node;
+        }
+        return false;
+    }
+    ts.isJSXTagName = isJSXTagName;
     function isExpression(node) {
         switch (node.kind) {
             case 95 /* SuperKeyword */:
@@ -3170,9 +3180,9 @@ var ts;
                 while (node.parent.kind === 138 /* QualifiedName */) {
                     node = node.parent;
                 }
-                return node.parent.kind === 157 /* TypeQuery */;
+                return node.parent.kind === 157 /* TypeQuery */ || isJSXTagName(node);
             case 69 /* Identifier */:
-                if (node.parent.kind === 157 /* TypeQuery */) {
+                if (node.parent.kind === 157 /* TypeQuery */ || isJSXTagName(node)) {
                     return true;
                 }
             // fall through
@@ -23066,7 +23076,12 @@ var ts;
             // Check attributes
             checkJsxOpeningLikeElement(node.openingElement);
             // Perform resolution on the closing tag so that rename/go to definition/etc work
-            getJsxTagSymbol(node.closingElement);
+            if (isJsxIntrinsicIdentifier(node.closingElement.tagName)) {
+                getIntrinsicTagSymbol(node.closingElement);
+            }
+            else {
+                checkExpression(node.closingElement.tagName);
+            }
             // Check children
             for (var _i = 0, _a = node.children; _i < _a.length; _i++) {
                 var child = _a[_i];
@@ -23164,17 +23179,6 @@ var ts;
                 return jsxTypes[name] = getExportedTypeFromNamespace(JsxNames.JSX, name) || unknownType;
             }
             return jsxTypes[name];
-        }
-        function getJsxTagSymbol(node) {
-            if (isJsxIntrinsicIdentifier(node.tagName)) {
-                return getIntrinsicTagSymbol(node);
-            }
-            else if (node.tagName.kind === 69 /* Identifier */) {
-                return resolveEntityName(node.tagName, 107455 /* Value */ | 8388608 /* Alias */);
-            }
-            else {
-                return checkExpression(node.tagName).symbol;
-            }
         }
         /**
           * Looks up an intrinsic tag name and returns a symbol that either points to an intrinsic
@@ -23496,12 +23500,10 @@ var ts;
                 return true;
             }
             // Property is known to be private or protected at this point
-            // Get the declaring and enclosing class instance types
-            var enclosingClassDeclaration = ts.getContainingClass(node);
-            var enclosingClass = enclosingClassDeclaration ? getDeclaredTypeOfSymbol(getSymbolOfNode(enclosingClassDeclaration)) : undefined;
-            // Private property is accessible if declaring and enclosing class are the same
+            // Private property is accessible if the property is within the declaring class
             if (flags & 8 /* Private */) {
-                if (declaringClass !== enclosingClass) {
+                var declaringClassDeclaration = getClassLikeDeclarationOfSymbol(getParentOfSymbol(prop));
+                if (!isNodeWithinClass(node, declaringClassDeclaration)) {
                     error(errorNode, ts.Diagnostics.Property_0_is_private_and_only_accessible_within_class_1, symbolToString(prop), typeToString(declaringClass));
                     return false;
                 }
@@ -23512,8 +23514,13 @@ var ts;
             if (left.kind === 95 /* SuperKeyword */) {
                 return true;
             }
-            // A protected property is accessible in the declaring class and classes derived from it
-            if (!enclosingClass || !hasBaseType(enclosingClass, declaringClass)) {
+            // Get the enclosing class that has the declaring class as its base type
+            var enclosingClass = forEachEnclosingClass(node, function (enclosingDeclaration) {
+                var enclosingClass = getDeclaredTypeOfSymbol(getSymbolOfNode(enclosingDeclaration));
+                return hasBaseType(enclosingClass, declaringClass) ? enclosingClass : undefined;
+            });
+            // A protected property is accessible if the property is within the declaring class or classes derived from it
+            if (!enclosingClass) {
                 error(errorNode, ts.Diagnostics.Property_0_is_protected_and_only_accessible_within_class_1_and_its_subclasses, symbolToString(prop), typeToString(declaringClass));
                 return false;
             }
@@ -29371,16 +29378,19 @@ var ts;
             }
             return node.parent && node.parent.kind === 193 /* ExpressionWithTypeArguments */;
         }
-        function isNodeWithinClass(node, classDeclaration) {
+        function forEachEnclosingClass(node, callback) {
+            var result;
             while (true) {
                 node = ts.getContainingClass(node);
-                if (!node) {
-                    return false;
-                }
-                if (node === classDeclaration) {
-                    return true;
-                }
+                if (!node)
+                    break;
+                if (result = callback(node))
+                    break;
             }
+            return result;
+        }
+        function isNodeWithinClass(node, classDeclaration) {
+            return !!forEachEnclosingClass(node, function (n) { return n === classDeclaration; });
         }
         function getLeftSideOfImportEqualsOrExportAssignment(nodeOnRightSide) {
             while (nodeOnRightSide.parent.kind === 138 /* QualifiedName */) {
@@ -29442,17 +29452,15 @@ var ts;
                 meaning |= 8388608 /* Alias */;
                 return resolveEntityName(entityName, meaning);
             }
-            else if ((entityName.parent.kind === 242 /* JsxOpeningElement */) ||
-                (entityName.parent.kind === 241 /* JsxSelfClosingElement */) ||
-                (entityName.parent.kind === 244 /* JsxClosingElement */)) {
-                return getJsxTagSymbol(entityName.parent);
-            }
             else if (ts.isExpression(entityName)) {
                 if (ts.nodeIsMissing(entityName)) {
                     // Missing entity name.
                     return undefined;
                 }
                 if (entityName.kind === 69 /* Identifier */) {
+                    if (ts.isJSXTagName(entityName) && isJsxIntrinsicIdentifier(entityName)) {
+                        return getIntrinsicTagSymbol(entityName.parent);
+                    }
                     // Include aliases in the meaning, this ensures that we do not follow aliases to where they point and instead
                     // return the alias symbol.
                     var meaning = 107455 /* Value */ | 8388608 /* Alias */;

@@ -2297,6 +2297,7 @@ declare namespace ts {
     function nodeIsDecorated(node: Node): boolean;
     function isPropertyAccessExpression(node: Node): node is PropertyAccessExpression;
     function isElementAccessExpression(node: Node): node is ElementAccessExpression;
+    function isJSXTagName(node: Node): boolean;
     function isExpression(node: Node): boolean;
     function isExternalModuleNameRelative(moduleName: string): boolean;
     function isInstantiatedModule(node: ModuleDeclaration, preserveConstEnums: boolean): boolean;
