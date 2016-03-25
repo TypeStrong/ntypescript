@@ -1889,13 +1889,13 @@ var ts;
                     if (!watchedFile) {
                         return;
                     }
-                    _fs.stat(watchedFile.filePath, function (err, stats) {
+                    _fs.stat(watchedFile.fileName, function (err, stats) {
                         if (err) {
-                            watchedFile.callback(watchedFile.filePath);
+                            watchedFile.callback(watchedFile.fileName);
                         }
                         else if (watchedFile.mtime.getTime() !== stats.mtime.getTime()) {
-                            watchedFile.mtime = getModifiedTime(watchedFile.filePath);
-                            watchedFile.callback(watchedFile.filePath, watchedFile.mtime.getTime() === 0);
+                            watchedFile.mtime = getModifiedTime(watchedFile.fileName);
+                            watchedFile.callback(watchedFile.fileName, watchedFile.mtime.getTime() === 0);
                         }
                     });
                 }
@@ -1921,11 +1921,11 @@ var ts;
                         nextFileToCheck = nextToCheck;
                     }, interval);
                 }
-                function addFile(filePath, callback) {
+                function addFile(fileName, callback) {
                     var file = {
-                        filePath: filePath,
+                        fileName: fileName,
                         callback: callback,
-                        mtime: getModifiedTime(filePath)
+                        mtime: getModifiedTime(fileName)
                     };
                     watchedFiles.push(file);
                     if (watchedFiles.length === 1) {
@@ -1945,70 +1945,70 @@ var ts;
                 };
             }
             function createWatchedFileSet() {
-                var dirWatchers = ts.createFileMap();
+                var dirWatchers = {};
                 // One file can have multiple watchers
-                var fileWatcherCallbacks = ts.createFileMap();
+                var fileWatcherCallbacks = {};
                 return { addFile: addFile, removeFile: removeFile };
-                function reduceDirWatcherRefCountForFile(filePath) {
-                    var dirPath = ts.getDirectoryPath(filePath);
-                    if (dirWatchers.contains(dirPath)) {
-                        var watcher = dirWatchers.get(dirPath);
+                function reduceDirWatcherRefCountForFile(fileName) {
+                    var dirName = ts.getDirectoryPath(fileName);
+                    if (ts.hasProperty(dirWatchers, dirName)) {
+                        var watcher = dirWatchers[dirName];
                         watcher.referenceCount -= 1;
                         if (watcher.referenceCount <= 0) {
                             watcher.close();
-                            dirWatchers.remove(dirPath);
+                            delete dirWatchers[dirName];
                         }
                     }
                 }
                 function addDirWatcher(dirPath) {
-                    if (dirWatchers.contains(dirPath)) {
-                        var watcher_1 = dirWatchers.get(dirPath);
+                    if (ts.hasProperty(dirWatchers, dirPath)) {
+                        var watcher_1 = dirWatchers[dirPath];
                         watcher_1.referenceCount += 1;
                         return;
                     }
                     var watcher = _fs.watch(dirPath, { persistent: true }, function (eventName, relativeFileName) { return fileEventHandler(eventName, relativeFileName, dirPath); });
                     watcher.referenceCount = 1;
-                    dirWatchers.set(dirPath, watcher);
+                    dirWatchers[dirPath] = watcher;
                     return;
                 }
                 function addFileWatcherCallback(filePath, callback) {
-                    if (fileWatcherCallbacks.contains(filePath)) {
-                        fileWatcherCallbacks.get(filePath).push(callback);
+                    if (ts.hasProperty(fileWatcherCallbacks, filePath)) {
+                        fileWatcherCallbacks[filePath].push(callback);
                     }
                     else {
-                        fileWatcherCallbacks.set(filePath, [callback]);
+                        fileWatcherCallbacks[filePath] = [callback];
                     }
                 }
-                function addFile(filePath, callback) {
-                    addFileWatcherCallback(filePath, callback);
-                    addDirWatcher(ts.getDirectoryPath(filePath));
-                    return { filePath: filePath, callback: callback };
+                function addFile(fileName, callback) {
+                    addFileWatcherCallback(fileName, callback);
+                    addDirWatcher(ts.getDirectoryPath(fileName));
+                    return { fileName: fileName, callback: callback };
                 }
                 function removeFile(watchedFile) {
-                    removeFileWatcherCallback(watchedFile.filePath, watchedFile.callback);
-                    reduceDirWatcherRefCountForFile(watchedFile.filePath);
+                    removeFileWatcherCallback(watchedFile.fileName, watchedFile.callback);
+                    reduceDirWatcherRefCountForFile(watchedFile.fileName);
                 }
                 function removeFileWatcherCallback(filePath, callback) {
-                    if (fileWatcherCallbacks.contains(filePath)) {
-                        var newCallbacks = ts.copyListRemovingItem(callback, fileWatcherCallbacks.get(filePath));
+                    if (ts.hasProperty(fileWatcherCallbacks, filePath)) {
+                        var newCallbacks = ts.copyListRemovingItem(callback, fileWatcherCallbacks[filePath]);
                         if (newCallbacks.length === 0) {
-                            fileWatcherCallbacks.remove(filePath);
+                            delete fileWatcherCallbacks[filePath];
                         }
                         else {
-                            fileWatcherCallbacks.set(filePath, newCallbacks);
+                            fileWatcherCallbacks[filePath] = newCallbacks;
                         }
                     }
                 }
                 function fileEventHandler(eventName, relativeFileName, baseDirPath) {
                     // When files are deleted from disk, the triggered "rename" event would have a relativefileName of "undefined"
-                    var filePath = typeof relativeFileName !== "string"
+                    var fileName = typeof relativeFileName !== "string"
                         ? undefined
-                        : ts.toPath(relativeFileName, baseDirPath, ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames));
+                        : ts.getNormalizedAbsolutePath(relativeFileName, baseDirPath);
                     // Some applications save a working file via rename operations
-                    if ((eventName === "change" || eventName === "rename") && fileWatcherCallbacks.contains(filePath)) {
-                        for (var _i = 0, _a = fileWatcherCallbacks.get(filePath); _i < _a.length; _i++) {
+                    if ((eventName === "change" || eventName === "rename") && ts.hasProperty(fileWatcherCallbacks, fileName)) {
+                        for (var _i = 0, _a = fileWatcherCallbacks[fileName]; _i < _a.length; _i++) {
                             var fileCallback = _a[_i];
-                            fileCallback(filePath);
+                            fileCallback(fileName);
                         }
                     }
                 }
@@ -2114,6 +2114,11 @@ var ts;
                     var directories = [];
                     for (var _i = 0, files_2 = files; _i < files_2.length; _i++) {
                         var current = files_2[_i];
+                        // This is necessary because on some file system node fails to exclude 
+                        // "." and "..". See https://github.com/nodejs/node/issues/4002
+                        if (current === "." || current === "..") {
+                            continue;
+                        }
                         var name_3 = ts.combinePaths(path, current);
                         if (!ts.contains(exclude, getCanonicalPath(name_3))) {
                             var stat = _fs.statSync(name_3);
@@ -2142,18 +2147,18 @@ var ts;
                 },
                 readFile: readFile,
                 writeFile: writeFile,
-                watchFile: function (filePath, callback) {
+                watchFile: function (fileName, callback) {
                     // Node 4.0 stabilized the `fs.watch` function on Windows which avoids polling
                     // and is more efficient than `fs.watchFile` (ref: https://github.com/nodejs/node/pull/2649
                     // and https://github.com/Microsoft/TypeScript/issues/4643), therefore
                     // if the current node.js version is newer than 4, use `fs.watch` instead.
                     var watchSet = isNode4OrLater() ? watchedFileSet : pollingWatchedFileSet;
-                    var watchedFile = watchSet.addFile(filePath, callback);
+                    var watchedFile = watchSet.addFile(fileName, callback);
                     return {
                         close: function () { return watchSet.removeFile(watchedFile); }
                     };
                 },
-                watchDirectory: function (path, callback, recursive) {
+                watchDirectory: function (directoryName, callback, recursive) {
                     // Node 4.0 `fs.watch` function supports the "recursive" option on both OSX and Windows
                     // (ref: https://github.com/nodejs/node/pull/2649 and https://github.com/Microsoft/TypeScript/issues/4643)
                     var options;
@@ -2163,13 +2168,13 @@ var ts;
                     else {
                         options = { persistent: true };
                     }
-                    return _fs.watch(path, options, function (eventName, relativeFileName) {
+                    return _fs.watch(directoryName, options, function (eventName, relativeFileName) {
                         // In watchDirectory we only care about adding and removing files (when event name is
                         // "rename"); changes made within files are handled by corresponding fileWatchers (when
                         // event name is "change")
                         if (eventName === "rename") {
                             // When deleting a file, the passed baseFileName is null
-                            callback(!relativeFileName ? relativeFileName : ts.normalizePath(ts.combinePaths(path, relativeFileName)));
+                            callback(!relativeFileName ? relativeFileName : ts.normalizePath(ts.combinePaths(directoryName, relativeFileName)));
                         }
                         ;
                     });
@@ -54042,7 +54047,7 @@ var ts;
             return ts.SignatureHelp.getSignatureHelpItems(program, sourceFile, position, cancellationToken);
         }
         /// Syntactic features
-        function getSourceFile(fileName) {
+        function getNonBoundSourceFile(fileName) {
             return syntaxTreeCache.getCurrentSourceFile(fileName);
         }
         function getNameOrDottedNameSpan(fileName, startPos, endPos) {
@@ -54984,7 +54989,7 @@ var ts;
             getFormattingEditsAfterKeystroke: getFormattingEditsAfterKeystroke,
             getDocCommentTemplateAtPosition: getDocCommentTemplateAtPosition,
             getEmitOutput: getEmitOutput,
-            getSourceFile: getSourceFile,
+            getNonBoundSourceFile: getNonBoundSourceFile,
             getProgram: getProgram
         };
     }

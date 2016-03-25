@@ -2159,8 +2159,8 @@ declare namespace ts {
     function createGetCanonicalFileName(useCaseSensitivefileNames: boolean): (fileName: string) => string;
 }
 declare namespace ts {
-    type FileWatcherCallback = (path: string, removed?: boolean) => void;
-    type DirectoryWatcherCallback = (path: string) => void;
+    type FileWatcherCallback = (fileName: string, removed?: boolean) => void;
+    type DirectoryWatcherCallback = (directoryName: string) => void;
     interface System {
         args: string[];
         newLine: string;
@@ -2168,7 +2168,7 @@ declare namespace ts {
         write(s: string): void;
         readFile(path: string, encoding?: string): string;
         writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
-        watchFile?(path: Path, callback: FileWatcherCallback): FileWatcher;
+        watchFile?(path: string, callback: FileWatcherCallback): FileWatcher;
         watchDirectory?(path: string, callback: DirectoryWatcherCallback, recursive?: boolean): FileWatcher;
         resolvePath(path: string): string;
         fileExists(path: string): boolean;
@@ -2184,7 +2184,7 @@ declare namespace ts {
         close(): void;
     }
     interface DirectoryWatcher extends FileWatcher {
-        directoryPath: Path;
+        directoryName: string;
         referenceCount: number;
     }
     var sys: System;
@@ -7617,7 +7617,7 @@ declare namespace ts {
         getDocCommentTemplateAtPosition(fileName: string, position: number): TextInsertion;
         getEmitOutput(fileName: string): EmitOutput;
         getProgram(): Program;
-        getSourceFile(fileName: string): SourceFile;
+        getNonBoundSourceFile(fileName: string): SourceFile;
         dispose(): void;
     }
     interface Classifications {
