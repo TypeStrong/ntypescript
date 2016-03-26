@@ -19936,7 +19936,7 @@ var ts;
                 if (source.flags & 128 /* Enum */ && target === numberType)
                     return -1 /* True */;
                 if (source.flags & 128 /* Enum */ && target.flags & 128 /* Enum */) {
-                    if (result = enumRelatedTo(source, target)) {
+                    if (result = enumRelatedTo(source, target, reportErrors)) {
                         return result;
                     }
                 }
@@ -20536,7 +20536,7 @@ var ts;
                 }
                 return 0 /* False */;
             }
-            function enumRelatedTo(source, target) {
+            function enumRelatedTo(source, target, reportErrors) {
                 if (source.symbol.name !== target.symbol.name ||
                     source.symbol.flags & 128 /* ConstEnum */ ||
                     target.symbol.flags & 128 /* ConstEnum */) {
@@ -20548,7 +20548,9 @@ var ts;
                     if (property.flags & 8 /* EnumMember */) {
                         var targetProperty = getPropertyOfType(targetEnumType, property.name);
                         if (!targetProperty || !(targetProperty.flags & 8 /* EnumMember */)) {
-                            reportError(ts.Diagnostics.Property_0_is_missing_in_type_1, property.name, typeToString(target, /*enclosingDeclaration*/ undefined, 128 /* UseFullyQualifiedType */));
+                            if (reportErrors) {
+                                reportError(ts.Diagnostics.Property_0_is_missing_in_type_1, property.name, typeToString(target, /*enclosingDeclaration*/ undefined, 128 /* UseFullyQualifiedType */));
+                            }
                             return 0 /* False */;
                         }
                     }
