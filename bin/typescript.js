@@ -43638,6 +43638,20 @@ var ts;
                     var node = nodes_4[_i];
                     switch (node.kind) {
                         case 220 /* ClassDeclaration */:
+                            topLevelNodes.push(node);
+                            for (var _a = 0, _b = node.members; _a < _b.length; _a++) {
+                                var member = _b[_a];
+                                if (member.kind === 146 /* MethodDeclaration */ || member.kind === 147 /* Constructor */) {
+                                    if (member.body) {
+                                        // We do not include methods that does not have child functions in it, because of duplications.
+                                        if (hasNamedFunctionDeclarations(member.body.statements)) {
+                                            topLevelNodes.push(member);
+                                        }
+                                        addTopLevelNodes(member.body.statements, topLevelNodes);
+                                    }
+                                }
+                            }
+                            break;
                         case 223 /* EnumDeclaration */:
                         case 221 /* InterfaceDeclaration */:
                             topLevelNodes.push(node);
@@ -43657,19 +43671,35 @@ var ts;
                     }
                 }
             }
+            function hasNamedFunctionDeclarations(nodes) {
+                for (var _i = 0, nodes_5 = nodes; _i < nodes_5.length; _i++) {
+                    var s = nodes_5[_i];
+                    if (s.kind === 219 /* FunctionDeclaration */ && !isEmpty(s.name.text)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
             function isTopLevelFunctionDeclaration(functionDeclaration) {
                 if (functionDeclaration.kind === 219 /* FunctionDeclaration */) {
                     // A function declaration is 'top level' if it contains any function declarations
                     // within it.
                     if (functionDeclaration.body && functionDeclaration.body.kind === 198 /* Block */) {
                         // Proper function declarations can only have identifier names
-                        if (ts.forEach(functionDeclaration.body.statements, function (s) { return s.kind === 219 /* FunctionDeclaration */ && !isEmpty(s.name.text); })) {
+                        if (hasNamedFunctionDeclarations(functionDeclaration.body.statements)) {
                             return true;
                         }
-                        // Or if it is not parented by another function.  i.e all functions
-                        // at module scope are 'top level'.
+                        // Or if it is not parented by another function. I.e all functions at module scope are 'top level'.
                         if (!ts.isFunctionBlock(functionDeclaration.parent)) {
                             return true;
+                        }
+                        else {
+                            // We have made sure that a grand parent node exists with 'isFunctionBlock()' above.
+                            var grandParentKind = functionDeclaration.parent.parent.kind;
+                            if (grandParentKind === 146 /* MethodDeclaration */ ||
+                                grandParentKind === 147 /* Constructor */) {
+                                return true;
+                            }
                         }
                     }
                 }
@@ -43678,8 +43708,8 @@ var ts;
             function getItemsWorker(nodes, createItem) {
                 var items = [];
                 var keyToItem = {};
-                for (var _i = 0, nodes_5 = nodes; _i < nodes_5.length; _i++) {
-                    var child = nodes_5[_i];
+                for (var _i = 0, nodes_6 = nodes; _i < nodes_6.length; _i++) {
+                    var child = nodes_6[_i];
                     var item = createItem(child);
                     if (item !== undefined) {
                         if (item.text.length > 0) {
@@ -43819,6 +43849,9 @@ var ts;
                         return createSourceFileItem(node);
                     case 220 /* ClassDeclaration */:
                         return createClassItem(node);
+                    case 146 /* MethodDeclaration */:
+                    case 147 /* Constructor */:
+                        return createMemberFunctionLikeItem(node);
                     case 223 /* EnumDeclaration */:
                         return createEnumItem(node);
                     case 221 /* InterfaceDeclaration */:
@@ -43852,6 +43885,23 @@ var ts;
                     if (node.body && node.body.kind === 198 /* Block */) {
                         var childItems = getItemsWorker(sortNodes(node.body.statements), createChildItem);
                         return getNavigationBarItem(!node.name ? "default" : node.name.text, ts.ScriptElementKind.functionElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
+                    }
+                    return undefined;
+                }
+                function createMemberFunctionLikeItem(node) {
+                    if (node.body && node.body.kind === 198 /* Block */) {
+                        var childItems = getItemsWorker(sortNodes(node.body.statements), createChildItem);
+                        var scriptElementKind = void 0;
+                        var memberFunctionName = void 0;
+                        if (node.kind === 146 /* MethodDeclaration */) {
+                            memberFunctionName = ts.getPropertyNameForPropertyNameNode(node.name);
+                            scriptElementKind = ts.ScriptElementKind.memberFunctionElement;
+                        }
+                        else {
+                            memberFunctionName = "constructor";
+                            scriptElementKind = ts.ScriptElementKind.constructorImplementationElement;
+                        }
+                        return getNavigationBarItem(memberFunctionName, scriptElementKind, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
                     }
                     return undefined;
                 }
@@ -48094,8 +48144,8 @@ var ts;
                         }
                     }
                     var inheritedIndentation = -1 /* Unknown */;
-                    for (var _i = 0, nodes_6 = nodes; _i < nodes_6.length; _i++) {
-                        var child = nodes_6[_i];
+                    for (var _i = 0, nodes_7 = nodes; _i < nodes_7.length; _i++) {
+                        var child = nodes_7[_i];
                         inheritedIndentation = processChildNode(child, inheritedIndentation, node, listDynamicIndentation, startLine, startLine, /*isListElement*/ true);
                     }
                     if (listEndToken !== 0 /* Unknown */) {
@@ -49072,8 +49122,8 @@ var ts;
             var list = createNode(278 /* SyntaxList */, nodes.pos, nodes.end, 0, this);
             list._children = [];
             var pos = nodes.pos;
-            for (var _i = 0, nodes_7 = nodes; _i < nodes_7.length; _i++) {
-                var node = nodes_7[_i];
+            for (var _i = 0, nodes_8 = nodes; _i < nodes_8.length; _i++) {
+                var node = nodes_8[_i];
                 if (pos < node.pos) {
                     pos = this.addSyntheticNodes(list._children, pos, node.pos);
                 }
