@@ -6438,6 +6438,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Unknown_option_excludes_Did_you_mean_exclude: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Variable_0_implicitly_has_an_1_type: {
             code: number;
             category: DiagnosticCategory;

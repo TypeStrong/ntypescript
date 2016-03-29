@@ -5588,6 +5588,7 @@ var ts;
         Module_resolution_using_rootDirs_has_failed: { code: 6111, category: ts.DiagnosticCategory.Message, key: "Module_resolution_using_rootDirs_has_failed_6111", message: "Module resolution using 'rootDirs' has failed" },
         Do_not_emit_use_strict_directives_in_module_output: { code: 6112, category: ts.DiagnosticCategory.Message, key: "Do_not_emit_use_strict_directives_in_module_output_6112", message: "Do not emit 'use strict' directives in module output." },
         Enable_strict_null_checks: { code: 6113, category: ts.DiagnosticCategory.Message, key: "Enable_strict_null_checks_6113", message: "Enable strict null checks." },
+        Unknown_option_excludes_Did_you_mean_exclude: { code: 6114, category: ts.DiagnosticCategory.Error, key: "Unknown_option_excludes_Did_you_mean_exclude_6114", message: "Unknown option 'excludes'. Did you mean 'exclude'?" },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter_0_implicitly_has_an_1_type_7006", message: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member_0_implicitly_has_an_1_type_7008", message: "Member '{0}' implicitly has an '{1}' type." },
@@ -31754,6 +31755,9 @@ var ts;
                     }
                 }
             }
+            if (ts.hasProperty(json, "excludes") && !ts.hasProperty(json, "exclude")) {
+                errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_option_excludes_Did_you_mean_exclude));
+            }
             return fileNames;
         }
     }
@@ -40965,8 +40969,8 @@ var ts;
     var emptyArray = [];
     ts.version = "1.9.0";
     function findConfigFile(searchPath, fileExists) {
-        var fileName = "tsconfig.json";
         while (true) {
+            var fileName = ts.combinePaths(searchPath, "tsconfig.json");
             if (fileExists(fileName)) {
                 return fileName;
             }
@@ -40975,7 +40979,6 @@ var ts;
                 break;
             }
             searchPath = parentPath;
-            fileName = "../" + fileName;
         }
         return undefined;
     }
