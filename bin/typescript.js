@@ -37699,7 +37699,9 @@ var ts;
                     emitExportMemberAssignments(node.name);
                 }
                 emitEnd(node);
-                if (kind !== 146 /* MethodDeclaration */ && kind !== 145 /* MethodSignature */) {
+                if (kind !== 146 /* MethodDeclaration */ &&
+                    kind !== 145 /* MethodSignature */ &&
+                    kind !== 179 /* ArrowFunction */) {
                     emitTrailingComments(node);
                 }
             }
