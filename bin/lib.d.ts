@@ -1263,6 +1263,8 @@ interface TypedPropertyDescriptor<T> {
     set?: (value: T) => void;
 }
 
+declare type PropertyKey = string | number | symbol;
+
 declare type ClassDecorator = <TFunction extends Function>(target: TFunction) => TFunction | void;
 declare type PropertyDecorator = (target: Object, propertyKey: string | symbol) => void;
 declare type MethodDecorator = <T>(target: Object, propertyKey: string | symbol, descriptor: TypedPropertyDescriptor<T>) => TypedPropertyDescriptor<T> | void;
@@ -3920,6 +3922,7 @@ interface Float64ArrayConstructor {
     from(arrayLike: ArrayLike<number>, mapfn?: (v: number, k: number) => number, thisArg?: any): Float64Array;
 }
 declare const Float64Array: Float64ArrayConstructor;
+
 /////////////////////////////
 /// ECMAScript Internationalization API 
 /////////////////////////////
@@ -4120,8 +4123,6 @@ interface Date {
       */
     toLocaleTimeString(locale?: string, options?: Intl.DateTimeFormatOptions): string;
 }
-
-
 /////////////////////////////
 /// IE DOM APIs
 /////////////////////////////

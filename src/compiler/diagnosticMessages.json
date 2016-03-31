@@ -1047,7 +1047,7 @@
         "category": "Error",
         "code": 2351
     },
-    "Neither type '{0}' nor type '{1}' is assignable to the other.": {
+    "Type '{0}' cannot be converted to type '{1}'.": {
         "category": "Error",
         "code": 2352
     },
@@ -1875,6 +1875,10 @@
         "category": "Error",
         "code": 2677
     },
+    "Type '{0}' is not comparable to type '{1}'.": {
+        "category": "Error",
+        "code": 2678
+    },
     "Import declaration '{0}' is using private name '{1}'.": {
         "category": "Error",
         "code": 4000
@@ -2487,6 +2491,10 @@
     "Disallow inconsistently-cased references to the same file.": {
         "category": "Message",
         "code": 6078
+    },
+    "Specify library files to be included in the compilation: ": {
+        "category": "Message",
+        "code": 6079
     },
     "Specify JSX code generation: 'preserve' or 'react'": {
         "category": "Message",

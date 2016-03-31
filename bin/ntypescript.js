@@ -4704,7 +4704,7 @@ var ts;
 var ts;
 (function (ts) {
     function getDefaultLibFileName(options) {
-        return options.target === 2 /* ES6 */ ? "lib.es6.d.ts" : "lib.d.ts";
+        return options.target === 2 /* ES6 */ ? "lib.full.es2015.d.ts" : "lib.d.ts";
     }
     ts.getDefaultLibFileName = getDefaultLibFileName;
     function textSpanEnd(span) {
@@ -5195,7 +5195,7 @@ var ts;
         Cannot_invoke_an_expression_whose_type_lacks_a_call_signature: { code: 2349, category: ts.DiagnosticCategory.Error, key: "Cannot_invoke_an_expression_whose_type_lacks_a_call_signature_2349", message: "Cannot invoke an expression whose type lacks a call signature." },
         Only_a_void_function_can_be_called_with_the_new_keyword: { code: 2350, category: ts.DiagnosticCategory.Error, key: "Only_a_void_function_can_be_called_with_the_new_keyword_2350", message: "Only a void function can be called with the 'new' keyword." },
         Cannot_use_new_with_an_expression_whose_type_lacks_a_call_or_construct_signature: { code: 2351, category: ts.DiagnosticCategory.Error, key: "Cannot_use_new_with_an_expression_whose_type_lacks_a_call_or_construct_signature_2351", message: "Cannot use 'new' with an expression whose type lacks a call or construct signature." },
-        Neither_type_0_nor_type_1_is_assignable_to_the_other: { code: 2352, category: ts.DiagnosticCategory.Error, key: "Neither_type_0_nor_type_1_is_assignable_to_the_other_2352", message: "Neither type '{0}' nor type '{1}' is assignable to the other." },
+        Type_0_cannot_be_converted_to_type_1: { code: 2352, category: ts.DiagnosticCategory.Error, key: "Type_0_cannot_be_converted_to_type_1_2352", message: "Type '{0}' cannot be converted to type '{1}'." },
         Object_literal_may_only_specify_known_properties_and_0_does_not_exist_in_type_1: { code: 2353, category: ts.DiagnosticCategory.Error, key: "Object_literal_may_only_specify_known_properties_and_0_does_not_exist_in_type_1_2353", message: "Object literal may only specify known properties, and '{0}' does not exist in type '{1}'." },
         No_best_common_type_exists_among_return_expressions: { code: 2354, category: ts.DiagnosticCategory.Error, key: "No_best_common_type_exists_among_return_expressions_2354", message: "No best common type exists among return expressions." },
         A_function_whose_declared_type_is_neither_void_nor_any_must_return_a_value: { code: 2355, category: ts.DiagnosticCategory.Error, key: "A_function_whose_declared_type_is_neither_void_nor_any_must_return_a_value_2355", message: "A function whose declared type is neither 'void' nor 'any' must return a value." },
@@ -5402,6 +5402,7 @@ var ts;
         Cannot_extend_a_class_0_Class_constructor_is_marked_as_private: { code: 2675, category: ts.DiagnosticCategory.Error, key: "Cannot_extend_a_class_0_Class_constructor_is_marked_as_private_2675", message: "Cannot extend a class '{0}'. Class constructor is marked as private." },
         Accessors_must_both_be_abstract_or_non_abstract: { code: 2676, category: ts.DiagnosticCategory.Error, key: "Accessors_must_both_be_abstract_or_non_abstract_2676", message: "Accessors must both be abstract or non-abstract." },
         A_type_predicate_s_type_must_be_assignable_to_its_parameter_s_type: { code: 2677, category: ts.DiagnosticCategory.Error, key: "A_type_predicate_s_type_must_be_assignable_to_its_parameter_s_type_2677", message: "A type predicate's type must be assignable to its parameter's type." },
+        Type_0_is_not_comparable_to_type_1: { code: 2678, category: ts.DiagnosticCategory.Error, key: "Type_0_is_not_comparable_to_type_1_2678", message: "Type '{0}' is not comparable to type '{1}'." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -5555,6 +5556,7 @@ var ts;
         Report_errors_for_fallthrough_cases_in_switch_statement: { code: 6076, category: ts.DiagnosticCategory.Message, key: "Report_errors_for_fallthrough_cases_in_switch_statement_6076", message: "Report errors for fallthrough cases in switch statement." },
         Do_not_report_errors_on_unreachable_code: { code: 6077, category: ts.DiagnosticCategory.Message, key: "Do_not_report_errors_on_unreachable_code_6077", message: "Do not report errors on unreachable code." },
         Disallow_inconsistently_cased_references_to_the_same_file: { code: 6078, category: ts.DiagnosticCategory.Message, key: "Disallow_inconsistently_cased_references_to_the_same_file_6078", message: "Disallow inconsistently-cased references to the same file." },
+        Specify_library_files_to_be_included_in_the_compilation_Colon: { code: 6079, category: ts.DiagnosticCategory.Message, key: "Specify_library_files_to_be_included_in_the_compilation_Colon_6079", message: "Specify library files to be included in the compilation: " },
         Specify_JSX_code_generation_Colon_preserve_or_react: { code: 6080, category: ts.DiagnosticCategory.Message, key: "Specify_JSX_code_generation_Colon_preserve_or_react_6080", message: "Specify JSX code generation: 'preserve' or 'react'" },
         Only_amd_and_system_modules_are_supported_alongside_0: { code: 6082, category: ts.DiagnosticCategory.Error, key: "Only_amd_and_system_modules_are_supported_alongside_0_6082", message: "Only 'amd' and 'system' modules are supported alongside --{0}." },
         Base_directory_to_resolve_non_absolute_module_names: { code: 6083, category: ts.DiagnosticCategory.Message, key: "Base_directory_to_resolve_non_absolute_module_names_6083", message: "Base directory to resolve non-absolute module names." },
@@ -14927,7 +14929,7 @@ var ts;
         var unknownSignature = createSignature(undefined, undefined, emptyArray, unknownType, /*typePredicate*/ undefined, 0, /*hasRestParameter*/ false, /*hasStringLiterals*/ false);
         var enumNumberIndexInfo = createIndexInfo(stringType, /*isReadonly*/ true);
         var globals = {};
-        var globalESSymbolConstructorSymbol;
+        var getGlobalESSymbolConstructorSymbol;
         var getGlobalPromiseConstructorSymbol;
         var globalObjectType;
         var globalFunctionType;
@@ -14937,13 +14939,16 @@ var ts;
         var globalNumberType;
         var globalBooleanType;
         var globalRegExpType;
-        var globalTemplateStringsArrayType;
-        var globalESSymbolType;
-        var globalIterableType;
-        var globalIteratorType;
-        var globalIterableIteratorType;
         var anyArrayType;
         var anyReadonlyArrayType;
+        // The library files are only loaded when the feature is used.
+        // This allows users to just specify library files they want to used through --lib
+        // and they will not get an error from not having unrelated library files
+        var getGlobalTemplateStringsArrayType;
+        var getGlobalESSymbolType;
+        var getGlobalIterableType;
+        var getGlobalIteratorType;
+        var getGlobalIterableIteratorType;
         var getGlobalClassDecoratorType;
         var getGlobalParameterDecoratorType;
         var getGlobalPropertyDecoratorType;
@@ -18442,7 +18447,7 @@ var ts;
                 type = globalBooleanType;
             }
             else if (type.flags & 16777216 /* ESSymbol */) {
-                type = globalESSymbolType;
+                type = getGlobalESSymbolType();
             }
             return type;
         }
@@ -19138,9 +19143,6 @@ var ts;
             var typeSymbol = namespaceSymbol && getSymbol(namespaceSymbol.exports, name, 793056 /* Type */);
             return typeSymbol && getDeclaredTypeOfSymbol(typeSymbol);
         }
-        function getGlobalESSymbolConstructorSymbol() {
-            return globalESSymbolConstructorSymbol || (globalESSymbolConstructorSymbol = getGlobalValueSymbol("Symbol"));
-        }
         /**
           * Creates a TypeReference for a generic `TypedPropertyDescriptor<T>`.
           */
@@ -19157,10 +19159,10 @@ var ts;
             return genericGlobalType !== emptyGenericType ? createTypeReference(genericGlobalType, typeArguments) : emptyObjectType;
         }
         function createIterableType(elementType) {
-            return createTypeFromGenericGlobalType(globalIterableType, [elementType]);
+            return createTypeFromGenericGlobalType(getGlobalIterableType(), [elementType]);
         }
         function createIterableIteratorType(elementType) {
-            return createTypeFromGenericGlobalType(globalIterableIteratorType, [elementType]);
+            return createTypeFromGenericGlobalType(getGlobalIterableIteratorType(), [elementType]);
         }
         function createArrayType(elementType) {
             return createTypeFromGenericGlobalType(globalArrayType, [elementType]);
@@ -19735,6 +19737,10 @@ var ts;
         function isTypeAssignableTo(source, target) {
             return checkTypeAssignableTo(source, target, /*errorNode*/ undefined);
         }
+        /**
+         * This is *not* a bi-directional relationship.
+         * If one needs to check both directions for comparability, use a second call to this function or 'checkTypeComparableTo'.
+         */
         function isTypeComparableTo(source, target) {
             return checkTypeComparableTo(source, target, /*errorNode*/ undefined);
         }
@@ -19744,6 +19750,10 @@ var ts;
         function checkTypeAssignableTo(source, target, errorNode, headMessage, containingMessageChain) {
             return checkTypeRelatedTo(source, target, assignableRelation, errorNode, headMessage, containingMessageChain);
         }
+        /**
+         * This is *not* a bi-directional relationship.
+         * If one needs to check both directions for comparability, use a second call to this function or 'isTypeComparableTo'.
+         */
         function checkTypeComparableTo(source, target, errorNode, headMessage, containingMessageChain) {
             return checkTypeRelatedTo(source, target, comparableRelation, errorNode, headMessage, containingMessageChain);
         }
@@ -19910,7 +19920,12 @@ var ts;
                     sourceType = typeToString(source, /*enclosingDeclaration*/ undefined, 128 /* UseFullyQualifiedType */);
                     targetType = typeToString(target, /*enclosingDeclaration*/ undefined, 128 /* UseFullyQualifiedType */);
                 }
-                reportError(message || ts.Diagnostics.Type_0_is_not_assignable_to_type_1, sourceType, targetType);
+                if (!message) {
+                    message = relation === comparableRelation ?
+                        ts.Diagnostics.Type_0_is_not_comparable_to_type_1 :
+                        ts.Diagnostics.Type_0_is_not_assignable_to_type_1;
+                }
+                reportError(message, sourceType, targetType);
             }
             // Compare two types and return
             // Ternary.True if they are related with no assumptions,
@@ -19968,26 +19983,26 @@ var ts;
                     }
                 }
                 var saveErrorInfo = errorInfo;
-                // Note that the "each" checks must precede the "some" checks to produce the correct results
+                // Note that these checks are specifically ordered to produce correct results.
                 if (source.flags & 16384 /* Union */) {
                     if (relation === comparableRelation) {
-                        if (result = someTypeRelatedToType(source, target, reportErrors)) {
-                            return result;
-                        }
+                        result = someTypeRelatedToType(source, target, reportErrors);
                     }
                     else {
-                        if (result = eachTypeRelatedToType(source, target, reportErrors)) {
-                            return result;
-                        }
+                        result = eachTypeRelatedToType(source, target, reportErrors);
+                    }
+                    if (result) {
+                        return result;
                     }
                 }
                 else if (target.flags & 32768 /* Intersection */) {
-                    if (result = typeRelatedToEachType(source, target, reportErrors)) {
+                    result = typeRelatedToEachType(source, target, reportErrors);
+                    if (result) {
                         return result;
                     }
                 }
                 else {
-                    // It is necessary to try "some" checks on both sides because there may be nested "each" checks
+                    // It is necessary to try these "some" checks on both sides because there may be nested "each" checks
                     // on either side that need to be prioritized. For example, A | B = (A | B) & (C | D) or
                     // A & B = (A & B) | (C & D).
                     if (source.flags & 32768 /* Intersection */) {
@@ -20066,8 +20081,8 @@ var ts;
                 }
                 if (source.flags & 16384 /* Union */ && target.flags & 16384 /* Union */ ||
                     source.flags & 32768 /* Intersection */ && target.flags & 32768 /* Intersection */) {
-                    if (result = eachTypeRelatedToSomeType(source, target)) {
-                        if (result &= eachTypeRelatedToSomeType(target, source)) {
+                    if (result = eachTypeRelatedToSomeType(source, target, /*reportErrors*/ false)) {
+                        if (result &= eachTypeRelatedToSomeType(target, source, /*reportErrors*/ false)) {
                             return result;
                         }
                     }
@@ -20116,7 +20131,7 @@ var ts;
                 }
                 return false;
             }
-            function eachTypeRelatedToSomeType(source, target) {
+            function eachTypeRelatedToSomeType(source, target, reportErrors) {
                 var result = -1 /* True */;
                 var sourceTypes = source.types;
                 for (var _i = 0, sourceTypes_1 = sourceTypes; _i < sourceTypes_1.length; _i++) {
@@ -24301,7 +24316,7 @@ var ts;
                 return getEffectiveDecoratorArgumentType(node, argIndex);
             }
             else if (argIndex === 0 && node.kind === 175 /* TaggedTemplateExpression */) {
-                return globalTemplateStringsArrayType;
+                return getGlobalTemplateStringsArrayType();
             }
             // This is not a synthetic argument, so we return 'undefined'
             // to signal that the caller needs to check the argument.
@@ -24829,7 +24844,7 @@ var ts;
             if (produceDiagnostics && targetType !== unknownType) {
                 var widenedType = getWidenedType(exprType);
                 if (!isTypeComparableTo(targetType, widenedType)) {
-                    checkTypeComparableTo(exprType, targetType, node, ts.Diagnostics.Neither_type_0_nor_type_1_is_assignable_to_the_other);
+                    checkTypeComparableTo(exprType, targetType, node, ts.Diagnostics.Type_0_cannot_be_converted_to_type_1);
                 }
             }
             return targetType;
@@ -27633,7 +27648,7 @@ var ts;
             if (!typeAsIterable.iterableElementType) {
                 // As an optimization, if the type is instantiated directly using the globalIterableType (Iterable<number>),
                 // then just grab its type argument.
-                if ((type.flags & 4096 /* Reference */) && type.target === globalIterableType) {
+                if ((type.flags & 4096 /* Reference */) && type.target === getGlobalIterableType()) {
                     typeAsIterable.iterableElementType = type.typeArguments[0];
                 }
                 else {
@@ -27674,7 +27689,7 @@ var ts;
             if (!typeAsIterator.iteratorElementType) {
                 // As an optimization, if the type is instantiated directly using the globalIteratorType (Iterator<number>),
                 // then just grab its type argument.
-                if ((type.flags & 4096 /* Reference */) && type.target === globalIteratorType) {
+                if ((type.flags & 4096 /* Reference */) && type.target === getGlobalIteratorType()) {
                     typeAsIterator.iteratorElementType = type.typeArguments[0];
                 }
                 else {
@@ -27711,7 +27726,7 @@ var ts;
             }
             // As an optimization, if the type is instantiated directly using the globalIterableIteratorType (IterableIterator<number>),
             // then just grab its type argument.
-            if ((type.flags & 4096 /* Reference */) && type.target === globalIterableIteratorType) {
+            if ((type.flags & 4096 /* Reference */) && type.target === getGlobalIterableIteratorType()) {
                 return type.typeArguments[0];
             }
             return getElementTypeOfIterable(type, /*errorNode*/ undefined) ||
@@ -27878,7 +27893,7 @@ var ts;
                 }
                 if (produceDiagnostics && clause.kind === 248 /* CaseClause */) {
                     var caseClause = clause;
-                    // TypeScript 1.0 spec (April 2014):5.9
+                    // TypeScript 1.0 spec (April 2014): 5.9
                     // In a 'switch' statement, each 'case' expression must be of a type that is comparable
                     // to or from the type of the 'switch' expression.
                     var caseType = checkExpression(caseClause.expression);
@@ -30058,6 +30073,7 @@ var ts;
             getGlobalMethodDecoratorType = ts.memoize(function () { return getGlobalType("MethodDecorator"); });
             getGlobalParameterDecoratorType = ts.memoize(function () { return getGlobalType("ParameterDecorator"); });
             getGlobalTypedPropertyDescriptorType = ts.memoize(function () { return getGlobalType("TypedPropertyDescriptor", /*arity*/ 1); });
+            getGlobalESSymbolConstructorSymbol = ts.memoize(function () { return getGlobalValueSymbol("Symbol"); });
             getGlobalPromiseType = ts.memoize(function () { return getGlobalType("Promise", /*arity*/ 1); });
             tryGetGlobalPromiseType = ts.memoize(function () { return getGlobalSymbol("Promise", 793056 /* Type */, /*diagnostic*/ undefined) && getGlobalPromiseType(); });
             getGlobalPromiseLikeType = ts.memoize(function () { return getGlobalType("PromiseLike", /*arity*/ 1); });
@@ -30065,26 +30081,18 @@ var ts;
             getGlobalPromiseConstructorSymbol = ts.memoize(function () { return getGlobalValueSymbol("Promise"); });
             getGlobalPromiseConstructorLikeType = ts.memoize(function () { return getGlobalType("PromiseConstructorLike"); });
             getGlobalThenableType = ts.memoize(createThenableType);
-            // If we're in ES6 mode, load the TemplateStringsArray.
-            // Otherwise, default to 'unknown' for the purposes of type checking in LS scenarios.
+            getGlobalTemplateStringsArrayType = ts.memoize(function () { return getGlobalType("TemplateStringsArray"); });
             if (languageVersion >= 2 /* ES6 */) {
-                globalTemplateStringsArrayType = getGlobalType("TemplateStringsArray");
-                globalESSymbolType = getGlobalType("Symbol");
-                globalESSymbolConstructorSymbol = getGlobalValueSymbol("Symbol");
-                globalIterableType = getGlobalType("Iterable", /*arity*/ 1);
-                globalIteratorType = getGlobalType("Iterator", /*arity*/ 1);
-                globalIterableIteratorType = getGlobalType("IterableIterator", /*arity*/ 1);
+                getGlobalESSymbolType = ts.memoize(function () { return getGlobalType("Symbol"); });
+                getGlobalIterableType = ts.memoize(function () { return getGlobalType("Iterable", /*arity*/ 1); });
+                getGlobalIteratorType = ts.memoize(function () { return getGlobalType("Iterator", /*arity*/ 1); });
+                getGlobalIterableIteratorType = ts.memoize(function () { return getGlobalType("IterableIterator", /*arity*/ 1); });
             }
             else {
-                globalTemplateStringsArrayType = unknownType;
-                // Consider putting Symbol interface in lib.d.ts. On the plus side, putting it in lib.d.ts would make it
-                // extensible for Polyfilling Symbols. But putting it into lib.d.ts could also break users that have
-                // a global Symbol already, particularly if it is a class.
-                globalESSymbolType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
-                globalESSymbolConstructorSymbol = undefined;
-                globalIterableType = emptyGenericType;
-                globalIteratorType = emptyGenericType;
-                globalIterableIteratorType = emptyGenericType;
+                getGlobalESSymbolType = ts.memoize(function () { return emptyObjectType; });
+                getGlobalIterableType = ts.memoize(function () { return emptyGenericType; });
+                getGlobalIteratorType = ts.memoize(function () { return emptyGenericType; });
+                getGlobalIterableIteratorType = ts.memoize(function () { return emptyGenericType; });
             }
             anyArrayType = createArrayType(anyType);
             var symbol = getGlobalSymbol("ReadonlyArray", 793056 /* Type */, /*diagnostic*/ undefined);
@@ -31275,7 +31283,6 @@ var ts;
         },
         {
             name: "pretty",
-            paramType: ts.Diagnostics.KIND,
             description: ts.Diagnostics.Stylize_errors_and_messages_using_color_and_context_experimental,
             type: "boolean"
         },
@@ -31446,6 +31453,43 @@ var ts;
             description: ts.Diagnostics.Do_not_emit_use_strict_directives_in_module_output
         },
         {
+            name: "lib",
+            type: "list",
+            element: {
+                name: "lib",
+                type: {
+                    // JavaScript only
+                    "es5": "lib.es5.d.ts",
+                    "es6": "lib.es2015.d.ts",
+                    "es2015": "lib.es2015.d.ts",
+                    "es7": "lib.es2016.d.ts",
+                    "es2016": "lib.es2016.d.ts",
+                    // Host only
+                    "dom": "lib.dom.d.ts",
+                    "webworker": "lib.webworker.d.ts",
+                    "scripthost": "lib.scripthost.d.ts",
+                    // ES2015 Or ESNext By-feature options
+                    "es2015.array": "lib.es2015.array.d.ts",
+                    "es2015.collection": "lib.es2015.collection.d.ts",
+                    "es2015.generator": "lib.es2015.generator.d.ts",
+                    "es2015.function": "lib.es2015.function.d.ts",
+                    "es2015.iterable": "lib.es2015.iterable.d.ts",
+                    "es2015.math": "lib.es2015.math.d.ts",
+                    "es2015.number": "lib.es2015.number.d.ts",
+                    "es2015.object": "lib.es2015.object.d.ts",
+                    "es2015.promise": "lib.es2015.promise.d.ts",
+                    "es2015.proxy": "lib.es2015.proxy.d.ts",
+                    "es2015.reflect": "lib.es2015.reflect.d.ts",
+                    "es2015.regexp": "lib.es2015.regexp.d.ts",
+                    "es2015.string": "lib.es2015.string.d.ts",
+                    "es2015.symbol": "lib.es2015.symbol.d.ts",
+                    "es2015.symbol.wellknown": "lib.es2015.symbol.wellknown.d.ts",
+                    "es2016.array.include": "lib.es2016.array.include.d.ts"
+                },
+            },
+            description: ts.Diagnostics.Specify_library_files_to_be_included_in_the_compilation_Colon
+        },
+        {
             name: "strictNullChecks",
             type: "boolean",
             description: ts.Diagnostics.Enable_strict_null_checks
@@ -31501,6 +31545,32 @@ var ts;
         return ts.createCompilerDiagnostic(ts.Diagnostics.Argument_for_0_option_must_be_Colon_1, "--" + opt.name, namesOfType);
     }
     ts.createCompilerDiagnosticForInvalidCustomType = createCompilerDiagnosticForInvalidCustomType;
+    /* @internal */
+    function parseCustomTypeOption(opt, value, errors) {
+        var key = (value || "").trim().toLowerCase();
+        var map = opt.type;
+        if (ts.hasProperty(map, key)) {
+            return map[key];
+        }
+        else {
+            errors.push(createCompilerDiagnosticForInvalidCustomType(opt));
+        }
+    }
+    ts.parseCustomTypeOption = parseCustomTypeOption;
+    /* @internal */
+    function parseListTypeOption(opt, value, errors) {
+        var values = (value || "").trim().split(",");
+        switch (opt.element.type) {
+            case "number":
+                return ts.map(values, parseInt);
+            case "string":
+                return ts.map(values, function (v) { return v || ""; });
+            default:
+                return ts.filter(ts.map(values, function (v) { return parseCustomTypeOption(opt.element, v, errors); }), function (v) { return !!v; });
+        }
+    }
+    ts.parseListTypeOption = parseListTypeOption;
+    /* @internal */
     function parseCommandLine(commandLine, readFile) {
         var options = {};
         var fileNames = [];
@@ -31549,12 +31619,12 @@ var ts;
                                     i++;
                                     break;
                                 case "list":
-                                    options[opt.name] = parseListTypeOption(opt, args[i]);
+                                    options[opt.name] = parseListTypeOption(opt, args[i], errors);
                                     i++;
                                     break;
                                 // If not a primitive, the possible types are specified in what is effectively a map of options.
                                 default:
-                                    options[opt.name] = parseCustomTypeOption(opt, args[i]);
+                                    options[opt.name] = parseCustomTypeOption(opt, args[i], errors);
                                     i++;
                                     break;
                             }
@@ -31566,27 +31636,6 @@ var ts;
                 }
                 else {
                     fileNames.push(s);
-                }
-                function parseCustomTypeOption(opt, value) {
-                    var key = (value || "").trim().toLowerCase();
-                    var map = opt.type;
-                    if (ts.hasProperty(map, key)) {
-                        return map[key];
-                    }
-                    else {
-                        errors.push(createCompilerDiagnosticForInvalidCustomType(opt));
-                    }
-                }
-                function parseListTypeOption(opt, value) {
-                    var values = (value || "").trim().split(",");
-                    switch (opt.element.type) {
-                        case "number":
-                            return ts.map(values, parseInt);
-                        case "string":
-                            return ts.map(values, function (v) { return v || ""; });
-                        default:
-                            return ts.filter(ts.map(values, function (v) { return parseCustomTypeOption(opt.element, v); }), function (v) { return !!v; });
-                    }
                 }
             }
         }
@@ -41501,10 +41550,14 @@ var ts;
                 }
             }
         }
+        function getDefaultLibLocation() {
+            return ts.getDirectoryPath(ts.normalizePath(ts.sys.getExecutingFilePath()));
+        }
         var newLine = ts.getNewLineCharacter(options);
         return {
             getSourceFile: getSourceFile,
-            getDefaultLibFileName: function (options) { return ts.combinePaths(ts.getDirectoryPath(ts.normalizePath(ts.sys.getExecutingFilePath())), ts.getDefaultLibFileName(options)); },
+            getDefaultLibLocation: getDefaultLibLocation,
+            getDefaultLibFileName: function (options) { return ts.combinePaths(getDefaultLibLocation(), ts.getDefaultLibFileName(options)); },
             writeFile: writeFile,
             getCurrentDirectory: ts.memoize(function () { return ts.sys.getCurrentDirectory(); }),
             useCaseSensitiveFileNames: function () { return ts.sys.useCaseSensitiveFileNames; },
@@ -41609,7 +41662,17 @@ var ts;
             //  - A 'no-default-lib' reference comment is encountered in
             //      processing the root files.
             if (!skipDefaultLib) {
-                processRootFile(host.getDefaultLibFileName(options), /*isDefaultLib*/ true);
+                // If '--lib' is not specified, include default library file according to '--target'
+                // otherwise, using options specified in '--lib' instead of '--target' default library file
+                if (!options.lib) {
+                    processRootFile(host.getDefaultLibFileName(options), /*isDefaultLib*/ true);
+                }
+                else {
+                    var libDirectory_1 = host.getDefaultLibLocation ? host.getDefaultLibLocation() : ts.getDirectoryPath(host.getDefaultLibFileName(options));
+                    ts.forEach(options.lib, function (libFileName) {
+                        processRootFile(ts.combinePaths(libDirectory_1, libFileName), /*isDefaultLib*/ true);
+                    });
+                }
             }
         }
         // unconditionally set oldProgram to undefined to prevent it from being captured in closure
@@ -42238,7 +42301,7 @@ var ts;
                 skipDefaultLib = skipDefaultLib || file.hasNoDefaultLib;
                 var basePath = ts.getDirectoryPath(fileName);
                 if (!options.noResolve) {
-                    processReferencedFiles(file, basePath);
+                    processReferencedFiles(file, basePath, /*isDefaultLib*/ isDefaultLib);
                 }
                 // always process imported modules to record module name resolutions
                 processImportedModules(file, basePath);
@@ -42251,10 +42314,10 @@ var ts;
             }
             return file;
         }
-        function processReferencedFiles(file, basePath) {
+        function processReferencedFiles(file, basePath, isDefaultLib) {
             ts.forEach(file.referencedFiles, function (ref) {
                 var referencedFileName = resolveTripleslashReference(ref.fileName, file.fileName);
-                processSourceFile(referencedFileName, /*isDefaultLib*/ false, /*isReference*/ true, file, ref.pos, ref.end);
+                processSourceFile(referencedFileName, isDefaultLib, /*isReference*/ true, file, ref.pos, ref.end);
             });
         }
         function getCanonicalFileName(fileName) {
@@ -42424,6 +42487,9 @@ var ts;
                 if (options.out || options.outFile) {
                     programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "declarationDir", options.out ? "out" : "outFile"));
                 }
+            }
+            if (options.lib && options.noLib) {
+                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "lib", "noLib"));
             }
             var languageVersion = options.target || 0 /* ES3 */;
             var outFile = options.outFile || options.out;
@@ -43061,12 +43127,13 @@ var ts;
         marginLength = 0;
         var usageColumn = []; // Things like "-d, --declaration" go in here.
         var descriptionColumn = [];
-        for (var i = 0; i < optsList.length; i++) {
+        var optionsDescriptionMap = {}; // Map between option.description and list of option.type if it is a kind
+        var _loop_2 = function(i) {
             var option = optsList[i];
             // If an option lacks a description,
             // it is not officially supported.
             if (!option.description) {
-                continue;
+                return "continue";
             }
             var usageText_1 = " ";
             if (option.shortName) {
@@ -43077,9 +43144,26 @@ var ts;
             usageText_1 += "--" + option.name;
             usageText_1 += getParamType(option);
             usageColumn.push(usageText_1);
-            descriptionColumn.push(getDiagnosticText(option.description));
+            var description = void 0;
+            if (option.name === "lib") {
+                description = getDiagnosticText(option.description);
+                var options_1 = [];
+                var element = option.element;
+                ts.forEachKey(element.type, function (key) {
+                    options_1.push("'" + key + "'");
+                });
+                optionsDescriptionMap[description] = options_1;
+            }
+            else {
+                description = getDiagnosticText(option.description);
+            }
+            descriptionColumn.push(description);
             // Set the new margin for the description column if necessary.
             marginLength = Math.max(usageText_1.length, marginLength);
+        };
+        for (var i = 0; i < optsList.length; i++) {
+            var state_3 = _loop_2(i);
+            if (state_3 === "continue") continue;
         }
         // Special case that can't fit in the loop.
         var usageText = " @<" + getDiagnosticText(ts.Diagnostics.file) + ">";
@@ -43090,7 +43174,16 @@ var ts;
         for (var i = 0; i < usageColumn.length; i++) {
             var usage = usageColumn[i];
             var description = descriptionColumn[i];
+            var kindsList = optionsDescriptionMap[description];
             output += usage + makePadding(marginLength - usage.length + 2) + description + ts.sys.newLine;
+            if (kindsList) {
+                output += makePadding(marginLength + 4);
+                for (var _i = 0, kindsList_1 = kindsList; _i < kindsList_1.length; _i++) {
+                    var kind = kindsList_1[_i];
+                    output += kind + " ";
+                }
+                output += ts.sys.newLine;
+            }
         }
         ts.sys.write(output);
         return;

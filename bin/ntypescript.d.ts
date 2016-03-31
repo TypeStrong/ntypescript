@@ -1989,6 +1989,7 @@ declare namespace ts {
         getSourceFile(fileName: string, languageVersion: ScriptTarget, onError?: (message: string) => void): SourceFile;
         getCancellationToken?(): CancellationToken;
         getDefaultLibFileName(options: CompilerOptions): string;
+        getDefaultLibLocation?(): string;
         writeFile: WriteFileCallback;
         getCurrentDirectory(): string;
         getCanonicalFileName(fileName: string): string;
@@ -4080,7 +4081,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Neither_type_0_nor_type_1_is_assignable_to_the_other: {
+        Type_0_cannot_be_converted_to_type_1: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -5322,6 +5323,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Type_0_is_not_comparable_to_type_1: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;
@@ -6240,6 +6247,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Specify_library_files_to_be_included_in_the_compilation_Colon: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Specify_JSX_code_generation_Colon_preserve_or_react: {
             code: number;
             category: DiagnosticCategory;
@@ -6856,6 +6869,8 @@ declare namespace ts {
     }
     function getOptionNameMap(): OptionNameMap;
     function createCompilerDiagnosticForInvalidCustomType(opt: CommandLineOptionOfCustomType): Diagnostic;
+    function parseCustomTypeOption(opt: CommandLineOptionOfCustomType, value: string, errors: Diagnostic[]): number | string;
+    function parseListTypeOption(opt: CommandLineOptionOfListType, value: string, errors: Diagnostic[]): (string | number)[];
     function parseCommandLine(commandLine: string[], readFile?: (path: string) => string): ParsedCommandLine;
     /**
       * Read tsconfig.json file
