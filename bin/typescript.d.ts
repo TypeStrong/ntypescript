@@ -2178,6 +2178,8 @@ declare namespace ts {
         getExecutingFilePath(): string;
         getCurrentDirectory(): string;
         readDirectory(path: string, extension?: string, exclude?: string[]): string[];
+        getModifiedTime?(path: string): Date;
+        createHash?(data: string): string;
         getMemoryUsage?(): number;
         exit(exitCode?: number): void;
     }
@@ -2226,6 +2228,7 @@ declare namespace ts {
     function getStartPositionOfLine(line: number, sourceFile: SourceFile): number;
     function nodePosToString(node: Node): string;
     function getStartPosOfNode(node: Node): number;
+    function getEndLinePosition(line: number, sourceFile: SourceFile): number;
     function nodeIsMissing(node: Node): boolean;
     function nodeIsPresent(node: Node): boolean;
     function getTokenPosOfNode(node: Node, sourceFile?: SourceFile): number;
@@ -2475,6 +2478,7 @@ declare namespace ts {
     function convertToBase64(input: string): string;
     function convertToRelativePath(absoluteOrRelativePath: string, basePath: string, getCanonicalFileName: (path: string) => string): string;
     function getNewLineCharacter(options: CompilerOptions): string;
+    function isWatchSet(options: CompilerOptions): boolean;
 }
 declare namespace ts {
     function getDefaultLibFileName(options: CompilerOptions): string;
@@ -6997,7 +7001,6 @@ declare namespace ts {
         listItemIndex: number;
         list: Node;
     }
-    function getEndLinePosition(line: number, sourceFile: SourceFile): number;
     function getLineStartPositionForPosition(position: number, sourceFile: SourceFile): number;
     function rangeContainsRange(r1: TextRange, r2: TextRange): boolean;
     function startEndContainsRange(start: number, end: number, range: TextRange): boolean;

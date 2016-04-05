@@ -1873,6 +1873,7 @@ var ts;
             var _fs = require("fs");
             var _path = require("path");
             var _os = require("os");
+            var _crypto = require("crypto");
             // average async stat takes about 30 microseconds
             // set chunk size to do 30 files in < 1 millisecond
             function createPollingWatchedFileSet(interval, chunkSize) {
@@ -2196,6 +2197,19 @@ var ts;
                     return process.cwd();
                 },
                 readDirectory: readDirectory,
+                getModifiedTime: function (path) {
+                    try {
+                        return _fs.statSync(path).mtime;
+                    }
+                    catch (e) {
+                        return undefined;
+                    }
+                },
+                createHash: function (data) {
+                    var hash = _crypto.createHash("md5");
+                    hash.update(data);
+                    return hash.digest("hex");
+                },
                 getMemoryUsage: function () {
                     if (global.gc) {
                         global.gc();
@@ -2393,6 +2407,32 @@ var ts;
         return node.pos;
     }
     ts.getStartPosOfNode = getStartPosOfNode;
+    function getEndLinePosition(line, sourceFile) {
+        ts.Debug.assert(line >= 0);
+        var lineStarts = ts.getLineStarts(sourceFile);
+        var lineIndex = line;
+        var sourceText = sourceFile.text;
+        if (lineIndex + 1 === lineStarts.length) {
+            // last line - return EOF
+            return sourceText.length - 1;
+        }
+        else {
+            // current line start
+            var start = lineStarts[lineIndex];
+            // take the start position of the next line - 1 = it should be some line break
+            var pos = lineStarts[lineIndex + 1] - 1;
+            ts.Debug.assert(ts.isLineBreak(sourceText.charCodeAt(pos)));
+            // walk backwards skipping line breaks, stop the the beginning of current line.
+            // i.e:
+            // <some text>
+            // $ <- end of line for this position should match the start position
+            while (start <= pos && ts.isLineBreak(sourceText.charCodeAt(pos))) {
+                pos--;
+            }
+            return pos;
+        }
+    }
+    ts.getEndLinePosition = getEndLinePosition;
     // Returns true if this node is missing from the actual source code. A 'missing' node is different
     // from 'undefined/defined'. When a node is undefined (which can happen for optional nodes
     // in the tree), it is definitely missing. However, a node may be defined, but still be
@@ -2574,6 +2614,19 @@ var ts;
         return ts.createTextSpanFromBounds(start, scanner.getTextPos());
     }
     ts.getSpanOfTokenAtPosition = getSpanOfTokenAtPosition;
+    function getErrorSpanForArrowFunction(sourceFile, node) {
+        var pos = ts.skipTrivia(sourceFile.text, node.pos);
+        if (node.body && node.body.kind === 198 /* Block */) {
+            var startLine = ts.getLineAndCharacterOfPosition(sourceFile, node.body.pos).line;
+            var endLine = ts.getLineAndCharacterOfPosition(sourceFile, node.body.end).line;
+            if (startLine < endLine) {
+                // The arrow function spans multiple lines, 
+                // make the error span be the first line, inclusive.
+                return ts.createTextSpan(pos, getEndLinePosition(startLine, sourceFile) - pos + 1);
+            }
+        }
+        return ts.createTextSpanFromBounds(pos, node.end);
+    }
     function getErrorSpanForNode(sourceFile, node) {
         var errorNode = node;
         switch (node.kind) {
@@ -2602,6 +2655,8 @@ var ts;
             case 222 /* TypeAliasDeclaration */:
                 errorNode = node.name;
                 break;
+            case 179 /* ArrowFunction */:
+                return getErrorSpanForArrowFunction(sourceFile, node);
         }
         if (errorNode === undefined) {
             // If we don't have a better node, then just set the error on the first token of
@@ -4700,6 +4755,11 @@ var ts;
         return carriageReturnLineFeed;
     }
     ts.getNewLineCharacter = getNewLineCharacter;
+    function isWatchSet(options) {
+        // Firefox has Object.prototype.watch
+        return options.watch && options.hasOwnProperty("watch");
+    }
+    ts.isWatchSet = isWatchSet;
 })(ts || (ts = {}));
 var ts;
 (function (ts) {
@@ -32334,7 +32394,10 @@ var ts;
             else {
                 // Expression
                 var tempVarName = getExportDefaultTempVariableName();
-                write("declare var ");
+                if (!noDeclare) {
+                    write("declare ");
+                }
+                write("var ");
                 write(tempVarName);
                 write(": ");
                 writer.getSymbolAccessibilityDiagnostic = getDefaultExportAccessibilityDiagnostic;
@@ -41537,11 +41600,40 @@ var ts;
                 ts.sys.createDirectory(directoryPath);
             }
         }
+        var outputFingerprints;
+        function writeFileIfUpdated(fileName, data, writeByteOrderMark) {
+            if (!outputFingerprints) {
+                outputFingerprints = {};
+            }
+            var hash = ts.sys.createHash(data);
+            var mtimeBefore = ts.sys.getModifiedTime(fileName);
+            if (mtimeBefore && ts.hasProperty(outputFingerprints, fileName)) {
+                var fingerprint = outputFingerprints[fileName];
+                // If output has not been changed, and the file has no external modification
+                if (fingerprint.byteOrderMark === writeByteOrderMark &&
+                    fingerprint.hash === hash &&
+                    fingerprint.mtime.getTime() === mtimeBefore.getTime()) {
+                    return;
+                }
+            }
+            ts.sys.writeFile(fileName, data, writeByteOrderMark);
+            var mtimeAfter = ts.sys.getModifiedTime(fileName);
+            outputFingerprints[fileName] = {
+                hash: hash,
+                byteOrderMark: writeByteOrderMark,
+                mtime: mtimeAfter
+            };
+        }
         function writeFile(fileName, data, writeByteOrderMark, onError) {
             try {
                 var start = new Date().getTime();
                 ensureDirectoriesExist(ts.getDirectoryPath(ts.normalizePath(fileName)));
-                ts.sys.writeFile(fileName, data, writeByteOrderMark);
+                if (ts.isWatchSet(options) && ts.sys.createHash && ts.sys.getModifiedTime) {
+                    writeFileIfUpdated(fileName, data, writeByteOrderMark);
+                }
+                else {
+                    ts.sys.writeFile(fileName, data, writeByteOrderMark);
+                }
                 ts.ioWriteTime += new Date().getTime() - start;
             }
             catch (e) {
@@ -42770,10 +42862,6 @@ var ts;
     function isJSONSupported() {
         return typeof JSON === "object" && typeof JSON.parse === "function";
     }
-    function isWatchSet(options) {
-        // Firefox has Object.prototype.watch
-        return options.watch && options.hasOwnProperty("watch");
-    }
     function executeCommandLine(args) {
         var commandLine = ts.parseCommandLine(args);
         var configFileName; // Configuration file name (if any)
@@ -42851,7 +42939,7 @@ var ts;
             printHelp();
             return ts.sys.exit(ts.ExitStatus.Success);
         }
-        if (isWatchSet(commandLine.options)) {
+        if (ts.isWatchSet(commandLine.options)) {
             if (!ts.sys.watchFile) {
                 reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* compilerHost */ undefined);
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
@@ -42901,7 +42989,7 @@ var ts;
                 ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                 return;
             }
-            if (isWatchSet(configParseResult.options) && !ts.sys.watchFile) {
+            if (ts.isWatchSet(configParseResult.options) && !ts.sys.watchFile) {
                 reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* compilerHost */ undefined);
                 ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
@@ -42931,7 +43019,7 @@ var ts;
             // reset the cache of existing files
             cachedExistingFiles = {};
             var compileResult = compile(rootFileNames, compilerOptions, compilerHost);
-            if (!isWatchSet(compilerOptions)) {
+            if (!ts.isWatchSet(compilerOptions)) {
                 return ts.sys.exit(compileResult.exitStatus);
             }
             setCachedProgram(compileResult.program);
@@ -42954,7 +43042,7 @@ var ts;
             }
             // Use default host function
             var sourceFile = hostGetSourceFile(fileName, languageVersion, onError);
-            if (sourceFile && isWatchSet(compilerOptions) && ts.sys.watchFile) {
+            if (sourceFile && ts.isWatchSet(compilerOptions) && ts.sys.watchFile) {
                 // Attach a file watcher
                 var filePath = ts.toPath(sourceFile.fileName, ts.sys.getCurrentDirectory(), ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames));
                 sourceFile.fileWatcher = ts.sys.watchFile(filePath, function (fileName, removed) { return sourceFileChanged(sourceFile, removed); });
@@ -45367,31 +45455,6 @@ var ts;
 /* @internal */
 var ts;
 (function (ts) {
-    function getEndLinePosition(line, sourceFile) {
-        ts.Debug.assert(line >= 0);
-        var lineStarts = sourceFile.getLineStarts();
-        var lineIndex = line;
-        if (lineIndex + 1 === lineStarts.length) {
-            // last line - return EOF
-            return sourceFile.text.length - 1;
-        }
-        else {
-            // current line start
-            var start = lineStarts[lineIndex];
-            // take the start position of the next line -1 = it should be some line break
-            var pos = lineStarts[lineIndex + 1] - 1;
-            ts.Debug.assert(ts.isLineBreak(sourceFile.text.charCodeAt(pos)));
-            // walk backwards skipping line breaks, stop the the beginning of current line.
-            // i.e:
-            // <some text>
-            // $ <- end of line for this position should match the start position
-            while (start <= pos && ts.isLineBreak(sourceFile.text.charCodeAt(pos))) {
-                pos--;
-            }
-            return pos;
-        }
-    }
-    ts.getEndLinePosition = getEndLinePosition;
     function getLineStartPositionForPosition(position, sourceFile) {
         var lineStarts = sourceFile.getLineStarts();
         var line = sourceFile.getLineAndCharacterOfPosition(position).line;
