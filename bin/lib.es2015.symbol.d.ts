@@ -46,7 +46,7 @@ interface SymbolConstructor {
       * Otherwise, returns a undefined.
       * @param sym Symbol to find the key for.
       */
-    keyFor(sym: symbol): string;
+    keyFor(sym: symbol): string | undefined;
 }
 
 declare var Symbol: SymbolConstructor;
