@@ -42939,8 +42939,7 @@ var ts;
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
             if (configFileName) {
-                var configFilePath = ts.toPath(configFileName, ts.sys.getCurrentDirectory(), ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames));
-                configFileWatcher = ts.sys.watchFile(configFilePath, configFileChanged);
+                configFileWatcher = ts.sys.watchFile(configFileName, configFileChanged);
             }
             if (ts.sys.watchDirectory && configFileName) {
                 var directory = ts.getDirectoryPath(configFileName);
@@ -43038,8 +43037,7 @@ var ts;
             var sourceFile = hostGetSourceFile(fileName, languageVersion, onError);
             if (sourceFile && ts.isWatchSet(compilerOptions) && ts.sys.watchFile) {
                 // Attach a file watcher
-                var filePath = ts.toPath(sourceFile.fileName, ts.sys.getCurrentDirectory(), ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames));
-                sourceFile.fileWatcher = ts.sys.watchFile(filePath, function (fileName, removed) { return sourceFileChanged(sourceFile, removed); });
+                sourceFile.fileWatcher = ts.sys.watchFile(sourceFile.fileName, function (fileName, removed) { return sourceFileChanged(sourceFile, removed); });
             }
             return sourceFile;
         }
