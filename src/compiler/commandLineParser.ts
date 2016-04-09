@@ -317,9 +317,32 @@ namespace ts {
             }
         },
         {
-            name: "traceModuleResolution",
+            name: "typesSearchPaths",
+            type: "list",
+            isTSConfigOnly: true,
+            element: {
+                name: "typesSearchPaths",
+                type: "string",
+                isFilePath: true
+            }
+        },
+        {
+            name: "typesRoot",
+            type: "string"
+        },
+        {
+            name: "types",
+            type: "list",
+            element: {
+                name: "types",
+                type: "string"
+            },
+            description: Diagnostics.Type_declaration_files_to_be_included_in_compilation
+        },
+        {
+            name: "traceResolution",
             type: "boolean",
-            description: Diagnostics.Enable_tracing_of_the_module_resolution_process
+            description: Diagnostics.Enable_tracing_of_the_name_resolution_process
         },
         {
             name: "allowJs",
@@ -335,6 +358,10 @@ namespace ts {
             name: "noImplicitUseStrict",
             type: "boolean",
             description: Diagnostics.Do_not_emit_use_strict_directives_in_module_output
+        },
+        {
+            name: "listEmittedFiles",
+            type: "boolean"
         },
         {
             name: "lib",
@@ -637,6 +664,7 @@ namespace ts {
         const compilerOptions: CompilerOptions = convertCompilerOptionsFromJsonWorker(json["compilerOptions"], basePath, errors, configFileName);
         const options = extend(existingOptions, compilerOptions);
         const typingOptions: TypingOptions = convertTypingOptionsFromJsonWorker(json["typingOptions"], basePath, errors, configFileName);
+        options.configFilePath = configFileName;
 
         const fileNames = getFileNames(errors);
 

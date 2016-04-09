@@ -354,6 +354,7 @@ declare namespace ts {
         JavaScriptFile = 134217728,
         ThisNodeOrAnySubNodesHasError = 268435456,
         HasAggregatedChildData = 536870912,
+        HasJsxSpreadAttribute = 1073741824,
         Modifier = 959,
         AccessibilityModifier = 28,
         BlockScoped = 3072,
@@ -1058,6 +1059,7 @@ declare namespace ts {
         amdDependencies: AmdDependency[];
         moduleName: string;
         referencedFiles: FileReference[];
+        typeReferenceDirectives: FileReference[];
         languageVariant: LanguageVariant;
         isDeclarationFile: boolean;
         renamedDependencies?: Map<string>;
@@ -1084,6 +1086,7 @@ declare namespace ts {
         lineMap: number[];
         classifiableNames?: Map<string>;
         resolvedModules: Map<ResolvedModule>;
+        resolvedTypeReferenceDirectiveNames: Map<ResolvedTypeReferenceDirective>;
         imports: LiteralExpression[];
         moduleAugmentations: LiteralExpression[];
     }
@@ -1142,6 +1145,7 @@ declare namespace ts {
         getSymbolCount(): number;
         getTypeCount(): number;
         getFileProcessingDiagnostics(): DiagnosticCollection;
+        resolvedTypeReferenceDirectives: Map<ResolvedTypeReferenceDirective>;
         structureIsReused?: boolean;
     }
     interface SourceMapSpan {
@@ -1180,6 +1184,7 @@ declare namespace ts {
         emitSkipped: boolean;
         /** Contains declaration emit diagnostics */
         diagnostics: Diagnostic[];
+        emittedFiles: string[];
         sourceMaps: SourceMapData[];
     }
     interface TypeCheckerHost {
@@ -1708,6 +1713,7 @@ declare namespace ts {
         jsx?: JsxEmit;
         reactNamespace?: string;
         listFiles?: boolean;
+        typesSearchPaths?: string[];
         locale?: string;
         mapRoot?: string;
         module?: ModuleKind;
@@ -1747,15 +1753,19 @@ declare namespace ts {
         baseUrl?: string;
         paths?: PathSubstitutions;
         rootDirs?: RootPaths;
-        traceModuleResolution?: boolean;
+        traceResolution?: boolean;
         allowSyntheticDefaultImports?: boolean;
         allowJs?: boolean;
         noImplicitUseStrict?: boolean;
         strictNullChecks?: boolean;
+        listEmittedFiles?: boolean;
         lib?: string[];
         stripInternal?: boolean;
         skipDefaultLibCheck?: boolean;
         suppressOutputPathCheck?: boolean;
+        configFilePath?: string;
+        typesRoot?: string;
+        types?: string[];
         list?: string[];
         [option: string]: CompilerOptionsValue;
     }
@@ -1987,6 +1997,14 @@ declare namespace ts {
         resolvedModule: ResolvedModule;
         failedLookupLocations: string[];
     }
+    interface ResolvedTypeReferenceDirective {
+        primary: boolean;
+        resolvedFileName?: string;
+    }
+    interface ResolvedTypeReferenceDirectiveWithFailedLookupLocations {
+        resolvedTypeReferenceDirective: ResolvedTypeReferenceDirective;
+        failedLookupLocations: string[];
+    }
     interface CompilerHost extends ModuleResolutionHost {
         getSourceFile(fileName: string, languageVersion: ScriptTarget, onError?: (message: string) => void): SourceFile;
         getCancellationToken?(): CancellationToken;
@@ -1998,6 +2016,10 @@ declare namespace ts {
         useCaseSensitiveFileNames(): boolean;
         getNewLine(): string;
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
+        /**
+         * This method is a companion for 'resolveModuleNames' and is used to resolve 'types' references to actual type declaration files
+         */
+        resolveTypeReferenceDirectives?(typeReferenceDirectiveNames: string[], containingFile: string): ResolvedTypeReferenceDirective[];
     }
     interface TextSpan {
         start: number;
@@ -2199,6 +2221,7 @@ declare namespace ts {
         fileReference?: FileReference;
         diagnosticMessage?: DiagnosticMessage;
         isNoDefaultLib?: boolean;
+        isTypeReferenceDirective?: boolean;
     }
     interface SynthesizedNode extends Node {
         leadingCommentRanges?: CommentRange[];
@@ -2224,6 +2247,10 @@ declare namespace ts {
     function hasResolvedModule(sourceFile: SourceFile, moduleNameText: string): boolean;
     function getResolvedModule(sourceFile: SourceFile, moduleNameText: string): ResolvedModule;
     function setResolvedModule(sourceFile: SourceFile, moduleNameText: string, resolvedModule: ResolvedModule): void;
+    function setResolvedTypeReferenceDirective(sourceFile: SourceFile, typeReferenceDirectiveName: string, resolvedTypeReferenceDirective: ResolvedTypeReferenceDirective): void;
+    function moduleResolutionIsEqualTo(oldResolution: ResolvedModule, newResolution: ResolvedModule): boolean;
+    function typeDirectiveIsEqualTo(oldResolution: ResolvedTypeReferenceDirective, newResolution: ResolvedTypeReferenceDirective): boolean;
+    function hasChangesInResolutions<T>(names: string[], newResolutions: T[], oldResolutions: Map<T>, comparer: (oldResolution: T, newResolution: T) => boolean): boolean;
     function containsParseError(node: Node): boolean;
     function getSourceFileOfNode(node: Node): SourceFile;
     function isStatementWithLocals(node: Node): boolean;
@@ -2266,6 +2293,7 @@ declare namespace ts {
     function getJsDocComments(node: Node, sourceFileOfNode: SourceFile): CommentRange[];
     function getJsDocCommentsFromText(node: Node, text: string): CommentRange[];
     let fullTripleSlashReferencePathRegEx: RegExp;
+    let fullTripleSlashReferenceTypeReferenceDirectiveRegEx: RegExp;
     let fullTripleSlashAMDReferencePathRegEx: RegExp;
     function isTypeNode(node: Node): boolean;
     function forEachReturnStatement<T>(body: Block, visitor: (stmt: ReturnStatement) => T): T;
@@ -5799,6 +5827,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Conflicting_library_definitions_for_0_found_at_1_and_2_Copy_the_correct_file_to_the_typings_folder_to_resolve_this_conflict: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         The_current_host_does_not_support_the_0_option: {
             code: number;
             category: DiagnosticCategory;
@@ -6327,7 +6361,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Enable_tracing_of_the_module_resolution_process: {
+        Enable_tracing_of_the_name_resolution_process: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6399,7 +6433,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        File_0_exist_use_it_as_a_module_resolution_result: {
+        File_0_exist_use_it_as_a_name_resolution_result: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6417,13 +6451,13 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        package_json_does_not_have_typings_field: {
+        package_json_does_not_have_types_field: {
             code: number;
             category: DiagnosticCategory;
             key: string;
             message: string;
         };
-        package_json_has_typings_field_0_that_references_1: {
+        package_json_has_0_field_1_that_references_2: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6447,7 +6481,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Expected_type_of_typings_field_in_package_json_to_be_string_got_0: {
+        Expected_type_of_0_field_in_package_json_to_be_string_got_1: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6508,6 +6542,84 @@ declare namespace ts {
             message: string;
         };
         Raise_error_on_this_expressions_with_an_implied_any_type: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Resolving_type_reference_directive_0_containing_file_1_root_directory_2: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Resolving_using_primary_search_paths: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Resolving_from_node_modules_folder: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Type_reference_directive_0_was_successfully_resolved_to_1_primary_Colon_2: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Type_reference_directive_0_was_not_resolved: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Resolving_with_primary_search_path_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Root_directory_cannot_be_determined_skipping_primary_search_paths: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Resolving_type_reference_directive_0_containing_file_1_root_directory_not_set: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Type_declaration_files_to_be_included_in_compilation: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Looking_up_in_node_modules_folder_initial_location_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Containing_file_is_not_specified_and_root_directory_cannot_be_determined_skipping_lookup_in_node_modules_folder: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Resolving_type_reference_directive_0_containing_file_not_set_root_directory_1: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Resolving_type_reference_directive_0_containing_file_not_set_root_directory_not_set: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6640,6 +6752,12 @@ declare namespace ts {
             message: string;
         };
         Not_all_code_paths_return_a_value: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Binding_element_0_implicitly_has_an_1_type: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6995,6 +7113,13 @@ declare namespace ts {
     const version: string;
     function findConfigFile(searchPath: string, fileExists: (fileName: string) => boolean): string;
     function resolveTripleslashReference(moduleName: string, containingFile: string): string;
+    function computeCommonSourceDirectoryOfFilenames(fileNames: string[], currentDirectory: string, getCanonicalFileName: (fileName: string) => string): string;
+    /**
+     * @param {string | undefined} containingFile - file that contains type reference directive, can be undefined if containing file is unknown.
+     * This is possible in case if resolution is performed for directives specified via 'types' parameter. In this case initial path for secondary lookups
+     * is assumed to be the same as root directory of the project.
+     */
+    function resolveTypeReferenceDirective(typeReferenceDirectiveName: string, containingFile: string, options: CompilerOptions, host: ModuleResolutionHost): ResolvedTypeReferenceDirectiveWithFailedLookupLocations;
     function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
     function nodeModuleNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
     function directoryProbablyExists(directoryName: string, host: {
@@ -7625,6 +7750,7 @@ declare namespace ts {
     }
     interface PreProcessedFileInfo {
         referencedFiles: FileReference[];
+        typeReferenceDirectives: FileReference[];
         importedFiles: FileReference[];
         ambientExternalModules: string[];
         isLibFile: boolean;
@@ -7649,6 +7775,7 @@ declare namespace ts {
         error?(s: string): void;
         useCaseSensitiveFileNames?(): boolean;
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
+        resolveTypeReferenceDirectives?(typeDirectiveNames: string[], containingFile: string): ResolvedTypeReferenceDirective[];
         directoryExists?(directoryName: string): boolean;
     }
     interface LanguageService {
@@ -8204,6 +8331,7 @@ declare namespace ts {
         getProjectVersion?(): string;
         useCaseSensitiveFileNames?(): boolean;
         getModuleResolutionsForFile?(fileName: string): string;
+        getTypeReferenceDirectiveResolutionsForFile?(fileName: string): string;
         directoryExists(directoryName: string): boolean;
     }
     /** Public interface of the the of a config service shim instance.*/
@@ -8339,6 +8467,7 @@ declare namespace ts {
         private loggingEnabled;
         private tracingEnabled;
         resolveModuleNames: (moduleName: string[], containingFile: string) => ResolvedModule[];
+        resolveTypeReferenceDirectives: (typeDirectiveNames: string[], containingFile: string) => ResolvedTypeReferenceDirective[];
         directoryExists: (directoryName: string) => boolean;
         constructor(shimHost: LanguageServiceShimHost);
         log(s: string): void;
