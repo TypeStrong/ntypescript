@@ -2249,16 +2249,16 @@ var ts;
                 exit: ChakraHost.quit,
             };
         }
-        if (typeof WScript !== "undefined" && typeof ActiveXObject === "function") {
+        if (typeof ChakraHost !== "undefined") {
+            return getChakraSystem();
+        }
+        else if (typeof WScript !== "undefined" && typeof ActiveXObject === "function") {
             return getWScriptSystem();
         }
         else if (typeof process !== "undefined" && process.nextTick && !process.browser && typeof require !== "undefined") {
             // process and process.nextTick checks if current environment is node-like
             // process.browser check excludes webpack and browserify
             return getNodeSystem();
-        }
-        else if (typeof ChakraHost !== "undefined") {
-            return getChakraSystem();
         }
         else {
             return undefined; // Unsupported host
@@ -5242,6 +5242,9 @@ var ts;
         A_type_literal_property_cannot_have_an_initializer: { code: 1247, category: ts.DiagnosticCategory.Error, key: "A_type_literal_property_cannot_have_an_initializer_1247", message: "A type literal property cannot have an initializer." },
         A_class_member_cannot_have_the_0_keyword: { code: 1248, category: ts.DiagnosticCategory.Error, key: "A_class_member_cannot_have_the_0_keyword_1248", message: "A class member cannot have the '{0}' keyword." },
         A_decorator_can_only_decorate_a_method_implementation_not_an_overload: { code: 1249, category: ts.DiagnosticCategory.Error, key: "A_decorator_can_only_decorate_a_method_implementation_not_an_overload_1249", message: "A decorator can only decorate a method implementation, not an overload." },
+        Function_declarations_are_not_allowed_inside_blocks_in_strict_mode_when_targeting_ES3_or_ES5: { code: 1250, category: ts.DiagnosticCategory.Error, key: "Function_declarations_are_not_allowed_inside_blocks_in_strict_mode_when_targeting_ES3_or_ES5_1250", message: "Function declarations are not allowed inside blocks in strict mode when targeting 'ES3' or 'ES5'." },
+        Function_declarations_are_not_allowed_inside_blocks_in_strict_mode_when_targeting_ES3_or_ES5_Class_definitions_are_automatically_in_strict_mode: { code: 1251, category: ts.DiagnosticCategory.Error, key: "Function_declarations_are_not_allowed_inside_blocks_in_strict_mode_when_targeting_ES3_or_ES5_Class_d_1251", message: "Function declarations are not allowed inside blocks in strict mode when targeting 'ES3' or 'ES5'. Class definitions are automatically in strict mode." },
+        Function_declarations_are_not_allowed_inside_blocks_in_strict_mode_when_targeting_ES3_or_ES5_Modules_are_automatically_in_strict_mode: { code: 1252, category: ts.DiagnosticCategory.Error, key: "Function_declarations_are_not_allowed_inside_blocks_in_strict_mode_when_targeting_ES3_or_ES5_Modules_1252", message: "Function declarations are not allowed inside blocks in strict mode when targeting 'ES3' or 'ES5'. Modules are automatically in strict mode." },
         with_statements_are_not_allowed_in_an_async_function_block: { code: 1300, category: ts.DiagnosticCategory.Error, key: "with_statements_are_not_allowed_in_an_async_function_block_1300", message: "'with' statements are not allowed in an async function block." },
         await_expression_is_only_allowed_within_an_async_function: { code: 1308, category: ts.DiagnosticCategory.Error, key: "await_expression_is_only_allowed_within_an_async_function_1308", message: "'await' expression is only allowed within an async function." },
         Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: { code: 1311, category: ts.DiagnosticCategory.Error, key: "Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher_1311", message: "Async functions are only available when targeting ECMAScript 6 and higher." },
@@ -13486,6 +13489,7 @@ var ts;
     function createBinder() {
         var file;
         var options;
+        var languageVersion;
         var parent;
         var container;
         var blockScopeContainer;
@@ -13513,6 +13517,7 @@ var ts;
         function bindSourceFile(f, opts) {
             file = f;
             options = opts;
+            languageVersion = ts.getEmitScriptTarget(options);
             inStrictMode = !!file.externalModuleIndicator;
             classifiableNames = {};
             Symbol = ts.objectAllocator.getSymbolConstructor();
@@ -13523,6 +13528,7 @@ var ts;
             }
             file = undefined;
             options = undefined;
+            languageVersion = undefined;
             parent = undefined;
             container = undefined;
             blockScopeContainer = undefined;
@@ -14368,6 +14374,30 @@ var ts;
                 checkStrictModeEvalOrArguments(node, node.name);
             }
         }
+        function getStrictModeBlockScopeFunctionDeclarationMessage(node) {
+            // Provide specialized messages to help the user understand why we think they're in
+            // strict mode.
+            if (ts.getContainingClass(node)) {
+                return ts.Diagnostics.Function_declarations_are_not_allowed_inside_blocks_in_strict_mode_when_targeting_ES3_or_ES5_Class_definitions_are_automatically_in_strict_mode;
+            }
+            if (file.externalModuleIndicator) {
+                return ts.Diagnostics.Function_declarations_are_not_allowed_inside_blocks_in_strict_mode_when_targeting_ES3_or_ES5_Modules_are_automatically_in_strict_mode;
+            }
+            return ts.Diagnostics.Function_declarations_are_not_allowed_inside_blocks_in_strict_mode_when_targeting_ES3_or_ES5;
+        }
+        function checkStrictModeFunctionDeclaration(node) {
+            if (languageVersion < 2 /* ES6 */) {
+                // Report error if function is not top level function declaration
+                if (blockScopeContainer.kind !== 255 /* SourceFile */ &&
+                    blockScopeContainer.kind !== 224 /* ModuleDeclaration */ &&
+                    !ts.isFunctionLike(blockScopeContainer)) {
+                    // We check first if the name is inside class declaration or class expression; if so give explicit message
+                    // otherwise report generic error message.
+                    var errorSpan = ts.getErrorSpanForNode(file, node);
+                    file.bindDiagnostics.push(ts.createFileDiagnostic(file, errorSpan.start, errorSpan.length, getStrictModeBlockScopeFunctionDeclarationMessage(node)));
+                }
+            }
+        }
         function checkStrictModeNumericLiteral(node) {
             if (inStrictMode && node.isOctalLiteral) {
                 file.bindDiagnostics.push(ts.createDiagnosticForNode(node, ts.Diagnostics.Octal_literals_are_not_allowed_in_strict_mode));
@@ -14825,7 +14855,13 @@ var ts;
                 }
             }
             checkStrictModeFunctionName(node);
-            return declareSymbolAndAddToSymbolTable(node, 16 /* Function */, 106927 /* FunctionExcludes */);
+            if (inStrictMode) {
+                checkStrictModeFunctionDeclaration(node);
+                return bindBlockScopedDeclaration(node, 16 /* Function */, 106927 /* FunctionExcludes */);
+            }
+            else {
+                return declareSymbolAndAddToSymbolTable(node, 16 /* Function */, 106927 /* FunctionExcludes */);
+            }
         }
         function bindFunctionExpression(node) {
             if (!ts.isDeclarationFile(file) && !ts.isInAmbientContext(node)) {
@@ -17528,7 +17564,7 @@ var ts;
             if (ts.isBindingPattern(element.name)) {
                 return getTypeFromBindingPattern(element.name, includePatternInType);
             }
-            if (compilerOptions.noImplicitAny) {
+            if (compilerOptions.noImplicitAny && !declarationBelongsToPrivateAmbientMember(element)) {
                 reportImplicitAnyError(element, anyType);
             }
             return anyType;
@@ -17614,12 +17650,16 @@ var ts;
             type = declaration.dotDotDotToken ? anyArrayType : anyType;
             // Report implicit any errors unless this is a private property within an ambient declaration
             if (reportErrors && compilerOptions.noImplicitAny) {
-                var root = ts.getRootDeclaration(declaration);
-                if (!isPrivateWithinAmbient(root) && !(root.kind === 141 /* Parameter */ && isPrivateWithinAmbient(root.parent))) {
+                if (!declarationBelongsToPrivateAmbientMember(declaration)) {
                     reportImplicitAnyError(declaration, type);
                 }
             }
             return type;
+        }
+        function declarationBelongsToPrivateAmbientMember(declaration) {
+            var root = ts.getRootDeclaration(declaration);
+            var memberDeclaration = root.kind === 141 /* Parameter */ ? root.parent : root;
+            return isPrivateWithinAmbient(memberDeclaration);
         }
         function getTypeOfVariableOrParameterOrProperty(symbol) {
             var links = getSymbolLinks(symbol);
@@ -30958,7 +30998,6 @@ var ts;
                 var prop = _a[_i];
                 var state_2 = _loop_1(prop);
                 if (typeof state_2 === "object") return state_2.value;
-                if (state_2 === "continue") continue;
             }
         }
         function checkGrammarJsxElement(node) {
@@ -42157,12 +42196,12 @@ var ts;
         var classifiableNames;
         var resolvedTypeReferenceDirectives = {};
         var fileProcessingDiagnostics = ts.createDiagnosticCollection();
+        var start = new Date().getTime();
+        host = host || createCompilerHost(options);
         var skipDefaultLib = options.noLib;
         var programDiagnostics = ts.createDiagnosticCollection();
         var currentDirectory = host.getCurrentDirectory();
         var supportedExtensions = ts.getSupportedExtensions(options);
-        var start = new Date().getTime();
-        host = host || createCompilerHost(options);
         // Map storing if there is emit blocking diagnostics for given input
         var hasEmitBlockingDiagnostics = ts.createFileMap(getCanonicalFileName);
         var resolveModuleNamesWorker;
@@ -43763,8 +43802,7 @@ var ts;
             marginLength = Math.max(usageText_1.length, marginLength);
         };
         for (var i = 0; i < optsList.length; i++) {
-            var state_3 = _loop_2(i);
-            if (state_3 === "continue") continue;
+            _loop_2(i);
         }
         // Special case that can't fit in the loop.
         var usageText = " @<" + getDiagnosticText(ts.Diagnostics.file) + ">";
@@ -52453,9 +52491,9 @@ var ts;
                     existingImportsOrExports[name_40.text] = true;
                 }
                 if (ts.isEmpty(existingImportsOrExports)) {
-                    return exportsOfModule;
+                    return ts.filter(exportsOfModule, function (e) { return e.name !== "default"; });
                 }
-                return ts.filter(exportsOfModule, function (e) { return !ts.lookUp(existingImportsOrExports, e.name); });
+                return ts.filter(exportsOfModule, function (e) { return e.name !== "default" && !ts.lookUp(existingImportsOrExports, e.name); });
             }
             /**
              * Filters out completion suggestions for named imports or exports.
