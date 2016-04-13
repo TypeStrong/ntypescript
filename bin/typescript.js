@@ -30299,6 +30299,25 @@ var ts;
             return symbol && getExportSymbolOfValueSymbolIfExported(symbol).valueDeclaration;
         }
         function createResolver() {
+            // this variable and functions that use it are deliberately moved here from the outer scope
+            // to avoid scope pollution
+            var resolvedTypeReferenceDirectives = host.getResolvedTypeReferenceDirectives();
+            var fileToDirective;
+            if (resolvedTypeReferenceDirectives) {
+                // populate reverse mapping: file path -> type reference directive that was resolved to this file
+                fileToDirective = ts.createFileMap();
+                for (var key in resolvedTypeReferenceDirectives) {
+                    if (!ts.hasProperty(resolvedTypeReferenceDirectives, key)) {
+                        continue;
+                    }
+                    var resolvedDirective = resolvedTypeReferenceDirectives[key];
+                    if (!resolvedDirective) {
+                        continue;
+                    }
+                    var file = host.getSourceFile(resolvedDirective.resolvedFileName);
+                    fileToDirective.set(file.path, key);
+                }
+            }
             return {
                 getReferencedExportContainer: getReferencedExportContainer,
                 getReferencedImportDeclaration: getReferencedImportDeclaration,
@@ -30324,8 +30343,79 @@ var ts;
                 isOptionalParameter: isOptionalParameter,
                 moduleExportsSomeValue: moduleExportsSomeValue,
                 isArgumentsLocalBinding: isArgumentsLocalBinding,
-                getExternalModuleFileFromDeclaration: getExternalModuleFileFromDeclaration
+                getExternalModuleFileFromDeclaration: getExternalModuleFileFromDeclaration,
+                getTypeReferenceDirectivesForEntityName: getTypeReferenceDirectivesForEntityName,
+                getTypeReferenceDirectivesForSymbol: getTypeReferenceDirectivesForSymbol
             };
+            // defined here to avoid outer scope pollution
+            function getTypeReferenceDirectivesForEntityName(node) {
+                // program does not have any files with type reference directives - bail out
+                if (!fileToDirective) {
+                    return undefined;
+                }
+                // property access can only be used as values
+                // qualified names can only be used as types\namespaces
+                // identifiers are treated as values only if they appear in type queries
+                var meaning = (node.kind === 171 /* PropertyAccessExpression */) || (node.kind === 69 /* Identifier */ && isInTypeQuery(node))
+                    ? 107455 /* Value */ | 1048576 /* ExportValue */
+                    : 793056 /* Type */ | 1536 /* Namespace */;
+                var symbol = resolveEntityName(node, meaning, /*ignoreErrors*/ true);
+                return symbol && symbol !== unknownSymbol ? getTypeReferenceDirectivesForSymbol(symbol, meaning) : undefined;
+            }
+            // defined here to avoid outer scope pollution
+            function getTypeReferenceDirectivesForSymbol(symbol, meaning) {
+                // program does not have any files with type reference directives - bail out
+                if (!fileToDirective) {
+                    return undefined;
+                }
+                if (!isSymbolFromTypeDeclarationFile(symbol)) {
+                    return undefined;
+                }
+                // check what declarations in the symbol can contribute to the target meaning
+                var typeReferenceDirectives;
+                for (var _i = 0, _a = symbol.declarations; _i < _a.length; _i++) {
+                    var decl = _a[_i];
+                    // check meaning of the local symbol to see if declaration needs to be analyzed further
+                    if (decl.symbol && decl.symbol.flags & meaning) {
+                        var file = ts.getSourceFileOfNode(decl);
+                        var typeReferenceDirective = fileToDirective.get(file.path);
+                        if (typeReferenceDirective) {
+                            (typeReferenceDirectives || (typeReferenceDirectives = [])).push(typeReferenceDirective);
+                        }
+                    }
+                }
+                return typeReferenceDirectives;
+            }
+            function isSymbolFromTypeDeclarationFile(symbol) {
+                // bail out if symbol does not have associated declarations (i.e. this is transient symbol created for property in binding pattern)
+                if (!symbol.declarations) {
+                    return false;
+                }
+                // walk the parent chain for symbols to make sure that top level parent symbol is in the global scope
+                // external modules cannot define or contribute to type declaration files
+                var current = symbol;
+                while (true) {
+                    var parent_10 = getParentOfSymbol(current);
+                    if (parent_10) {
+                        current = parent_10;
+                    }
+                    else {
+                        break;
+                    }
+                }
+                if (current.valueDeclaration && current.valueDeclaration.kind === 255 /* SourceFile */ && current.flags & 512 /* ValueModule */) {
+                    return false;
+                }
+                // check that at least one declaration of top level symbol originates from type declaration file
+                for (var _i = 0, _a = symbol.declarations; _i < _a.length; _i++) {
+                    var decl = _a[_i];
+                    var file = ts.getSourceFileOfNode(decl);
+                    if (fileToDirective.contains(file.path)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
         }
         function getExternalModuleFileFromDeclaration(declaration) {
             var specifier = ts.getExternalModuleName(declaration);
@@ -32263,7 +32353,8 @@ var ts;
         // Contains the reference paths that needs to go in the declaration file.
         // Collecting this separately because reference paths need to be first thing in the declaration file
         // and we could be collecting these paths from multiple files into single one with --out option
-        var referencePathsOutput = "";
+        var referencesOutput = "";
+        var usedTypeDirectiveReferences;
         // Emit references corresponding to each file
         var emittedReferencedFiles = [];
         var addedGlobalFileReference = false;
@@ -32335,11 +32426,18 @@ var ts;
                 writeLine();
             }
         });
+        if (usedTypeDirectiveReferences) {
+            for (var directive in usedTypeDirectiveReferences) {
+                if (ts.hasProperty(usedTypeDirectiveReferences, directive)) {
+                    referencesOutput += "/// <reference types=\"" + directive + "\" />" + newLine;
+                }
+            }
+        }
         return {
             reportedDeclarationError: reportedDeclarationError,
             moduleElementDeclarationEmitInfo: allSourcesModuleElementDeclarationEmitInfo,
             synchronousDeclarationOutput: writer.getText(),
-            referencePathsOutput: referencePathsOutput,
+            referencesOutput: referencesOutput,
         };
         function hasInternalAnnotation(range) {
             var comment = currentText.substring(range.pos, range.end);
@@ -32425,6 +32523,20 @@ var ts;
             });
             setWriter(oldWriter);
         }
+        function recordTypeReferenceDirectivesIfNecessary(typeReferenceDirectives) {
+            if (!typeReferenceDirectives) {
+                return;
+            }
+            if (!usedTypeDirectiveReferences) {
+                usedTypeDirectiveReferences = {};
+            }
+            for (var _i = 0, typeReferenceDirectives_1 = typeReferenceDirectives; _i < typeReferenceDirectives_1.length; _i++) {
+                var directive = typeReferenceDirectives_1[_i];
+                if (!ts.hasProperty(usedTypeDirectiveReferences, directive)) {
+                    usedTypeDirectiveReferences[directive] = directive;
+                }
+            }
+        }
         function handleSymbolAccessibilityError(symbolAccessibilityResult) {
             if (symbolAccessibilityResult.accessibility === 0 /* Accessible */) {
                 // write the aliases
@@ -32448,6 +32560,7 @@ var ts;
         }
         function trackSymbol(symbol, enclosingDeclaration, meaning) {
             handleSymbolAccessibilityError(resolver.isSymbolAccessible(symbol, enclosingDeclaration, meaning));
+            recordTypeReferenceDirectivesIfNecessary(resolver.getTypeReferenceDirectivesForSymbol(symbol, meaning));
         }
         function reportInaccessibleThisError() {
             if (errorNameNode) {
@@ -32573,6 +32686,7 @@ var ts;
                 // Aliases can be written asynchronously so use correct enclosing declaration
                 entityName.parent.kind === 228 /* ImportEqualsDeclaration */ ? entityName.parent : enclosingDeclaration);
                 handleSymbolAccessibilityError(visibilityResult);
+                recordTypeReferenceDirectivesIfNecessary(resolver.getTypeReferenceDirectivesForEntityName(entityName));
                 writeEntityName(entityName);
             }
             function emitExpressionWithTypeArguments(node) {
@@ -33728,7 +33842,7 @@ var ts;
             if (declFileName) {
                 declFileName = ts.getRelativePathToDirectoryOrUrl(ts.getDirectoryPath(ts.normalizeSlashes(declarationFilePath)), declFileName, host.getCurrentDirectory(), host.getCanonicalFileName, 
                 /*isAbsolutePathAnUrl*/ false);
-                referencePathsOutput += '/// <reference path="' + declFileName + '" />' + newLine;
+                referencesOutput += "/// <reference path=\"" + declFileName + "\" />" + newLine;
             }
             return addedBundledEmitReference;
             function getDeclFileName(emitFileNames, sourceFiles, isBundledEmit) {
@@ -33747,7 +33861,7 @@ var ts;
         var emitDeclarationResult = emitDeclarations(host, resolver, emitterDiagnostics, declarationFilePath, sourceFiles, isBundledEmit);
         var emitSkipped = emitDeclarationResult.reportedDeclarationError || host.isEmitBlocked(declarationFilePath) || host.getCompilerOptions().noEmit;
         if (!emitSkipped) {
-            var declarationOutput = emitDeclarationResult.referencePathsOutput
+            var declarationOutput = emitDeclarationResult.referencesOutput
                 + getDeclarationOutput(emitDeclarationResult.synchronousDeclarationOutput, emitDeclarationResult.moduleElementDeclarationEmitInfo);
             ts.writeFile(host, emitterDiagnostics, declarationFilePath, declarationOutput, host.getCompilerOptions().emitBOM);
         }
@@ -35456,13 +35570,13 @@ var ts;
             }
             function isNameOfNestedBlockScopedRedeclarationOrCapturedBinding(node) {
                 if (languageVersion < 2 /* ES6 */) {
-                    var parent_10 = node.parent;
-                    switch (parent_10.kind) {
+                    var parent_11 = node.parent;
+                    switch (parent_11.kind) {
                         case 168 /* BindingElement */:
                         case 220 /* ClassDeclaration */:
                         case 223 /* EnumDeclaration */:
                         case 217 /* VariableDeclaration */:
-                            return parent_10.name === node && resolver.isDeclarationWithCollidingName(parent_10);
+                            return parent_11.name === node && resolver.isDeclarationWithCollidingName(parent_11);
                     }
                 }
                 return false;
@@ -42274,7 +42388,7 @@ var ts;
             getSymbolCount: function () { return getDiagnosticsProducingTypeChecker().getSymbolCount(); },
             getTypeCount: function () { return getDiagnosticsProducingTypeChecker().getTypeCount(); },
             getFileProcessingDiagnostics: function () { return fileProcessingDiagnostics; },
-            resolvedTypeReferenceDirectives: resolvedTypeReferenceDirectives
+            getResolvedTypeReferenceDirectives: function () { return resolvedTypeReferenceDirectives; }
         };
         verifyCompilerOptions();
         ts.programTime += new Date().getTime() - start;
@@ -42414,7 +42528,7 @@ var ts;
                 var modifiedFile = modifiedSourceFiles_1[_b];
                 fileProcessingDiagnostics.reattachFileDiagnostics(modifiedFile);
             }
-            resolvedTypeReferenceDirectives = oldProgram.resolvedTypeReferenceDirectives;
+            resolvedTypeReferenceDirectives = oldProgram.getResolvedTypeReferenceDirectives();
             oldProgram.structureIsReused = true;
             return true;
         }
@@ -43990,28 +44104,28 @@ var ts;
                 switch (n.kind) {
                     case 198 /* Block */:
                         if (!ts.isFunctionBlock(n)) {
-                            var parent_11 = n.parent;
+                            var parent_12 = n.parent;
                             var openBrace = ts.findChildOfKind(n, 15 /* OpenBraceToken */, sourceFile);
                             var closeBrace = ts.findChildOfKind(n, 16 /* CloseBraceToken */, sourceFile);
                             // Check if the block is standalone, or 'attached' to some parent statement.
                             // If the latter, we want to collapse the block, but consider its hint span
                             // to be the entire span of the parent.
-                            if (parent_11.kind === 203 /* DoStatement */ ||
-                                parent_11.kind === 206 /* ForInStatement */ ||
-                                parent_11.kind === 207 /* ForOfStatement */ ||
-                                parent_11.kind === 205 /* ForStatement */ ||
-                                parent_11.kind === 202 /* IfStatement */ ||
-                                parent_11.kind === 204 /* WhileStatement */ ||
-                                parent_11.kind === 211 /* WithStatement */ ||
-                                parent_11.kind === 251 /* CatchClause */) {
-                                addOutliningSpan(parent_11, openBrace, closeBrace, autoCollapse(n));
+                            if (parent_12.kind === 203 /* DoStatement */ ||
+                                parent_12.kind === 206 /* ForInStatement */ ||
+                                parent_12.kind === 207 /* ForOfStatement */ ||
+                                parent_12.kind === 205 /* ForStatement */ ||
+                                parent_12.kind === 202 /* IfStatement */ ||
+                                parent_12.kind === 204 /* WhileStatement */ ||
+                                parent_12.kind === 211 /* WithStatement */ ||
+                                parent_12.kind === 251 /* CatchClause */) {
+                                addOutliningSpan(parent_12, openBrace, closeBrace, autoCollapse(n));
                                 break;
                             }
-                            if (parent_11.kind === 215 /* TryStatement */) {
+                            if (parent_12.kind === 215 /* TryStatement */) {
                                 // Could be the try-block, or the finally-block.
-                                var tryStatement = parent_11;
+                                var tryStatement = parent_12;
                                 if (tryStatement.tryBlock === n) {
-                                    addOutliningSpan(parent_11, openBrace, closeBrace, autoCollapse(n));
+                                    addOutliningSpan(parent_12, openBrace, closeBrace, autoCollapse(n));
                                     break;
                                 }
                                 else if (tryStatement.finallyBlock === n) {
@@ -50654,9 +50768,9 @@ var ts;
                 return false;
             }
             // If the parent is not sourceFile or module block it is local variable
-            for (var parent_12 = declaration.parent; !ts.isFunctionBlock(parent_12); parent_12 = parent_12.parent) {
+            for (var parent_13 = declaration.parent; !ts.isFunctionBlock(parent_13); parent_13 = parent_13.parent) {
                 // Reached source file or module block
-                if (parent_12.kind === 255 /* SourceFile */ || parent_12.kind === 225 /* ModuleBlock */) {
+                if (parent_13.kind === 255 /* SourceFile */ || parent_13.kind === 225 /* ModuleBlock */) {
                     return false;
                 }
             }
@@ -51909,13 +52023,13 @@ var ts;
                     log("Returning an empty list because completion was requested in an invalid position.");
                     return undefined;
                 }
-                var parent_13 = contextToken.parent, kind = contextToken.kind;
+                var parent_14 = contextToken.parent, kind = contextToken.kind;
                 if (kind === 21 /* DotToken */) {
-                    if (parent_13.kind === 171 /* PropertyAccessExpression */) {
+                    if (parent_14.kind === 171 /* PropertyAccessExpression */) {
                         node = contextToken.parent.expression;
                         isRightOfDot = true;
                     }
-                    else if (parent_13.kind === 138 /* QualifiedName */) {
+                    else if (parent_14.kind === 138 /* QualifiedName */) {
                         node = contextToken.parent.left;
                         isRightOfDot = true;
                     }
@@ -52291,9 +52405,9 @@ var ts;
                     switch (contextToken.kind) {
                         case 15 /* OpenBraceToken */: // const x = { |
                         case 24 /* CommaToken */:
-                            var parent_14 = contextToken.parent;
-                            if (parent_14 && (parent_14.kind === 170 /* ObjectLiteralExpression */ || parent_14.kind === 166 /* ObjectBindingPattern */)) {
-                                return parent_14;
+                            var parent_15 = contextToken.parent;
+                            if (parent_15 && (parent_15.kind === 170 /* ObjectLiteralExpression */ || parent_15.kind === 166 /* ObjectBindingPattern */)) {
+                                return parent_15;
                             }
                             break;
                     }
@@ -52320,37 +52434,37 @@ var ts;
             }
             function tryGetContainingJsxElement(contextToken) {
                 if (contextToken) {
-                    var parent_15 = contextToken.parent;
+                    var parent_16 = contextToken.parent;
                     switch (contextToken.kind) {
                         case 26 /* LessThanSlashToken */:
                         case 39 /* SlashToken */:
                         case 69 /* Identifier */:
                         case 245 /* JsxAttribute */:
                         case 246 /* JsxSpreadAttribute */:
-                            if (parent_15 && (parent_15.kind === 241 /* JsxSelfClosingElement */ || parent_15.kind === 242 /* JsxOpeningElement */)) {
-                                return parent_15;
+                            if (parent_16 && (parent_16.kind === 241 /* JsxSelfClosingElement */ || parent_16.kind === 242 /* JsxOpeningElement */)) {
+                                return parent_16;
                             }
-                            else if (parent_15.kind === 245 /* JsxAttribute */) {
-                                return parent_15.parent;
+                            else if (parent_16.kind === 245 /* JsxAttribute */) {
+                                return parent_16.parent;
                             }
                             break;
                         // The context token is the closing } or " of an attribute, which means
                         // its parent is a JsxExpression, whose parent is a JsxAttribute,
                         // whose parent is a JsxOpeningLikeElement
                         case 9 /* StringLiteral */:
-                            if (parent_15 && ((parent_15.kind === 245 /* JsxAttribute */) || (parent_15.kind === 246 /* JsxSpreadAttribute */))) {
-                                return parent_15.parent;
+                            if (parent_16 && ((parent_16.kind === 245 /* JsxAttribute */) || (parent_16.kind === 246 /* JsxSpreadAttribute */))) {
+                                return parent_16.parent;
                             }
                             break;
                         case 16 /* CloseBraceToken */:
-                            if (parent_15 &&
-                                parent_15.kind === 247 /* JsxExpression */ &&
-                                parent_15.parent &&
-                                (parent_15.parent.kind === 245 /* JsxAttribute */)) {
-                                return parent_15.parent.parent;
+                            if (parent_16 &&
+                                parent_16.kind === 247 /* JsxExpression */ &&
+                                parent_16.parent &&
+                                (parent_16.parent.kind === 245 /* JsxAttribute */)) {
+                                return parent_16.parent.parent;
                             }
-                            if (parent_15 && parent_15.kind === 246 /* JsxSpreadAttribute */) {
-                                return parent_15.parent;
+                            if (parent_16 && parent_16.kind === 246 /* JsxSpreadAttribute */) {
+                                return parent_16.parent;
                             }
                             break;
                     }
@@ -53323,7 +53437,7 @@ var ts;
             // Type reference directives
             var typeReferenceDirective = findReferenceInPosition(sourceFile.typeReferenceDirectives, position);
             if (typeReferenceDirective) {
-                var referenceFile = ts.lookUp(program.resolvedTypeReferenceDirectives, typeReferenceDirective.fileName);
+                var referenceFile = ts.lookUp(program.getResolvedTypeReferenceDirectives(), typeReferenceDirective.fileName);
                 if (referenceFile && referenceFile.resolvedFileName) {
                     return [getDefinitionInfoForFileReference(typeReferenceDirective.fileName, referenceFile.resolvedFileName)];
                 }
@@ -53602,19 +53716,19 @@ var ts;
                 function getThrowStatementOwner(throwStatement) {
                     var child = throwStatement;
                     while (child.parent) {
-                        var parent_16 = child.parent;
-                        if (ts.isFunctionBlock(parent_16) || parent_16.kind === 255 /* SourceFile */) {
-                            return parent_16;
+                        var parent_17 = child.parent;
+                        if (ts.isFunctionBlock(parent_17) || parent_17.kind === 255 /* SourceFile */) {
+                            return parent_17;
                         }
                         // A throw-statement is only owned by a try-statement if the try-statement has
                         // a catch clause, and if the throw-statement occurs within the try block.
-                        if (parent_16.kind === 215 /* TryStatement */) {
-                            var tryStatement = parent_16;
+                        if (parent_17.kind === 215 /* TryStatement */) {
+                            var tryStatement = parent_17;
                             if (tryStatement.tryBlock === child && tryStatement.catchClause) {
                                 return child;
                             }
                         }
-                        child = parent_16;
+                        child = parent_17;
                     }
                     return undefined;
                 }

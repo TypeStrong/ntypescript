@@ -1145,7 +1145,7 @@ declare namespace ts {
         getSymbolCount(): number;
         getTypeCount(): number;
         getFileProcessingDiagnostics(): DiagnosticCollection;
-        resolvedTypeReferenceDirectives: Map<ResolvedTypeReferenceDirective>;
+        getResolvedTypeReferenceDirectives(): Map<ResolvedTypeReferenceDirective>;
         structureIsReused?: boolean;
     }
     interface SourceMapSpan {
@@ -1191,6 +1191,7 @@ declare namespace ts {
         getCompilerOptions(): CompilerOptions;
         getSourceFiles(): SourceFile[];
         getSourceFile(fileName: string): SourceFile;
+        getResolvedTypeReferenceDirectives(): Map<ResolvedTypeReferenceDirective>;
     }
     interface TypeChecker {
         getTypeOfSymbolAtLocation(symbol: Symbol, node: Node): Type;
@@ -1349,6 +1350,8 @@ declare namespace ts {
         moduleExportsSomeValue(moduleReferenceExpression: Expression): boolean;
         isArgumentsLocalBinding(node: Identifier): boolean;
         getExternalModuleFileFromDeclaration(declaration: ImportEqualsDeclaration | ImportDeclaration | ExportDeclaration | ModuleDeclaration): SourceFile;
+        getTypeReferenceDirectivesForEntityName(name: EntityName | PropertyAccessExpression): string[];
+        getTypeReferenceDirectivesForSymbol(symbol: Symbol, meaning?: SymbolFlags): string[];
     }
     const enum SymbolFlags {
         None = 0,
