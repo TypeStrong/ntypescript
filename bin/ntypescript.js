@@ -15069,6 +15069,7 @@ var ts;
             getShorthandAssignmentValueSymbol: getShorthandAssignmentValueSymbol,
             getExportSpecifierLocalTargetSymbol: getExportSpecifierLocalTargetSymbol,
             getTypeAtLocation: getTypeOfNode,
+            getPropertySymbolOfDestructuringAssignment: getPropertySymbolOfDestructuringAssignment,
             typeToString: typeToString,
             getSymbolDisplayBuilder: getSymbolDisplayBuilder,
             symbolToString: symbolToString,
@@ -25737,38 +25738,41 @@ var ts;
             var properties = node.properties;
             for (var _i = 0, properties_3 = properties; _i < properties_3.length; _i++) {
                 var p = properties_3[_i];
-                if (p.kind === 252 /* PropertyAssignment */ || p.kind === 253 /* ShorthandPropertyAssignment */) {
-                    var name_13 = p.name;
-                    if (name_13.kind === 139 /* ComputedPropertyName */) {
-                        checkComputedPropertyName(name_13);
-                    }
-                    if (isComputedNonLiteralName(name_13)) {
-                        continue;
-                    }
-                    var text = getTextOfPropertyName(name_13);
-                    var type = isTypeAny(sourceType)
-                        ? sourceType
-                        : getTypeOfPropertyOfType(sourceType, text) ||
-                            isNumericLiteralName(text) && getIndexTypeOfType(sourceType, 1 /* Number */) ||
-                            getIndexTypeOfType(sourceType, 0 /* String */);
-                    if (type) {
-                        if (p.kind === 253 /* ShorthandPropertyAssignment */) {
-                            checkDestructuringAssignment(p, type);
-                        }
-                        else {
-                            // non-shorthand property assignments should always have initializers
-                            checkDestructuringAssignment(p.initializer, type);
-                        }
+                checkObjectLiteralDestructuringPropertyAssignment(sourceType, p, contextualMapper);
+            }
+            return sourceType;
+        }
+        function checkObjectLiteralDestructuringPropertyAssignment(objectLiteralType, property, contextualMapper) {
+            if (property.kind === 252 /* PropertyAssignment */ || property.kind === 253 /* ShorthandPropertyAssignment */) {
+                var name_13 = property.name;
+                if (name_13.kind === 139 /* ComputedPropertyName */) {
+                    checkComputedPropertyName(name_13);
+                }
+                if (isComputedNonLiteralName(name_13)) {
+                    return undefined;
+                }
+                var text = getTextOfPropertyName(name_13);
+                var type = isTypeAny(objectLiteralType)
+                    ? objectLiteralType
+                    : getTypeOfPropertyOfType(objectLiteralType, text) ||
+                        isNumericLiteralName(text) && getIndexTypeOfType(objectLiteralType, 1 /* Number */) ||
+                        getIndexTypeOfType(objectLiteralType, 0 /* String */);
+                if (type) {
+                    if (property.kind === 253 /* ShorthandPropertyAssignment */) {
+                        return checkDestructuringAssignment(property, type);
                     }
                     else {
-                        error(name_13, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(sourceType), ts.declarationNameToString(name_13));
+                        // non-shorthand property assignments should always have initializers
+                        return checkDestructuringAssignment(property.initializer, type);
                     }
                 }
                 else {
-                    error(p, ts.Diagnostics.Property_assignment_expected);
+                    error(name_13, ts.Diagnostics.Type_0_has_no_property_1_and_no_string_index_signature, typeToString(objectLiteralType), ts.declarationNameToString(name_13));
                 }
             }
-            return sourceType;
+            else {
+                error(property, ts.Diagnostics.Property_assignment_expected);
+            }
         }
         function checkArrayLiteralAssignment(node, sourceType, contextualMapper) {
             // This elementType will be used if the specific property corresponding to this index is not
@@ -25777,44 +25781,49 @@ var ts;
             var elementType = checkIteratedTypeOrElementType(sourceType, node, /*allowStringInput*/ false) || unknownType;
             var elements = node.elements;
             for (var i = 0; i < elements.length; i++) {
-                var e = elements[i];
-                if (e.kind !== 192 /* OmittedExpression */) {
-                    if (e.kind !== 190 /* SpreadElementExpression */) {
-                        var propName = "" + i;
-                        var type = isTypeAny(sourceType)
-                            ? sourceType
-                            : isTupleLikeType(sourceType)
-                                ? getTypeOfPropertyOfType(sourceType, propName)
-                                : elementType;
-                        if (type) {
-                            checkDestructuringAssignment(e, type, contextualMapper);
-                        }
-                        else {
-                            if (isTupleType(sourceType)) {
-                                error(e, ts.Diagnostics.Tuple_type_0_with_length_1_cannot_be_assigned_to_tuple_with_length_2, typeToString(sourceType), sourceType.elementTypes.length, elements.length);
-                            }
-                            else {
-                                error(e, ts.Diagnostics.Type_0_has_no_property_1, typeToString(sourceType), propName);
-                            }
-                        }
+                checkArrayLiteralDestructuringElementAssignment(node, sourceType, i, elementType, contextualMapper);
+            }
+            return sourceType;
+        }
+        function checkArrayLiteralDestructuringElementAssignment(node, sourceType, elementIndex, elementType, contextualMapper) {
+            var elements = node.elements;
+            var element = elements[elementIndex];
+            if (element.kind !== 192 /* OmittedExpression */) {
+                if (element.kind !== 190 /* SpreadElementExpression */) {
+                    var propName = "" + elementIndex;
+                    var type = isTypeAny(sourceType)
+                        ? sourceType
+                        : isTupleLikeType(sourceType)
+                            ? getTypeOfPropertyOfType(sourceType, propName)
+                            : elementType;
+                    if (type) {
+                        return checkDestructuringAssignment(element, type, contextualMapper);
                     }
                     else {
-                        if (i < elements.length - 1) {
-                            error(e, ts.Diagnostics.A_rest_element_must_be_last_in_an_array_destructuring_pattern);
+                        if (isTupleType(sourceType)) {
+                            error(element, ts.Diagnostics.Tuple_type_0_with_length_1_cannot_be_assigned_to_tuple_with_length_2, typeToString(sourceType), sourceType.elementTypes.length, elements.length);
                         }
                         else {
-                            var restExpression = e.expression;
-                            if (restExpression.kind === 186 /* BinaryExpression */ && restExpression.operatorToken.kind === 56 /* EqualsToken */) {
-                                error(restExpression.operatorToken, ts.Diagnostics.A_rest_element_cannot_have_an_initializer);
-                            }
-                            else {
-                                checkDestructuringAssignment(restExpression, createArrayType(elementType), contextualMapper);
-                            }
+                            error(element, ts.Diagnostics.Type_0_has_no_property_1, typeToString(sourceType), propName);
+                        }
+                    }
+                }
+                else {
+                    if (elementIndex < elements.length - 1) {
+                        error(element, ts.Diagnostics.A_rest_element_must_be_last_in_an_array_destructuring_pattern);
+                    }
+                    else {
+                        var restExpression = element.expression;
+                        if (restExpression.kind === 186 /* BinaryExpression */ && restExpression.operatorToken.kind === 56 /* EqualsToken */) {
+                            error(restExpression.operatorToken, ts.Diagnostics.A_rest_element_cannot_have_an_initializer);
+                        }
+                        else {
+                            return checkDestructuringAssignment(restExpression, createArrayType(elementType), contextualMapper);
                         }
                     }
                 }
             }
-            return sourceType;
+            return undefined;
         }
         function checkDestructuringAssignment(exprOrAssignment, sourceType, contextualMapper) {
             var target;
@@ -29955,6 +29964,51 @@ var ts;
                 return declaredType !== unknownType ? declaredType : getTypeOfSymbol(symbol);
             }
             return unknownType;
+        }
+        // Gets the type of object literal or array literal of destructuring assignment.
+        // { a } from 
+        //     for ( { a } of elems) {
+        //     }
+        // [ a ] from 
+        //     [a] = [ some array ...]
+        function getTypeOfArrayLiteralOrObjectLiteralDestructuringAssignment(expr) {
+            ts.Debug.assert(expr.kind === 170 /* ObjectLiteralExpression */ || expr.kind === 169 /* ArrayLiteralExpression */);
+            // If this is from "for of"
+            //     for ( { a } of elems) {
+            //     }
+            if (expr.parent.kind === 207 /* ForOfStatement */) {
+                var iteratedType = checkRightHandSideOfForOf(expr.parent.expression);
+                return checkDestructuringAssignment(expr, iteratedType || unknownType);
+            }
+            // If this is from "for" initializer
+            //     for ({a } = elems[0];.....) { }
+            if (expr.parent.kind === 186 /* BinaryExpression */) {
+                var iteratedType = checkExpression(expr.parent.right);
+                return checkDestructuringAssignment(expr, iteratedType || unknownType);
+            }
+            // If this is from nested object binding pattern
+            //     for ({ skills: { primary, secondary } } = multiRobot, i = 0; i < 1; i++) {
+            if (expr.parent.kind === 252 /* PropertyAssignment */) {
+                var typeOfParentObjectLiteral = getTypeOfArrayLiteralOrObjectLiteralDestructuringAssignment(expr.parent.parent);
+                return checkObjectLiteralDestructuringPropertyAssignment(typeOfParentObjectLiteral || unknownType, expr.parent);
+            }
+            // Array literal assignment - array destructuring pattern
+            ts.Debug.assert(expr.parent.kind === 169 /* ArrayLiteralExpression */);
+            //    [{ property1: p1, property2 }] = elems;
+            var typeOfArrayLiteral = getTypeOfArrayLiteralOrObjectLiteralDestructuringAssignment(expr.parent);
+            var elementType = checkIteratedTypeOrElementType(typeOfArrayLiteral || unknownType, expr.parent, /*allowStringInput*/ false) || unknownType;
+            return checkArrayLiteralDestructuringElementAssignment(expr.parent, typeOfArrayLiteral, ts.indexOf(expr.parent.elements, expr), elementType || unknownType);
+        }
+        // Gets the property symbol corresponding to the property in destructuring assignment
+        // 'property1' from 
+        //     for ( { property1: a } of elems) {
+        //     }
+        // 'property1' at location 'a' from: 
+        //     [a] = [ property1, property2 ]
+        function getPropertySymbolOfDestructuringAssignment(location) {
+            // Get the type of the object or array literal and then look for property of given name in the type
+            var typeOfObjectLiteral = getTypeOfArrayLiteralOrObjectLiteralDestructuringAssignment(location.parent.parent);
+            return typeOfObjectLiteral && getPropertyOfType(typeOfObjectLiteral, location.text);
         }
         function getTypeOfExpression(expr) {
             if (ts.isRightSideOfQualifiedNameOrPropertyAccess(expr)) {
@@ -54194,8 +54248,46 @@ var ts;
                     textSpan: ts.createTextSpan(declarations[0].getStart(), 0)
                 };
             }
-            function isImportSpecifierSymbol(symbol) {
-                return (symbol.flags & 8388608 /* Alias */) && !!ts.getDeclarationOfKind(symbol, 233 /* ImportSpecifier */);
+            function getAliasSymbolForPropertyNameSymbol(symbol, location) {
+                if (symbol.flags & 8388608 /* Alias */) {
+                    // Default import get alias
+                    var defaultImport = ts.getDeclarationOfKind(symbol, 230 /* ImportClause */);
+                    if (defaultImport) {
+                        return typeChecker.getAliasedSymbol(symbol);
+                    }
+                    var importOrExportSpecifier = ts.forEach(symbol.declarations, function (declaration) { return (declaration.kind === 233 /* ImportSpecifier */ ||
+                        declaration.kind === 237 /* ExportSpecifier */) ? declaration : undefined; });
+                    if (importOrExportSpecifier &&
+                        // export { a } 
+                        (!importOrExportSpecifier.propertyName ||
+                            // export {a as class } where a is location
+                            importOrExportSpecifier.propertyName === location)) {
+                        // If Import specifier -> get alias
+                        // else Export specifier -> get local target
+                        return importOrExportSpecifier.kind === 233 /* ImportSpecifier */ ?
+                            typeChecker.getAliasedSymbol(symbol) :
+                            typeChecker.getExportSpecifierLocalTargetSymbol(importOrExportSpecifier);
+                    }
+                }
+                return undefined;
+            }
+            function getPropertySymbolOfDestructuringAssignment(location) {
+                return ts.isArrayLiteralOrObjectLiteralDestructuringPattern(location.parent.parent) &&
+                    typeChecker.getPropertySymbolOfDestructuringAssignment(location);
+            }
+            function isObjectBindingPatternElementWithoutPropertyName(symbol) {
+                var bindingElement = ts.getDeclarationOfKind(symbol, 168 /* BindingElement */);
+                return bindingElement &&
+                    bindingElement.parent.kind === 166 /* ObjectBindingPattern */ &&
+                    !bindingElement.propertyName;
+            }
+            function getPropertySymbolOfObjectBindingPatternWithoutPropertyName(symbol) {
+                if (isObjectBindingPatternElementWithoutPropertyName(symbol)) {
+                    var bindingElement = ts.getDeclarationOfKind(symbol, 168 /* BindingElement */);
+                    var typeOfPattern = typeChecker.getTypeAtLocation(bindingElement.parent);
+                    return typeOfPattern && typeChecker.getPropertyOfType(typeOfPattern, bindingElement.name.text);
+                }
+                return undefined;
             }
             function getInternedName(symbol, location, declarations) {
                 // If this is an export or import specifier it could have been renamed using the 'as' syntax.
@@ -54234,6 +54326,11 @@ var ts;
                 // If the symbol is an import we would like to find it if we are looking for what it imports.
                 // So consider it visible outside its declaration scope.
                 if (symbol.flags & 8388608 /* Alias */) {
+                    return undefined;
+                }
+                // If symbol is of object binding pattern element without property name we would want to 
+                // look for property too and that could be anywhere
+                if (isObjectBindingPatternElementWithoutPropertyName(symbol)) {
                     return undefined;
                 }
                 // if this symbol is visible from its parent container, e.g. exported, then bail out
@@ -54557,17 +54654,29 @@ var ts;
             function populateSearchSymbolSet(symbol, location) {
                 // The search set contains at least the current symbol
                 var result = [symbol];
-                // If the symbol is an alias, add what it aliases to the list
-                if (isImportSpecifierSymbol(symbol)) {
-                    result.push(typeChecker.getAliasedSymbol(symbol));
+                // If the location is name of property symbol from object literal destructuring pattern
+                // Search the property symbol
+                //      for ( { property: p2 } of elems) { }
+                if (isNameOfPropertyAssignment(location) && location.parent.kind !== 253 /* ShorthandPropertyAssignment */) {
+                    var propertySymbol = getPropertySymbolOfDestructuringAssignment(location);
+                    if (propertySymbol) {
+                        result.push(propertySymbol);
+                    }
                 }
-                // For export specifiers, the exported name can be referring to a local symbol, e.g.:
+                // If the symbol is an alias, add what it aliases to the list
                 //     import {a} from "mod";
-                //     export {a as somethingElse}
-                // We want the *local* declaration of 'a' as declared in the import,
-                // *not* as declared within "mod" (or farther)
-                if (location.parent.kind === 237 /* ExportSpecifier */) {
-                    result.push(typeChecker.getExportSpecifierLocalTargetSymbol(location.parent));
+                //     export {a}
+                // If the symbol is an alias to default declaration, add what it aliases to the list
+                //     declare "mod" { export default class B { } }
+                //     import B from "mod";
+                //// For export specifiers, the exported name can be referring to a local symbol, e.g.:
+                ////     import {a} from "mod";
+                ////     export {a as somethingElse}
+                //// We want the *local* declaration of 'a' as declared in the import,
+                //// *not* as declared within "mod" (or farther)
+                var aliasSymbol = getAliasSymbolForPropertyNameSymbol(symbol, location);
+                if (aliasSymbol) {
+                    result = result.concat(populateSearchSymbolSet(aliasSymbol, location));
                 }
                 // If the location is in a context sensitive location (i.e. in an object literal) try
                 // to get a contextual type for it, and add the property symbol from the contextual
@@ -54599,6 +54708,12 @@ var ts;
                 if (symbol.valueDeclaration && symbol.valueDeclaration.kind === 141 /* Parameter */ &&
                     ts.isParameterPropertyDeclaration(symbol.valueDeclaration)) {
                     result = result.concat(typeChecker.getSymbolsOfParameterPropertyDeclaration(symbol.valueDeclaration, symbol.name));
+                }
+                // If this is symbol of binding element without propertyName declaration in Object binding pattern 
+                // Include the property in the search
+                var bindingElementPropertySymbol = getPropertySymbolOfObjectBindingPatternWithoutPropertyName(symbol);
+                if (bindingElementPropertySymbol) {
+                    result.push(bindingElementPropertySymbol);
                 }
                 // If this is a union property, add all the symbols from all its source symbols in all unioned types.
                 // If the symbol is an instantiation from a another symbol (e.g. widened symbol) , add the root the list
@@ -54671,30 +54786,36 @@ var ts;
                     return referenceSymbol;
                 }
                 // If the reference symbol is an alias, check if what it is aliasing is one of the search
-                // symbols.
-                if (isImportSpecifierSymbol(referenceSymbol)) {
-                    var aliasedSymbol = typeChecker.getAliasedSymbol(referenceSymbol);
-                    if (searchSymbols.indexOf(aliasedSymbol) >= 0) {
-                        return aliasedSymbol;
-                    }
-                }
-                // For export specifiers, it can be a local symbol, e.g. 
-                //     import {a} from "mod";
-                //     export {a as somethingElse}
-                // We want the local target of the export (i.e. the import symbol) and not the final target (i.e. "mod".a)
-                if (referenceLocation.parent.kind === 237 /* ExportSpecifier */) {
-                    var aliasedSymbol = typeChecker.getExportSpecifierLocalTargetSymbol(referenceLocation.parent);
-                    if (searchSymbols.indexOf(aliasedSymbol) >= 0) {
-                        return aliasedSymbol;
-                    }
+                // symbols but by looking up for related symbol of this alias so it can handle multiple level of indirectness.
+                var aliasSymbol = getAliasSymbolForPropertyNameSymbol(referenceSymbol, referenceLocation);
+                if (aliasSymbol) {
+                    return getRelatedSymbol(searchSymbols, aliasSymbol, referenceLocation);
                 }
                 // If the reference location is in an object literal, try to get the contextual type for the
                 // object literal, lookup the property symbol in the contextual type, and use this symbol to
                 // compare to our searchSymbol
                 if (isNameOfPropertyAssignment(referenceLocation)) {
-                    return ts.forEach(getPropertySymbolsFromContextualType(referenceLocation), function (contextualSymbol) {
+                    var contextualSymbol = ts.forEach(getPropertySymbolsFromContextualType(referenceLocation), function (contextualSymbol) {
                         return ts.forEach(typeChecker.getRootSymbols(contextualSymbol), function (s) { return searchSymbols.indexOf(s) >= 0 ? s : undefined; });
                     });
+                    if (contextualSymbol) {
+                        return contextualSymbol;
+                    }
+                    // If the reference location is the name of property from object literal destructuring pattern
+                    // Get the property symbol from the object literal's type and look if thats the search symbol
+                    // In below eg. get 'property' from type of elems iterating type
+                    //      for ( { property: p2 } of elems) { }
+                    var propertySymbol = getPropertySymbolOfDestructuringAssignment(referenceLocation);
+                    if (propertySymbol && searchSymbols.indexOf(propertySymbol) >= 0) {
+                        return propertySymbol;
+                    }
+                }
+                // If the reference location is the binding element and doesn't have property name 
+                // then include the binding element in the related symbols
+                //      let { a } : { a };
+                var bindingElementPropertySymbol = getPropertySymbolOfObjectBindingPatternWithoutPropertyName(referenceSymbol);
+                if (bindingElementPropertySymbol && searchSymbols.indexOf(bindingElementPropertySymbol) >= 0) {
+                    return bindingElementPropertySymbol;
                 }
                 // Unwrap symbols to get to the root (e.g. transient symbols as a result of widening)
                 // Or a union property, use its underlying unioned symbols
@@ -57016,7 +57137,7 @@ var ts;
 /* @internal */
 var debugObjectHost = this;
 // We need to use 'null' to interface with the managed side.
-/* tslint:disable:no-null */
+/* tslint:disable:no-null-keyword */
 /* tslint:disable:no-in-operator */
 /* @internal */
 var ts;
