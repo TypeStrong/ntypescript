@@ -572,6 +572,8 @@
   "Option_paths_cannot_be_used_without_specifying_baseUrl_option_5060" : "Option 'paths' cannot be used without specifying '--baseUrl' option.",
   "Pattern_0_can_have_at_most_one_Asterisk_character_5061" : "Pattern '{0}' can have at most one '*' character",
   "Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character_5062" : "Substitution '{0}' in pattern '{1}' in can have at most one '*' character",
+  "Substututions_for_pattern_0_should_be_an_array_5063" : "Substututions for pattern '{0}' should be an array.",
+  "Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2_5064" : "Substitution '{0}' for pattern '{1}' has incorrect type, expected 'string', got '{2}'.",
   "Concatenate_and_emit_output_to_single_file_6001" : "Concatenate and emit output to single file.",
   "Generates_corresponding_d_ts_file_6002" : "Generates corresponding '.d.ts' file.",
   "Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations_6003" : "Specify the location where debugger should locate map files instead of generated locations.",

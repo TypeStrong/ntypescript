@@ -5987,6 +5987,18 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Substututions_for_pattern_0_should_be_an_array: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Concatenate_and_emit_output_to_single_file: {
             code: number;
             category: DiagnosticCategory;

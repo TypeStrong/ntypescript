@@ -5612,6 +5612,8 @@ var ts;
         Option_paths_cannot_be_used_without_specifying_baseUrl_option: { code: 5060, category: ts.DiagnosticCategory.Error, key: "Option_paths_cannot_be_used_without_specifying_baseUrl_option_5060", message: "Option 'paths' cannot be used without specifying '--baseUrl' option." },
         Pattern_0_can_have_at_most_one_Asterisk_character: { code: 5061, category: ts.DiagnosticCategory.Error, key: "Pattern_0_can_have_at_most_one_Asterisk_character_5061", message: "Pattern '{0}' can have at most one '*' character" },
         Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character: { code: 5062, category: ts.DiagnosticCategory.Error, key: "Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character_5062", message: "Substitution '{0}' in pattern '{1}' in can have at most one '*' character" },
+        Substututions_for_pattern_0_should_be_an_array: { code: 5063, category: ts.DiagnosticCategory.Error, key: "Substututions_for_pattern_0_should_be_an_array_5063", message: "Substututions for pattern '{0}' should be an array." },
+        Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2: { code: 5064, category: ts.DiagnosticCategory.Error, key: "Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2_5064", message: "Substitution '{0}' for pattern '{1}' has incorrect type, expected 'string', got '{2}'." },
         Concatenate_and_emit_output_to_single_file: { code: 6001, category: ts.DiagnosticCategory.Message, key: "Concatenate_and_emit_output_to_single_file_6001", message: "Concatenate and emit output to single file." },
         Generates_corresponding_d_ts_file: { code: 6002, category: ts.DiagnosticCategory.Message, key: "Generates_corresponding_d_ts_file_6002", message: "Generates corresponding '.d.ts' file." },
         Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations: { code: 6003, category: ts.DiagnosticCategory.Message, key: "Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations_6003", message: "Specify the location where debugger should locate map files instead of generated locations." },
@@ -43254,11 +43256,22 @@ var ts;
                     if (!hasZeroOrOneAsteriskCharacter(key)) {
                         programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Pattern_0_can_have_at_most_one_Asterisk_character, key));
                     }
-                    for (var _i = 0, _a = options.paths[key]; _i < _a.length; _i++) {
-                        var subst = _a[_i];
-                        if (!hasZeroOrOneAsteriskCharacter(subst)) {
-                            programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character, subst, key));
+                    if (ts.isArray(options.paths[key])) {
+                        for (var _i = 0, _a = options.paths[key]; _i < _a.length; _i++) {
+                            var subst = _a[_i];
+                            var typeOfSubst = typeof subst;
+                            if (typeOfSubst === "string") {
+                                if (!hasZeroOrOneAsteriskCharacter(subst)) {
+                                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character, subst, key));
+                                }
+                            }
+                            else {
+                                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2, subst, key, typeOfSubst));
+                            }
                         }
+                    }
+                    else {
+                        programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Substututions_for_pattern_0_should_be_an_array, key));
                     }
                 }
             }
@@ -50957,7 +50970,7 @@ var ts;
     function transpileModule(input, transpileOptions) {
         var options = transpileOptions.compilerOptions ? ts.clone(transpileOptions.compilerOptions) : getDefaultCompilerOptions();
         options.isolatedModules = true;
-        // transpileModule does not write anything to disk so there is no need to verify that there are no conflicts between input and output paths. 
+        // transpileModule does not write anything to disk so there is no need to verify that there are no conflicts between input and output paths.
         options.suppressOutputPathCheck = true;
         // Filename can be non-ts file.
         options.allowNonTsExtensions = true;
@@ -54258,7 +54271,7 @@ var ts;
                     var importOrExportSpecifier = ts.forEach(symbol.declarations, function (declaration) { return (declaration.kind === 233 /* ImportSpecifier */ ||
                         declaration.kind === 237 /* ExportSpecifier */) ? declaration : undefined; });
                     if (importOrExportSpecifier &&
-                        // export { a } 
+                        // export { a }
                         (!importOrExportSpecifier.propertyName ||
                             // export {a as class } where a is location
                             importOrExportSpecifier.propertyName === location)) {
@@ -54328,7 +54341,7 @@ var ts;
                 if (symbol.flags & 8388608 /* Alias */) {
                     return undefined;
                 }
-                // If symbol is of object binding pattern element without property name we would want to 
+                // If symbol is of object binding pattern element without property name we would want to
                 // look for property too and that could be anywhere
                 if (isObjectBindingPatternElementWithoutPropertyName(symbol)) {
                     return undefined;
@@ -54709,7 +54722,7 @@ var ts;
                     ts.isParameterPropertyDeclaration(symbol.valueDeclaration)) {
                     result = result.concat(typeChecker.getSymbolsOfParameterPropertyDeclaration(symbol.valueDeclaration, symbol.name));
                 }
-                // If this is symbol of binding element without propertyName declaration in Object binding pattern 
+                // If this is symbol of binding element without propertyName declaration in Object binding pattern
                 // Include the property in the search
                 var bindingElementPropertySymbol = getPropertySymbolOfObjectBindingPatternWithoutPropertyName(symbol);
                 if (bindingElementPropertySymbol) {
@@ -54756,7 +54769,7 @@ var ts;
                 }
                 if (symbol.flags & (32 /* Class */ | 64 /* Interface */)) {
                     ts.forEach(symbol.getDeclarations(), function (declaration) {
-                        if (declaration.kind === 220 /* ClassDeclaration */) {
+                        if (ts.isClassLike(declaration)) {
                             getPropertySymbolFromTypeReference(ts.getClassExtendsHeritageClauseElement(declaration));
                             ts.forEach(ts.getClassImplementsHeritageClauseElements(declaration), getPropertySymbolFromTypeReference);
                         }
@@ -54810,7 +54823,7 @@ var ts;
                         return propertySymbol;
                     }
                 }
-                // If the reference location is the binding element and doesn't have property name 
+                // If the reference location is the binding element and doesn't have property name
                 // then include the binding element in the related symbols
                 //      let { a } : { a };
                 var bindingElementPropertySymbol = getPropertySymbolOfObjectBindingPatternWithoutPropertyName(referenceSymbol);
