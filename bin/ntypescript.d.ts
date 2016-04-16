@@ -5279,7 +5279,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Cannot_re_export_name_that_is_not_defined_in_the_module: {
+        Cannot_export_0_Only_local_declarations_can_be_exported_from_a_module: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -7244,6 +7244,11 @@ declare namespace ts {
     function isInString(sourceFile: SourceFile, position: number): boolean;
     function isInComment(sourceFile: SourceFile, position: number): boolean;
     /**
+     * returns true if the position is in between the open and close elements of an JSX expression.
+     */
+    function isInsideJsxElementOrAttribute(sourceFile: SourceFile, position: number): boolean;
+    function isInTemplateString(sourceFile: SourceFile, position: number): boolean;
+    /**
      * Returns true if the cursor at position in sourceFile is within a comment that additionally
      * satisfies predicate, and false otherwise.
      */
@@ -7852,6 +7857,7 @@ declare namespace ts {
         getFormattingEditsForDocument(fileName: string, options: FormatCodeOptions): TextChange[];
         getFormattingEditsAfterKeystroke(fileName: string, position: number, key: string, options: FormatCodeOptions): TextChange[];
         getDocCommentTemplateAtPosition(fileName: string, position: number): TextInsertion;
+        isValidBraceCompletionAtPostion(fileName: string, position: number, openingBrace: number): boolean;
         getEmitOutput(fileName: string): EmitOutput;
         getProgram(): Program;
         getNonBoundSourceFile(fileName: string): SourceFile;
@@ -8483,6 +8489,12 @@ declare namespace ts {
          * Returns JSON-encoded value of the type TextInsertion.
          */
         getDocCommentTemplateAtPosition(fileName: string, position: number): string;
+        /**
+         * Returns JSON-encoded boolean to indicate whether we should support brace location
+         * at the current position.
+         * E.g. we don't want brace completion inside string-literals, comments, etc.
+         */
+        isValidBraceCompletionAtPostion(fileName: string, position: number, openingBrace: number): string;
         getEmitOutput(fileName: string): string;
     }
     interface ClassifierShim extends Shim {

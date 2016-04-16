@@ -5494,7 +5494,7 @@ var ts;
         Type_0_provides_no_match_for_the_signature_1: { code: 2658, category: ts.DiagnosticCategory.Error, key: "Type_0_provides_no_match_for_the_signature_1_2658", message: "Type '{0}' provides no match for the signature '{1}'" },
         super_is_only_allowed_in_members_of_object_literal_expressions_when_option_target_is_ES2015_or_higher: { code: 2659, category: ts.DiagnosticCategory.Error, key: "super_is_only_allowed_in_members_of_object_literal_expressions_when_option_target_is_ES2015_or_highe_2659", message: "'super' is only allowed in members of object literal expressions when option 'target' is 'ES2015' or higher." },
         super_can_only_be_referenced_in_members_of_derived_classes_or_object_literal_expressions: { code: 2660, category: ts.DiagnosticCategory.Error, key: "super_can_only_be_referenced_in_members_of_derived_classes_or_object_literal_expressions_2660", message: "'super' can only be referenced in members of derived classes or object literal expressions." },
-        Cannot_re_export_name_that_is_not_defined_in_the_module: { code: 2661, category: ts.DiagnosticCategory.Error, key: "Cannot_re_export_name_that_is_not_defined_in_the_module_2661", message: "Cannot re-export name that is not defined in the module." },
+        Cannot_export_0_Only_local_declarations_can_be_exported_from_a_module: { code: 2661, category: ts.DiagnosticCategory.Error, key: "Cannot_export_0_Only_local_declarations_can_be_exported_from_a_module_2661", message: "Cannot export '{0}'. Only local declarations can be exported from a module." },
         Cannot_find_name_0_Did_you_mean_the_static_member_1_0: { code: 2662, category: ts.DiagnosticCategory.Error, key: "Cannot_find_name_0_Did_you_mean_the_static_member_1_0_2662", message: "Cannot find name '{0}'. Did you mean the static member '{1}.{0}'?" },
         Cannot_find_name_0_Did_you_mean_the_instance_member_this_0: { code: 2663, category: ts.DiagnosticCategory.Error, key: "Cannot_find_name_0_Did_you_mean_the_instance_member_this_0_2663", message: "Cannot find name '{0}'. Did you mean the instance member 'this.{0}'?" },
         Invalid_module_name_in_augmentation_module_0_cannot_be_found: { code: 2664, category: ts.DiagnosticCategory.Error, key: "Invalid_module_name_in_augmentation_module_0_cannot_be_found_2664", message: "Invalid module name in augmentation, module '{0}' cannot be found." },
@@ -29065,7 +29065,9 @@ var ts;
                     break;
                 case 228 /* ImportEqualsDeclaration */:
                     if (node.moduleReference.kind !== 9 /* StringLiteral */) {
-                        error(node.name, ts.Diagnostics.Module_augmentation_cannot_introduce_new_names_in_the_top_level_scope);
+                        if (!isGlobalAugmentation) {
+                            error(node.name, ts.Diagnostics.Module_augmentation_cannot_introduce_new_names_in_the_top_level_scope);
+                        }
                         break;
                     }
                 // fallthrough
@@ -29090,6 +29092,9 @@ var ts;
                 case 221 /* InterfaceDeclaration */:
                 case 224 /* ModuleDeclaration */:
                 case 222 /* TypeAliasDeclaration */:
+                    if (isGlobalAugmentation) {
+                        return;
+                    }
                     var symbol = getSymbolOfNode(node);
                     if (symbol) {
                         // module augmentations cannot introduce new names on the top level scope of the module
@@ -29098,14 +29103,8 @@ var ts;
                         // 2. main check - report error if value declaration of the parent symbol is module augmentation)
                         var reportError = !(symbol.flags & 33554432 /* Merged */);
                         if (!reportError) {
-                            if (isGlobalAugmentation) {
-                                // global symbol should not have parent since it is not explicitly exported
-                                reportError = symbol.parent !== undefined;
-                            }
-                            else {
-                                // symbol should not originate in augmentation
-                                reportError = ts.isExternalModuleAugmentation(symbol.parent.declarations[0]);
-                            }
+                            // symbol should not originate in augmentation
+                            reportError = ts.isExternalModuleAugmentation(symbol.parent.declarations[0]);
                         }
                         if (reportError) {
                             error(node, ts.Diagnostics.Module_augmentation_cannot_introduce_new_names_in_the_top_level_scope);
@@ -29282,7 +29281,7 @@ var ts;
                 var symbol = resolveName(exportedName, exportedName.text, 107455 /* Value */ | 793056 /* Type */ | 1536 /* Namespace */ | 8388608 /* Alias */, 
                 /*nameNotFoundMessage*/ undefined, /*nameArg*/ undefined);
                 if (symbol && (symbol === undefinedSymbol || isGlobalSourceFile(getDeclarationContainer(symbol.declarations[0])))) {
-                    error(exportedName, ts.Diagnostics.Cannot_re_export_name_that_is_not_defined_in_the_module);
+                    error(exportedName, ts.Diagnostics.Cannot_export_0_Only_local_declarations_can_be_exported_from_a_module, exportedName.text);
                 }
                 else {
                     markExportAsReferenced(node);
@@ -46545,7 +46544,7 @@ var ts;
     ts.findPrecedingToken = findPrecedingToken;
     function isInString(sourceFile, position) {
         var token = getTokenAtPosition(sourceFile, position);
-        return token && (token.kind === 9 /* StringLiteral */ || token.kind === 165 /* StringLiteralType */) && position > token.getStart();
+        return token && (token.kind === 9 /* StringLiteral */ || token.kind === 165 /* StringLiteralType */) && position > token.getStart(sourceFile);
     }
     ts.isInString = isInString;
     function isInComment(sourceFile, position) {
@@ -46553,12 +46552,46 @@ var ts;
     }
     ts.isInComment = isInComment;
     /**
+     * returns true if the position is in between the open and close elements of an JSX expression.
+     */
+    function isInsideJsxElementOrAttribute(sourceFile, position) {
+        var token = getTokenAtPosition(sourceFile, position);
+        if (!token) {
+            return false;
+        }
+        // <div>Hello |</div>
+        if (token.kind === 25 /* LessThanToken */ && token.parent.kind === 243 /* JsxText */) {
+            return true;
+        }
+        // <div> { | </div> or <div a={| </div>
+        if (token.kind === 25 /* LessThanToken */ && token.parent.kind === 247 /* JsxExpression */) {
+            return true;
+        }
+        // <div> { 
+        // |
+        // } < /div>
+        if (token && token.kind === 16 /* CloseBraceToken */ && token.parent.kind === 247 /* JsxExpression */) {
+            return true;
+        }
+        // <div>|</div>
+        if (token.kind === 25 /* LessThanToken */ && token.parent.kind === 244 /* JsxClosingElement */) {
+            return true;
+        }
+        return false;
+    }
+    ts.isInsideJsxElementOrAttribute = isInsideJsxElementOrAttribute;
+    function isInTemplateString(sourceFile, position) {
+        var token = getTokenAtPosition(sourceFile, position);
+        return ts.isTemplateLiteralKind(token.kind) && position > token.getStart(sourceFile);
+    }
+    ts.isInTemplateString = isInTemplateString;
+    /**
      * Returns true if the cursor at position in sourceFile is within a comment that additionally
      * satisfies predicate, and false otherwise.
      */
     function isInCommentHelper(sourceFile, position, predicate) {
         var token = getTokenAtPosition(sourceFile, position);
-        if (token && position <= token.getStart()) {
+        if (token && position <= token.getStart(sourceFile)) {
             var commentRanges = ts.getLeadingCommentRanges(sourceFile.text, token.pos);
             // The end marker of a single-line comment does not include the newline character.
             // In the following case, we are inside a comment (^ denotes the cursor position):
@@ -55785,6 +55818,29 @@ var ts;
                 (tokenStart === position ? newLine + indentationStr : "");
             return { newText: result, caretOffset: preamble.length };
         }
+        function isValidBraceCompletionAtPostion(fileName, position, openingBrace) {
+            // '<' is currently not supported, figuring out if we're in a Generic Type vs. a comparison is too 
+            // expensive to do during typing scenarios
+            // i.e. whether we're dealing with:
+            //      var x = new foo<| ( with class foo<T>{} )
+            // or 
+            //      var y = 3 <|
+            if (openingBrace === 60 /* lessThan */) {
+                return false;
+            }
+            var sourceFile = syntaxTreeCache.getCurrentSourceFile(fileName);
+            // Check if in a context where we don't want to perform any insertion
+            if (ts.isInString(sourceFile, position) || ts.isInComment(sourceFile, position)) {
+                return false;
+            }
+            if (ts.isInsideJsxElementOrAttribute(sourceFile, position)) {
+                return openingBrace === 123 /* openBrace */;
+            }
+            if (ts.isInTemplateString(sourceFile, position)) {
+                return false;
+            }
+            return true;
+        }
         function getParametersForJsDocOwningNode(commentOwner) {
             if (ts.isFunctionLike(commentOwner)) {
                 return commentOwner.parameters;
@@ -56041,6 +56097,7 @@ var ts;
             getFormattingEditsForDocument: getFormattingEditsForDocument,
             getFormattingEditsAfterKeystroke: getFormattingEditsAfterKeystroke,
             getDocCommentTemplateAtPosition: getDocCommentTemplateAtPosition,
+            isValidBraceCompletionAtPostion: isValidBraceCompletionAtPostion,
             getEmitOutput: getEmitOutput,
             getNonBoundSourceFile: getNonBoundSourceFile,
             getProgram: getProgram
@@ -57551,6 +57608,10 @@ var ts;
         LanguageServiceShimObject.prototype.getBraceMatchingAtPosition = function (fileName, position) {
             var _this = this;
             return this.forwardJSONCall("getBraceMatchingAtPosition('" + fileName + "', " + position + ")", function () { return _this.languageService.getBraceMatchingAtPosition(fileName, position); });
+        };
+        LanguageServiceShimObject.prototype.isValidBraceCompletionAtPostion = function (fileName, position, openingBrace) {
+            var _this = this;
+            return this.forwardJSONCall("isValidBraceCompletionAtPostion('" + fileName + "', " + position + ", " + openingBrace + ")", function () { return _this.languageService.isValidBraceCompletionAtPostion(fileName, position, openingBrace); });
         };
         /// GET SMART INDENT
         LanguageServiceShimObject.prototype.getIndentationAtPosition = function (fileName, position, options /*Services.EditorOptions*/) {
