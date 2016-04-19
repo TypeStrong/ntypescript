@@ -2350,6 +2350,7 @@ declare namespace ts {
      * This function does not test if the node is in a JavaScript file or not.
     */
     function isRequireCall(expression: Node, checkArgumentIsStringLiteral: boolean): expression is CallExpression;
+    function isSingleOrDoubleQuote(charCode: number): boolean;
     function getSpecialPropertyAssignmentKind(expression: Node): SpecialPropertyAssignmentKind;
     function getExternalModuleName(node: Node): Expression;
     function hasQuestionToken(node: Node): boolean;

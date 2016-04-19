@@ -3386,6 +3386,10 @@ var ts;
         return isRequire && (!checkArgumentIsStringLiteral || expression.arguments[0].kind === 9 /* StringLiteral */);
     }
     ts.isRequireCall = isRequireCall;
+    function isSingleOrDoubleQuote(charCode) {
+        return charCode === 39 /* singleQuote */ || charCode === 34 /* doubleQuote */;
+    }
+    ts.isSingleOrDoubleQuote = isSingleOrDoubleQuote;
     /// Given a BinaryExpression, returns SpecialPropertyAssignmentKind for the various kinds of property
     /// assignments we treat as special in the binder
     function getSpecialPropertyAssignmentKind(expression) {
@@ -16618,10 +16622,34 @@ var ts;
             }
             /**
              * Writes only the name of the symbol out to the writer. Uses the original source text
-             * for the name of the symbol if it is available to match how the user inputted the name.
+             * for the name of the symbol if it is available to match how the user wrote the name.
              */
             function appendSymbolNameOnly(symbol, writer) {
                 writer.writeSymbol(getNameOfSymbol(symbol), symbol);
+            }
+            /**
+             * Writes a property access or element access with the name of the symbol out to the writer.
+             * Uses the original source text for the name of the symbol if it is available to match how the user wrote the name,
+             * ensuring that any names written with literals use element accesses.
+             */
+            function appendPropertyOrElementAccessForSymbol(symbol, writer) {
+                var symbolName = getNameOfSymbol(symbol);
+                var firstChar = symbolName.charCodeAt(0);
+                var needsElementAccess = !ts.isIdentifierStart(firstChar, languageVersion);
+                if (needsElementAccess) {
+                    writePunctuation(writer, 19 /* OpenBracketToken */);
+                    if (ts.isSingleOrDoubleQuote(firstChar)) {
+                        writer.writeStringLiteral(symbolName);
+                    }
+                    else {
+                        writer.writeSymbol(symbolName, symbol);
+                    }
+                    writePunctuation(writer, 20 /* CloseBracketToken */);
+                }
+                else {
+                    writePunctuation(writer, 21 /* DotToken */);
+                    writer.writeSymbol(symbolName, symbol);
+                }
             }
             /**
              * Enclosing declaration is optional when we don't want to get qualified name in the enclosing declaration scope
@@ -16640,10 +16668,12 @@ var ts;
                                 buildTypeParameterDisplayFromSymbol(parentSymbol, writer, enclosingDeclaration);
                             }
                         }
-                        writePunctuation(writer, 21 /* DotToken */);
+                        appendPropertyOrElementAccessForSymbol(symbol, writer);
+                    }
+                    else {
+                        appendSymbolNameOnly(symbol, writer);
                     }
                     parentSymbol = symbol;
-                    appendSymbolNameOnly(symbol, writer);
                 }
                 // const the writer know we just wrote out a symbol.  The declaration emitter writer uses
                 // this to determine if an import it has previously seen (and not written out) needs
@@ -16821,10 +16851,10 @@ var ts;
                     if (symbol) {
                         // Always use 'typeof T' for type of class, enum, and module objects
                         if (symbol.flags & (32 /* Class */ | 384 /* Enum */ | 512 /* ValueModule */)) {
-                            writeTypeofSymbol(type, flags);
+                            writeTypeOfSymbol(type, flags);
                         }
                         else if (shouldWriteTypeOfFunctionSymbol()) {
-                            writeTypeofSymbol(type, flags);
+                            writeTypeOfSymbol(type, flags);
                         }
                         else if (ts.contains(symbolStack, symbol)) {
                             // If type is an anonymous type literal in a type alias declaration, use type alias name
@@ -16868,7 +16898,7 @@ var ts;
                         }
                     }
                 }
-                function writeTypeofSymbol(type, typeFormatFlags) {
+                function writeTypeOfSymbol(type, typeFormatFlags) {
                     writeKeyword(writer, 101 /* TypeOfKeyword */);
                     writeSpace(writer);
                     buildSymbolDisplay(type.symbol, writer, enclosingDeclaration, 107455 /* Value */, 0 /* None */, typeFormatFlags);
