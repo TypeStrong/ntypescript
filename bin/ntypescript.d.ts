@@ -1274,6 +1274,7 @@ declare namespace ts {
         WriteTypeArgumentsOfSignature = 32,
         InElementType = 64,
         UseFullyQualifiedType = 128,
+        InFirstTypeArgument = 256,
     }
     enum SymbolFormatFlags {
         None = 0,

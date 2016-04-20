@@ -433,6 +433,7 @@ var ts;
         TypeFormatFlags[TypeFormatFlags["WriteTypeArgumentsOfSignature"] = 32] = "WriteTypeArgumentsOfSignature";
         TypeFormatFlags[TypeFormatFlags["InElementType"] = 64] = "InElementType";
         TypeFormatFlags[TypeFormatFlags["UseFullyQualifiedType"] = 128] = "UseFullyQualifiedType";
+        TypeFormatFlags[TypeFormatFlags["InFirstTypeArgument"] = 256] = "InFirstTypeArgument";
     })(ts.TypeFormatFlags || (ts.TypeFormatFlags = {}));
     var TypeFormatFlags = ts.TypeFormatFlags;
     (function (SymbolFormatFlags) {
@@ -16787,7 +16788,7 @@ var ts;
                     }
                     if (pos < end) {
                         writePunctuation(writer, 25 /* LessThanToken */);
-                        writeType(typeArguments[pos], 0 /* None */);
+                        writeType(typeArguments[pos], 256 /* InFirstTypeArgument */);
                         pos++;
                         while (pos < end) {
                             writePunctuation(writer, 24 /* CommaToken */);
@@ -16932,6 +16933,18 @@ var ts;
                         writePunctuation(writer, 53 /* QuestionToken */);
                     }
                 }
+                function shouldAddParenthesisAroundFunctionType(callSignature, flags) {
+                    if (flags & 64 /* InElementType */) {
+                        return true;
+                    }
+                    else if (flags & 256 /* InFirstTypeArgument */) {
+                        // Add parenthesis around function type for the first type argument to avoid ambiguity
+                        var typeParameters = callSignature.target && (flags & 32 /* WriteTypeArgumentsOfSignature */) ?
+                            callSignature.target.typeParameters : callSignature.typeParameters;
+                        return typeParameters && typeParameters.length !== 0;
+                    }
+                    return false;
+                }
                 function writeLiteralType(type, flags) {
                     var resolved = resolveStructuredTypeMembers(type);
                     if (!resolved.properties.length && !resolved.stringIndexInfo && !resolved.numberIndexInfo) {
@@ -16941,11 +16954,12 @@ var ts;
                             return;
                         }
                         if (resolved.callSignatures.length === 1 && !resolved.constructSignatures.length) {
-                            if (flags & 64 /* InElementType */) {
+                            var parenthesizeSignature = shouldAddParenthesisAroundFunctionType(resolved.callSignatures[0], flags);
+                            if (parenthesizeSignature) {
                                 writePunctuation(writer, 17 /* OpenParenToken */);
                             }
                             buildSignatureDisplay(resolved.callSignatures[0], writer, enclosingDeclaration, globalFlagsToPass | 8 /* WriteArrowStyleSignature */, /*kind*/ undefined, symbolStack);
-                            if (flags & 64 /* InElementType */) {
+                            if (parenthesizeSignature) {
                                 writePunctuation(writer, 18 /* CloseParenToken */);
                             }
                             return;
@@ -17099,12 +17113,14 @@ var ts;
             function buildDisplayForTypeArgumentsAndDelimiters(typeParameters, mapper, writer, enclosingDeclaration, flags, symbolStack) {
                 if (typeParameters && typeParameters.length) {
                     writePunctuation(writer, 25 /* LessThanToken */);
+                    var flags_1 = 256 /* InFirstTypeArgument */;
                     for (var i = 0; i < typeParameters.length; i++) {
                         if (i > 0) {
                             writePunctuation(writer, 24 /* CommaToken */);
                             writeSpace(writer);
+                            flags_1 = 0 /* None */;
                         }
-                        buildTypeDisplay(mapper(typeParameters[i]), writer, enclosingDeclaration, 0 /* None */);
+                        buildTypeDisplay(mapper(typeParameters[i]), writer, enclosingDeclaration, flags_1);
                     }
                     writePunctuation(writer, 27 /* GreaterThanToken */);
                 }
@@ -33622,6 +33638,7 @@ var ts;
         function emitSignatureDeclaration(node) {
             var prevEnclosingDeclaration = enclosingDeclaration;
             enclosingDeclaration = node;
+            var closeParenthesizedFunctionType = false;
             if (node.kind === 152 /* IndexSignature */) {
                 // Index signature can have readonly modifier
                 emitClassMemberDeclarationFlags(node.flags);
@@ -33631,6 +33648,16 @@ var ts;
                 // Construct signature or constructor type write new Signature
                 if (node.kind === 151 /* ConstructSignature */ || node.kind === 156 /* ConstructorType */) {
                     write("new ");
+                }
+                else if (node.kind === 155 /* FunctionType */) {
+                    var currentOutput = writer.getText();
+                    // Do not generate incorrect type when function type with type parameters is type argument
+                    // This could happen if user used space between two '<' making it error free
+                    // e.g var x: A< <Tany>(a: Tany)=>Tany>;
+                    if (node.typeParameters && currentOutput.charAt(currentOutput.length - 1) === "<") {
+                        closeParenthesizedFunctionType = true;
+                        write("(");
+                    }
                 }
                 emitTypeParameters(node.typeParameters);
                 write("(");
@@ -33659,6 +33686,9 @@ var ts;
             if (!isFunctionTypeOrConstructorType) {
                 write(";");
                 writeLine();
+            }
+            else if (closeParenthesizedFunctionType) {
+                write(")");
             }
             function getReturnTypeVisibilityError(symbolAccessibilityResult) {
                 var diagnosticMessage;
@@ -41209,7 +41239,7 @@ var ts;
                     node.parent &&
                     node.parent.kind === 179 /* ArrowFunction */ &&
                     node.parent.body === node &&
-                    compilerOptions.target <= 1 /* ES5 */) {
+                    languageVersion <= 1 /* ES5 */) {
                     return false;
                 }
                 // Emit comments for everything else.
@@ -47032,11 +47062,14 @@ var ts;
     }
     ts.scriptKindIs = scriptKindIs;
     function getScriptKind(fileName, host) {
-        // First check to see if the script kind can be determined from the file name
-        var scriptKind = ts.getScriptKindFromFileName(fileName);
-        if (scriptKind === 0 /* Unknown */ && host && host.getScriptKind) {
-            // Next check to see if the host can resolve the script kind
+        // First check to see if the script kind was specified by the host. Chances are the host
+        // may override the default script kind for the file extension.
+        var scriptKind;
+        if (host && host.getScriptKind) {
             scriptKind = host.getScriptKind(fileName);
+        }
+        if (!scriptKind || scriptKind === 0 /* Unknown */) {
+            scriptKind = ts.getScriptKindFromFileName(fileName);
         }
         return ts.ensureScriptKind(fileName, scriptKind);
     }
@@ -49155,24 +49188,24 @@ var ts;
                         var tokenIndentation = (isTokenInRange && !rangeContainsError(currentTokenInfo.token)) ?
                             dynamicIndentation.getIndentationForToken(tokenStart.line, currentTokenInfo.token.kind, container) :
                             -1 /* Unknown */;
+                        var indentNextTokenOrTrivia = true;
                         if (currentTokenInfo.leadingTrivia) {
                             var commentIndentation = dynamicIndentation.getIndentationForComment(currentTokenInfo.token.kind, tokenIndentation, container);
-                            var indentNextTokenOrTrivia = true;
                             for (var _i = 0, _a = currentTokenInfo.leadingTrivia; _i < _a.length; _i++) {
                                 var triviaItem = _a[_i];
-                                if (!ts.rangeContainsRange(originalRange, triviaItem)) {
-                                    continue;
-                                }
+                                var triviaInRange = ts.rangeContainsRange(originalRange, triviaItem);
                                 switch (triviaItem.kind) {
                                     case 3 /* MultiLineCommentTrivia */:
-                                        indentMultilineComment(triviaItem, commentIndentation, /*firstLineIsIndented*/ !indentNextTokenOrTrivia);
+                                        if (triviaInRange) {
+                                            indentMultilineComment(triviaItem, commentIndentation, /*firstLineIsIndented*/ !indentNextTokenOrTrivia);
+                                        }
                                         indentNextTokenOrTrivia = false;
                                         break;
                                     case 2 /* SingleLineCommentTrivia */:
-                                        if (indentNextTokenOrTrivia) {
+                                        if (indentNextTokenOrTrivia && triviaInRange) {
                                             insertIndentation(triviaItem.pos, commentIndentation, /*lineAdded*/ false);
-                                            indentNextTokenOrTrivia = false;
                                         }
+                                        indentNextTokenOrTrivia = false;
                                         break;
                                     case 4 /* NewLineTrivia */:
                                         indentNextTokenOrTrivia = true;
@@ -49181,7 +49214,7 @@ var ts;
                             }
                         }
                         // indent token only if is it is in target range and does not overlap with any error ranges
-                        if (tokenIndentation !== -1 /* Unknown */) {
+                        if (tokenIndentation !== -1 /* Unknown */ && indentNextTokenOrTrivia) {
                             insertIndentation(currentTokenInfo.token.pos, tokenIndentation, lineAdded);
                             lastIndentedLine = tokenStart.line;
                             indentationOnLastIndentedLine = tokenIndentation;
@@ -49957,7 +49990,7 @@ var ts;
 var ts;
 (function (ts) {
     /** The version of the language service API */
-    ts.servicesVersion = "0.4";
+    ts.servicesVersion = "0.5";
     var ScriptSnapshot;
     (function (ScriptSnapshot) {
         var StringScriptSnapshot = (function () {
