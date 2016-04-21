@@ -3556,22 +3556,27 @@ var ts;
         return isRestParameter(ts.lastOrUndefined(s.parameters));
     }
     ts.hasRestParameter = hasRestParameter;
+    function hasDeclaredRestParameter(s) {
+        return isDeclaredRestParam(ts.lastOrUndefined(s.parameters));
+    }
+    ts.hasDeclaredRestParameter = hasDeclaredRestParameter;
     function isRestParameter(node) {
-        if (node) {
-            if (node.flags & 134217728 /* JavaScriptFile */) {
-                if (node.type && node.type.kind === 269 /* JSDocVariadicType */) {
-                    return true;
-                }
-                var paramTag = getCorrespondingJSDocParameterTag(node);
-                if (paramTag && paramTag.typeExpression) {
-                    return paramTag.typeExpression.type.kind === 269 /* JSDocVariadicType */;
-                }
+        if (node && (node.flags & 134217728 /* JavaScriptFile */)) {
+            if (node.type && node.type.kind === 269 /* JSDocVariadicType */) {
+                return true;
             }
-            return node.dotDotDotToken !== undefined;
+            var paramTag = getCorrespondingJSDocParameterTag(node);
+            if (paramTag && paramTag.typeExpression) {
+                return paramTag.typeExpression.type.kind === 269 /* JSDocVariadicType */;
+            }
         }
-        return false;
+        return isDeclaredRestParam(node);
     }
     ts.isRestParameter = isRestParameter;
+    function isDeclaredRestParam(node) {
+        return node && node.dotDotDotToken !== undefined;
+    }
+    ts.isDeclaredRestParam = isDeclaredRestParam;
     function isLiteralKind(kind) {
         return 8 /* FirstLiteralToken */ <= kind && kind <= 11 /* LastLiteralToken */;
     }
@@ -15373,7 +15378,11 @@ var ts;
             }
             else {
                 // find a module that about to be augmented
-                var mainModule = resolveExternalModuleNameWorker(moduleName, moduleName, ts.Diagnostics.Invalid_module_name_in_augmentation_module_0_cannot_be_found);
+                // do not validate names of augmentations that are defined in ambient context
+                var moduleNotFoundError = !ts.isInAmbientContext(moduleName.parent.parent)
+                    ? ts.Diagnostics.Invalid_module_name_in_augmentation_module_0_cannot_be_found
+                    : undefined;
+                var mainModule = resolveExternalModuleNameWorker(moduleName, moduleName, moduleNotFoundError);
                 if (!mainModule) {
                     return;
                 }
@@ -27515,7 +27524,7 @@ var ts;
         }
         function checkCollisionWithArgumentsInGeneratedCode(node) {
             // no rest parameters \ declaration context \ overload - no codegen impact
-            if (!ts.hasRestParameter(node) || ts.isInAmbientContext(node) || ts.nodeIsMissing(node.body)) {
+            if (!ts.hasDeclaredRestParameter(node) || ts.isInAmbientContext(node) || ts.nodeIsMissing(node.body)) {
                 return;
             }
             ts.forEach(node.parameters, function (p) {
@@ -38198,7 +38207,7 @@ var ts;
                 }
             }
             function emitRestParameter(node) {
-                if (languageVersion < 2 /* ES6 */ && ts.hasRestParameter(node)) {
+                if (languageVersion < 2 /* ES6 */ && ts.hasDeclaredRestParameter(node)) {
                     var restIndex = node.parameters.length - 1;
                     var restParam = node.parameters[restIndex];
                     // A rest parameter cannot have a binding pattern, so let's just ignore it if it does.
@@ -38340,7 +38349,7 @@ var ts;
                 if (node) {
                     var parameters = node.parameters;
                     var skipCount = node.parameters.length && node.parameters[0].name.text === "this" ? 1 : 0;
-                    var omitCount = languageVersion < 2 /* ES6 */ && ts.hasRestParameter(node) ? 1 : 0;
+                    var omitCount = languageVersion < 2 /* ES6 */ && ts.hasDeclaredRestParameter(node) ? 1 : 0;
                     emitList(parameters, skipCount, parameters.length - omitCount - skipCount, /*multiLine*/ false, /*trailingComma*/ false);
                 }
                 write(")");
@@ -43483,10 +43492,9 @@ var ts;
         var language = matchResult[1];
         var territory = matchResult[3];
         // First try the entire locale, then fall back to just language if that's all we have.
-        if (!trySetLanguageAndTerritory(language, territory, errors) &&
-            !trySetLanguageAndTerritory(language, undefined, errors)) {
-            errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unsupported_locale_0, locale));
-            return false;
+        // Either ways do not fail, and fallback to the English diagnostic strings.
+        if (!trySetLanguageAndTerritory(language, territory, errors)) {
+            trySetLanguageAndTerritory(language, undefined, errors);
         }
         return true;
     }
@@ -54881,7 +54889,7 @@ var ts;
                         if (type) {
                             var propertySymbol = typeChecker.getPropertyOfType(type, propertyName);
                             if (propertySymbol) {
-                                result.push(propertySymbol);
+                                result.push.apply(result, typeChecker.getRootSymbols(propertySymbol));
                             }
                             // Visit the typeReference as well to see if it directly or indirectly use that property
                             previousIterationSymbolsCache[symbol.name] = symbol;
