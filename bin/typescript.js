@@ -926,11 +926,11 @@ var ts;
         return undefined;
     }
     ts.forEach = forEach;
-    function contains(array, value) {
+    function contains(array, value, areEqual) {
         if (array) {
             for (var _i = 0, array_1 = array; _i < array_1.length; _i++) {
                 var v = array_1[_i];
-                if (v === value) {
+                if (areEqual ? areEqual(v, value) : v === value) {
                     return true;
                 }
             }
@@ -996,13 +996,13 @@ var ts;
         return array1.concat(array2);
     }
     ts.concatenate = concatenate;
-    function deduplicate(array) {
+    function deduplicate(array, areEqual) {
         var result;
         if (array) {
             result = [];
             for (var _i = 0, array_5 = array; _i < array_5.length; _i++) {
                 var item = array_5[_i];
-                if (!contains(result, item)) {
+                if (!contains(result, item, areEqual)) {
                     result.push(item);
                 }
             }
@@ -2657,7 +2657,7 @@ var ts;
             var startLine = ts.getLineAndCharacterOfPosition(sourceFile, node.body.pos).line;
             var endLine = ts.getLineAndCharacterOfPosition(sourceFile, node.body.end).line;
             if (startLine < endLine) {
-                // The arrow function spans multiple lines, 
+                // The arrow function spans multiple lines,
                 // make the error span be the first line, inclusive.
                 return ts.createTextSpan(pos, getEndLinePosition(startLine, sourceFile) - pos + 1);
             }
@@ -3488,10 +3488,10 @@ var ts;
         if (node.jsDocComment) {
             return node.jsDocComment;
         }
-        // Try to recognize this pattern when node is initializer of variable declaration and JSDoc comments are on containing variable statement. 
-        // /** 
+        // Try to recognize this pattern when node is initializer of variable declaration and JSDoc comments are on containing variable statement.
+        // /**
         //   * @param {number} name
-        //   * @returns {number} 
+        //   * @returns {number}
         //   */
         // var x = function(name) { return name.length; }
         if (checkParentVariableStatement) {
@@ -11827,7 +11827,7 @@ var ts;
                 var modifierKind = token;
                 if (token === 74 /* ConstKeyword */ && permitInvalidConstAsModifier) {
                     // We need to ensure that any subsequent modifiers appear on the same line
-                    // so that when 'const' is a standalone declaration, we don't issue an error.                
+                    // so that when 'const' is a standalone declaration, we don't issue an error.
                     if (!tryParse(nextTokenIsOnSameLineAndCanFollowModifier)) {
                         break;
                     }
@@ -12053,7 +12053,7 @@ var ts;
             node.decorators = decorators;
             setModifiers(node, modifiers);
             if (token === 136 /* GlobalKeyword */) {
-                // parse 'global' as name of global scope augmentation 
+                // parse 'global' as name of global scope augmentation
                 node.name = parseIdentifier();
                 node.flags |= 131072 /* GlobalAugmentation */;
             }
@@ -12774,7 +12774,7 @@ var ts;
                     var atToken = createNode(55 /* AtToken */, scanner.getTokenPos());
                     atToken.end = scanner.getTextPos();
                     nextJSDocToken();
-                    var tagName = parseJSDocIdentifier();
+                    var tagName = parseJSDocIdentifierName();
                     if (!tagName) {
                         return;
                     }
@@ -12827,7 +12827,7 @@ var ts;
                     var isBracketed;
                     // Looking for something like '[foo]' or 'foo'
                     if (parseOptionalToken(19 /* OpenBracketToken */)) {
-                        name = parseJSDocIdentifier();
+                        name = parseJSDocIdentifierName();
                         isBracketed = true;
                         // May have an optional default, e.g. '[foo = 42]'
                         if (parseOptionalToken(56 /* EqualsToken */)) {
@@ -12835,8 +12835,8 @@ var ts;
                         }
                         parseExpected(20 /* CloseBracketToken */);
                     }
-                    else if (token === 69 /* Identifier */) {
-                        name = parseJSDocIdentifier();
+                    else if (ts.tokenIsIdentifierOrKeyword(token)) {
+                        name = parseJSDocIdentifierName();
                     }
                     if (!name) {
                         parseErrorAtPosition(scanner.getStartPos(), 0, ts.Diagnostics.Identifier_expected);
@@ -12889,7 +12889,7 @@ var ts;
                     var typeParameters = [];
                     typeParameters.pos = scanner.getStartPos();
                     while (true) {
-                        var name_8 = parseJSDocIdentifier();
+                        var name_8 = parseJSDocIdentifierName();
                         if (!name_8) {
                             parseErrorAtPosition(scanner.getStartPos(), 0, ts.Diagnostics.Identifier_expected);
                             return undefined;
@@ -12916,8 +12916,11 @@ var ts;
                 function nextJSDocToken() {
                     return token = scanner.scanJSDocToken();
                 }
-                function parseJSDocIdentifier() {
-                    if (token !== 69 /* Identifier */) {
+                function parseJSDocIdentifierName() {
+                    return createJSDocIdentifier(ts.tokenIsIdentifierOrKeyword(token));
+                }
+                function createJSDocIdentifier(isIdentifier) {
+                    if (!isIdentifier) {
                         parseErrorAtCurrentToken(ts.Diagnostics.Identifier_expected);
                         return undefined;
                     }

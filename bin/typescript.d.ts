@@ -2070,13 +2070,13 @@ declare namespace ts {
      * If no such value is found, the callback is applied to each element of array and undefined is returned.
      */
     function forEach<T, U>(array: T[], callback: (element: T, index: number) => U): U;
-    function contains<T>(array: T[], value: T): boolean;
+    function contains<T>(array: T[], value: T, areEqual?: (a: T, b: T) => boolean): boolean;
     function indexOf<T>(array: T[], value: T): number;
     function countWhere<T>(array: T[], predicate: (x: T) => boolean): number;
     function filter<T>(array: T[], f: (x: T) => boolean): T[];
     function map<T, U>(array: T[], f: (x: T) => U): U[];
     function concatenate<T>(array1: T[], array2: T[]): T[];
-    function deduplicate<T>(array: T[]): T[];
+    function deduplicate<T>(array: T[], areEqual?: (a: T, b: T) => boolean): T[];
     function sum(array: any[], prop: string): number;
     function addRange<T>(to: T[], from: T[]): void;
     function rangeEquals<T>(array1: T[], array2: T[], pos: number, end: number): boolean;
