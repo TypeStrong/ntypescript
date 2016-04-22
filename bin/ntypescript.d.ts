@@ -388,6 +388,7 @@ declare namespace ts {
         locals?: SymbolTable;
         nextContainer?: Node;
         localSymbol?: Symbol;
+        flowNode?: FlowNode;
     }
     interface NodeArray<T> extends Array<T>, TextRange {
         hasTrailingComma?: boolean;
@@ -400,9 +401,6 @@ declare namespace ts {
     interface Identifier extends PrimaryExpression {
         text: string;
         originalKeywordKind?: SyntaxKind;
-    }
-    interface TransientIdentifier extends Identifier {
-        resolvedSymbol: Symbol;
     }
     interface QualifiedName extends Node {
         left: EntityName;
@@ -1046,6 +1044,29 @@ declare namespace ts {
         postParameterName?: Identifier;
         isBracketed: boolean;
     }
+    enum FlowKind {
+        Unreachable = 0,
+        Start = 1,
+        Label = 2,
+        Assignment = 3,
+        Condition = 4,
+    }
+    interface FlowNode {
+        kind: FlowKind;
+        id?: number;
+    }
+    interface FlowLabel extends FlowNode {
+        antecedents: FlowNode[];
+    }
+    interface FlowAssignment extends FlowNode {
+        node: Expression | VariableDeclaration | BindingElement;
+        antecedent: FlowNode;
+    }
+    interface FlowCondition extends FlowNode {
+        expression: Expression;
+        assumeTrue: boolean;
+        antecedent: FlowNode;
+    }
     interface AmdDependency {
         path: string;
         name: string;
@@ -1451,8 +1472,6 @@ declare namespace ts {
         isDeclarationWithCollidingName?: boolean;
         bindingElement?: BindingElement;
         exportsSomeValue?: boolean;
-        firstAssignmentChecked?: boolean;
-        firstAssignment?: Node;
     }
     interface TransientSymbol extends Symbol, SymbolLinks {
     }
@@ -1480,18 +1499,13 @@ declare namespace ts {
     }
     interface NodeLinks {
         resolvedType?: Type;
-        resolvedAwaitedType?: Type;
         resolvedSignature?: Signature;
         resolvedSymbol?: Symbol;
         resolvedIndexInfo?: IndexInfo;
         flags?: NodeCheckFlags;
         enumMemberValue?: number;
         isVisible?: boolean;
-        generatedName?: string;
-        generatedNames?: Map<string>;
-        assignmentMap?: Map<boolean>;
         hasReportedStatementInAmbientContext?: boolean;
-        importOnRightSide?: Symbol;
         jsxFlags?: JsxFlags;
         resolvedJsxType?: Type;
         hasSuperCall?: boolean;
@@ -1533,6 +1547,7 @@ declare namespace ts {
         ObjectType = 80896,
         UnionOrIntersection = 49152,
         StructuredType = 130048,
+        Narrowable = 97793,
         RequiresWidening = 6291456,
         PropagatingFlags = 14680064,
     }
@@ -2315,6 +2330,7 @@ declare namespace ts {
     function isIdentifierTypePredicate(predicate: TypePredicate): predicate is IdentifierTypePredicate;
     function isThisTypePredicate(predicate: TypePredicate): predicate is ThisTypePredicate;
     function getContainingFunction(node: Node): FunctionLikeDeclaration;
+    function getContainingFunctionOrModule(node: Node): Node;
     function getContainingClass(node: Node): ClassLikeDeclaration;
     function getThisContainer(node: Node, includeArrowFunctions: boolean): Node;
     /**
@@ -2368,12 +2384,13 @@ declare namespace ts {
     function isTextualLiteralKind(kind: SyntaxKind): boolean;
     function isTemplateLiteralKind(kind: SyntaxKind): boolean;
     function isBindingPattern(node: Node): node is BindingPattern;
+    function isAssignmentTarget(node: Node): boolean;
     function isNodeDescendentOf(node: Node, ancestor: Node): boolean;
     function isInAmbientContext(node: Node): boolean;
     function isDeclaration(node: Node): boolean;
     function isStatement(n: Node): boolean;
     function isClassElement(n: Node): boolean;
-    function isDeclarationName(name: Node): name is Identifier | StringLiteral | LiteralExpression;
+    function isDeclarationName(name: Node): boolean;
     function isIdentifierName(node: Identifier): boolean;
     function isAliasSymbolDeclaration(node: Node): boolean;
     function getClassExtendsHeritageClauseElement(node: ClassLikeDeclaration): ExpressionWithTypeArguments;
@@ -5158,6 +5175,18 @@ declare namespace ts {
             message: string;
         };
         Property_0_is_incompatible_with_index_signature: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Object_is_possibly_null: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Object_is_possibly_undefined: {
             code: number;
             category: DiagnosticCategory;
             key: string;

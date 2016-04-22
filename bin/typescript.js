@@ -405,6 +405,14 @@ var ts;
         RelationComparisonResult[RelationComparisonResult["FailedAndReported"] = 3] = "FailedAndReported";
     })(ts.RelationComparisonResult || (ts.RelationComparisonResult = {}));
     var RelationComparisonResult = ts.RelationComparisonResult;
+    (function (FlowKind) {
+        FlowKind[FlowKind["Unreachable"] = 0] = "Unreachable";
+        FlowKind[FlowKind["Start"] = 1] = "Start";
+        FlowKind[FlowKind["Label"] = 2] = "Label";
+        FlowKind[FlowKind["Assignment"] = 3] = "Assignment";
+        FlowKind[FlowKind["Condition"] = 4] = "Condition";
+    })(ts.FlowKind || (ts.FlowKind = {}));
+    var FlowKind = ts.FlowKind;
     var OperationCanceledException = (function () {
         function OperationCanceledException() {
         }
@@ -622,6 +630,7 @@ var ts;
         TypeFlags[TypeFlags["ObjectType"] = 80896] = "ObjectType";
         TypeFlags[TypeFlags["UnionOrIntersection"] = 49152] = "UnionOrIntersection";
         TypeFlags[TypeFlags["StructuredType"] = 130048] = "StructuredType";
+        TypeFlags[TypeFlags["Narrowable"] = 97793] = "Narrowable";
         /* @internal */
         TypeFlags[TypeFlags["RequiresWidening"] = 6291456] = "RequiresWidening";
         /* @internal */
@@ -3039,6 +3048,15 @@ var ts;
         }
     }
     ts.getContainingFunction = getContainingFunction;
+    function getContainingFunctionOrModule(node) {
+        while (true) {
+            node = node.parent;
+            if (isFunctionLike(node) || node.kind === 224 /* ModuleDeclaration */ || node.kind === 255 /* SourceFile */) {
+                return node;
+            }
+        }
+    }
+    ts.getContainingFunctionOrModule = getContainingFunctionOrModule;
     function getContainingClass(node) {
         while (true) {
             node = node.parent;
@@ -3593,6 +3611,31 @@ var ts;
         return !!node && (node.kind === 167 /* ArrayBindingPattern */ || node.kind === 166 /* ObjectBindingPattern */);
     }
     ts.isBindingPattern = isBindingPattern;
+    // A node is an assignment target if it is on the left hand side of an '=' token, if it is parented by a property
+    // assignment in an object literal that is an assignment target, or if it is parented by an array literal that is
+    // an assignment target. Examples include 'a = xxx', '{ p: a } = xxx', '[{ p: a}] = xxx'.
+    function isAssignmentTarget(node) {
+        while (node.parent.kind === 177 /* ParenthesizedExpression */) {
+            node = node.parent;
+        }
+        while (true) {
+            var parent_4 = node.parent;
+            if (parent_4.kind === 169 /* ArrayLiteralExpression */ || parent_4.kind === 190 /* SpreadElementExpression */) {
+                node = parent_4;
+                continue;
+            }
+            if (parent_4.kind === 252 /* PropertyAssignment */ || parent_4.kind === 253 /* ShorthandPropertyAssignment */) {
+                node = parent_4.parent;
+                continue;
+            }
+            return parent_4.kind === 186 /* BinaryExpression */ &&
+                parent_4.operatorToken.kind === 56 /* EqualsToken */ &&
+                parent_4.left === node ||
+                (parent_4.kind === 206 /* ForInStatement */ || parent_4.kind === 207 /* ForOfStatement */) &&
+                    parent_4.initializer === node;
+        }
+    }
+    ts.isAssignmentTarget = isAssignmentTarget;
     function isNodeDescendentOf(node, ancestor) {
         while (node) {
             if (node === ancestor)
@@ -5484,7 +5527,9 @@ var ts;
         A_module_cannot_have_multiple_default_exports: { code: 2528, category: ts.DiagnosticCategory.Error, key: "A_module_cannot_have_multiple_default_exports_2528", message: "A module cannot have multiple default exports." },
         Duplicate_identifier_0_Compiler_reserves_name_1_in_top_level_scope_of_a_module_containing_async_functions: { code: 2529, category: ts.DiagnosticCategory.Error, key: "Duplicate_identifier_0_Compiler_reserves_name_1_in_top_level_scope_of_a_module_containing_async_func_2529", message: "Duplicate identifier '{0}'. Compiler reserves name '{1}' in top level scope of a module containing async functions." },
         Property_0_is_incompatible_with_index_signature: { code: 2530, category: ts.DiagnosticCategory.Error, key: "Property_0_is_incompatible_with_index_signature_2530", message: "Property '{0}' is incompatible with index signature." },
-        Object_is_possibly_null_or_undefined: { code: 2531, category: ts.DiagnosticCategory.Error, key: "Object_is_possibly_null_or_undefined_2531", message: "Object is possibly 'null' or 'undefined'." },
+        Object_is_possibly_null: { code: 2531, category: ts.DiagnosticCategory.Error, key: "Object_is_possibly_null_2531", message: "Object is possibly 'null'." },
+        Object_is_possibly_undefined: { code: 2532, category: ts.DiagnosticCategory.Error, key: "Object_is_possibly_undefined_2532", message: "Object is possibly 'undefined'." },
+        Object_is_possibly_null_or_undefined: { code: 2533, category: ts.DiagnosticCategory.Error, key: "Object_is_possibly_null_or_undefined_2533", message: "Object is possibly 'null' or 'undefined'." },
         JSX_element_attributes_type_0_may_not_be_a_union_type: { code: 2600, category: ts.DiagnosticCategory.Error, key: "JSX_element_attributes_type_0_may_not_be_a_union_type_2600", message: "JSX element attributes type '{0}' may not be a union type." },
         The_return_type_of_a_JSX_element_constructor_must_return_an_object_type: { code: 2601, category: ts.DiagnosticCategory.Error, key: "The_return_type_of_a_JSX_element_constructor_must_return_an_object_type_2601", message: "The return type of a JSX element constructor must return an object type." },
         JSX_element_implicitly_has_type_any_because_the_global_type_JSX_Element_does_not_exist: { code: 2602, category: ts.DiagnosticCategory.Error, key: "JSX_element_implicitly_has_type_any_because_the_global_type_JSX_Element_does_not_exist_2602", message: "JSX element implicitly has type 'any' because the global type 'JSX.Element' does not exist." },
@@ -9035,7 +9080,7 @@ var ts;
         function parseEntityName(allowReservedWords, diagnosticMessage) {
             var entity = parseIdentifier(diagnosticMessage);
             while (parseOptional(21 /* DotToken */)) {
-                var node = createNode(138 /* QualifiedName */, entity.pos);
+                var node = createNode(138 /* QualifiedName */, entity.pos); // !!!
                 node.left = entity;
                 node.right = parseRightSideOfDot(allowReservedWords);
                 entity = finishNode(node);
@@ -10639,7 +10684,7 @@ var ts;
             var elementName = parseIdentifierName();
             while (parseOptional(21 /* DotToken */)) {
                 scanJsxIdentifier();
-                var node = createNode(138 /* QualifiedName */, elementName.pos);
+                var node = createNode(138 /* QualifiedName */, elementName.pos); // !!!
                 node.left = elementName;
                 node.right = parseIdentifierName();
                 elementName = finishNode(node);
@@ -13420,20 +13465,6 @@ var ts;
         ModuleInstanceState[ModuleInstanceState["ConstEnumOnly"] = 2] = "ConstEnumOnly";
     })(ts.ModuleInstanceState || (ts.ModuleInstanceState = {}));
     var ModuleInstanceState = ts.ModuleInstanceState;
-    var Reachability;
-    (function (Reachability) {
-        Reachability[Reachability["Uninitialized"] = 1] = "Uninitialized";
-        Reachability[Reachability["Reachable"] = 2] = "Reachable";
-        Reachability[Reachability["Unreachable"] = 4] = "Unreachable";
-        Reachability[Reachability["ReportedUnreachable"] = 8] = "ReportedUnreachable";
-    })(Reachability || (Reachability = {}));
-    function or(state1, state2) {
-        return (state1 | state2) & 2 /* Reachable */
-            ? 2 /* Reachable */
-            : (state1 & state2) & 8 /* ReportedUnreachable */
-                ? 8 /* ReportedUnreachable */
-                : 4 /* Unreachable */;
-    }
     function getModuleInstanceState(node) {
         // A module is uninstantiated if it contains only
         // 1. interface declarations, type alias declarations
@@ -13512,10 +13543,13 @@ var ts;
         var seenThisKeyword;
         // state used by reachability checks
         var hasExplicitReturn;
-        var currentReachabilityState;
-        var labelStack;
-        var labelIndexMap;
-        var implicitLabels;
+        var currentFlow;
+        var currentBreakTarget;
+        var currentContinueTarget;
+        var currentTrueTarget;
+        var currentFalseTarget;
+        var preSwitchCaseFlow;
+        var activeLabels;
         // state used for emit helpers
         var hasClassExtends;
         var hasAsyncFunctions;
@@ -13529,6 +13563,8 @@ var ts;
         var symbolCount = 0;
         var Symbol;
         var classifiableNames;
+        var unreachableFlow = { kind: 0 /* Unreachable */ };
+        var reportedUnreachableFlow = { kind: 0 /* Unreachable */ };
         function bindSourceFile(f, opts) {
             file = f;
             options = opts;
@@ -13550,9 +13586,12 @@ var ts;
             lastContainer = undefined;
             seenThisKeyword = false;
             hasExplicitReturn = false;
-            labelStack = undefined;
-            labelIndexMap = undefined;
-            implicitLabels = undefined;
+            currentFlow = undefined;
+            currentBreakTarget = undefined;
+            currentContinueTarget = undefined;
+            currentTrueTarget = undefined;
+            currentFalseTarget = undefined;
+            activeLabels = undefined;
             hasClassExtends = false;
             hasAsyncFunctions = false;
             hasDecorators = false;
@@ -13799,11 +13838,11 @@ var ts;
                 blockScopeContainer = node;
                 blockScopeContainer.locals = undefined;
             }
-            var savedReachabilityState;
-            var savedLabelStack;
-            var savedLabels;
-            var savedImplicitLabels;
             var savedHasExplicitReturn;
+            var savedCurrentFlow;
+            var savedBreakTarget;
+            var savedContinueTarget;
+            var savedActiveLabels;
             var kind = node.kind;
             var flags = node.flags;
             // reset all reachability check related flags on node (for incremental scenarios)
@@ -13815,20 +13854,22 @@ var ts;
             }
             var saveState = kind === 255 /* SourceFile */ || kind === 225 /* ModuleBlock */ || ts.isFunctionLikeKind(kind);
             if (saveState) {
-                savedReachabilityState = currentReachabilityState;
-                savedLabelStack = labelStack;
-                savedLabels = labelIndexMap;
-                savedImplicitLabels = implicitLabels;
                 savedHasExplicitReturn = hasExplicitReturn;
-                currentReachabilityState = 2 /* Reachable */;
+                savedCurrentFlow = currentFlow;
+                savedBreakTarget = currentBreakTarget;
+                savedContinueTarget = currentContinueTarget;
+                savedActiveLabels = activeLabels;
                 hasExplicitReturn = false;
-                labelStack = labelIndexMap = implicitLabels = undefined;
+                currentFlow = { kind: 1 /* Start */ };
+                currentBreakTarget = undefined;
+                currentContinueTarget = undefined;
+                activeLabels = undefined;
             }
             if (ts.isInJavaScriptFile(node) && node.jsDocComment) {
                 bind(node.jsDocComment);
             }
             bindReachableStatement(node);
-            if (currentReachabilityState === 2 /* Reachable */ && ts.isFunctionLikeKind(kind) && ts.nodeIsPresent(node.body)) {
+            if (currentFlow.kind !== 0 /* Unreachable */ && ts.isFunctionLikeKind(kind) && ts.nodeIsPresent(node.body)) {
                 flags |= 32768 /* HasImplicitReturn */;
                 if (hasExplicitReturn) {
                     flags |= 65536 /* HasExplicitReturn */;
@@ -13857,10 +13898,10 @@ var ts;
             node.flags = flags;
             if (saveState) {
                 hasExplicitReturn = savedHasExplicitReturn;
-                currentReachabilityState = savedReachabilityState;
-                labelStack = savedLabelStack;
-                labelIndexMap = savedLabels;
-                implicitLabels = savedImplicitLabels;
+                currentFlow = savedCurrentFlow;
+                currentBreakTarget = savedBreakTarget;
+                currentContinueTarget = savedContinueTarget;
+                activeLabels = savedActiveLabels;
             }
             container = saveContainer;
             parent = saveParent;
@@ -13912,139 +13953,469 @@ var ts;
                 case 213 /* LabeledStatement */:
                     bindLabeledStatement(node);
                     break;
+                case 184 /* PrefixUnaryExpression */:
+                    bindPrefixUnaryExpressionFlow(node);
+                    break;
+                case 186 /* BinaryExpression */:
+                    bindBinaryExpressionFlow(node);
+                    break;
+                case 187 /* ConditionalExpression */:
+                    bindConditionalExpressionFlow(node);
+                    break;
+                case 217 /* VariableDeclaration */:
+                    bindVariableDeclarationFlow(node);
+                    break;
                 default:
                     ts.forEachChild(node, bind);
                     break;
             }
         }
-        function bindWhileStatement(n) {
-            var preWhileState = n.expression.kind === 84 /* FalseKeyword */ ? 4 /* Unreachable */ : currentReachabilityState;
-            var postWhileState = n.expression.kind === 99 /* TrueKeyword */ ? 4 /* Unreachable */ : currentReachabilityState;
-            // bind expressions (don't affect reachability)
-            bind(n.expression);
-            currentReachabilityState = preWhileState;
-            var postWhileLabel = pushImplicitLabel();
-            bind(n.statement);
-            popImplicitLabel(postWhileLabel, postWhileState);
+        function isNarrowableReference(expr) {
+            return expr.kind === 69 /* Identifier */ ||
+                expr.kind === 97 /* ThisKeyword */ ||
+                expr.kind === 171 /* PropertyAccessExpression */ && isNarrowableReference(expr.expression);
         }
-        function bindDoStatement(n) {
-            var preDoState = currentReachabilityState;
-            var postDoLabel = pushImplicitLabel();
-            bind(n.statement);
-            var postDoState = n.expression.kind === 99 /* TrueKeyword */ ? 4 /* Unreachable */ : preDoState;
-            popImplicitLabel(postDoLabel, postDoState);
-            // bind expressions (don't affect reachability)
-            bind(n.expression);
-        }
-        function bindForStatement(n) {
-            var preForState = currentReachabilityState;
-            var postForLabel = pushImplicitLabel();
-            // bind expressions (don't affect reachability)
-            bind(n.initializer);
-            bind(n.condition);
-            bind(n.incrementor);
-            bind(n.statement);
-            // for statement is considered infinite when it condition is either omitted or is true keyword
-            // - for(..;;..)
-            // - for(..;true;..)
-            var isInfiniteLoop = (!n.condition || n.condition.kind === 99 /* TrueKeyword */);
-            var postForState = isInfiniteLoop ? 4 /* Unreachable */ : preForState;
-            popImplicitLabel(postForLabel, postForState);
-        }
-        function bindForInOrForOfStatement(n) {
-            var preStatementState = currentReachabilityState;
-            var postStatementLabel = pushImplicitLabel();
-            // bind expressions (don't affect reachability)
-            bind(n.initializer);
-            bind(n.expression);
-            bind(n.statement);
-            popImplicitLabel(postStatementLabel, preStatementState);
-        }
-        function bindIfStatement(n) {
-            // denotes reachability state when entering 'thenStatement' part of the if statement:
-            // i.e. if condition is false then thenStatement is unreachable
-            var ifTrueState = n.expression.kind === 84 /* FalseKeyword */ ? 4 /* Unreachable */ : currentReachabilityState;
-            // denotes reachability state when entering 'elseStatement':
-            // i.e. if condition is true then elseStatement is unreachable
-            var ifFalseState = n.expression.kind === 99 /* TrueKeyword */ ? 4 /* Unreachable */ : currentReachabilityState;
-            currentReachabilityState = ifTrueState;
-            // bind expression (don't affect reachability)
-            bind(n.expression);
-            bind(n.thenStatement);
-            if (n.elseStatement) {
-                var preElseState = currentReachabilityState;
-                currentReachabilityState = ifFalseState;
-                bind(n.elseStatement);
-                currentReachabilityState = or(currentReachabilityState, preElseState);
+        function isNarrowingExpression(expr) {
+            switch (expr.kind) {
+                case 69 /* Identifier */:
+                case 97 /* ThisKeyword */:
+                case 171 /* PropertyAccessExpression */:
+                    return isNarrowableReference(expr);
+                case 173 /* CallExpression */:
+                    return true;
+                case 177 /* ParenthesizedExpression */:
+                    return isNarrowingExpression(expr.expression);
+                case 186 /* BinaryExpression */:
+                    return isNarrowingBinaryExpression(expr);
+                case 184 /* PrefixUnaryExpression */:
+                    return expr.operator === 49 /* ExclamationToken */ && isNarrowingExpression(expr.operand);
             }
-            else {
-                currentReachabilityState = or(currentReachabilityState, ifFalseState);
+            return false;
+        }
+        function isNarrowingBinaryExpression(expr) {
+            switch (expr.operatorToken.kind) {
+                case 56 /* EqualsToken */:
+                    return isNarrowableReference(expr.left);
+                case 30 /* EqualsEqualsToken */:
+                case 31 /* ExclamationEqualsToken */:
+                case 32 /* EqualsEqualsEqualsToken */:
+                case 33 /* ExclamationEqualsEqualsToken */:
+                    if (isNarrowingExpression(expr.left) && (expr.right.kind === 93 /* NullKeyword */ || expr.right.kind === 69 /* Identifier */)) {
+                        return true;
+                    }
+                    if (expr.left.kind === 181 /* TypeOfExpression */ && isNarrowingExpression(expr.left.expression) && expr.right.kind === 9 /* StringLiteral */) {
+                        return true;
+                    }
+                    return false;
+                case 91 /* InstanceOfKeyword */:
+                    return isNarrowingExpression(expr.left);
+                case 24 /* CommaToken */:
+                    return isNarrowingExpression(expr.right);
+            }
+            return false;
+        }
+        function createFlowLabel() {
+            return {
+                kind: 2 /* Label */,
+                antecedents: undefined
+            };
+        }
+        function addAntecedent(label, antecedent) {
+            if (antecedent.kind !== 0 /* Unreachable */ && !ts.contains(label.antecedents, antecedent)) {
+                (label.antecedents || (label.antecedents = [])).push(antecedent);
             }
         }
-        function bindReturnOrThrow(n) {
-            // bind expression (don't affect reachability)
-            bind(n.expression);
-            if (n.kind === 210 /* ReturnStatement */) {
-                hasExplicitReturn = true;
+        function createFlowCondition(antecedent, expression, assumeTrue) {
+            if (antecedent.kind === 0 /* Unreachable */) {
+                return antecedent;
             }
-            currentReachabilityState = 4 /* Unreachable */;
-        }
-        function bindBreakOrContinueStatement(n) {
-            // call bind on label (don't affect reachability)
-            bind(n.label);
-            // for continue case touch label so it will be marked a used
-            var isValidJump = jumpToLabel(n.label, n.kind === 209 /* BreakStatement */ ? currentReachabilityState : 4 /* Unreachable */);
-            if (isValidJump) {
-                currentReachabilityState = 4 /* Unreachable */;
+            if (!expression) {
+                return assumeTrue ? antecedent : unreachableFlow;
             }
+            if (expression.kind === 99 /* TrueKeyword */ && !assumeTrue || expression.kind === 84 /* FalseKeyword */ && assumeTrue) {
+                return unreachableFlow;
+            }
+            if (!isNarrowingExpression(expression)) {
+                return antecedent;
+            }
+            return {
+                kind: 4 /* Condition */,
+                antecedent: antecedent,
+                expression: expression,
+                assumeTrue: assumeTrue
+            };
         }
-        function bindTryStatement(n) {
-            // catch\finally blocks has the same reachability as try block
-            var preTryState = currentReachabilityState;
-            bind(n.tryBlock);
-            var postTryState = currentReachabilityState;
-            currentReachabilityState = preTryState;
-            bind(n.catchClause);
-            var postCatchState = currentReachabilityState;
-            currentReachabilityState = preTryState;
-            bind(n.finallyBlock);
-            // post catch/finally state is reachable if
-            // - post try state is reachable - control flow can fall out of try block
-            // - post catch state is reachable - control flow can fall out of catch block
-            currentReachabilityState = n.catchClause ? or(postTryState, postCatchState) : postTryState;
+        function createFlowAssignment(antecedent, node) {
+            return {
+                kind: 3 /* Assignment */,
+                antecedent: antecedent,
+                node: node
+            };
         }
-        function bindSwitchStatement(n) {
-            var preSwitchState = currentReachabilityState;
-            var postSwitchLabel = pushImplicitLabel();
-            // bind expression (don't affect reachability)
-            bind(n.expression);
-            bind(n.caseBlock);
-            var hasDefault = ts.forEach(n.caseBlock.clauses, function (c) { return c.kind === 249 /* DefaultClause */; });
-            // post switch state is unreachable if switch is exhaustive (has a default case ) and does not have fallthrough from the last case
-            var postSwitchState = hasDefault && currentReachabilityState !== 2 /* Reachable */ ? 4 /* Unreachable */ : preSwitchState;
-            popImplicitLabel(postSwitchLabel, postSwitchState);
+        function finishFlowLabel(flow) {
+            var antecedents = flow.antecedents;
+            if (!antecedents) {
+                return unreachableFlow;
+            }
+            if (antecedents.length === 1) {
+                return antecedents[0];
+            }
+            return flow;
         }
-        function bindCaseBlock(n) {
-            var startState = currentReachabilityState;
-            for (var i = 0; i < n.clauses.length; i++) {
-                var clause = n.clauses[i];
-                currentReachabilityState = startState;
-                bind(clause);
-                if (clause.statements.length &&
-                    i !== n.clauses.length - 1 &&
-                    currentReachabilityState === 2 /* Reachable */ &&
-                    options.noFallthroughCasesInSwitch) {
-                    errorOnFirstToken(clause, ts.Diagnostics.Fallthrough_case_in_switch);
+        function isStatementCondition(node) {
+            var parent = node.parent;
+            switch (parent.kind) {
+                case 202 /* IfStatement */:
+                case 204 /* WhileStatement */:
+                case 203 /* DoStatement */:
+                    return parent.expression === node;
+                case 205 /* ForStatement */:
+                case 187 /* ConditionalExpression */:
+                    return parent.condition === node;
+            }
+            return false;
+        }
+        function isLogicalExpression(node) {
+            while (true) {
+                if (node.kind === 177 /* ParenthesizedExpression */) {
+                    node = node.expression;
+                }
+                else if (node.kind === 184 /* PrefixUnaryExpression */ && node.operator === 49 /* ExclamationToken */) {
+                    node = node.operand;
+                }
+                else {
+                    return node.kind === 186 /* BinaryExpression */ && (node.operatorToken.kind === 51 /* AmpersandAmpersandToken */ ||
+                        node.operatorToken.kind === 52 /* BarBarToken */);
                 }
             }
         }
-        function bindLabeledStatement(n) {
-            // call bind on label (don't affect reachability)
-            bind(n.label);
-            var ok = pushNamedLabel(n.label);
-            bind(n.statement);
-            if (ok) {
-                popNamedLabel(n.label, currentReachabilityState);
+        function isTopLevelLogicalExpression(node) {
+            while (node.parent.kind === 177 /* ParenthesizedExpression */ ||
+                node.parent.kind === 184 /* PrefixUnaryExpression */ &&
+                    node.parent.operator === 49 /* ExclamationToken */) {
+                node = node.parent;
+            }
+            return !isStatementCondition(node) && !isLogicalExpression(node.parent);
+        }
+        function bindCondition(node, trueTarget, falseTarget) {
+            var saveTrueTarget = currentTrueTarget;
+            var saveFalseTarget = currentFalseTarget;
+            currentTrueTarget = trueTarget;
+            currentFalseTarget = falseTarget;
+            bind(node);
+            currentTrueTarget = saveTrueTarget;
+            currentFalseTarget = saveFalseTarget;
+            if (!node || !isLogicalExpression(node)) {
+                addAntecedent(trueTarget, createFlowCondition(currentFlow, node, /*assumeTrue*/ true));
+                addAntecedent(falseTarget, createFlowCondition(currentFlow, node, /*assumeTrue*/ false));
+            }
+        }
+        function bindIterativeStatement(node, breakTarget, continueTarget) {
+            var saveBreakTarget = currentBreakTarget;
+            var saveContinueTarget = currentContinueTarget;
+            currentBreakTarget = breakTarget;
+            currentContinueTarget = continueTarget;
+            bind(node);
+            currentBreakTarget = saveBreakTarget;
+            currentContinueTarget = saveContinueTarget;
+        }
+        function bindWhileStatement(node) {
+            var preWhileLabel = createFlowLabel();
+            var preBodyLabel = createFlowLabel();
+            var postWhileLabel = createFlowLabel();
+            addAntecedent(preWhileLabel, currentFlow);
+            currentFlow = preWhileLabel;
+            bindCondition(node.expression, preBodyLabel, postWhileLabel);
+            currentFlow = finishFlowLabel(preBodyLabel);
+            bindIterativeStatement(node.statement, postWhileLabel, preWhileLabel);
+            addAntecedent(preWhileLabel, currentFlow);
+            currentFlow = finishFlowLabel(postWhileLabel);
+        }
+        function bindDoStatement(node) {
+            var preDoLabel = createFlowLabel();
+            var preConditionLabel = createFlowLabel();
+            var postDoLabel = createFlowLabel();
+            addAntecedent(preDoLabel, currentFlow);
+            currentFlow = preDoLabel;
+            bindIterativeStatement(node.statement, postDoLabel, preConditionLabel);
+            addAntecedent(preConditionLabel, currentFlow);
+            currentFlow = finishFlowLabel(preConditionLabel);
+            bindCondition(node.expression, preDoLabel, postDoLabel);
+            currentFlow = finishFlowLabel(postDoLabel);
+        }
+        function bindForStatement(node) {
+            var preLoopLabel = createFlowLabel();
+            var preBodyLabel = createFlowLabel();
+            var postLoopLabel = createFlowLabel();
+            bind(node.initializer);
+            addAntecedent(preLoopLabel, currentFlow);
+            currentFlow = preLoopLabel;
+            bindCondition(node.condition, preBodyLabel, postLoopLabel);
+            currentFlow = finishFlowLabel(preBodyLabel);
+            bindIterativeStatement(node.statement, postLoopLabel, preLoopLabel);
+            bind(node.incrementor);
+            addAntecedent(preLoopLabel, currentFlow);
+            currentFlow = finishFlowLabel(postLoopLabel);
+        }
+        function bindForInOrForOfStatement(node) {
+            var preLoopLabel = createFlowLabel();
+            var postLoopLabel = createFlowLabel();
+            addAntecedent(preLoopLabel, currentFlow);
+            currentFlow = preLoopLabel;
+            bind(node.expression);
+            addAntecedent(postLoopLabel, currentFlow);
+            bind(node.initializer);
+            if (node.initializer.kind !== 218 /* VariableDeclarationList */) {
+                bindAssignmentTargetFlow(node.initializer);
+            }
+            bindIterativeStatement(node.statement, postLoopLabel, preLoopLabel);
+            addAntecedent(preLoopLabel, currentFlow);
+            currentFlow = finishFlowLabel(postLoopLabel);
+        }
+        function bindIfStatement(node) {
+            var thenLabel = createFlowLabel();
+            var elseLabel = createFlowLabel();
+            var postIfLabel = createFlowLabel();
+            bindCondition(node.expression, thenLabel, elseLabel);
+            currentFlow = finishFlowLabel(thenLabel);
+            bind(node.thenStatement);
+            addAntecedent(postIfLabel, currentFlow);
+            currentFlow = finishFlowLabel(elseLabel);
+            bind(node.elseStatement);
+            addAntecedent(postIfLabel, currentFlow);
+            currentFlow = finishFlowLabel(postIfLabel);
+        }
+        function bindReturnOrThrow(node) {
+            bind(node.expression);
+            if (node.kind === 210 /* ReturnStatement */) {
+                hasExplicitReturn = true;
+            }
+            currentFlow = unreachableFlow;
+        }
+        function findActiveLabel(name) {
+            if (activeLabels) {
+                for (var _i = 0, activeLabels_1 = activeLabels; _i < activeLabels_1.length; _i++) {
+                    var label = activeLabels_1[_i];
+                    if (label.name === name) {
+                        return label;
+                    }
+                }
+            }
+            return undefined;
+        }
+        function bindbreakOrContinueFlow(node, breakTarget, continueTarget) {
+            var flowLabel = node.kind === 209 /* BreakStatement */ ? breakTarget : continueTarget;
+            if (flowLabel) {
+                addAntecedent(flowLabel, currentFlow);
+                currentFlow = unreachableFlow;
+            }
+        }
+        function bindBreakOrContinueStatement(node) {
+            bind(node.label);
+            if (node.label) {
+                var activeLabel = findActiveLabel(node.label.text);
+                if (activeLabel) {
+                    activeLabel.referenced = true;
+                    bindbreakOrContinueFlow(node, activeLabel.breakTarget, activeLabel.continueTarget);
+                }
+            }
+            else {
+                bindbreakOrContinueFlow(node, currentBreakTarget, currentContinueTarget);
+            }
+        }
+        function bindTryStatement(node) {
+            var postFinallyLabel = createFlowLabel();
+            var preTryFlow = currentFlow;
+            // TODO: Every statement in try block is potentially an exit point!
+            bind(node.tryBlock);
+            addAntecedent(postFinallyLabel, currentFlow);
+            if (node.catchClause) {
+                currentFlow = preTryFlow;
+                bind(node.catchClause);
+                addAntecedent(postFinallyLabel, currentFlow);
+            }
+            if (node.finallyBlock) {
+                currentFlow = preTryFlow;
+                bind(node.finallyBlock);
+            }
+            currentFlow = finishFlowLabel(postFinallyLabel);
+        }
+        function bindSwitchStatement(node) {
+            var postSwitchLabel = createFlowLabel();
+            bind(node.expression);
+            var saveBreakTarget = currentBreakTarget;
+            var savePreSwitchCaseFlow = preSwitchCaseFlow;
+            currentBreakTarget = postSwitchLabel;
+            preSwitchCaseFlow = currentFlow;
+            bind(node.caseBlock);
+            addAntecedent(postSwitchLabel, currentFlow);
+            var hasDefault = ts.forEach(node.caseBlock.clauses, function (c) { return c.kind === 249 /* DefaultClause */; });
+            if (!hasDefault) {
+                addAntecedent(postSwitchLabel, preSwitchCaseFlow);
+            }
+            currentBreakTarget = saveBreakTarget;
+            preSwitchCaseFlow = savePreSwitchCaseFlow;
+            currentFlow = finishFlowLabel(postSwitchLabel);
+        }
+        function bindCaseBlock(node) {
+            var clauses = node.clauses;
+            for (var i = 0; i < clauses.length; i++) {
+                var clause = clauses[i];
+                if (clause.statements.length) {
+                    if (currentFlow.kind === 0 /* Unreachable */) {
+                        currentFlow = preSwitchCaseFlow;
+                    }
+                    else {
+                        var preCaseLabel = createFlowLabel();
+                        addAntecedent(preCaseLabel, preSwitchCaseFlow);
+                        addAntecedent(preCaseLabel, currentFlow);
+                        currentFlow = finishFlowLabel(preCaseLabel);
+                    }
+                    bind(clause);
+                    if (currentFlow.kind !== 0 /* Unreachable */ && i !== clauses.length - 1 && options.noFallthroughCasesInSwitch) {
+                        errorOnFirstToken(clause, ts.Diagnostics.Fallthrough_case_in_switch);
+                    }
+                }
+                else {
+                    bind(clause);
+                }
+            }
+        }
+        function pushActiveLabel(name, breakTarget, continueTarget) {
+            var activeLabel = {
+                name: name,
+                breakTarget: breakTarget,
+                continueTarget: continueTarget,
+                referenced: false
+            };
+            (activeLabels || (activeLabels = [])).push(activeLabel);
+            return activeLabel;
+        }
+        function popActiveLabel() {
+            activeLabels.pop();
+        }
+        function bindLabeledStatement(node) {
+            var preStatementLabel = createFlowLabel();
+            var postStatementLabel = createFlowLabel();
+            bind(node.label);
+            addAntecedent(preStatementLabel, currentFlow);
+            var activeLabel = pushActiveLabel(node.label.text, postStatementLabel, preStatementLabel);
+            bind(node.statement);
+            popActiveLabel();
+            if (!activeLabel.referenced && !options.allowUnusedLabels) {
+                file.bindDiagnostics.push(ts.createDiagnosticForNode(node.label, ts.Diagnostics.Unused_label));
+            }
+            addAntecedent(postStatementLabel, currentFlow);
+            currentFlow = finishFlowLabel(postStatementLabel);
+        }
+        function bindDestructuringTargetFlow(node) {
+            if (node.kind === 186 /* BinaryExpression */ && node.operatorToken.kind === 56 /* EqualsToken */) {
+                bindAssignmentTargetFlow(node.left);
+            }
+            else {
+                bindAssignmentTargetFlow(node);
+            }
+        }
+        function bindAssignmentTargetFlow(node) {
+            if (isNarrowableReference(node)) {
+                currentFlow = createFlowAssignment(currentFlow, node);
+            }
+            else if (node.kind === 169 /* ArrayLiteralExpression */) {
+                for (var _i = 0, _a = node.elements; _i < _a.length; _i++) {
+                    var e = _a[_i];
+                    if (e.kind === 190 /* SpreadElementExpression */) {
+                        bindAssignmentTargetFlow(e.expression);
+                    }
+                    else {
+                        bindDestructuringTargetFlow(e);
+                    }
+                }
+            }
+            else if (node.kind === 170 /* ObjectLiteralExpression */) {
+                for (var _b = 0, _c = node.properties; _b < _c.length; _b++) {
+                    var p = _c[_b];
+                    if (p.kind === 252 /* PropertyAssignment */) {
+                        bindDestructuringTargetFlow(p.initializer);
+                    }
+                    else if (p.kind === 253 /* ShorthandPropertyAssignment */) {
+                        bindAssignmentTargetFlow(p.name);
+                    }
+                }
+            }
+        }
+        function bindLogicalExpression(node, trueTarget, falseTarget) {
+            var preRightLabel = createFlowLabel();
+            if (node.operatorToken.kind === 51 /* AmpersandAmpersandToken */) {
+                bindCondition(node.left, preRightLabel, falseTarget);
+            }
+            else {
+                bindCondition(node.left, trueTarget, preRightLabel);
+            }
+            currentFlow = finishFlowLabel(preRightLabel);
+            bind(node.operatorToken);
+            bindCondition(node.right, trueTarget, falseTarget);
+        }
+        function bindPrefixUnaryExpressionFlow(node) {
+            if (node.operator === 49 /* ExclamationToken */) {
+                var saveTrueTarget = currentTrueTarget;
+                currentTrueTarget = currentFalseTarget;
+                currentFalseTarget = saveTrueTarget;
+                ts.forEachChild(node, bind);
+                currentFalseTarget = currentTrueTarget;
+                currentTrueTarget = saveTrueTarget;
+            }
+            else {
+                ts.forEachChild(node, bind);
+            }
+        }
+        function bindBinaryExpressionFlow(node) {
+            var operator = node.operatorToken.kind;
+            if (operator === 51 /* AmpersandAmpersandToken */ || operator === 52 /* BarBarToken */) {
+                if (isTopLevelLogicalExpression(node)) {
+                    var postExpressionLabel = createFlowLabel();
+                    bindLogicalExpression(node, postExpressionLabel, postExpressionLabel);
+                    currentFlow = finishFlowLabel(postExpressionLabel);
+                }
+                else {
+                    bindLogicalExpression(node, currentTrueTarget, currentFalseTarget);
+                }
+            }
+            else {
+                ts.forEachChild(node, bind);
+                if (operator === 56 /* EqualsToken */ && !ts.isAssignmentTarget(node)) {
+                    bindAssignmentTargetFlow(node.left);
+                }
+            }
+        }
+        function bindConditionalExpressionFlow(node) {
+            var trueLabel = createFlowLabel();
+            var falseLabel = createFlowLabel();
+            var postExpressionLabel = createFlowLabel();
+            bindCondition(node.condition, trueLabel, falseLabel);
+            currentFlow = finishFlowLabel(trueLabel);
+            bind(node.whenTrue);
+            addAntecedent(postExpressionLabel, currentFlow);
+            currentFlow = finishFlowLabel(falseLabel);
+            bind(node.whenFalse);
+            addAntecedent(postExpressionLabel, currentFlow);
+            currentFlow = finishFlowLabel(postExpressionLabel);
+        }
+        function bindInitializedVariableFlow(node) {
+            var name = node.name;
+            if (ts.isBindingPattern(name)) {
+                for (var _i = 0, _a = name.elements; _i < _a.length; _i++) {
+                    var child = _a[_i];
+                    bindInitializedVariableFlow(child);
+                }
+            }
+            else {
+                currentFlow = createFlowAssignment(currentFlow, node);
+            }
+        }
+        function bindVariableDeclarationFlow(node) {
+            ts.forEachChild(node, bind);
+            if (node.initializer || node.parent.parent.kind === 206 /* ForInStatement */ || node.parent.parent.kind === 207 /* ForOfStatement */) {
+                bindInitializedVariableFlow(node);
             }
         }
         function getContainerFlags(node) {
@@ -14516,7 +14887,16 @@ var ts;
             switch (node.kind) {
                 /* Strict mode checks */
                 case 69 /* Identifier */:
+                case 97 /* ThisKeyword */:
+                    if (currentFlow && (ts.isExpression(node) || parent.kind === 253 /* ShorthandPropertyAssignment */)) {
+                        node.flowNode = currentFlow;
+                    }
                     return checkStrictModeIdentifier(node);
+                case 171 /* PropertyAccessExpression */:
+                    if (currentFlow && isNarrowableReference(node)) {
+                        node.flowNode = currentFlow;
+                    }
+                    break;
                 case 186 /* BinaryExpression */:
                     if (ts.isInJavaScriptFile(node)) {
                         var specialKind = ts.getSpecialPropertyAssignmentKind(node);
@@ -14686,12 +15066,12 @@ var ts;
                 return;
             }
             else {
-                var parent_4 = node.parent;
-                if (!ts.isExternalModule(parent_4)) {
+                var parent_5 = node.parent;
+                if (!ts.isExternalModule(parent_5)) {
                     file.bindDiagnostics.push(ts.createDiagnosticForNode(node, ts.Diagnostics.Global_module_exports_may_only_appear_in_module_files));
                     return;
                 }
-                if (!parent_4.isDeclarationFile) {
+                if (!parent_5.isDeclarationFile) {
                     file.bindDiagnostics.push(ts.createDiagnosticForNode(node, ts.Diagnostics.Global_module_exports_may_only_appear_in_declaration_files));
                     return;
                 }
@@ -14902,110 +15282,46 @@ var ts;
                 : declareSymbolAndAddToSymbolTable(node, symbolFlags, symbolExcludes);
         }
         // reachability checks
-        function pushNamedLabel(name) {
-            initializeReachabilityStateIfNecessary();
-            if (ts.hasProperty(labelIndexMap, name.text)) {
-                return false;
-            }
-            labelIndexMap[name.text] = labelStack.push(1 /* Uninitialized */) - 1;
-            return true;
-        }
-        function pushImplicitLabel() {
-            initializeReachabilityStateIfNecessary();
-            var index = labelStack.push(1 /* Uninitialized */) - 1;
-            implicitLabels.push(index);
-            return index;
-        }
-        function popNamedLabel(label, outerState) {
-            var index = labelIndexMap[label.text];
-            ts.Debug.assert(index !== undefined);
-            ts.Debug.assert(labelStack.length == index + 1);
-            labelIndexMap[label.text] = undefined;
-            setCurrentStateAtLabel(labelStack.pop(), outerState, label);
-        }
-        function popImplicitLabel(implicitLabelIndex, outerState) {
-            if (labelStack.length !== implicitLabelIndex + 1) {
-                ts.Debug.assert(false, "Label stack: " + labelStack.length + ", index:" + implicitLabelIndex);
-            }
-            var i = implicitLabels.pop();
-            if (implicitLabelIndex !== i) {
-                ts.Debug.assert(false, "i: " + i + ", index: " + implicitLabelIndex);
-            }
-            setCurrentStateAtLabel(labelStack.pop(), outerState, /*name*/ undefined);
-        }
-        function setCurrentStateAtLabel(innerMergedState, outerState, label) {
-            if (innerMergedState === 1 /* Uninitialized */) {
-                if (label && !options.allowUnusedLabels) {
-                    file.bindDiagnostics.push(ts.createDiagnosticForNode(label, ts.Diagnostics.Unused_label));
-                }
-                currentReachabilityState = outerState;
-            }
-            else {
-                currentReachabilityState = or(innerMergedState, outerState);
-            }
-        }
-        function jumpToLabel(label, outerState) {
-            initializeReachabilityStateIfNecessary();
-            var index = label ? labelIndexMap[label.text] : ts.lastOrUndefined(implicitLabels);
-            if (index === undefined) {
-                // reference to unknown label or
-                // break/continue used outside of loops
-                return false;
-            }
-            var stateAtLabel = labelStack[index];
-            labelStack[index] = stateAtLabel === 1 /* Uninitialized */ ? outerState : or(stateAtLabel, outerState);
-            return true;
+        function shouldReportErrorOnModuleDeclaration(node) {
+            var instanceState = getModuleInstanceState(node);
+            return instanceState === 1 /* Instantiated */ || (instanceState === 2 /* ConstEnumOnly */ && options.preserveConstEnums);
         }
         function checkUnreachable(node) {
-            switch (currentReachabilityState) {
-                case 4 /* Unreachable */:
-                    var reportError = 
-                    // report error on all statements except empty ones
-                    (ts.isStatement(node) && node.kind !== 200 /* EmptyStatement */) ||
-                        // report error on class declarations
-                        node.kind === 220 /* ClassDeclaration */ ||
-                        // report error on instantiated modules or const-enums only modules if preserveConstEnums is set
-                        (node.kind === 224 /* ModuleDeclaration */ && shouldReportErrorOnModuleDeclaration(node)) ||
-                        // report error on regular enums and const enums if preserveConstEnums is set
-                        (node.kind === 223 /* EnumDeclaration */ && (!ts.isConstEnumDeclaration(node) || options.preserveConstEnums));
-                    if (reportError) {
-                        currentReachabilityState = 8 /* ReportedUnreachable */;
-                        // unreachable code is reported if
-                        // - user has explicitly asked about it AND
-                        // - statement is in not ambient context (statements in ambient context is already an error
-                        //   so we should not report extras) AND
-                        //   - node is not variable statement OR
-                        //   - node is block scoped variable statement OR
-                        //   - node is not block scoped variable statement and at least one variable declaration has initializer
-                        //   Rationale: we don't want to report errors on non-initialized var's since they are hoisted
-                        //   On the other side we do want to report errors on non-initialized 'lets' because of TDZ
-                        var reportUnreachableCode = !options.allowUnreachableCode &&
-                            !ts.isInAmbientContext(node) &&
-                            (node.kind !== 199 /* VariableStatement */ ||
-                                ts.getCombinedNodeFlags(node.declarationList) & 3072 /* BlockScoped */ ||
-                                ts.forEach(node.declarationList.declarations, function (d) { return d.initializer; }));
-                        if (reportUnreachableCode) {
-                            errorOnFirstToken(node, ts.Diagnostics.Unreachable_code_detected);
-                        }
+            if (currentFlow.kind !== 0 /* Unreachable */) {
+                return false;
+            }
+            if (currentFlow === unreachableFlow) {
+                var reportError = 
+                // report error on all statements except empty ones
+                (ts.isStatement(node) && node.kind !== 200 /* EmptyStatement */) ||
+                    // report error on class declarations
+                    node.kind === 220 /* ClassDeclaration */ ||
+                    // report error on instantiated modules or const-enums only modules if preserveConstEnums is set
+                    (node.kind === 224 /* ModuleDeclaration */ && shouldReportErrorOnModuleDeclaration(node)) ||
+                    // report error on regular enums and const enums if preserveConstEnums is set
+                    (node.kind === 223 /* EnumDeclaration */ && (!ts.isConstEnumDeclaration(node) || options.preserveConstEnums));
+                if (reportError) {
+                    currentFlow = reportedUnreachableFlow;
+                    // unreachable code is reported if
+                    // - user has explicitly asked about it AND
+                    // - statement is in not ambient context (statements in ambient context is already an error
+                    //   so we should not report extras) AND
+                    //   - node is not variable statement OR
+                    //   - node is block scoped variable statement OR
+                    //   - node is not block scoped variable statement and at least one variable declaration has initializer
+                    //   Rationale: we don't want to report errors on non-initialized var's since they are hoisted
+                    //   On the other side we do want to report errors on non-initialized 'lets' because of TDZ
+                    var reportUnreachableCode = !options.allowUnreachableCode &&
+                        !ts.isInAmbientContext(node) &&
+                        (node.kind !== 199 /* VariableStatement */ ||
+                            ts.getCombinedNodeFlags(node.declarationList) & 3072 /* BlockScoped */ ||
+                            ts.forEach(node.declarationList.declarations, function (d) { return d.initializer; }));
+                    if (reportUnreachableCode) {
+                        errorOnFirstToken(node, ts.Diagnostics.Unreachable_code_detected);
                     }
-                case 8 /* ReportedUnreachable */:
-                    return true;
-                default:
-                    return false;
+                }
             }
-            function shouldReportErrorOnModuleDeclaration(node) {
-                var instanceState = getModuleInstanceState(node);
-                return instanceState === 1 /* Instantiated */ || (instanceState === 2 /* ConstEnumOnly */ && options.preserveConstEnums);
-            }
-        }
-        function initializeReachabilityStateIfNecessary() {
-            if (labelIndexMap) {
-                return;
-            }
-            currentReachabilityState = 2 /* Reachable */;
-            labelIndexMap = {};
-            labelStack = [];
-            implicitLabels = [];
+            return true;
         }
     }
 })(ts || (ts = {}));
@@ -15016,6 +15332,7 @@ var ts;
     var nextSymbolId = 1;
     var nextNodeId = 1;
     var nextMergeId = 1;
+    var nextFlowId = 1;
     function getNodeId(node) {
         if (!node.id) {
             node.id = nextNodeId;
@@ -15118,7 +15435,7 @@ var ts;
         var emptyArrayElementType = createIntrinsicType(32 /* Undefined */ | 2097152 /* ContainsUndefinedOrNull */, "undefined");
         var unknownType = createIntrinsicType(1 /* Any */, "unknown");
         var emptyObjectType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
-        var emptyUnionType = emptyObjectType;
+        var emptyUnionType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         var emptyGenericType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         emptyGenericType.instantiations = {};
         var anyFunctionType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
@@ -15163,6 +15480,8 @@ var ts;
         var getGlobalThenableType;
         var jsxElementClassType;
         var deferredNodes;
+        var flowStackStart = 0;
+        var flowStackCount = 0;
         var tupleTypes = {};
         var unionTypes = {};
         var intersectionTypes = {};
@@ -15173,30 +15492,80 @@ var ts;
         var mergedSymbols = [];
         var symbolLinks = [];
         var nodeLinks = [];
+        var flowTypeCaches = [];
+        var flowStackNodes = [];
+        var flowStackCacheKeys = [];
         var potentialThisCollisions = [];
         var awaitedTypeStack = [];
         var diagnostics = ts.createDiagnosticCollection();
-        var primitiveTypeInfo = {
-            "string": {
-                type: stringType,
-                flags: 258 /* StringLike */
-            },
-            "number": {
-                type: numberType,
-                flags: 132 /* NumberLike */
-            },
-            "boolean": {
-                type: booleanType,
-                flags: 8 /* Boolean */
-            },
-            "symbol": {
-                type: esSymbolType,
-                flags: 16777216 /* ESSymbol */
-            },
-            "undefined": {
-                type: undefinedType,
-                flags: 2097152 /* ContainsUndefinedOrNull */
-            }
+        var TypeFacts;
+        (function (TypeFacts) {
+            TypeFacts[TypeFacts["None"] = 0] = "None";
+            TypeFacts[TypeFacts["TypeofEQString"] = 1] = "TypeofEQString";
+            TypeFacts[TypeFacts["TypeofEQNumber"] = 2] = "TypeofEQNumber";
+            TypeFacts[TypeFacts["TypeofEQBoolean"] = 4] = "TypeofEQBoolean";
+            TypeFacts[TypeFacts["TypeofEQSymbol"] = 8] = "TypeofEQSymbol";
+            TypeFacts[TypeFacts["TypeofEQObject"] = 16] = "TypeofEQObject";
+            TypeFacts[TypeFacts["TypeofEQFunction"] = 32] = "TypeofEQFunction";
+            TypeFacts[TypeFacts["TypeofEQHostObject"] = 64] = "TypeofEQHostObject";
+            TypeFacts[TypeFacts["TypeofNEString"] = 128] = "TypeofNEString";
+            TypeFacts[TypeFacts["TypeofNENumber"] = 256] = "TypeofNENumber";
+            TypeFacts[TypeFacts["TypeofNEBoolean"] = 512] = "TypeofNEBoolean";
+            TypeFacts[TypeFacts["TypeofNESymbol"] = 1024] = "TypeofNESymbol";
+            TypeFacts[TypeFacts["TypeofNEObject"] = 2048] = "TypeofNEObject";
+            TypeFacts[TypeFacts["TypeofNEFunction"] = 4096] = "TypeofNEFunction";
+            TypeFacts[TypeFacts["TypeofNEHostObject"] = 8192] = "TypeofNEHostObject";
+            TypeFacts[TypeFacts["EQUndefined"] = 16384] = "EQUndefined";
+            TypeFacts[TypeFacts["EQNull"] = 32768] = "EQNull";
+            TypeFacts[TypeFacts["EQUndefinedOrNull"] = 65536] = "EQUndefinedOrNull";
+            TypeFacts[TypeFacts["NEUndefined"] = 131072] = "NEUndefined";
+            TypeFacts[TypeFacts["NENull"] = 262144] = "NENull";
+            TypeFacts[TypeFacts["NEUndefinedOrNull"] = 524288] = "NEUndefinedOrNull";
+            TypeFacts[TypeFacts["Truthy"] = 1048576] = "Truthy";
+            TypeFacts[TypeFacts["Falsy"] = 2097152] = "Falsy";
+            TypeFacts[TypeFacts["All"] = 4194303] = "All";
+            // The following members encode facts about particular kinds of types for use in the getTypeFacts function.
+            // The presence of a particular fact means that the given test is true for some (and possibly all) values
+            // of that kind of type.
+            TypeFacts[TypeFacts["StringStrictFacts"] = 4079361] = "StringStrictFacts";
+            TypeFacts[TypeFacts["StringFacts"] = 4194049] = "StringFacts";
+            TypeFacts[TypeFacts["NumberStrictFacts"] = 4079234] = "NumberStrictFacts";
+            TypeFacts[TypeFacts["NumberFacts"] = 4193922] = "NumberFacts";
+            TypeFacts[TypeFacts["BooleanStrictFacts"] = 4078980] = "BooleanStrictFacts";
+            TypeFacts[TypeFacts["BooleanFacts"] = 4193668] = "BooleanFacts";
+            TypeFacts[TypeFacts["SymbolStrictFacts"] = 1981320] = "SymbolStrictFacts";
+            TypeFacts[TypeFacts["SymbolFacts"] = 4193160] = "SymbolFacts";
+            TypeFacts[TypeFacts["ObjectStrictFacts"] = 1972176] = "ObjectStrictFacts";
+            TypeFacts[TypeFacts["ObjectFacts"] = 4184016] = "ObjectFacts";
+            TypeFacts[TypeFacts["FunctionStrictFacts"] = 1970144] = "FunctionStrictFacts";
+            TypeFacts[TypeFacts["FunctionFacts"] = 4181984] = "FunctionFacts";
+            TypeFacts[TypeFacts["UndefinedFacts"] = 2457472] = "UndefinedFacts";
+            TypeFacts[TypeFacts["NullFacts"] = 2340752] = "NullFacts";
+        })(TypeFacts || (TypeFacts = {}));
+        var typeofEQFacts = {
+            "string": 1 /* TypeofEQString */,
+            "number": 2 /* TypeofEQNumber */,
+            "boolean": 4 /* TypeofEQBoolean */,
+            "symbol": 8 /* TypeofEQSymbol */,
+            "undefined": 16384 /* EQUndefined */,
+            "object": 16 /* TypeofEQObject */,
+            "function": 32 /* TypeofEQFunction */
+        };
+        var typeofNEFacts = {
+            "string": 128 /* TypeofNEString */,
+            "number": 256 /* TypeofNENumber */,
+            "boolean": 512 /* TypeofNEBoolean */,
+            "symbol": 1024 /* TypeofNESymbol */,
+            "undefined": 131072 /* NEUndefined */,
+            "object": 2048 /* TypeofNEObject */,
+            "function": 4096 /* TypeofNEFunction */
+        };
+        var typeofTypesByName = {
+            "string": stringType,
+            "number": numberType,
+            "boolean": booleanType,
+            "symbol": esSymbolType,
+            "undefined": undefinedType
         };
         var jsxElementType;
         /** Things we lazy load from the JSX namespace */
@@ -16829,14 +17198,14 @@ var ts;
                             while (i < length_1) {
                                 // Find group of type arguments for type parameters with the same declaring container.
                                 var start = i;
-                                var parent_5 = getParentSymbolOfTypeParameter(outerTypeParameters[i]);
+                                var parent_6 = getParentSymbolOfTypeParameter(outerTypeParameters[i]);
                                 do {
                                     i++;
-                                } while (i < length_1 && getParentSymbolOfTypeParameter(outerTypeParameters[i]) === parent_5);
+                                } while (i < length_1 && getParentSymbolOfTypeParameter(outerTypeParameters[i]) === parent_6);
                                 // When type parameters are their own type arguments for the whole group (i.e. we have
                                 // the default outer type arguments), we don't show the group.
                                 if (!ts.rangeEquals(outerTypeParameters, typeArguments, start, i)) {
-                                    writeSymbolTypeReference(parent_5, typeArguments, start, i, flags);
+                                    writeSymbolTypeReference(parent_6, typeArguments, start, i, flags);
                                     writePunctuation(writer, 21 /* DotToken */);
                                 }
                             }
@@ -17243,14 +17612,14 @@ var ts;
                         if (ts.isExternalModuleAugmentation(node)) {
                             return true;
                         }
-                        var parent_6 = getDeclarationContainer(node);
+                        var parent_7 = getDeclarationContainer(node);
                         // If the node is not exported or it is not ambient module element (except import declaration)
                         if (!(ts.getCombinedNodeFlags(node) & 1 /* Export */) &&
-                            !(node.kind !== 228 /* ImportEqualsDeclaration */ && parent_6.kind !== 255 /* SourceFile */ && ts.isInAmbientContext(parent_6))) {
-                            return isGlobalSourceFile(parent_6);
+                            !(node.kind !== 228 /* ImportEqualsDeclaration */ && parent_7.kind !== 255 /* SourceFile */ && ts.isInAmbientContext(parent_7))) {
+                            return isGlobalSourceFile(parent_7);
                         }
                         // Exported members/ambient module elements (exception import declaration) are visible if parent is visible
-                        return isDeclarationVisible(parent_6);
+                        return isDeclarationVisible(parent_7);
                     case 144 /* PropertyDeclaration */:
                     case 143 /* PropertySignature */:
                     case 148 /* GetAccessor */:
@@ -17516,7 +17885,7 @@ var ts;
             // In strict null checking mode, if a default value of a non-undefined type is specified, remove
             // undefined from the final type.
             if (strictNullChecks && declaration.initializer && !(getNullableKind(checkExpressionCached(declaration.initializer)) & 32 /* Undefined */)) {
-                type = removeNullableKind(type, 32 /* Undefined */);
+                type = getTypeWithFacts(type, 131072 /* NEUndefined */);
             }
             return type;
         }
@@ -19478,7 +19847,7 @@ var ts;
                 if (type.flags & 64 /* Null */)
                     typeSet.containsNull = true;
             }
-            else if (!ts.contains(typeSet, type)) {
+            else if (type !== emptyUnionType && !ts.contains(typeSet, type)) {
                 typeSet.push(type);
             }
         }
@@ -19533,7 +19902,9 @@ var ts;
                 removeSubtypes(typeSet);
             }
             if (typeSet.length === 0) {
-                return typeSet.containsNull ? nullType : undefinedType;
+                return typeSet.containsNull ? nullType :
+                    typeSet.containsUndefined ? undefinedType :
+                        emptyUnionType;
             }
             else if (typeSet.length === 1) {
                 return typeSet[0];
@@ -20228,7 +20599,7 @@ var ts;
                 if (relation === identityRelation) {
                     return isIdenticalTo(source, target);
                 }
-                if (isTypeAny(target))
+                if (target.flags & 1 /* Any */)
                     return -1 /* True */;
                 if (source.flags & 32 /* Undefined */) {
                     if (!strictNullChecks || target.flags & (32 /* Undefined */ | 16 /* Void */) || source === emptyArrayElementType)
@@ -21108,10 +21479,6 @@ var ts;
             }
             return flags & 96 /* Nullable */;
         }
-        function getNullableTypeOfKind(kind) {
-            return kind & 64 /* Null */ ? kind & 32 /* Undefined */ ?
-                getUnionType([nullType, undefinedType]) : nullType : undefinedType;
-        }
         function addNullableKind(type, kind) {
             if ((getNullableKind(type) & kind) !== kind) {
                 var types = [type];
@@ -21125,32 +21492,8 @@ var ts;
             }
             return type;
         }
-        function removeNullableKind(type, kind) {
-            if (type.flags & 16384 /* Union */ && getNullableKind(type) & kind) {
-                var firstType = void 0;
-                var types = void 0;
-                for (var _i = 0, _a = type.types; _i < _a.length; _i++) {
-                    var t = _a[_i];
-                    if (!(t.flags & kind)) {
-                        if (!firstType) {
-                            firstType = t;
-                        }
-                        else {
-                            if (!types) {
-                                types = [firstType];
-                            }
-                            types.push(t);
-                        }
-                    }
-                }
-                if (firstType) {
-                    type = types ? getUnionType(types) : firstType;
-                }
-            }
-            return type;
-        }
         function getNonNullableType(type) {
-            return strictNullChecks ? removeNullableKind(type, 96 /* Nullable */) : type;
+            return strictNullChecks ? getTypeWithFacts(type, 524288 /* NEUndefinedOrNull */) : type;
         }
         /**
          * Return true if type was inferred from an object literal or written as an object type literal
@@ -21624,18 +21967,7 @@ var ts;
             return context.inferredTypes;
         }
         // EXPRESSION TYPE CHECKING
-        function createTransientIdentifier(symbol, location) {
-            var result = ts.createNode(69 /* Identifier */);
-            result.text = symbol.name;
-            result.resolvedSymbol = symbol;
-            result.parent = location;
-            result.id = -1;
-            return result;
-        }
         function getResolvedSymbol(node) {
-            if (node.id === -1) {
-                return node.resolvedSymbol;
-            }
             var links = getNodeLinks(node);
             if (!links.resolvedSymbol) {
                 links.resolvedSymbol = !ts.nodeIsMissing(node) && resolveName(node, node.text, 107455 /* Value */ | 1048576 /* ExportValue */, ts.Diagnostics.Cannot_find_name_0, node) || unknownSymbol;
@@ -21660,11 +21992,11 @@ var ts;
             }
             ts.Debug.fail("should not get here");
         }
-        // Return the assignment key for a "dotted name" (i.e. a sequence of identifiers
+        // Return the flow cache key for a "dotted name" (i.e. a sequence of identifiers
         // separated by dots). The key consists of the id of the symbol referenced by the
         // leftmost identifier followed by zero or more property names separated by dots.
         // The result is undefined if the reference isn't a dotted name.
-        function getAssignmentKey(node) {
+        function getFlowCacheKey(node) {
             if (node.kind === 69 /* Identifier */) {
                 var symbol = getResolvedSymbol(node);
                 return symbol !== unknownSymbol ? "" + getSymbolId(symbol) : undefined;
@@ -21673,116 +22005,10 @@ var ts;
                 return "0";
             }
             if (node.kind === 171 /* PropertyAccessExpression */) {
-                var key = getAssignmentKey(node.expression);
+                var key = getFlowCacheKey(node.expression);
                 return key && key + "." + node.name.text;
             }
             return undefined;
-        }
-        function hasInitializer(node) {
-            return !!(node.initializer || ts.isBindingPattern(node.parent) && hasInitializer(node.parent.parent));
-        }
-        // For a given node compute a map of which dotted names are assigned within
-        // the node.
-        function getAssignmentMap(node) {
-            var assignmentMap = {};
-            visit(node);
-            return assignmentMap;
-            function visitReference(node) {
-                if (isAssignmentTarget(node) || isCompoundAssignmentTarget(node)) {
-                    var key = getAssignmentKey(node);
-                    if (key) {
-                        assignmentMap[key] = true;
-                    }
-                }
-                ts.forEachChild(node, visit);
-            }
-            function visitVariableDeclaration(node) {
-                if (!ts.isBindingPattern(node.name) && hasInitializer(node)) {
-                    assignmentMap[getSymbolId(getSymbolOfNode(node))] = true;
-                }
-                ts.forEachChild(node, visit);
-            }
-            function visit(node) {
-                switch (node.kind) {
-                    case 69 /* Identifier */:
-                    case 171 /* PropertyAccessExpression */:
-                        visitReference(node);
-                        break;
-                    case 217 /* VariableDeclaration */:
-                    case 168 /* BindingElement */:
-                        visitVariableDeclaration(node);
-                        break;
-                    case 186 /* BinaryExpression */:
-                    case 166 /* ObjectBindingPattern */:
-                    case 167 /* ArrayBindingPattern */:
-                    case 169 /* ArrayLiteralExpression */:
-                    case 170 /* ObjectLiteralExpression */:
-                    case 172 /* ElementAccessExpression */:
-                    case 173 /* CallExpression */:
-                    case 174 /* NewExpression */:
-                    case 176 /* TypeAssertionExpression */:
-                    case 194 /* AsExpression */:
-                    case 195 /* NonNullExpression */:
-                    case 177 /* ParenthesizedExpression */:
-                    case 184 /* PrefixUnaryExpression */:
-                    case 180 /* DeleteExpression */:
-                    case 183 /* AwaitExpression */:
-                    case 181 /* TypeOfExpression */:
-                    case 182 /* VoidExpression */:
-                    case 185 /* PostfixUnaryExpression */:
-                    case 189 /* YieldExpression */:
-                    case 187 /* ConditionalExpression */:
-                    case 190 /* SpreadElementExpression */:
-                    case 198 /* Block */:
-                    case 199 /* VariableStatement */:
-                    case 201 /* ExpressionStatement */:
-                    case 202 /* IfStatement */:
-                    case 203 /* DoStatement */:
-                    case 204 /* WhileStatement */:
-                    case 205 /* ForStatement */:
-                    case 206 /* ForInStatement */:
-                    case 207 /* ForOfStatement */:
-                    case 210 /* ReturnStatement */:
-                    case 211 /* WithStatement */:
-                    case 212 /* SwitchStatement */:
-                    case 226 /* CaseBlock */:
-                    case 248 /* CaseClause */:
-                    case 249 /* DefaultClause */:
-                    case 213 /* LabeledStatement */:
-                    case 214 /* ThrowStatement */:
-                    case 215 /* TryStatement */:
-                    case 251 /* CatchClause */:
-                    case 240 /* JsxElement */:
-                    case 241 /* JsxSelfClosingElement */:
-                    case 245 /* JsxAttribute */:
-                    case 246 /* JsxSpreadAttribute */:
-                    case 242 /* JsxOpeningElement */:
-                    case 247 /* JsxExpression */:
-                        ts.forEachChild(node, visit);
-                        break;
-                }
-            }
-        }
-        function isReferenceAssignedWithin(reference, node) {
-            if (reference.kind !== 97 /* ThisKeyword */) {
-                var key = getAssignmentKey(reference);
-                if (key) {
-                    var links = getNodeLinks(node);
-                    return (links.assignmentMap || (links.assignmentMap = getAssignmentMap(node)))[key];
-                }
-            }
-            return false;
-        }
-        function isAnyPartOfReferenceAssignedWithin(reference, node) {
-            while (true) {
-                if (isReferenceAssignedWithin(reference, node)) {
-                    return true;
-                }
-                if (reference.kind !== 171 /* PropertyAccessExpression */) {
-                    return false;
-                }
-                reference = reference.expression;
-            }
         }
         function isNullOrUndefinedLiteral(node) {
             return node.kind === 93 /* NullKeyword */ ||
@@ -21812,16 +22038,226 @@ var ts;
             }
             return false;
         }
-        // Get the narrowed type of a given symbol at a given location
+        function containsMatchingReference(source, target) {
+            while (true) {
+                if (isMatchingReference(source, target)) {
+                    return true;
+                }
+                if (source.kind !== 171 /* PropertyAccessExpression */) {
+                    return false;
+                }
+                source = source.expression;
+            }
+        }
+        function hasMatchingArgument(callExpression, target) {
+            if (callExpression.arguments) {
+                for (var _i = 0, _a = callExpression.arguments; _i < _a.length; _i++) {
+                    var argument = _a[_i];
+                    if (isMatchingReference(argument, target)) {
+                        return true;
+                    }
+                }
+            }
+            if (callExpression.expression.kind === 171 /* PropertyAccessExpression */ &&
+                isMatchingReference(callExpression.expression.expression, target)) {
+                return true;
+            }
+            return false;
+        }
+        function getFlowTypeCache(flow) {
+            if (!flow.id) {
+                flow.id = nextFlowId;
+                nextFlowId++;
+            }
+            return flowTypeCaches[flow.id] || (flowTypeCaches[flow.id] = {});
+        }
+        function isNarrowableReference(expr) {
+            return expr.kind === 69 /* Identifier */ ||
+                expr.kind === 97 /* ThisKeyword */ ||
+                expr.kind === 171 /* PropertyAccessExpression */ && isNarrowableReference(expr.expression);
+        }
+        function typeMaybeAssignableTo(source, target) {
+            if (!(source.flags & 16384 /* Union */)) {
+                return isTypeAssignableTo(source, target);
+            }
+            for (var _i = 0, _a = source.types; _i < _a.length; _i++) {
+                var t = _a[_i];
+                if (isTypeAssignableTo(t, target)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        // Remove those constituent types of declaredType to which no constituent type of assignedType is assignable.
+        // For example, when a variable of type number | string | boolean is assigned a value of type number | boolean,
+        // we remove type string.
+        function getAssignmentReducedType(declaredType, assignedType) {
+            if (declaredType !== assignedType && declaredType.flags & 16384 /* Union */) {
+                var reducedTypes = ts.filter(declaredType.types, function (t) { return typeMaybeAssignableTo(assignedType, t); });
+                if (reducedTypes.length) {
+                    return reducedTypes.length === 1 ? reducedTypes[0] : getUnionType(reducedTypes);
+                }
+            }
+            return declaredType;
+        }
+        function getTypeFacts(type) {
+            var flags = type.flags;
+            if (flags & 258 /* StringLike */) {
+                return strictNullChecks ? 4079361 /* StringStrictFacts */ : 4194049 /* StringFacts */;
+            }
+            if (flags & 132 /* NumberLike */) {
+                return strictNullChecks ? 4079234 /* NumberStrictFacts */ : 4193922 /* NumberFacts */;
+            }
+            if (flags & 8 /* Boolean */) {
+                return strictNullChecks ? 4078980 /* BooleanStrictFacts */ : 4193668 /* BooleanFacts */;
+            }
+            if (flags & 80896 /* ObjectType */) {
+                var resolved = resolveStructuredTypeMembers(type);
+                return resolved.callSignatures.length || resolved.constructSignatures.length || isTypeSubtypeOf(type, globalFunctionType) ?
+                    strictNullChecks ? 1970144 /* FunctionStrictFacts */ : 4181984 /* FunctionFacts */ :
+                    strictNullChecks ? 1972176 /* ObjectStrictFacts */ : 4184016 /* ObjectFacts */;
+            }
+            if (flags & (16 /* Void */ | 32 /* Undefined */)) {
+                return 2457472 /* UndefinedFacts */;
+            }
+            if (flags & 64 /* Null */) {
+                return 2340752 /* NullFacts */;
+            }
+            if (flags & 16777216 /* ESSymbol */) {
+                return strictNullChecks ? 1981320 /* SymbolStrictFacts */ : 4193160 /* SymbolFacts */;
+            }
+            if (flags & 512 /* TypeParameter */) {
+                var constraint = getConstraintOfTypeParameter(type);
+                return constraint ? getTypeFacts(constraint) : 4194303 /* All */;
+            }
+            if (flags & 32768 /* Intersection */) {
+                return ts.reduceLeft(type.types, function (flags, type) { return flags |= getTypeFacts(type); }, 0 /* None */);
+            }
+            return 4194303 /* All */;
+        }
+        function getTypeWithFacts(type, include) {
+            if (!(type.flags & 16384 /* Union */)) {
+                return getTypeFacts(type) & include ? type : emptyUnionType;
+            }
+            var firstType;
+            var types;
+            for (var _i = 0, _a = type.types; _i < _a.length; _i++) {
+                var t = _a[_i];
+                if (getTypeFacts(t) & include) {
+                    if (!firstType) {
+                        firstType = t;
+                    }
+                    else {
+                        if (!types) {
+                            types = [firstType];
+                        }
+                        types.push(t);
+                    }
+                }
+            }
+            return firstType ? types ? getUnionType(types, /*noSubtypeReduction*/ true) : firstType : emptyUnionType;
+        }
+        function getTypeWithDefault(type, defaultExpression) {
+            if (defaultExpression) {
+                var defaultType = checkExpression(defaultExpression);
+                return getUnionType([getTypeWithFacts(type, 131072 /* NEUndefined */), defaultType]);
+            }
+            return type;
+        }
+        function getTypeOfDestructuredProperty(type, name) {
+            var text = getTextOfPropertyName(name);
+            return getTypeOfPropertyOfType(type, text) ||
+                isNumericLiteralName(text) && getIndexTypeOfType(type, 1 /* Number */) ||
+                getIndexTypeOfType(type, 0 /* String */) ||
+                unknownType;
+        }
+        function getTypeOfDestructuredArrayElement(type, index) {
+            return isTupleLikeType(type) && getTypeOfPropertyOfType(type, "" + index) ||
+                checkIteratedTypeOrElementType(type, /*errorNode*/ undefined, /*allowStringInput*/ false) ||
+                unknownType;
+        }
+        function getTypeOfDestructuredSpreadElement(type) {
+            return createArrayType(checkIteratedTypeOrElementType(type, /*errorNode*/ undefined, /*allowStringInput*/ false) || unknownType);
+        }
+        function getAssignedTypeOfBinaryExpression(node) {
+            return node.parent.kind === 169 /* ArrayLiteralExpression */ || node.parent.kind === 252 /* PropertyAssignment */ ?
+                getTypeWithDefault(getAssignedType(node), node.right) :
+                checkExpression(node.right);
+        }
+        function getAssignedTypeOfArrayLiteralElement(node, element) {
+            return getTypeOfDestructuredArrayElement(getAssignedType(node), ts.indexOf(node.elements, element));
+        }
+        function getAssignedTypeOfSpreadElement(node) {
+            return getTypeOfDestructuredSpreadElement(getAssignedType(node.parent));
+        }
+        function getAssignedTypeOfPropertyAssignment(node) {
+            return getTypeOfDestructuredProperty(getAssignedType(node.parent), node.name);
+        }
+        function getAssignedTypeOfShorthandPropertyAssignment(node) {
+            return getTypeWithDefault(getAssignedTypeOfPropertyAssignment(node), node.objectAssignmentInitializer);
+        }
+        function getAssignedType(node) {
+            var parent = node.parent;
+            switch (parent.kind) {
+                case 206 /* ForInStatement */:
+                    return stringType;
+                case 207 /* ForOfStatement */:
+                    return checkRightHandSideOfForOf(parent.expression) || unknownType;
+                case 186 /* BinaryExpression */:
+                    return getAssignedTypeOfBinaryExpression(parent);
+                case 169 /* ArrayLiteralExpression */:
+                    return getAssignedTypeOfArrayLiteralElement(parent, node);
+                case 190 /* SpreadElementExpression */:
+                    return getAssignedTypeOfSpreadElement(parent);
+                case 252 /* PropertyAssignment */:
+                    return getAssignedTypeOfPropertyAssignment(parent);
+                case 253 /* ShorthandPropertyAssignment */:
+                    return getAssignedTypeOfShorthandPropertyAssignment(parent);
+            }
+            return unknownType;
+        }
+        function getInitialTypeOfBindingElement(node) {
+            var pattern = node.parent;
+            var parentType = getInitialType(pattern.parent);
+            var type = pattern.kind === 166 /* ObjectBindingPattern */ ?
+                getTypeOfDestructuredProperty(parentType, node.propertyName || node.name) :
+                !node.dotDotDotToken ?
+                    getTypeOfDestructuredArrayElement(parentType, ts.indexOf(pattern.elements, node)) :
+                    getTypeOfDestructuredSpreadElement(parentType);
+            return getTypeWithDefault(type, node.initializer);
+        }
+        function getTypeOfInitializer(node) {
+            // Return the cached type if one is available. If the type of the variable was inferred
+            // from its initializer, we'll already have cached the type. Otherwise we compute it now
+            // without caching such that transient types are reflected.
+            var links = getNodeLinks(node);
+            return links.resolvedType || checkExpression(node);
+        }
+        function getInitialTypeOfVariableDeclaration(node) {
+            if (node.initializer) {
+                return getTypeOfInitializer(node.initializer);
+            }
+            if (node.parent.parent.kind === 206 /* ForInStatement */) {
+                return stringType;
+            }
+            if (node.parent.parent.kind === 207 /* ForOfStatement */) {
+                return checkRightHandSideOfForOf(node.parent.parent.expression) || unknownType;
+            }
+            return unknownType;
+        }
+        function getInitialType(node) {
+            return node.kind === 217 /* VariableDeclaration */ ?
+                getInitialTypeOfVariableDeclaration(node) :
+                getInitialTypeOfBindingElement(node);
+        }
         function getNarrowedTypeOfReference(type, reference) {
-            if (!(type.flags & (1 /* Any */ | 80896 /* ObjectType */ | 16384 /* Union */ | 512 /* TypeParameter */))) {
+            if (!(type.flags & 97793 /* Narrowable */) || !isNarrowableReference(reference)) {
                 return type;
             }
             var leftmostNode = getLeftmostIdentifierOrThis(reference);
             if (!leftmostNode) {
                 return type;
             }
-            var top;
             if (leftmostNode.kind === 69 /* Identifier */) {
                 var leftmostSymbol = getExportSymbolOfValueSymbolIfExported(getResolvedSymbol(leftmostNode));
                 if (!leftmostSymbol) {
@@ -21831,75 +22267,126 @@ var ts;
                 if (!declaration || declaration.kind !== 217 /* VariableDeclaration */ && declaration.kind !== 141 /* Parameter */ && declaration.kind !== 168 /* BindingElement */) {
                     return type;
                 }
-                top = getDeclarationContainer(declaration);
             }
-            var originalType = type;
-            var nodeStack = [];
-            var node = reference;
-            loop: while (node.parent) {
-                var child = node;
-                node = node.parent;
-                switch (node.kind) {
-                    case 202 /* IfStatement */:
-                    case 187 /* ConditionalExpression */:
-                    case 186 /* BinaryExpression */:
-                        nodeStack.push({ node: node, child: child });
-                        break;
-                    case 255 /* SourceFile */:
-                    case 224 /* ModuleDeclaration */:
-                        break loop;
-                    default:
-                        if (node === top || ts.isFunctionLikeKind(node.kind)) {
-                            break loop;
-                        }
-                        break;
-                }
-            }
-            var nodes;
-            while (nodes = nodeStack.pop()) {
-                var node_1 = nodes.node, child = nodes.child;
-                switch (node_1.kind) {
-                    case 202 /* IfStatement */:
-                        // In a branch of an if statement, narrow based on controlling expression
-                        if (child !== node_1.expression) {
-                            type = narrowType(type, node_1.expression, /*assumeTrue*/ child === node_1.thenStatement);
-                        }
-                        break;
-                    case 187 /* ConditionalExpression */:
-                        // In a branch of a conditional expression, narrow based on controlling condition
-                        if (child !== node_1.condition) {
-                            type = narrowType(type, node_1.condition, /*assumeTrue*/ child === node_1.whenTrue);
-                        }
-                        break;
-                    case 186 /* BinaryExpression */:
-                        // In the right operand of an && or ||, narrow based on left operand
-                        if (child === node_1.right) {
-                            if (node_1.operatorToken.kind === 51 /* AmpersandAmpersandToken */) {
-                                type = narrowType(type, node_1.left, /*assumeTrue*/ true);
+            return getFlowTypeOfReference(reference, type, type);
+        }
+        function getFlowTypeOfReference(reference, declaredType, initialType) {
+            var key;
+            return reference.flowNode ? getTypeAtFlowNode(reference.flowNode) : declaredType;
+            function getTypeAtFlowNode(flow) {
+                while (true) {
+                    switch (flow.kind) {
+                        case 3 /* Assignment */:
+                            var type = getTypeAtFlowAssignment(flow);
+                            if (!type) {
+                                flow = flow.antecedent;
+                                continue;
                             }
-                            else if (node_1.operatorToken.kind === 52 /* BarBarToken */) {
-                                type = narrowType(type, node_1.left, /*assumeTrue*/ false);
+                            return type;
+                        case 4 /* Condition */:
+                            return getTypeAtFlowCondition(flow);
+                        case 2 /* Label */:
+                            if (flow.antecedents.length === 1) {
+                                flow = flow.antecedents[0];
+                                continue;
                             }
+                            return getTypeAtFlowLabel(flow);
+                        case 0 /* Unreachable */:
+                            // Unreachable code errors are reported in the binding phase. Here we
+                            // simply return the declared type to reduce follow-on errors.
+                            return declaredType;
+                    }
+                    // At the top of the flow we have the initial type
+                    return initialType;
+                }
+            }
+            function getTypeAtFlowAssignment(flow) {
+                var node = flow.node;
+                // Assignments only narrow the computed type if the declared type is a union type. Thus, we
+                // only need to evaluate the assigned type if the declared type is a union type.
+                if ((node.kind === 217 /* VariableDeclaration */ || node.kind === 168 /* BindingElement */) &&
+                    reference.kind === 69 /* Identifier */ &&
+                    getExportSymbolOfValueSymbolIfExported(getResolvedSymbol(reference)) === getSymbolOfNode(node)) {
+                    return declaredType.flags & 16384 /* Union */ ?
+                        getAssignmentReducedType(declaredType, getInitialType(node)) :
+                        declaredType;
+                }
+                // If the node is not a variable declaration or binding element, it is an identifier
+                // or a dotted name that is the target of an assignment. If we have a match, reduce
+                // the declared type by the assigned type.
+                if (isMatchingReference(reference, node)) {
+                    return declaredType.flags & 16384 /* Union */ ?
+                        getAssignmentReducedType(declaredType, getAssignedType(node)) :
+                        declaredType;
+                }
+                // We didn't have a direct match. However, if the reference is a dotted name, this
+                // may be an assignment to a left hand part of the reference. For example, for a
+                // reference 'x.y.z', we may be at an assignment to 'x.y' or 'x'. In that case,
+                // return the declared type.
+                if (reference.kind === 171 /* PropertyAccessExpression */ &&
+                    containsMatchingReference(reference.expression, node)) {
+                    return declaredType;
+                }
+                // Assignment doesn't affect reference
+                return undefined;
+            }
+            function getTypeAtFlowCondition(flow) {
+                return narrowType(getTypeAtFlowNode(flow.antecedent), flow.expression, flow.assumeTrue);
+            }
+            function getTypeAtFlowNodeCached(flow) {
+                var cache = getFlowTypeCache(flow);
+                if (!key) {
+                    key = getFlowCacheKey(reference);
+                }
+                var cached = cache[key];
+                if (cached) {
+                    return cached;
+                }
+                // Return undefined if we're already processing the given node.
+                for (var i = flowStackStart; i < flowStackCount; i++) {
+                    if (flowStackNodes[i] === flow && flowStackCacheKeys[i] === key) {
+                        return undefined;
+                    }
+                }
+                // Record node and key on stack of nodes being processed.
+                flowStackNodes[flowStackCount] = flow;
+                flowStackCacheKeys[flowStackCount] = key;
+                flowStackCount++;
+                var type = getTypeAtFlowNode(flow);
+                flowStackCount--;
+                // Record the result only if the cache is still empty. If checkExpressionCached was called
+                // during processing it is possible we've already recorded a result.
+                return cache[key] || (cache[key] = type);
+            }
+            function getTypeAtFlowLabel(flow) {
+                var antecedentTypes = [];
+                for (var _i = 0, _a = flow.antecedents; _i < _a.length; _i++) {
+                    var antecedent = _a[_i];
+                    var type = getTypeAtFlowNodeCached(antecedent);
+                    if (type) {
+                        // If the type at a particular antecedent path is the declared type and the
+                        // reference is known to always be assigned (i.e. when declared and initial types
+                        // are the same), there is no reason to process more antecedents since the only
+                        // possible outcome is subtypes that will be removed in the final union type anyway.
+                        if (type === declaredType && declaredType === initialType) {
+                            return type;
                         }
-                        break;
-                    default:
-                        ts.Debug.fail("Unreachable!");
+                        if (!ts.contains(antecedentTypes, type)) {
+                            antecedentTypes.push(type);
+                        }
+                    }
                 }
-                // Use original type if construct contains assignments to variable
-                if (type !== originalType && isAnyPartOfReferenceAssignedWithin(reference, node_1)) {
-                    type = originalType;
-                }
+                return antecedentTypes.length === 0 ? declaredType :
+                    antecedentTypes.length === 1 ? antecedentTypes[0] :
+                        getUnionType(antecedentTypes);
             }
-            // Preserve old top-level behavior - if the branch is really an empty set, revert to prior type
-            if (type === emptyUnionType) {
-                type = originalType;
-            }
-            return type;
             function narrowTypeByTruthiness(type, expr, assumeTrue) {
-                return strictNullChecks && assumeTrue && isMatchingReference(expr, reference) ? getNonNullableType(type) : type;
+                return isMatchingReference(expr, reference) ? getTypeWithFacts(type, assumeTrue ? 1048576 /* Truthy */ : 2097152 /* Falsy */) : type;
             }
             function narrowTypeByBinaryExpression(type, expr, assumeTrue) {
                 switch (expr.operatorToken.kind) {
+                    case 56 /* EqualsToken */:
+                        return narrowTypeByTruthiness(type, expr.left, assumeTrue);
                     case 30 /* EqualsEqualsToken */:
                     case 31 /* ExclamationEqualsToken */:
                     case 32 /* EqualsEqualsEqualsToken */:
@@ -21911,12 +22398,10 @@ var ts;
                             return narrowTypeByTypeof(type, expr, assumeTrue);
                         }
                         break;
-                    case 51 /* AmpersandAmpersandToken */:
-                        return narrowTypeByAnd(type, expr, assumeTrue);
-                    case 52 /* BarBarToken */:
-                        return narrowTypeByOr(type, expr, assumeTrue);
                     case 91 /* InstanceOfKeyword */:
                         return narrowTypeByInstanceof(type, expr, assumeTrue);
+                    case 24 /* CommaToken */:
+                        return narrowType(type, expr.right, assumeTrue);
                 }
                 return type;
             }
@@ -21930,13 +22415,12 @@ var ts;
                     return type;
                 }
                 var doubleEquals = operator === 30 /* EqualsEqualsToken */ || operator === 31 /* ExclamationEqualsToken */;
-                var exprNullableKind = doubleEquals ? 96 /* Nullable */ :
-                    expr.right.kind === 93 /* NullKeyword */ ? 64 /* Null */ : 32 /* Undefined */;
-                if (assumeTrue) {
-                    var nullableKind = getNullableKind(type) & exprNullableKind;
-                    return nullableKind ? getNullableTypeOfKind(nullableKind) : type;
-                }
-                return removeNullableKind(type, exprNullableKind);
+                var facts = doubleEquals ?
+                    assumeTrue ? 65536 /* EQUndefinedOrNull */ : 524288 /* NEUndefinedOrNull */ :
+                    expr.right.kind === 93 /* NullKeyword */ ?
+                        assumeTrue ? 32768 /* EQNull */ : 262144 /* NENull */ :
+                        assumeTrue ? 16384 /* EQUndefined */ : 131072 /* NEUndefined */;
+                return getTypeWithFacts(type, facts);
             }
             function narrowTypeByTypeof(type, expr, assumeTrue) {
                 // We have '==', '!=', '====', or !==' operator with 'typeof xxx' on the left
@@ -21950,60 +22434,19 @@ var ts;
                     expr.operatorToken.kind === 33 /* ExclamationEqualsEqualsToken */) {
                     assumeTrue = !assumeTrue;
                 }
-                var typeInfo = primitiveTypeInfo[right.text];
-                // Don't narrow `undefined`
-                if (typeInfo && typeInfo.type === undefinedType) {
-                    return type;
-                }
-                var flags;
-                if (typeInfo) {
-                    flags = typeInfo.flags;
-                }
-                else {
-                    assumeTrue = !assumeTrue;
-                    flags = 132 /* NumberLike */ | 258 /* StringLike */ | 16777216 /* ESSymbol */ | 8 /* Boolean */;
-                }
-                // At this point we can bail if it's not a union
-                if (!(type.flags & 16384 /* Union */)) {
-                    // If we're on the true branch and the type is a subtype, we should return the primitive type
-                    if (assumeTrue && typeInfo && isTypeSubtypeOf(typeInfo.type, type)) {
-                        return typeInfo.type;
+                if (assumeTrue && !(type.flags & 16384 /* Union */)) {
+                    // We narrow a non-union type to an exact primitive type if the non-union type
+                    // is a supertype of that primtive type. For example, type 'any' can be narrowed
+                    // to one of the primitive types.
+                    var targetType = ts.getProperty(typeofTypesByName, right.text);
+                    if (targetType && isTypeSubtypeOf(targetType, type)) {
+                        return targetType;
                     }
-                    // If the active non-union type would be removed from a union by this type guard, return an empty union
-                    return filterUnion(type) ? type : emptyUnionType;
                 }
-                return getUnionType(ts.filter(type.types, filterUnion), /*noSubtypeReduction*/ true);
-                function filterUnion(type) {
-                    return assumeTrue === !!(type.flags & flags);
-                }
-            }
-            function narrowTypeByAnd(type, expr, assumeTrue) {
-                if (assumeTrue) {
-                    // The assumed result is true, therefore we narrow assuming each operand to be true.
-                    return narrowType(narrowType(type, expr.left, /*assumeTrue*/ true), expr.right, /*assumeTrue*/ true);
-                }
-                else {
-                    // The assumed result is false. This means either the first operand was false, or the first operand was true
-                    // and the second operand was false. We narrow with those assumptions and union the two resulting types.
-                    return getUnionType([
-                        narrowType(type, expr.left, /*assumeTrue*/ false),
-                        narrowType(type, expr.right, /*assumeTrue*/ false)
-                    ]);
-                }
-            }
-            function narrowTypeByOr(type, expr, assumeTrue) {
-                if (assumeTrue) {
-                    // The assumed result is true. This means either the first operand was true, or the first operand was false
-                    // and the second operand was true. We narrow with those assumptions and union the two resulting types.
-                    return getUnionType([
-                        narrowType(type, expr.left, /*assumeTrue*/ true),
-                        narrowType(type, expr.right, /*assumeTrue*/ true)
-                    ]);
-                }
-                else {
-                    // The assumed result is false, therefore we narrow assuming each operand to be false.
-                    return narrowType(narrowType(type, expr.left, /*assumeTrue*/ false), expr.right, /*assumeTrue*/ false);
-                }
+                var facts = assumeTrue ?
+                    ts.getProperty(typeofEQFacts, right.text) || 64 /* TypeofEQHostObject */ :
+                    ts.getProperty(typeofNEFacts, right.text) || 8192 /* TypeofNEHostObject */;
+                return getTypeWithFacts(type, facts);
             }
             function narrowTypeByInstanceof(type, expr, assumeTrue) {
                 // Check that type is not any, assumed result is true, and we have variable symbol on the left
@@ -22042,30 +22485,30 @@ var ts;
                 }
                 return type;
             }
-            function getNarrowedType(originalType, narrowedTypeCandidate, assumeTrue) {
+            function getNarrowedType(type, candidate, assumeTrue) {
                 if (!assumeTrue) {
-                    if (originalType.flags & 16384 /* Union */) {
-                        return getUnionType(ts.filter(originalType.types, function (t) { return !isTypeSubtypeOf(t, narrowedTypeCandidate); }));
-                    }
-                    return originalType;
+                    return type.flags & 16384 /* Union */ ?
+                        getUnionType(ts.filter(type.types, function (t) { return !isTypeSubtypeOf(t, candidate); })) :
+                        type;
                 }
-                // If the current type is a union type, remove all constituents that aren't assignable to target. If that produces
-                // 0 candidates, fall back to the assignability check
-                if (originalType.flags & 16384 /* Union */) {
-                    var assignableConstituents = ts.filter(originalType.types, function (t) { return isTypeAssignableTo(t, narrowedTypeCandidate); });
+                // If the current type is a union type, remove all constituents that aren't assignable to
+                // the candidate type. If one or more constituents remain, return a union of those.
+                if (type.flags & 16384 /* Union */) {
+                    var assignableConstituents = ts.filter(type.types, function (t) { return isTypeAssignableTo(t, candidate); });
                     if (assignableConstituents.length) {
                         return getUnionType(assignableConstituents);
                     }
                 }
-                var targetType = originalType.flags & 512 /* TypeParameter */ ? getApparentType(originalType) : originalType;
-                if (isTypeAssignableTo(narrowedTypeCandidate, targetType)) {
-                    // Narrow to the target type if it's assignable to the current type
-                    return narrowedTypeCandidate;
-                }
-                return originalType;
+                // If the candidate type is assignable to the target type, narrow to the candidate type.
+                // Otherwise, if the current type is assignable to the candidate, keep the current type.
+                // Otherwise, the types are completely unrelated, so narrow to the empty type.
+                var targetType = type.flags & 512 /* TypeParameter */ ? getApparentType(type) : type;
+                return isTypeAssignableTo(candidate, targetType) ? candidate :
+                    isTypeAssignableTo(type, candidate) ? type :
+                        emptyUnionType;
             }
             function narrowTypeByTypePredicate(type, callExpression, assumeTrue) {
-                if (type.flags & 1 /* Any */) {
+                if (type.flags & 1 /* Any */ || !hasMatchingArgument(callExpression, reference)) {
                     return type;
                 }
                 var signature = getResolvedSignature(callExpression);
@@ -22124,113 +22567,25 @@ var ts;
                 }
                 // If location is an identifier or property access that references the given
                 // symbol, use the location as the reference with respect to which we narrow.
-                if (ts.isExpression(location)) {
+                if (ts.isExpression(location) && !ts.isAssignmentTarget(location)) {
                     checkExpression(location);
-                    if (getNodeLinks(location).resolvedSymbol === symbol) {
+                    if (getExportSymbolOfValueSymbolIfExported(getNodeLinks(location).resolvedSymbol) === symbol) {
                         return getNarrowedTypeOfReference(type, location);
                     }
                 }
             }
             // The location isn't a reference to the given symbol, meaning we're being asked
             // a hypothetical question of what type the symbol would have if there was a reference
-            // to it at the given location. To answer that question we manufacture a transient
-            // identifier at the location and narrow with respect to that identifier.
-            return getNarrowedTypeOfReference(type, createTransientIdentifier(symbol, location));
+            // to it at the given location. Since we have no control flow information for the
+            // hypotherical reference (control flow information is created and attached by the
+            // binder), we simply return the declared type of the symbol.
+            return type;
         }
         function skipParenthesizedNodes(expression) {
             while (expression.kind === 177 /* ParenthesizedExpression */) {
                 expression = expression.expression;
             }
             return expression;
-        }
-        function findFirstAssignment(symbol, container) {
-            return visit(ts.isFunctionLike(container) ? container.body : container);
-            function visit(node) {
-                switch (node.kind) {
-                    case 69 /* Identifier */:
-                        var assignment = getAssignmentRoot(node);
-                        return assignment && getResolvedSymbol(node) === symbol ? assignment : undefined;
-                    case 186 /* BinaryExpression */:
-                    case 217 /* VariableDeclaration */:
-                    case 168 /* BindingElement */:
-                    case 166 /* ObjectBindingPattern */:
-                    case 167 /* ArrayBindingPattern */:
-                    case 169 /* ArrayLiteralExpression */:
-                    case 170 /* ObjectLiteralExpression */:
-                    case 171 /* PropertyAccessExpression */:
-                    case 172 /* ElementAccessExpression */:
-                    case 173 /* CallExpression */:
-                    case 174 /* NewExpression */:
-                    case 176 /* TypeAssertionExpression */:
-                    case 194 /* AsExpression */:
-                    case 195 /* NonNullExpression */:
-                    case 177 /* ParenthesizedExpression */:
-                    case 184 /* PrefixUnaryExpression */:
-                    case 180 /* DeleteExpression */:
-                    case 183 /* AwaitExpression */:
-                    case 181 /* TypeOfExpression */:
-                    case 182 /* VoidExpression */:
-                    case 185 /* PostfixUnaryExpression */:
-                    case 189 /* YieldExpression */:
-                    case 187 /* ConditionalExpression */:
-                    case 190 /* SpreadElementExpression */:
-                    case 199 /* VariableStatement */:
-                    case 201 /* ExpressionStatement */:
-                    case 202 /* IfStatement */:
-                    case 203 /* DoStatement */:
-                    case 204 /* WhileStatement */:
-                    case 205 /* ForStatement */:
-                    case 206 /* ForInStatement */:
-                    case 207 /* ForOfStatement */:
-                    case 210 /* ReturnStatement */:
-                    case 211 /* WithStatement */:
-                    case 212 /* SwitchStatement */:
-                    case 226 /* CaseBlock */:
-                    case 248 /* CaseClause */:
-                    case 249 /* DefaultClause */:
-                    case 213 /* LabeledStatement */:
-                    case 214 /* ThrowStatement */:
-                    case 215 /* TryStatement */:
-                    case 251 /* CatchClause */:
-                    case 240 /* JsxElement */:
-                    case 241 /* JsxSelfClosingElement */:
-                    case 245 /* JsxAttribute */:
-                    case 246 /* JsxSpreadAttribute */:
-                    case 242 /* JsxOpeningElement */:
-                    case 247 /* JsxExpression */:
-                    case 198 /* Block */:
-                    case 255 /* SourceFile */:
-                        return ts.forEachChild(node, visit);
-                }
-                return undefined;
-            }
-        }
-        function checkVariableAssignedBefore(symbol, reference) {
-            if (!(symbol.flags & 3 /* Variable */)) {
-                return;
-            }
-            var declaration = symbol.valueDeclaration;
-            if (!declaration || declaration.kind !== 217 /* VariableDeclaration */ || declaration.initializer || ts.isInAmbientContext(declaration)) {
-                return;
-            }
-            var parentParentKind = declaration.parent.parent.kind;
-            if (parentParentKind === 207 /* ForOfStatement */ || parentParentKind === 206 /* ForInStatement */) {
-                return;
-            }
-            var declarationContainer = ts.getContainingFunction(declaration) || ts.getSourceFileOfNode(declaration);
-            var referenceContainer = ts.getContainingFunction(reference) || ts.getSourceFileOfNode(reference);
-            if (declarationContainer !== referenceContainer) {
-                return;
-            }
-            var links = getSymbolLinks(symbol);
-            if (!links.firstAssignmentChecked) {
-                links.firstAssignmentChecked = true;
-                links.firstAssignment = findFirstAssignment(symbol, declarationContainer);
-            }
-            if (links.firstAssignment && links.firstAssignment.end <= reference.pos) {
-                return;
-            }
-            error(reference, ts.Diagnostics.Variable_0_is_used_before_being_assigned, symbolToString(symbol));
         }
         function checkIdentifier(node) {
             var symbol = getResolvedSymbol(node);
@@ -22276,10 +22631,23 @@ var ts;
             checkCollisionWithCapturedThisVariable(node, node);
             checkNestedBlockScopedBinding(node, symbol);
             var type = getTypeOfSymbol(localOrExportSymbol);
-            if (strictNullChecks && !isAssignmentTarget(node) && !(type.flags & 1 /* Any */) && !(getNullableKind(type) & 32 /* Undefined */)) {
-                checkVariableAssignedBefore(symbol, node);
+            if (!(localOrExportSymbol.flags & 3 /* Variable */) || ts.isAssignmentTarget(node)) {
+                return type;
             }
-            return getNarrowedTypeOfReference(type, node);
+            var declaration = localOrExportSymbol.valueDeclaration;
+            var defaultsToDeclaredType = !strictNullChecks || !declaration ||
+                declaration.kind === 141 /* Parameter */ || ts.isInAmbientContext(declaration) ||
+                ts.getContainingFunctionOrModule(declaration) !== ts.getContainingFunctionOrModule(node);
+            if (defaultsToDeclaredType && !(type.flags & 97793 /* Narrowable */)) {
+                return type;
+            }
+            var flowType = getFlowTypeOfReference(node, type, defaultsToDeclaredType ? type : undefinedType);
+            if (strictNullChecks && !(type.flags & 1 /* Any */) && !(getNullableKind(type) & 32 /* Undefined */) && getNullableKind(flowType) & 32 /* Undefined */) {
+                error(node, ts.Diagnostics.Variable_0_is_used_before_being_assigned, symbolToString(symbol));
+                // Return the declared type to reduce follow-on errors
+                return type;
+            }
+            return flowType;
         }
         function isInsideFunction(node, threshold) {
             var current = node;
@@ -22339,7 +22707,7 @@ var ts;
             }
             // check if node is used as LHS in some assignment expression
             var isAssigned = false;
-            if (isAssignmentTarget(current)) {
+            if (ts.isAssignmentTarget(current)) {
                 isAssigned = true;
             }
             else if ((current.parent.kind === 184 /* PrefixUnaryExpression */ || current.parent.kind === 185 /* PostfixUnaryExpression */)) {
@@ -22632,7 +23000,7 @@ var ts;
             // This is required for destructuring assignments, as a call expression cannot be used as the target of a destructuring assignment
             // while a property access can.
             if (container.kind === 146 /* MethodDeclaration */ && container.flags & 256 /* Async */) {
-                if (ts.isSuperPropertyOrElementAccess(node.parent) && isAssignmentTarget(node.parent)) {
+                if (ts.isSuperPropertyOrElementAccess(node.parent) && ts.isAssignmentTarget(node.parent)) {
                     getNodeLinks(container).flags |= 4096 /* AsyncMethodWithSuperBinding */;
                 }
                 else {
@@ -22831,7 +23199,7 @@ var ts;
             var args = getEffectiveCallArguments(callTarget);
             var argIndex = ts.indexOf(args, arg);
             if (argIndex >= 0) {
-                var signature = getResolvedSignature(callTarget);
+                var signature = getResolvedOrAnySignature(callTarget);
                 return getTypeAtPosition(signature, argIndex);
             }
             return undefined;
@@ -23130,41 +23498,6 @@ var ts;
         function isInferentialContext(mapper) {
             return mapper && mapper.context;
         }
-        // Return the root assignment node of an assignment target
-        function getAssignmentRoot(node) {
-            while (node.parent.kind === 177 /* ParenthesizedExpression */) {
-                node = node.parent;
-            }
-            while (true) {
-                if (node.parent.kind === 252 /* PropertyAssignment */) {
-                    node = node.parent.parent;
-                }
-                else if (node.parent.kind === 169 /* ArrayLiteralExpression */) {
-                    node = node.parent;
-                }
-                else {
-                    break;
-                }
-            }
-            var parent = node.parent;
-            return parent.kind === 186 /* BinaryExpression */ &&
-                parent.operatorToken.kind === 56 /* EqualsToken */ &&
-                parent.left === node ? parent : undefined;
-        }
-        // A node is an assignment target if it is on the left hand side of an '=' token, if it is parented by a property
-        // assignment in an object literal that is an assignment target, or if it is parented by an array literal that is
-        // an assignment target. Examples include 'a = xxx', '{ p: a } = xxx', '[{ p: a}] = xxx'.
-        function isAssignmentTarget(node) {
-            return !!getAssignmentRoot(node);
-        }
-        function isCompoundAssignmentTarget(node) {
-            var parent = node.parent;
-            if (parent.kind === 186 /* BinaryExpression */ && parent.left === node) {
-                var operator = parent.operatorToken.kind;
-                return operator >= 56 /* FirstAssignment */ && operator <= 68 /* LastAssignment */;
-            }
-            return false;
-        }
         function checkSpreadElementExpression(node, contextualMapper) {
             // It is usually not safe to call checkExpressionCached if we can be contextually typing.
             // You can tell that we are contextually typing because of the contextualMapper parameter.
@@ -23183,7 +23516,7 @@ var ts;
             var elements = node.elements;
             var hasSpreadElement = false;
             var elementTypes = [];
-            var inDestructuringPattern = isAssignmentTarget(node);
+            var inDestructuringPattern = ts.isAssignmentTarget(node);
             for (var _i = 0, elements_1 = elements; _i < elements_1.length; _i++) {
                 var e = elements_1[_i];
                 if (inDestructuringPattern && e.kind === 190 /* SpreadElementExpression */) {
@@ -23308,7 +23641,7 @@ var ts;
             return createIndexInfo(unionType, /*isReadonly*/ false);
         }
         function checkObjectLiteral(node, contextualMapper) {
-            var inDestructuringPattern = isAssignmentTarget(node);
+            var inDestructuringPattern = ts.isAssignmentTarget(node);
             // Grammar checking
             checkGrammarObjectLiteralExpression(node, inDestructuringPattern);
             var propertiesTable = {};
@@ -23891,8 +24224,14 @@ var ts;
         }
         function checkNonNullExpression(node) {
             var type = checkExpression(node);
-            if (strictNullChecks && getNullableKind(type)) {
-                error(node, ts.Diagnostics.Object_is_possibly_null_or_undefined);
+            if (strictNullChecks) {
+                var kind = getNullableKind(type);
+                if (kind) {
+                    error(node, kind & 32 /* Undefined */ ? kind & 64 /* Null */ ?
+                        ts.Diagnostics.Object_is_possibly_null_or_undefined :
+                        ts.Diagnostics.Object_is_possibly_undefined :
+                        ts.Diagnostics.Object_is_possibly_null);
+                }
                 return getNonNullableType(type);
             }
             return type;
@@ -23925,7 +24264,7 @@ var ts;
                 checkClassPropertyAccess(node, left, apparentType, prop);
             }
             var propType = getTypeOfSymbol(prop);
-            return node.kind === 171 /* PropertyAccessExpression */ && prop.flags & 4 /* Property */ ?
+            return node.kind === 171 /* PropertyAccessExpression */ && prop.flags & (3 /* Variable */ | 4 /* Property */) && !ts.isAssignmentTarget(node) ?
                 getNarrowedTypeOfReference(propType, node) : propType;
         }
         function isValidPropertyAccess(node, propertyName) {
@@ -24165,13 +24504,13 @@ var ts;
             for (var _i = 0, signatures_2 = signatures; _i < signatures_2.length; _i++) {
                 var signature = signatures_2[_i];
                 var symbol = signature.declaration && getSymbolOfNode(signature.declaration);
-                var parent_7 = signature.declaration && signature.declaration.parent;
+                var parent_8 = signature.declaration && signature.declaration.parent;
                 if (!lastSymbol || symbol === lastSymbol) {
-                    if (lastParent && parent_7 === lastParent) {
+                    if (lastParent && parent_8 === lastParent) {
                         index++;
                     }
                     else {
-                        lastParent = parent_7;
+                        lastParent = parent_8;
                         index = cutoffIndex;
                     }
                 }
@@ -24179,7 +24518,7 @@ var ts;
                     // current declaration belongs to a different symbol
                     // set cutoffIndex so re-orderings in the future won't change result set from 0 to cutoffIndex
                     index = cutoffIndex = result.length;
-                    lastParent = parent_7;
+                    lastParent = parent_8;
                 }
                 lastSymbol = symbol;
                 // specialized signatures always need to be placed before non-specialized signatures regardless
@@ -25122,6 +25461,19 @@ var ts;
             }
             return resolveCall(node, callSignatures, candidatesOutArray, headMessage);
         }
+        function resolveSignature(node, candidatesOutArray) {
+            switch (node.kind) {
+                case 173 /* CallExpression */:
+                    return resolveCallExpression(node, candidatesOutArray);
+                case 174 /* NewExpression */:
+                    return resolveNewExpression(node, candidatesOutArray);
+                case 175 /* TaggedTemplateExpression */:
+                    return resolveTaggedTemplateExpression(node, candidatesOutArray);
+                case 142 /* Decorator */:
+                    return resolveDecorator(node, candidatesOutArray);
+            }
+            ts.Debug.fail("Branch in 'resolveSignature' should be unreachable.");
+        }
         // candidatesOutArray is passed by signature help in the language service, and collectCandidates
         // must fill it up with the appropriate candidate signatures
         function getResolvedSignature(node, candidatesOutArray) {
@@ -25130,25 +25482,22 @@ var ts;
             // However, it is possible that either candidatesOutArray was not passed in the first time,
             // or that a different candidatesOutArray was passed in. Therefore, we need to redo the work
             // to correctly fill the candidatesOutArray.
-            if (!links.resolvedSignature || candidatesOutArray) {
-                links.resolvedSignature = anySignature;
-                if (node.kind === 173 /* CallExpression */) {
-                    links.resolvedSignature = resolveCallExpression(node, candidatesOutArray);
-                }
-                else if (node.kind === 174 /* NewExpression */) {
-                    links.resolvedSignature = resolveNewExpression(node, candidatesOutArray);
-                }
-                else if (node.kind === 175 /* TaggedTemplateExpression */) {
-                    links.resolvedSignature = resolveTaggedTemplateExpression(node, candidatesOutArray);
-                }
-                else if (node.kind === 142 /* Decorator */) {
-                    links.resolvedSignature = resolveDecorator(node, candidatesOutArray);
-                }
-                else {
-                    ts.Debug.fail("Branch in 'getResolvedSignature' should be unreachable.");
-                }
+            var cached = links.resolvedSignature;
+            if (cached && cached !== anySignature && !candidatesOutArray) {
+                return cached;
             }
-            return links.resolvedSignature;
+            links.resolvedSignature = anySignature;
+            var result = resolveSignature(node, candidatesOutArray);
+            // If signature resolution originated in control flow type analysis (for example to compute the
+            // assigned type in a flow assignment) we don't cache the result as it may be based on temporary
+            // types from the control flow analysis.
+            links.resolvedSignature = flowStackStart === flowStackCount ? result : cached;
+            return result;
+        }
+        function getResolvedOrAnySignature(node) {
+            // If we're already in the process of resolving the given signature, don't resolve again as
+            // that could cause infinite recursion. Instead, return anySignature.
+            return getNodeLinks(node).resolvedSignature === anySignature ? anySignature : getResolvedSignature(node);
         }
         function getInferredClassType(symbol) {
             var links = getSymbolLinks(symbol);
@@ -26182,7 +26531,13 @@ var ts;
         function checkExpressionCached(node, contextualMapper) {
             var links = getNodeLinks(node);
             if (!links.resolvedType) {
+                // When computing a type that we're going to cache, we need to ignore any ongoing control flow
+                // analysis because variables may have transient types in indeterminable states. Moving flowStackStart
+                // to the top of the stack ensures all transient types are computed from a known point.
+                var saveFlowStackStart = flowStackStart;
+                flowStackStart = flowStackCount;
                 links.resolvedType = checkExpression(node, contextualMapper);
+                flowStackStart = saveFlowStackStart;
             }
             return links.resolvedType;
         }
@@ -26456,9 +26811,9 @@ var ts;
                 case 155 /* FunctionType */:
                 case 146 /* MethodDeclaration */:
                 case 145 /* MethodSignature */:
-                    var parent_8 = node.parent;
-                    if (node === parent_8.type) {
-                        return parent_8;
+                    var parent_9 = node.parent;
+                    if (node === parent_9.type) {
+                        return parent_9;
                     }
             }
         }
@@ -27746,12 +28101,12 @@ var ts;
                     checkComputedPropertyName(node.propertyName);
                 }
                 // check private/protected variable access
-                var parent_9 = node.parent.parent;
-                var parentType = getTypeForBindingElementParent(parent_9);
+                var parent_10 = node.parent.parent;
+                var parentType = getTypeForBindingElementParent(parent_10);
                 var name_17 = node.propertyName || node.name;
                 var property = getPropertyOfType(parentType, getTextOfPropertyName(name_17));
-                if (parent_9.initializer && property && getParentOfSymbol(property)) {
-                    checkClassPropertyAccess(parent_9, parent_9.initializer, parentType, property);
+                if (parent_10.initializer && property && getParentOfSymbol(property)) {
+                    checkClassPropertyAccess(parent_10, parent_10.initializer, parentType, property);
                 }
             }
             // For a binding pattern, check contained binding elements
@@ -27983,7 +28338,9 @@ var ts;
                     return indexType;
                 }
             }
-            error(errorNode, ts.Diagnostics.Type_0_is_not_an_array_type, typeToString(inputType));
+            if (errorNode) {
+                error(errorNode, ts.Diagnostics.Type_0_is_not_an_array_type, typeToString(inputType));
+            }
             return unknownType;
         }
         /**
@@ -28148,7 +28505,7 @@ var ts;
                 }
                 // Now that we've removed all the StringLike types, if no constituents remain, then the entire
                 // arrayOrStringType was a string.
-                if (arrayType === emptyObjectType) {
+                if (arrayType === emptyUnionType) {
                     return stringType;
                 }
             }
@@ -30508,9 +30865,9 @@ var ts;
                 // external modules cannot define or contribute to type declaration files
                 var current = symbol;
                 while (true) {
-                    var parent_10 = getParentOfSymbol(current);
-                    if (parent_10) {
-                        current = parent_10;
+                    var parent_11 = getParentOfSymbol(current);
+                    if (parent_11) {
+                        current = parent_11;
                     }
                     else {
                         break;
@@ -35697,13 +36054,13 @@ var ts;
             }
             function isNameOfNestedBlockScopedRedeclarationOrCapturedBinding(node) {
                 if (languageVersion < 2 /* ES6 */) {
-                    var parent_11 = node.parent;
-                    switch (parent_11.kind) {
+                    var parent_12 = node.parent;
+                    switch (parent_12.kind) {
                         case 168 /* BindingElement */:
                         case 220 /* ClassDeclaration */:
                         case 223 /* EnumDeclaration */:
                         case 217 /* VariableDeclaration */:
-                            return parent_11.name === node && resolver.isDeclarationWithCollidingName(parent_11);
+                            return parent_12.name === node && resolver.isDeclarationWithCollidingName(parent_12);
                     }
                 }
                 return false;
@@ -44241,28 +44598,28 @@ var ts;
                 switch (n.kind) {
                     case 198 /* Block */:
                         if (!ts.isFunctionBlock(n)) {
-                            var parent_12 = n.parent;
+                            var parent_13 = n.parent;
                             var openBrace = ts.findChildOfKind(n, 15 /* OpenBraceToken */, sourceFile);
                             var closeBrace = ts.findChildOfKind(n, 16 /* CloseBraceToken */, sourceFile);
                             // Check if the block is standalone, or 'attached' to some parent statement.
                             // If the latter, we want to collapse the block, but consider its hint span
                             // to be the entire span of the parent.
-                            if (parent_12.kind === 203 /* DoStatement */ ||
-                                parent_12.kind === 206 /* ForInStatement */ ||
-                                parent_12.kind === 207 /* ForOfStatement */ ||
-                                parent_12.kind === 205 /* ForStatement */ ||
-                                parent_12.kind === 202 /* IfStatement */ ||
-                                parent_12.kind === 204 /* WhileStatement */ ||
-                                parent_12.kind === 211 /* WithStatement */ ||
-                                parent_12.kind === 251 /* CatchClause */) {
-                                addOutliningSpan(parent_12, openBrace, closeBrace, autoCollapse(n));
+                            if (parent_13.kind === 203 /* DoStatement */ ||
+                                parent_13.kind === 206 /* ForInStatement */ ||
+                                parent_13.kind === 207 /* ForOfStatement */ ||
+                                parent_13.kind === 205 /* ForStatement */ ||
+                                parent_13.kind === 202 /* IfStatement */ ||
+                                parent_13.kind === 204 /* WhileStatement */ ||
+                                parent_13.kind === 211 /* WithStatement */ ||
+                                parent_13.kind === 251 /* CatchClause */) {
+                                addOutliningSpan(parent_13, openBrace, closeBrace, autoCollapse(n));
                                 break;
                             }
-                            if (parent_12.kind === 215 /* TryStatement */) {
+                            if (parent_13.kind === 215 /* TryStatement */) {
                                 // Could be the try-block, or the finally-block.
-                                var tryStatement = parent_12;
+                                var tryStatement = parent_13;
                                 if (tryStatement.tryBlock === n) {
-                                    addOutliningSpan(parent_12, openBrace, closeBrace, autoCollapse(n));
+                                    addOutliningSpan(parent_13, openBrace, closeBrace, autoCollapse(n));
                                     break;
                                 }
                                 else if (tryStatement.finallyBlock === n) {
@@ -50942,9 +51299,9 @@ var ts;
                 return false;
             }
             // If the parent is not sourceFile or module block it is local variable
-            for (var parent_13 = declaration.parent; !ts.isFunctionBlock(parent_13); parent_13 = parent_13.parent) {
+            for (var parent_14 = declaration.parent; !ts.isFunctionBlock(parent_14); parent_14 = parent_14.parent) {
                 // Reached source file or module block
-                if (parent_13.kind === 255 /* SourceFile */ || parent_13.kind === 225 /* ModuleBlock */) {
+                if (parent_14.kind === 255 /* SourceFile */ || parent_14.kind === 225 /* ModuleBlock */) {
                     return false;
                 }
             }
@@ -52197,13 +52554,13 @@ var ts;
                     log("Returning an empty list because completion was requested in an invalid position.");
                     return undefined;
                 }
-                var parent_14 = contextToken.parent, kind = contextToken.kind;
+                var parent_15 = contextToken.parent, kind = contextToken.kind;
                 if (kind === 21 /* DotToken */) {
-                    if (parent_14.kind === 171 /* PropertyAccessExpression */) {
+                    if (parent_15.kind === 171 /* PropertyAccessExpression */) {
                         node = contextToken.parent.expression;
                         isRightOfDot = true;
                     }
-                    else if (parent_14.kind === 138 /* QualifiedName */) {
+                    else if (parent_15.kind === 138 /* QualifiedName */) {
                         node = contextToken.parent.left;
                         isRightOfDot = true;
                     }
@@ -52579,9 +52936,9 @@ var ts;
                     switch (contextToken.kind) {
                         case 15 /* OpenBraceToken */: // const x = { |
                         case 24 /* CommaToken */:
-                            var parent_15 = contextToken.parent;
-                            if (parent_15 && (parent_15.kind === 170 /* ObjectLiteralExpression */ || parent_15.kind === 166 /* ObjectBindingPattern */)) {
-                                return parent_15;
+                            var parent_16 = contextToken.parent;
+                            if (parent_16 && (parent_16.kind === 170 /* ObjectLiteralExpression */ || parent_16.kind === 166 /* ObjectBindingPattern */)) {
+                                return parent_16;
                             }
                             break;
                     }
@@ -52608,37 +52965,37 @@ var ts;
             }
             function tryGetContainingJsxElement(contextToken) {
                 if (contextToken) {
-                    var parent_16 = contextToken.parent;
+                    var parent_17 = contextToken.parent;
                     switch (contextToken.kind) {
                         case 26 /* LessThanSlashToken */:
                         case 39 /* SlashToken */:
                         case 69 /* Identifier */:
                         case 245 /* JsxAttribute */:
                         case 246 /* JsxSpreadAttribute */:
-                            if (parent_16 && (parent_16.kind === 241 /* JsxSelfClosingElement */ || parent_16.kind === 242 /* JsxOpeningElement */)) {
-                                return parent_16;
+                            if (parent_17 && (parent_17.kind === 241 /* JsxSelfClosingElement */ || parent_17.kind === 242 /* JsxOpeningElement */)) {
+                                return parent_17;
                             }
-                            else if (parent_16.kind === 245 /* JsxAttribute */) {
-                                return parent_16.parent;
+                            else if (parent_17.kind === 245 /* JsxAttribute */) {
+                                return parent_17.parent;
                             }
                             break;
                         // The context token is the closing } or " of an attribute, which means
                         // its parent is a JsxExpression, whose parent is a JsxAttribute,
                         // whose parent is a JsxOpeningLikeElement
                         case 9 /* StringLiteral */:
-                            if (parent_16 && ((parent_16.kind === 245 /* JsxAttribute */) || (parent_16.kind === 246 /* JsxSpreadAttribute */))) {
-                                return parent_16.parent;
+                            if (parent_17 && ((parent_17.kind === 245 /* JsxAttribute */) || (parent_17.kind === 246 /* JsxSpreadAttribute */))) {
+                                return parent_17.parent;
                             }
                             break;
                         case 16 /* CloseBraceToken */:
-                            if (parent_16 &&
-                                parent_16.kind === 247 /* JsxExpression */ &&
-                                parent_16.parent &&
-                                (parent_16.parent.kind === 245 /* JsxAttribute */)) {
-                                return parent_16.parent.parent;
+                            if (parent_17 &&
+                                parent_17.kind === 247 /* JsxExpression */ &&
+                                parent_17.parent &&
+                                (parent_17.parent.kind === 245 /* JsxAttribute */)) {
+                                return parent_17.parent.parent;
                             }
-                            if (parent_16 && parent_16.kind === 246 /* JsxSpreadAttribute */) {
-                                return parent_16.parent;
+                            if (parent_17 && parent_17.kind === 246 /* JsxSpreadAttribute */) {
+                                return parent_17.parent;
                             }
                             break;
                     }
@@ -53890,19 +54247,19 @@ var ts;
                 function getThrowStatementOwner(throwStatement) {
                     var child = throwStatement;
                     while (child.parent) {
-                        var parent_17 = child.parent;
-                        if (ts.isFunctionBlock(parent_17) || parent_17.kind === 255 /* SourceFile */) {
-                            return parent_17;
+                        var parent_18 = child.parent;
+                        if (ts.isFunctionBlock(parent_18) || parent_18.kind === 255 /* SourceFile */) {
+                            return parent_18;
                         }
                         // A throw-statement is only owned by a try-statement if the try-statement has
                         // a catch clause, and if the throw-statement occurs within the try block.
-                        if (parent_17.kind === 215 /* TryStatement */) {
-                            var tryStatement = parent_17;
+                        if (parent_18.kind === 215 /* TryStatement */) {
+                            var tryStatement = parent_18;
                             if (tryStatement.tryBlock === child && tryStatement.catchClause) {
                                 return child;
                             }
                         }
-                        child = parent_17;
+                        child = parent_18;
                     }
                     return undefined;
                 }
@@ -53924,8 +54281,8 @@ var ts;
                     return actualOwner && actualOwner === owner;
                 }
                 function getBreakOrContinueOwner(statement) {
-                    for (var node_2 = statement.parent; node_2; node_2 = node_2.parent) {
-                        switch (node_2.kind) {
+                    for (var node_1 = statement.parent; node_1; node_1 = node_1.parent) {
+                        switch (node_1.kind) {
                             case 212 /* SwitchStatement */:
                                 if (statement.kind === 208 /* ContinueStatement */) {
                                     continue;
@@ -53936,13 +54293,13 @@ var ts;
                             case 207 /* ForOfStatement */:
                             case 204 /* WhileStatement */:
                             case 203 /* DoStatement */:
-                                if (!statement.label || isLabeledBy(node_2, statement.label.text)) {
-                                    return node_2;
+                                if (!statement.label || isLabeledBy(node_1, statement.label.text)) {
+                                    return node_1;
                                 }
                                 break;
                             default:
                                 // Don't cross function boundaries.
-                                if (ts.isFunctionLike(node_2)) {
+                                if (ts.isFunctionLike(node_1)) {
                                     return undefined;
                                 }
                                 break;
