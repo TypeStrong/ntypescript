@@ -1048,8 +1048,9 @@ declare namespace ts {
         Unreachable = 0,
         Start = 1,
         Label = 2,
-        Assignment = 3,
-        Condition = 4,
+        LoopLabel = 3,
+        Assignment = 4,
+        Condition = 5,
     }
     interface FlowNode {
         kind: FlowKind;
@@ -1787,13 +1788,13 @@ declare namespace ts {
         typesRoot?: string;
         types?: string[];
         list?: string[];
-        [option: string]: CompilerOptionsValue;
+        [option: string]: CompilerOptionsValue | undefined;
     }
     interface TypingOptions {
         enableAutoDiscovery?: boolean;
         include?: string[];
         exclude?: string[];
-        [option: string]: string[] | boolean;
+        [option: string]: string[] | boolean | undefined;
     }
     interface DiscoverTypingsInfo {
         fileNames: string[];
@@ -2206,6 +2207,11 @@ declare namespace ts {
 declare namespace ts {
     type FileWatcherCallback = (fileName: string, removed?: boolean) => void;
     type DirectoryWatcherCallback = (directoryName: string) => void;
+    interface WatchedFile {
+        fileName: string;
+        callback: FileWatcherCallback;
+        mtime?: Date;
+    }
     interface System {
         args: string[];
         newLine: string;
@@ -7837,7 +7843,7 @@ declare namespace ts {
         getScriptFileNames(): string[];
         getScriptKind?(fileName: string): ScriptKind;
         getScriptVersion(fileName: string): string;
-        getScriptSnapshot(fileName: string): IScriptSnapshot;
+        getScriptSnapshot(fileName: string): IScriptSnapshot | undefined;
         getLocalizedDiagnosticMessages?(): any;
         getCancellationToken?(): HostCancellationToken;
         getCurrentDirectory(): string;

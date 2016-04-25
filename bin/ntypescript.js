@@ -409,8 +409,9 @@ var ts;
         FlowKind[FlowKind["Unreachable"] = 0] = "Unreachable";
         FlowKind[FlowKind["Start"] = 1] = "Start";
         FlowKind[FlowKind["Label"] = 2] = "Label";
-        FlowKind[FlowKind["Assignment"] = 3] = "Assignment";
-        FlowKind[FlowKind["Condition"] = 4] = "Condition";
+        FlowKind[FlowKind["LoopLabel"] = 3] = "LoopLabel";
+        FlowKind[FlowKind["Assignment"] = 4] = "Assignment";
+        FlowKind[FlowKind["Condition"] = 5] = "Condition";
     })(ts.FlowKind || (ts.FlowKind = {}));
     var FlowKind = ts.FlowKind;
     var OperationCanceledException = (function () {
@@ -1885,77 +1886,7 @@ var ts;
             var _path = require("path");
             var _os = require("os");
             var _crypto = require("crypto");
-            // average async stat takes about 30 microseconds
-            // set chunk size to do 30 files in < 1 millisecond
-            function createPollingWatchedFileSet(interval, chunkSize) {
-                if (interval === void 0) { interval = 2500; }
-                if (chunkSize === void 0) { chunkSize = 30; }
-                var watchedFiles = [];
-                var nextFileToCheck = 0;
-                var watchTimer;
-                function getModifiedTime(fileName) {
-                    return _fs.statSync(fileName).mtime;
-                }
-                function poll(checkedIndex) {
-                    var watchedFile = watchedFiles[checkedIndex];
-                    if (!watchedFile) {
-                        return;
-                    }
-                    _fs.stat(watchedFile.fileName, function (err, stats) {
-                        if (err) {
-                            watchedFile.callback(watchedFile.fileName);
-                        }
-                        else if (watchedFile.mtime.getTime() !== stats.mtime.getTime()) {
-                            watchedFile.mtime = getModifiedTime(watchedFile.fileName);
-                            watchedFile.callback(watchedFile.fileName, watchedFile.mtime.getTime() === 0);
-                        }
-                    });
-                }
-                // this implementation uses polling and
-                // stat due to inconsistencies of fs.watch
-                // and efficiency of stat on modern filesystems
-                function startWatchTimer() {
-                    watchTimer = setInterval(function () {
-                        var count = 0;
-                        var nextToCheck = nextFileToCheck;
-                        var firstCheck = -1;
-                        while ((count < chunkSize) && (nextToCheck !== firstCheck)) {
-                            poll(nextToCheck);
-                            if (firstCheck < 0) {
-                                firstCheck = nextToCheck;
-                            }
-                            nextToCheck++;
-                            if (nextToCheck === watchedFiles.length) {
-                                nextToCheck = 0;
-                            }
-                            count++;
-                        }
-                        nextFileToCheck = nextToCheck;
-                    }, interval);
-                }
-                function addFile(fileName, callback) {
-                    var file = {
-                        fileName: fileName,
-                        callback: callback,
-                        mtime: getModifiedTime(fileName)
-                    };
-                    watchedFiles.push(file);
-                    if (watchedFiles.length === 1) {
-                        startWatchTimer();
-                    }
-                    return file;
-                }
-                function removeFile(file) {
-                    watchedFiles = ts.copyListRemovingItem(file, watchedFiles);
-                }
-                return {
-                    getModifiedTime: getModifiedTime,
-                    poll: poll,
-                    startWatchTimer: startWatchTimer,
-                    addFile: addFile,
-                    removeFile: removeFile
-                };
-            }
+            var useNonPollingWatchers = process.env["TSC_NONPOLLING_WATCHER"];
             function createWatchedFileSet() {
                 var dirWatchers = {};
                 // One file can have multiple watchers
@@ -2025,20 +1956,6 @@ var ts;
                     }
                 }
             }
-            // REVIEW: for now this implementation uses polling.
-            // The advantage of polling is that it works reliably
-            // on all os and with network mounted files.
-            // For 90 referenced files, the average time to detect
-            // changes is 2*msInterval (by default 5 seconds).
-            // The overhead of this is .04 percent (1/2500) with
-            // average pause of < 1 millisecond (and max
-            // pause less than 1.5 milliseconds); question is
-            // do we anticipate reference sets in the 100s and
-            // do we care about waiting 10-20 seconds to detect
-            // changes for large reference sets? If so, do we want
-            // to increase the chunk size or decrease the interval
-            // time dynamically to match the large reference set?
-            var pollingWatchedFileSet = createPollingWatchedFileSet();
             var watchedFileSet = createWatchedFileSet();
             function isNode4OrLater() {
                 return parseInt(process.version.charAt(1)) >= 4;
@@ -2126,7 +2043,7 @@ var ts;
                     var directories = [];
                     for (var _i = 0, files_2 = files; _i < files_2.length; _i++) {
                         var current = files_2[_i];
-                        // This is necessary because on some file system node fails to exclude 
+                        // This is necessary because on some file system node fails to exclude
                         // "." and "..". See https://github.com/nodejs/node/issues/4002
                         if (current === "." || current === "..") {
                             continue;
@@ -2160,15 +2077,24 @@ var ts;
                 readFile: readFile,
                 writeFile: writeFile,
                 watchFile: function (fileName, callback) {
-                    // Node 4.0 stabilized the `fs.watch` function on Windows which avoids polling
-                    // and is more efficient than `fs.watchFile` (ref: https://github.com/nodejs/node/pull/2649
-                    // and https://github.com/Microsoft/TypeScript/issues/4643), therefore
-                    // if the current node.js version is newer than 4, use `fs.watch` instead.
-                    var watchSet = isNode4OrLater() ? watchedFileSet : pollingWatchedFileSet;
-                    var watchedFile = watchSet.addFile(fileName, callback);
-                    return {
-                        close: function () { return watchSet.removeFile(watchedFile); }
-                    };
+                    if (useNonPollingWatchers) {
+                        var watchedFile_1 = watchedFileSet.addFile(fileName, callback);
+                        return {
+                            close: function () { return watchedFileSet.removeFile(watchedFile_1); }
+                        };
+                    }
+                    else {
+                        _fs.watchFile(fileName, { persistent: true, interval: 250 }, fileChanged);
+                        return {
+                            close: function () { return _fs.unwatchFile(fileName, fileChanged); }
+                        };
+                    }
+                    function fileChanged(curr, prev) {
+                        if (+curr.mtime <= +prev.mtime) {
+                            return;
+                        }
+                        callback(fileName);
+                    }
                 },
                 watchDirectory: function (directoryName, callback, recursive) {
                     // Node 4.0 `fs.watch` function supports the "recursive" option on both OSX and Windows
@@ -14020,6 +13946,12 @@ var ts;
                 antecedents: undefined
             };
         }
+        function createFlowLoopLabel() {
+            return {
+                kind: 3 /* LoopLabel */,
+                antecedents: undefined
+            };
+        }
         function addAntecedent(label, antecedent) {
             if (antecedent.kind !== 0 /* Unreachable */ && !ts.contains(label.antecedents, antecedent)) {
                 (label.antecedents || (label.antecedents = [])).push(antecedent);
@@ -14039,7 +13971,7 @@ var ts;
                 return antecedent;
             }
             return {
-                kind: 4 /* Condition */,
+                kind: 5 /* Condition */,
                 antecedent: antecedent,
                 expression: expression,
                 assumeTrue: assumeTrue
@@ -14047,7 +13979,7 @@ var ts;
         }
         function createFlowAssignment(antecedent, node) {
             return {
-                kind: 3 /* Assignment */,
+                kind: 4 /* Assignment */,
                 antecedent: antecedent,
                 node: node
             };
@@ -14120,7 +14052,7 @@ var ts;
             currentContinueTarget = saveContinueTarget;
         }
         function bindWhileStatement(node) {
-            var preWhileLabel = createFlowLabel();
+            var preWhileLabel = createFlowLoopLabel();
             var preBodyLabel = createFlowLabel();
             var postWhileLabel = createFlowLabel();
             addAntecedent(preWhileLabel, currentFlow);
@@ -14132,7 +14064,7 @@ var ts;
             currentFlow = finishFlowLabel(postWhileLabel);
         }
         function bindDoStatement(node) {
-            var preDoLabel = createFlowLabel();
+            var preDoLabel = createFlowLoopLabel();
             var preConditionLabel = createFlowLabel();
             var postDoLabel = createFlowLabel();
             addAntecedent(preDoLabel, currentFlow);
@@ -14144,7 +14076,7 @@ var ts;
             currentFlow = finishFlowLabel(postDoLabel);
         }
         function bindForStatement(node) {
-            var preLoopLabel = createFlowLabel();
+            var preLoopLabel = createFlowLoopLabel();
             var preBodyLabel = createFlowLabel();
             var postLoopLabel = createFlowLabel();
             bind(node.initializer);
@@ -14158,7 +14090,7 @@ var ts;
             currentFlow = finishFlowLabel(postLoopLabel);
         }
         function bindForInOrForOfStatement(node) {
-            var preLoopLabel = createFlowLabel();
+            var preLoopLabel = createFlowLoopLabel();
             var postLoopLabel = createFlowLabel();
             addAntecedent(preLoopLabel, currentFlow);
             currentFlow = preLoopLabel;
@@ -14295,7 +14227,7 @@ var ts;
             activeLabels.pop();
         }
         function bindLabeledStatement(node) {
-            var preStatementLabel = createFlowLabel();
+            var preStatementLabel = createFlowLoopLabel();
             var postStatementLabel = createFlowLabel();
             bind(node.label);
             addAntecedent(preStatementLabel, currentFlow);
@@ -22276,16 +22208,17 @@ var ts;
             function getTypeAtFlowNode(flow) {
                 while (true) {
                     switch (flow.kind) {
-                        case 3 /* Assignment */:
+                        case 4 /* Assignment */:
                             var type = getTypeAtFlowAssignment(flow);
                             if (!type) {
                                 flow = flow.antecedent;
                                 continue;
                             }
                             return type;
-                        case 4 /* Condition */:
+                        case 5 /* Condition */:
                             return getTypeAtFlowCondition(flow);
                         case 2 /* Label */:
+                        case 3 /* LoopLabel */:
                             if (flow.antecedents.length === 1) {
                                 flow = flow.antecedents[0];
                                 continue;
@@ -22331,7 +22264,8 @@ var ts;
                 return undefined;
             }
             function getTypeAtFlowCondition(flow) {
-                return narrowType(getTypeAtFlowNode(flow.antecedent), flow.expression, flow.assumeTrue);
+                var type = getTypeAtFlowNode(flow.antecedent);
+                return type && narrowType(type, flow.expression, flow.assumeTrue);
             }
             function getTypeAtFlowNodeCached(flow) {
                 var cache = getFlowTypeCache(flow);
@@ -22356,13 +22290,15 @@ var ts;
                 flowStackCount--;
                 // Record the result only if the cache is still empty. If checkExpressionCached was called
                 // during processing it is possible we've already recorded a result.
-                return cache[key] || (cache[key] = type);
+                return cache[key] || type && (cache[key] = type);
             }
             function getTypeAtFlowLabel(flow) {
                 var antecedentTypes = [];
                 for (var _i = 0, _a = flow.antecedents; _i < _a.length; _i++) {
                     var antecedent = _a[_i];
-                    var type = getTypeAtFlowNodeCached(antecedent);
+                    var type = flow.kind === 3 /* LoopLabel */ ?
+                        getTypeAtFlowNodeCached(antecedent) :
+                        getTypeAtFlowNode(antecedent);
                     if (type) {
                         // If the type at a particular antecedent path is the declared type and the
                         // reference is known to always be assigned (i.e. when declared and initial types
@@ -22376,7 +22312,7 @@ var ts;
                         }
                     }
                 }
-                return antecedentTypes.length === 0 ? declaredType :
+                return antecedentTypes.length === 0 ? undefined :
                     antecedentTypes.length === 1 ? antecedentTypes[0] :
                         getUnionType(antecedentTypes);
             }
