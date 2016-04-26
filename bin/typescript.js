@@ -22571,7 +22571,7 @@ var ts;
                 return type;
             }
             var declaration = localOrExportSymbol.valueDeclaration;
-            var defaultsToDeclaredType = !strictNullChecks || !declaration ||
+            var defaultsToDeclaredType = !strictNullChecks || type.flags & 1 /* Any */ || !declaration ||
                 declaration.kind === 141 /* Parameter */ || ts.isInAmbientContext(declaration) ||
                 ts.getContainingFunctionOrModule(declaration) !== ts.getContainingFunctionOrModule(node);
             if (defaultsToDeclaredType && !(type.flags & 97793 /* Narrowable */)) {
@@ -35860,6 +35860,7 @@ var ts;
                 switch (parent.kind) {
                     case 169 /* ArrayLiteralExpression */:
                     case 194 /* AsExpression */:
+                    case 183 /* AwaitExpression */:
                     case 186 /* BinaryExpression */:
                     case 173 /* CallExpression */:
                     case 248 /* CaseClause */:
