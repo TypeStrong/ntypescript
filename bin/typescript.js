@@ -14619,7 +14619,8 @@ var ts;
             if (inStrictMode &&
                 node.originalKeywordKind >= 106 /* FirstFutureReservedWord */ &&
                 node.originalKeywordKind <= 114 /* LastFutureReservedWord */ &&
-                !ts.isIdentifierName(node)) {
+                !ts.isIdentifierName(node) &&
+                !ts.isInAmbientContext(node)) {
                 // Report error only if there are no parse errors in file
                 if (!file.parseDiagnostics.length) {
                     file.bindDiagnostics.push(ts.createDiagnosticForNode(node, getStrictModeIdentifierMessage(node), ts.declarationNameToString(node)));
@@ -17067,7 +17068,12 @@ var ts;
                         writeUnionOrIntersectionType(type, flags);
                     }
                     else if (type.flags & 65536 /* Anonymous */) {
-                        writeAnonymousType(type, flags);
+                        if (type === emptyUnionType) {
+                            writer.writeKeyword("nothing");
+                        }
+                        else {
+                            writeAnonymousType(type, flags);
+                        }
                     }
                     else if (type.flags & 256 /* StringLiteral */) {
                         writer.writeStringLiteral("\"" + ts.escapeString(type.text) + "\"");
@@ -19148,7 +19154,9 @@ var ts;
                         propTypes.push(getTypeOfSymbol(prop));
                     }
                 }
-                return getUnionType(propTypes);
+                if (propTypes.length) {
+                    return getUnionType(propTypes);
+                }
             }
             return undefined;
         }
@@ -22003,11 +22011,6 @@ var ts;
             }
             return flowTypeCaches[flow.id] || (flowTypeCaches[flow.id] = {});
         }
-        function isNarrowableReference(expr) {
-            return expr.kind === 69 /* Identifier */ ||
-                expr.kind === 97 /* ThisKeyword */ ||
-                expr.kind === 171 /* PropertyAccessExpression */ && isNarrowableReference(expr.expression);
-        }
         function typeMaybeAssignableTo(source, target) {
             if (!(source.flags & 16384 /* Union */)) {
                 return isTypeAssignableTo(source, target);
@@ -22182,29 +22185,12 @@ var ts;
                 getInitialTypeOfVariableDeclaration(node) :
                 getInitialTypeOfBindingElement(node);
         }
-        function getNarrowedTypeOfReference(type, reference) {
-            if (!(type.flags & 97793 /* Narrowable */) || !isNarrowableReference(reference)) {
-                return type;
-            }
-            var leftmostNode = getLeftmostIdentifierOrThis(reference);
-            if (!leftmostNode) {
-                return type;
-            }
-            if (leftmostNode.kind === 69 /* Identifier */) {
-                var leftmostSymbol = getExportSymbolOfValueSymbolIfExported(getResolvedSymbol(leftmostNode));
-                if (!leftmostSymbol) {
-                    return type;
-                }
-                var declaration = leftmostSymbol.valueDeclaration;
-                if (!declaration || declaration.kind !== 217 /* VariableDeclaration */ && declaration.kind !== 141 /* Parameter */ && declaration.kind !== 168 /* BindingElement */) {
-                    return type;
-                }
-            }
-            return getFlowTypeOfReference(reference, type, type);
-        }
         function getFlowTypeOfReference(reference, declaredType, initialType) {
             var key;
-            return reference.flowNode ? getTypeAtFlowNode(reference.flowNode) : declaredType;
+            if (!reference.flowNode || declaredType === initialType && !(declaredType.flags & 97793 /* Narrowable */)) {
+                return declaredType;
+            }
+            return getTypeAtFlowNode(reference.flowNode);
             function getTypeAtFlowNode(flow) {
                 while (true) {
                     switch (flow.kind) {
@@ -22494,19 +22480,18 @@ var ts;
             }
         }
         function getTypeOfSymbolAtLocation(symbol, location) {
-            // The language service will always care about the narrowed type of a symbol, because that is
-            // the type the language says the symbol should have.
-            var type = getTypeOfSymbol(symbol);
+            // If we have an identifier or a property access at the given location, if the location is
+            // an dotted name expression, and if the location is not an assignment target, obtain the type
+            // of the expression (which will reflect control flow analysis). If the expression indeed
+            // resolved to the given symbol, return the narrowed type.
             if (location.kind === 69 /* Identifier */) {
                 if (ts.isRightSideOfQualifiedNameOrPropertyAccess(location)) {
                     location = location.parent;
                 }
-                // If location is an identifier or property access that references the given
-                // symbol, use the location as the reference with respect to which we narrow.
                 if (ts.isExpression(location) && !ts.isAssignmentTarget(location)) {
-                    checkExpression(location);
+                    var type = checkExpression(location);
                     if (getExportSymbolOfValueSymbolIfExported(getNodeLinks(location).resolvedSymbol) === symbol) {
-                        return getNarrowedTypeOfReference(type, location);
+                        return type;
                     }
                 }
             }
@@ -22515,7 +22500,7 @@ var ts;
             // to it at the given location. Since we have no control flow information for the
             // hypotherical reference (control flow information is created and attached by the
             // binder), we simply return the declared type of the symbol.
-            return type;
+            return getTypeOfSymbol(symbol);
         }
         function skipParenthesizedNodes(expression) {
             while (expression.kind === 177 /* ParenthesizedExpression */) {
@@ -22574,9 +22559,6 @@ var ts;
             var defaultsToDeclaredType = !strictNullChecks || type.flags & 1 /* Any */ || !declaration ||
                 declaration.kind === 141 /* Parameter */ || ts.isInAmbientContext(declaration) ||
                 ts.getContainingFunctionOrModule(declaration) !== ts.getContainingFunctionOrModule(node);
-            if (defaultsToDeclaredType && !(type.flags & 97793 /* Narrowable */)) {
-                return type;
-            }
             var flowType = getFlowTypeOfReference(node, type, defaultsToDeclaredType ? type : undefinedType);
             if (strictNullChecks && !(type.flags & 1 /* Any */) && !(getNullableKind(type) & 32 /* Undefined */) && getNullableKind(flowType) & 32 /* Undefined */) {
                 error(node, ts.Diagnostics.Variable_0_is_used_before_being_assigned, symbolToString(symbol));
@@ -22789,7 +22771,7 @@ var ts;
             if (ts.isClassLike(container.parent)) {
                 var symbol = getSymbolOfNode(container.parent);
                 var type = container.flags & 32 /* Static */ ? getTypeOfSymbol(symbol) : getDeclaredTypeOfSymbol(symbol).thisType;
-                return getNarrowedTypeOfReference(type, node);
+                return getFlowTypeOfReference(node, type, type);
             }
             if (ts.isInJavaScriptFile(node)) {
                 var type = getTypeForThisExpressionFromJSDoc(container);
@@ -24200,8 +24182,24 @@ var ts;
                 checkClassPropertyAccess(node, left, apparentType, prop);
             }
             var propType = getTypeOfSymbol(prop);
-            return node.kind === 171 /* PropertyAccessExpression */ && prop.flags & (3 /* Variable */ | 4 /* Property */) && !ts.isAssignmentTarget(node) ?
-                getNarrowedTypeOfReference(propType, node) : propType;
+            if (node.kind !== 171 /* PropertyAccessExpression */ || !(prop.flags & (3 /* Variable */ | 4 /* Property */)) || ts.isAssignmentTarget(node)) {
+                return propType;
+            }
+            var leftmostNode = getLeftmostIdentifierOrThis(node);
+            if (!leftmostNode) {
+                return propType;
+            }
+            if (leftmostNode.kind === 69 /* Identifier */) {
+                var leftmostSymbol = getExportSymbolOfValueSymbolIfExported(getResolvedSymbol(leftmostNode));
+                if (!leftmostSymbol) {
+                    return propType;
+                }
+                var declaration = leftmostSymbol.valueDeclaration;
+                if (!declaration || declaration.kind !== 217 /* VariableDeclaration */ && declaration.kind !== 141 /* Parameter */ && declaration.kind !== 168 /* BindingElement */) {
+                    return propType;
+                }
+            }
+            return getFlowTypeOfReference(node, propType, propType);
         }
         function isValidPropertyAccess(node, propertyName) {
             var left = node.kind === 171 /* PropertyAccessExpression */
@@ -44086,9 +44084,20 @@ var ts;
                 ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                 return;
             }
-            if (ts.isWatchSet(configParseResult.options) && !ts.sys.watchFile) {
-                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* compilerHost */ undefined);
-                ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
+            if (ts.isWatchSet(configParseResult.options)) {
+                if (!ts.sys.watchFile) {
+                    reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* compilerHost */ undefined);
+                    ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
+                }
+                if (!directoryWatcher && ts.sys.watchDirectory && configFileName) {
+                    var directory = ts.getDirectoryPath(configFileName);
+                    directoryWatcher = ts.sys.watchDirectory(
+                    // When the configFileName is just "tsconfig.json", the watched directory should be
+                    // the current directory; if there is a given "project" parameter, then the configFileName
+                    // is an absolute file name.
+                    directory == "" ? "." : directory, watchedDirectoryChanged, /*recursive*/ true);
+                }
+                ;
             }
             return configParseResult;
         }
