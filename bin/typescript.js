@@ -20295,6 +20295,9 @@ var ts;
             var isNullaryArrow = node.kind === 179 /* ArrowFunction */ && !node.parameters.length;
             return !node.typeParameters && areAllParametersUntyped && !isNullaryArrow;
         }
+        function isContextSensitiveFunctionOrObjectLiteralMethod(func) {
+            return (isFunctionExpressionOrArrowFunction(func) || ts.isObjectLiteralMethod(func)) && isContextSensitiveFunctionLikeDeclaration(func);
+        }
         function getTypeWithoutSignatures(type) {
             if (type.flags & 80896 /* ObjectType */) {
                 var resolved = resolveStructuredTypeMembers(type);
@@ -22557,7 +22560,7 @@ var ts;
             }
             var declaration = localOrExportSymbol.valueDeclaration;
             var defaultsToDeclaredType = !strictNullChecks || type.flags & 1 /* Any */ || !declaration ||
-                declaration.kind === 141 /* Parameter */ || ts.isInAmbientContext(declaration) ||
+                ts.getRootDeclaration(declaration).kind === 141 /* Parameter */ || ts.isInAmbientContext(declaration) ||
                 ts.getContainingFunctionOrModule(declaration) !== ts.getContainingFunctionOrModule(node);
             var flowType = getFlowTypeOfReference(node, type, defaultsToDeclaredType ? type : undefinedType);
             if (strictNullChecks && !(type.flags & 1 /* Any */) && !(getNullableKind(type) & 32 /* Undefined */) && getNullableKind(flowType) & 32 /* Undefined */) {
@@ -22751,6 +22754,21 @@ var ts;
                 captureLexicalThis(node, container);
             }
             if (ts.isFunctionLike(container)) {
+                // If this is a function in a JS file, it might be a class method. Check if it's the RHS
+                // of a x.prototype.y = function [name]() { .... }
+                if (container.kind === 178 /* FunctionExpression */ &&
+                    ts.isInJavaScriptFile(container.parent) &&
+                    ts.getSpecialPropertyAssignmentKind(container.parent) === 3 /* PrototypeProperty */) {
+                    // Get the 'x' of 'x.prototype.y = f' (here, 'f' is 'container')
+                    var className = container.parent // x.prototype.y = f
+                        .left // x.prototype.y
+                        .expression // x.prototype
+                        .expression; // x
+                    var classSymbol = checkExpression(className).symbol;
+                    if (classSymbol && classSymbol.members && (classSymbol.flags & 16 /* Function */)) {
+                        return getInferredClassType(classSymbol);
+                    }
+                }
                 var type = getContextuallyTypedThisType(container);
                 if (type) {
                     return type;
@@ -22759,10 +22777,11 @@ var ts;
                 if (signature.thisType) {
                     return signature.thisType;
                 }
-                if (container.parent && container.parent.kind === 170 /* ObjectLiteralExpression */) {
+                var parentObject = container.parent && container.parent.kind === 252 /* PropertyAssignment */ ? container.parent.parent : container.parent;
+                if (parentObject && parentObject.kind === 170 /* ObjectLiteralExpression */) {
                     // Note: this works because object literal methods are deferred,
                     // which means that the type of the containing object literal is already known.
-                    var type_1 = checkExpressionCached(container.parent);
+                    var type_1 = checkExpressionCached(parentObject);
                     if (type_1) {
                         return type_1;
                     }
@@ -22777,21 +22796,6 @@ var ts;
                 var type = getTypeForThisExpressionFromJSDoc(container);
                 if (type && type !== unknownType) {
                     return type;
-                }
-                // If this is a function in a JS file, it might be a class method. Check if it's the RHS
-                // of a x.prototype.y = function [name]() { .... }
-                if (container.kind === 178 /* FunctionExpression */) {
-                    if (ts.getSpecialPropertyAssignmentKind(container.parent) === 3 /* PrototypeProperty */) {
-                        // Get the 'x' of 'x.prototype.y = f' (here, 'f' is 'container')
-                        var className = container.parent // x.prototype.y = f
-                            .left // x.prototype.y
-                            .expression // x.prototype
-                            .expression; // x
-                        var classSymbol = checkExpression(className).symbol;
-                        if (classSymbol && classSymbol.members && (classSymbol.flags & 16 /* Function */)) {
-                            return getInferredClassType(classSymbol);
-                        }
-                    }
                 }
             }
             if (compilerOptions.noImplicitThis) {
@@ -22996,12 +23000,13 @@ var ts;
             }
         }
         function getContextuallyTypedThisType(func) {
-            if ((isFunctionExpressionOrArrowFunction(func) || ts.isObjectLiteralMethod(func)) &&
-                isContextSensitive(func) &&
-                func.kind !== 179 /* ArrowFunction */) {
+            if (isContextSensitiveFunctionOrObjectLiteralMethod(func) && func.kind !== 179 /* ArrowFunction */) {
                 var contextualSignature = getContextualSignature(func);
                 if (contextualSignature) {
-                    return contextualSignature.thisType;
+                    return contextualSignature.thisType || anyType;
+                }
+                else if (getContextualTypeForFunctionLikeDeclaration(func) === anyType) {
+                    return anyType;
                 }
             }
             return undefined;
@@ -23009,31 +23014,29 @@ var ts;
         // Return contextual type of parameter or undefined if no contextual type is available
         function getContextuallyTypedParameterType(parameter) {
             var func = parameter.parent;
-            if (isFunctionExpressionOrArrowFunction(func) || ts.isObjectLiteralMethod(func)) {
-                if (isContextSensitive(func)) {
-                    var contextualSignature = getContextualSignature(func);
-                    if (contextualSignature) {
-                        var funcHasRestParameters = ts.hasRestParameter(func);
-                        var len = func.parameters.length - (funcHasRestParameters ? 1 : 0);
-                        var indexOfParameter = ts.indexOf(func.parameters, parameter);
-                        if (indexOfParameter < len) {
-                            return getTypeAtPosition(contextualSignature, indexOfParameter);
-                        }
-                        // If last parameter is contextually rest parameter get its type
-                        if (funcHasRestParameters &&
-                            indexOfParameter === (func.parameters.length - 1) &&
-                            isRestParameterIndex(contextualSignature, func.parameters.length - 1)) {
-                            return getTypeOfSymbol(ts.lastOrUndefined(contextualSignature.parameters));
-                        }
+            if (isContextSensitiveFunctionOrObjectLiteralMethod(func)) {
+                var contextualSignature = getContextualSignature(func);
+                if (contextualSignature) {
+                    var funcHasRestParameters = ts.hasRestParameter(func);
+                    var len = func.parameters.length - (funcHasRestParameters ? 1 : 0);
+                    var indexOfParameter = ts.indexOf(func.parameters, parameter);
+                    if (indexOfParameter < len) {
+                        return getTypeAtPosition(contextualSignature, indexOfParameter);
+                    }
+                    // If last parameter is contextually rest parameter get its type
+                    if (funcHasRestParameters &&
+                        indexOfParameter === (func.parameters.length - 1) &&
+                        isRestParameterIndex(contextualSignature, func.parameters.length - 1)) {
+                        return getTypeOfSymbol(ts.lastOrUndefined(contextualSignature.parameters));
                     }
                 }
             }
             return undefined;
         }
         // In a variable, parameter or property declaration with a type annotation,
-        //   the contextual type of an initializer expression is the type of the variable, parameter or property. 
-        // Otherwise, in a parameter declaration of a contextually typed function expression, 
-        //   the contextual type of an initializer expression is the contextual type of the parameter. 
+        //   the contextual type of an initializer expression is the type of the variable, parameter or property.
+        // Otherwise, in a parameter declaration of a contextually typed function expression,
+        //   the contextual type of an initializer expression is the contextual type of the parameter.
         // Otherwise, in a variable or parameter declaration with a binding pattern name,
         //   the contextual type of an initializer expression is the type implied by the binding pattern.
         // Otherwise, in a binding pattern inside a variable or parameter declaration,
@@ -23352,6 +23355,11 @@ var ts;
                 ? getContextualSignature(node)
                 : undefined;
         }
+        function getContextualTypeForFunctionLikeDeclaration(node) {
+            return ts.isObjectLiteralMethod(node)
+                ? getContextualTypeForObjectLiteralMethod(node)
+                : getApparentTypeOfContextualType(node);
+        }
         // Return the contextual signature for a given expression node. A contextual type provides a
         // contextual signature if it has a single call signature and if that call signature is non-generic.
         // If the contextual type is a union type, get the signature from each type possible and if they are
@@ -23359,9 +23367,7 @@ var ts;
         // union type of return types from these signatures
         function getContextualSignature(node) {
             ts.Debug.assert(node.kind !== 146 /* MethodDeclaration */ || ts.isObjectLiteralMethod(node));
-            var type = ts.isObjectLiteralMethod(node)
-                ? getContextualTypeForObjectLiteralMethod(node)
-                : getApparentTypeOfContextualType(node);
+            var type = getContextualTypeForFunctionLikeDeclaration(node);
             if (!type) {
                 return undefined;
             }
