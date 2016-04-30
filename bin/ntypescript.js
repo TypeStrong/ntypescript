@@ -21982,27 +21982,28 @@ var ts;
             return false;
         }
         function containsMatchingReference(source, target) {
-            while (true) {
+            while (source.kind === 171 /* PropertyAccessExpression */) {
+                source = source.expression;
                 if (isMatchingReference(source, target)) {
                     return true;
                 }
-                if (source.kind !== 171 /* PropertyAccessExpression */) {
-                    return false;
-                }
-                source = source.expression;
             }
+            return false;
         }
-        function hasMatchingArgument(callExpression, target) {
+        function isOrContainsMatchingReference(source, target) {
+            return isMatchingReference(source, target) || containsMatchingReference(source, target);
+        }
+        function hasMatchingArgument(callExpression, reference) {
             if (callExpression.arguments) {
                 for (var _i = 0, _a = callExpression.arguments; _i < _a.length; _i++) {
                     var argument = _a[_i];
-                    if (isMatchingReference(argument, target)) {
+                    if (isOrContainsMatchingReference(reference, argument)) {
                         return true;
                     }
                 }
             }
             if (callExpression.expression.kind === 171 /* PropertyAccessExpression */ &&
-                isMatchingReference(callExpression.expression.expression, target)) {
+                isOrContainsMatchingReference(reference, callExpression.expression.expression)) {
                 return true;
             }
             return false;
@@ -22245,8 +22246,7 @@ var ts;
                 // may be an assignment to a left hand part of the reference. For example, for a
                 // reference 'x.y.z', we may be at an assignment to 'x.y' or 'x'. In that case,
                 // return the declared type.
-                if (reference.kind === 171 /* PropertyAccessExpression */ &&
-                    containsMatchingReference(reference.expression, node)) {
+                if (containsMatchingReference(reference, node)) {
                     return declaredType;
                 }
                 // Assignment doesn't affect reference
@@ -22306,7 +22306,7 @@ var ts;
                         getUnionType(antecedentTypes);
             }
             function narrowTypeByTruthiness(type, expr, assumeTrue) {
-                return isMatchingReference(expr, reference) ? getTypeWithFacts(type, assumeTrue ? 1048576 /* Truthy */ : 2097152 /* Falsy */) : type;
+                return isMatchingReference(reference, expr) ? getTypeWithFacts(type, assumeTrue ? 1048576 /* Truthy */ : 2097152 /* Falsy */) : type;
             }
             function narrowTypeByBinaryExpression(type, expr, assumeTrue) {
                 switch (expr.operatorToken.kind) {
@@ -22336,7 +22336,7 @@ var ts;
                 if (operator === 31 /* ExclamationEqualsToken */ || operator === 33 /* ExclamationEqualsEqualsToken */) {
                     assumeTrue = !assumeTrue;
                 }
-                if (!strictNullChecks || !isMatchingReference(expr.left, reference)) {
+                if (!strictNullChecks || !isMatchingReference(reference, expr.left)) {
                     return type;
                 }
                 var doubleEquals = operator === 30 /* EqualsEqualsToken */ || operator === 31 /* ExclamationEqualsToken */;
@@ -22352,7 +22352,12 @@ var ts;
                 // and string literal on the right
                 var left = expr.left;
                 var right = expr.right;
-                if (!isMatchingReference(left.expression, reference)) {
+                if (!isMatchingReference(reference, left.expression)) {
+                    // For a reference of the form 'x.y', a 'typeof x === ...' type guard resets the
+                    // narrowed type of 'y' to its declared type.
+                    if (containsMatchingReference(reference, left.expression)) {
+                        return declaredType;
+                    }
                     return type;
                 }
                 if (expr.operatorToken.kind === 31 /* ExclamationEqualsToken */ ||
@@ -22374,8 +22379,16 @@ var ts;
                 return getTypeWithFacts(type, facts);
             }
             function narrowTypeByInstanceof(type, expr, assumeTrue) {
-                // Check that type is not any, assumed result is true, and we have variable symbol on the left
-                if (isTypeAny(type) || !isMatchingReference(expr.left, reference)) {
+                if (!isMatchingReference(reference, expr.left)) {
+                    // For a reference of the form 'x.y', an 'x instanceof T' type guard resets the
+                    // narrowed type of 'y' to its declared type.
+                    if (containsMatchingReference(reference, expr.left)) {
+                        return declaredType;
+                    }
+                    return type;
+                }
+                // We never narrow type any in an instanceof guard
+                if (isTypeAny(type)) {
                     return type;
                 }
                 // Check that right operand is a function type with a prototype property
@@ -22443,8 +22456,13 @@ var ts;
                 }
                 if (ts.isIdentifierTypePredicate(predicate)) {
                     var predicateArgument = callExpression.arguments[predicate.parameterIndex];
-                    if (predicateArgument && isMatchingReference(predicateArgument, reference)) {
-                        return getNarrowedType(type, predicate.type, assumeTrue);
+                    if (predicateArgument) {
+                        if (isMatchingReference(reference, predicateArgument)) {
+                            return getNarrowedType(type, predicate.type, assumeTrue);
+                        }
+                        if (containsMatchingReference(reference, predicateArgument)) {
+                            return declaredType;
+                        }
                     }
                 }
                 else {
@@ -22452,8 +22470,11 @@ var ts;
                     if (invokedExpression.kind === 172 /* ElementAccessExpression */ || invokedExpression.kind === 171 /* PropertyAccessExpression */) {
                         var accessExpression = invokedExpression;
                         var possibleReference = skipParenthesizedNodes(accessExpression.expression);
-                        if (isMatchingReference(possibleReference, reference)) {
+                        if (isMatchingReference(reference, possibleReference)) {
                             return getNarrowedType(type, predicate.type, assumeTrue);
+                        }
+                        if (containsMatchingReference(reference, possibleReference)) {
+                            return declaredType;
                         }
                     }
                 }
@@ -22777,15 +22798,6 @@ var ts;
                 if (signature.thisType) {
                     return signature.thisType;
                 }
-                var parentObject = container.parent && container.parent.kind === 252 /* PropertyAssignment */ ? container.parent.parent : container.parent;
-                if (parentObject && parentObject.kind === 170 /* ObjectLiteralExpression */) {
-                    // Note: this works because object literal methods are deferred,
-                    // which means that the type of the containing object literal is already known.
-                    var type_1 = checkExpressionCached(parentObject);
-                    if (type_1) {
-                        return type_1;
-                    }
-                }
             }
             if (ts.isClassLike(container.parent)) {
                 var symbol = getSymbolOfNode(container.parent);
@@ -23003,10 +23015,7 @@ var ts;
             if (isContextSensitiveFunctionOrObjectLiteralMethod(func) && func.kind !== 179 /* ArrowFunction */) {
                 var contextualSignature = getContextualSignature(func);
                 if (contextualSignature) {
-                    return contextualSignature.thisType || anyType;
-                }
-                else if (getContextualTypeForFunctionLikeDeclaration(func) === anyType) {
-                    return anyType;
+                    return contextualSignature.thisType;
                 }
             }
             return undefined;
@@ -45406,9 +45415,6 @@ var ts;
                     else if (fnExpr.parent.kind === 186 /* BinaryExpression */ &&
                         fnExpr.parent.operatorToken.kind === 56 /* EqualsToken */) {
                         fnName = fnExpr.parent.left.getText();
-                        if (fnName.length > 20) {
-                            fnName = fnName.substring(0, 17) + "...";
-                        }
                     }
                     else if (fnExpr.parent.kind === 252 /* PropertyAssignment */ &&
                         fnExpr.parent.name) {
