@@ -34296,7 +34296,7 @@ var ts;
         if (!emitSkipped) {
             var declarationOutput = emitDeclarationResult.referencesOutput
                 + getDeclarationOutput(emitDeclarationResult.synchronousDeclarationOutput, emitDeclarationResult.moduleElementDeclarationEmitInfo);
-            ts.writeFile(host, emitterDiagnostics, declarationFilePath, declarationOutput, host.getCompilerOptions().emitBOM);
+            ts.writeFile(host, emitterDiagnostics, declarationFilePath, declarationOutput, host.getCompilerOptions().emitBOM, sourceFiles);
         }
         return emitSkipped;
         function getDeclarationOutput(synchronousDeclarationOutput, moduleElementDeclarationEmitInfo) {
