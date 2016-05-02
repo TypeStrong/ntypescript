@@ -15788,18 +15788,26 @@ var ts;
             return isUsedInFunctionOrNonStaticProperty(declaration, usage);
             function isImmediatelyUsedInInitializerOfBlockScopedVariable(declaration, usage) {
                 var container = ts.getEnclosingBlockScopeContainer(declaration);
-                if (declaration.parent.parent.kind === 199 /* VariableStatement */ ||
-                    declaration.parent.parent.kind === 205 /* ForStatement */) {
-                    // variable statement/for statement case,
-                    // use site should not be inside variable declaration (initializer of declaration or binding element)
-                    return isSameScopeDescendentOf(usage, declaration, container);
+                switch (declaration.parent.parent.kind) {
+                    case 199 /* VariableStatement */:
+                    case 205 /* ForStatement */:
+                    case 207 /* ForOfStatement */:
+                        // variable statement/for/for-of statement case,
+                        // use site should not be inside variable declaration (initializer of declaration or binding element)
+                        if (isSameScopeDescendentOf(usage, declaration, container)) {
+                            return true;
+                        }
+                        break;
                 }
-                else if (declaration.parent.parent.kind === 207 /* ForOfStatement */ ||
-                    declaration.parent.parent.kind === 206 /* ForInStatement */) {
-                    // ForIn/ForOf case - use site should not be used in expression part
-                    var expression = declaration.parent.parent.expression;
-                    return isSameScopeDescendentOf(usage, expression, container);
+                switch (declaration.parent.parent.kind) {
+                    case 206 /* ForInStatement */:
+                    case 207 /* ForOfStatement */:
+                        // ForIn/ForOf case - use site should not be used in expression part
+                        if (isSameScopeDescendentOf(usage, declaration.parent.parent.expression, container)) {
+                            return true;
+                        }
                 }
+                return false;
             }
             function isUsedInFunctionOrNonStaticProperty(declaration, usage) {
                 var container = ts.getEnclosingBlockScopeContainer(declaration);
@@ -20637,6 +20645,8 @@ var ts;
                     if (!constraint || constraint.flags & 1 /* Any */) {
                         constraint = emptyObjectType;
                     }
+                    // The constraint may need to be further instantiated with its 'this' type.
+                    constraint = getTypeWithThisArgument(constraint, source);
                     // Report constraint errors only if the constraint is not the empty object type
                     var reportConstraintErrors = reportErrors && constraint !== emptyObjectType;
                     if (result = isRelatedTo(constraint, target, reportConstraintErrors)) {
@@ -22288,17 +22298,18 @@ var ts;
                     var type = flow.kind === 3 /* LoopLabel */ ?
                         getTypeAtFlowNodeCached(antecedent) :
                         getTypeAtFlowNode(antecedent);
-                    if (type) {
-                        // If the type at a particular antecedent path is the declared type and the
-                        // reference is known to always be assigned (i.e. when declared and initial types
-                        // are the same), there is no reason to process more antecedents since the only
-                        // possible outcome is subtypes that will be removed in the final union type anyway.
-                        if (type === declaredType && declaredType === initialType) {
-                            return type;
-                        }
-                        if (!ts.contains(antecedentTypes, type)) {
-                            antecedentTypes.push(type);
-                        }
+                    if (!type) {
+                        break;
+                    }
+                    // If the type at a particular antecedent path is the declared type and the
+                    // reference is known to always be assigned (i.e. when declared and initial types
+                    // are the same), there is no reason to process more antecedents since the only
+                    // possible outcome is subtypes that will be removed in the final union type anyway.
+                    if (type === declaredType && declaredType === initialType) {
+                        return type;
+                    }
+                    if (!ts.contains(antecedentTypes, type)) {
+                        antecedentTypes.push(type);
                     }
                 }
                 return antecedentTypes.length === 0 ? undefined :
@@ -54039,8 +54050,8 @@ var ts;
                     node.kind === 97 /* ThisKeyword */ ||
                     node.kind === 164 /* ThisType */ ||
                     node.kind === 95 /* SuperKeyword */ ||
-                    isLiteralNameOfPropertyDeclarationOrIndexAccess(node) ||
-                    isNameOfExternalModuleImportOrDeclaration(node)) {
+                    node.kind === 9 /* StringLiteral */ ||
+                    isLiteralNameOfPropertyDeclarationOrIndexAccess(node)) {
                     var referencedSymbols = getReferencedSymbolsForNode(node, sourceFilesToSearch, /*findInStrings*/ false, /*findInComments*/ false);
                     return convertReferencedSymbols(referencedSymbols);
                 }
@@ -54600,8 +54611,8 @@ var ts;
                 // TODO (drosen): This should be enabled in a later release - currently breaks rename.
                 // node.kind !== SyntaxKind.ThisKeyword &&
                 // node.kind !== SyntaxKind.SuperKeyword &&
-                !isLiteralNameOfPropertyDeclarationOrIndexAccess(node) &&
-                !isNameOfExternalModuleImportOrDeclaration(node)) {
+                node.kind !== 9 /* StringLiteral */ &&
+                !isLiteralNameOfPropertyDeclarationOrIndexAccess(node)) {
                 return undefined;
             }
             ts.Debug.assert(node.kind === 69 /* Identifier */ || node.kind === 8 /* NumericLiteral */ || node.kind === 9 /* StringLiteral */);
@@ -54629,6 +54640,9 @@ var ts;
                 return getReferencesForSuperKeyword(node);
             }
             var symbol = typeChecker.getSymbolAtLocation(node);
+            if (!symbol && node.kind === 9 /* StringLiteral */) {
+                return getReferencesForStringLiteral(node, sourceFiles);
+            }
             // Could not find a symbol e.g. unknown identifier
             if (!symbol) {
                 // Can't have references to something that we have no symbol for.
@@ -55084,6 +55098,45 @@ var ts;
                                 break;
                         }
                     });
+                }
+            }
+            function getReferencesForStringLiteral(node, sourceFiles) {
+                var typeChecker = program.getTypeChecker();
+                var type = getStringLiteralTypeForNode(node, typeChecker);
+                if (!type) {
+                    // nothing to do here. moving on
+                    return undefined;
+                }
+                var references = [];
+                for (var _i = 0, sourceFiles_5 = sourceFiles; _i < sourceFiles_5.length; _i++) {
+                    var sourceFile = sourceFiles_5[_i];
+                    var possiblePositions = getPossibleSymbolReferencePositions(sourceFile, type.text, sourceFile.getStart(), sourceFile.getEnd());
+                    getReferencesForStringLiteralInFile(sourceFile, type, possiblePositions, references);
+                }
+                return [{
+                        definition: {
+                            containerKind: "",
+                            containerName: "",
+                            fileName: node.getSourceFile().fileName,
+                            kind: ScriptElementKind.variableElement,
+                            name: type.text,
+                            textSpan: ts.createTextSpanFromBounds(node.getStart(), node.getEnd())
+                        },
+                        references: references
+                    }];
+                function getReferencesForStringLiteralInFile(sourceFile, searchType, possiblePositions, references) {
+                    for (var _i = 0, possiblePositions_1 = possiblePositions; _i < possiblePositions_1.length; _i++) {
+                        var position = possiblePositions_1[_i];
+                        cancellationToken.throwIfCancellationRequested();
+                        var node_2 = ts.getTouchingWord(sourceFile, position);
+                        if (!node_2 || node_2.kind !== 9 /* StringLiteral */) {
+                            return;
+                        }
+                        var type_1 = getStringLiteralTypeForNode(node_2, typeChecker);
+                        if (type_1 === searchType) {
+                            references.push(getReferenceEntryFromNode(node_2));
+                        }
+                    }
                 }
             }
             function populateSearchSymbolSet(symbol, location) {
@@ -56394,47 +56447,68 @@ var ts;
                     (char >= 48 /* _0 */ && char <= 57 /* _9 */);
             }
         }
+        function getStringLiteralTypeForNode(node, typeChecker) {
+            var searchNode = node.parent.kind === 165 /* StringLiteralType */ ? node.parent : node;
+            var type = typeChecker.getTypeAtLocation(searchNode);
+            if (type && type.flags & 256 /* StringLiteral */) {
+                return type;
+            }
+            return undefined;
+        }
         function getRenameInfo(fileName, position) {
             synchronizeHostData();
             var sourceFile = getValidSourceFile(fileName);
             var typeChecker = program.getTypeChecker();
+            var defaultLibFileName = host.getDefaultLibFileName(host.getCompilationSettings());
+            var canonicalDefaultLibName = getCanonicalFileName(ts.normalizePath(defaultLibFileName));
             var node = ts.getTouchingWord(sourceFile, position);
             // Can only rename an identifier.
-            if (node && node.kind === 69 /* Identifier */) {
-                var symbol = typeChecker.getSymbolAtLocation(node);
-                // Only allow a symbol to be renamed if it actually has at least one declaration.
-                if (symbol) {
-                    var declarations = symbol.getDeclarations();
-                    if (declarations && declarations.length > 0) {
-                        // Disallow rename for elements that are defined in the standard TypeScript library.
-                        var defaultLibFileName = host.getDefaultLibFileName(host.getCompilationSettings());
-                        var canonicalDefaultLibName = getCanonicalFileName(ts.normalizePath(defaultLibFileName));
-                        if (defaultLibFileName) {
-                            for (var _i = 0, declarations_11 = declarations; _i < declarations_11.length; _i++) {
-                                var current = declarations_11[_i];
-                                var sourceFile_4 = current.getSourceFile();
-                                // TODO (drosen): When is there no source file?
-                                if (!sourceFile_4) {
-                                    continue;
-                                }
-                                var canonicalName = getCanonicalFileName(ts.normalizePath(sourceFile_4.fileName));
-                                if (canonicalName === canonicalDefaultLibName) {
-                                    return getRenameInfoError(ts.getLocaleSpecificMessage(ts.Diagnostics.You_cannot_rename_elements_that_are_defined_in_the_standard_TypeScript_library));
-                                }
+            if (node) {
+                if (node.kind === 69 /* Identifier */ ||
+                    node.kind === 9 /* StringLiteral */ ||
+                    isLiteralNameOfPropertyDeclarationOrIndexAccess(node)) {
+                    var symbol = typeChecker.getSymbolAtLocation(node);
+                    // Only allow a symbol to be renamed if it actually has at least one declaration.
+                    if (symbol) {
+                        var declarations = symbol.getDeclarations();
+                        if (declarations && declarations.length > 0) {
+                            // Disallow rename for elements that are defined in the standard TypeScript library.
+                            if (ts.forEach(declarations, isDefinedInLibraryFile)) {
+                                return getRenameInfoError(ts.getLocaleSpecificMessage(ts.Diagnostics.You_cannot_rename_elements_that_are_defined_in_the_standard_TypeScript_library));
+                            }
+                            var displayName = ts.stripQuotes(ts.getDeclaredName(typeChecker, symbol, node));
+                            var kind = getSymbolKind(symbol, node);
+                            if (kind) {
+                                return {
+                                    canRename: true,
+                                    kind: kind,
+                                    displayName: displayName,
+                                    localizedErrorMessage: undefined,
+                                    fullDisplayName: typeChecker.getFullyQualifiedName(symbol),
+                                    kindModifiers: getSymbolModifiers(symbol),
+                                    triggerSpan: createTriggerSpanForNode(node, sourceFile)
+                                };
                             }
                         }
-                        var displayName = ts.stripQuotes(ts.getDeclaredName(typeChecker, symbol, node));
-                        var kind = getSymbolKind(symbol, node);
-                        if (kind) {
-                            return {
-                                canRename: true,
-                                kind: kind,
-                                displayName: displayName,
-                                localizedErrorMessage: undefined,
-                                fullDisplayName: typeChecker.getFullyQualifiedName(symbol),
-                                kindModifiers: getSymbolModifiers(symbol),
-                                triggerSpan: ts.createTextSpan(node.getStart(), node.getWidth())
-                            };
+                    }
+                    else if (node.kind === 9 /* StringLiteral */) {
+                        var type = getStringLiteralTypeForNode(node, typeChecker);
+                        if (type) {
+                            if (isDefinedInLibraryFile(node)) {
+                                return getRenameInfoError(ts.getLocaleSpecificMessage(ts.Diagnostics.You_cannot_rename_elements_that_are_defined_in_the_standard_TypeScript_library));
+                            }
+                            else {
+                                var displayName = ts.stripQuotes(type.text);
+                                return {
+                                    canRename: true,
+                                    kind: ScriptElementKind.variableElement,
+                                    displayName: displayName,
+                                    localizedErrorMessage: undefined,
+                                    fullDisplayName: displayName,
+                                    kindModifiers: ScriptElementKindModifier.none,
+                                    triggerSpan: createTriggerSpanForNode(node, sourceFile)
+                                };
+                            }
                         }
                     }
                 }
@@ -56450,6 +56524,26 @@ var ts;
                     kindModifiers: undefined,
                     triggerSpan: undefined
                 };
+            }
+            function isDefinedInLibraryFile(declaration) {
+                if (defaultLibFileName) {
+                    var sourceFile_4 = declaration.getSourceFile();
+                    var canonicalName = getCanonicalFileName(ts.normalizePath(sourceFile_4.fileName));
+                    if (canonicalName === canonicalDefaultLibName) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            function createTriggerSpanForNode(node, sourceFile) {
+                var start = node.getStart(sourceFile);
+                var width = node.getWidth(sourceFile);
+                if (node.kind === 9 /* StringLiteral */) {
+                    // Exclude the quotes
+                    start += 1;
+                    width -= 2;
+                }
+                return ts.createTextSpan(start, width);
             }
         }
         return {
