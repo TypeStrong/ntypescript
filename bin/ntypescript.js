@@ -13497,6 +13497,7 @@ var ts;
             languageVersion = ts.getEmitScriptTarget(options);
             inStrictMode = !!file.externalModuleIndicator;
             classifiableNames = {};
+            symbolCount = 0;
             Symbol = ts.objectAllocator.getSymbolConstructor();
             if (!file.locals) {
                 bind(file);
@@ -22594,7 +22595,7 @@ var ts;
             var defaultsToDeclaredType = !strictNullChecks || type.flags & 1 /* Any */ || !declaration ||
                 ts.getRootDeclaration(declaration).kind === 141 /* Parameter */ || ts.isInAmbientContext(declaration) ||
                 ts.getContainingFunctionOrModule(declaration) !== ts.getContainingFunctionOrModule(node);
-            var flowType = getFlowTypeOfReference(node, type, defaultsToDeclaredType ? type : undefinedType);
+            var flowType = getFlowTypeOfReference(node, type, defaultsToDeclaredType ? type : addNullableKind(type, 32 /* Undefined */));
             if (strictNullChecks && !(type.flags & 1 /* Any */) && !(getNullableKind(type) & 32 /* Undefined */) && getNullableKind(flowType) & 32 /* Undefined */) {
                 error(node, ts.Diagnostics.Variable_0_is_used_before_being_assigned, symbolToString(symbol));
                 // Return the declared type to reduce follow-on errors
