@@ -18,7 +18,7 @@ and limitations under the License.
 
 interface IteratorResult<T> {
     done: boolean;
-    value?: T;
+    value: T;
 }
 
 interface Iterator<T> {

@@ -24209,7 +24209,7 @@ var ts;
                 checkClassPropertyAccess(node, left, apparentType, prop);
             }
             var propType = getTypeOfSymbol(prop);
-            if (node.kind !== 171 /* PropertyAccessExpression */ || !(prop.flags & (3 /* Variable */ | 4 /* Property */)) || ts.isAssignmentTarget(node)) {
+            if (node.kind !== 171 /* PropertyAccessExpression */ || !(prop.flags & (3 /* Variable */ | 4 /* Property */ | 98304 /* Accessor */)) || ts.isAssignmentTarget(node)) {
                 return propType;
             }
             var leftmostNode = getLeftmostIdentifierOrThis(node);
@@ -26226,6 +26226,9 @@ var ts;
             }
             return sourceType;
         }
+        function isTypeEqualityComparableTo(source, target) {
+            return (target.flags & 96 /* Nullable */) !== 0 || isTypeComparableTo(source, target);
+        }
         function checkBinaryExpression(node, contextualMapper) {
             return checkBinaryLikeExpression(node.left, node.operatorToken, node.right, contextualMapper, node);
         }
@@ -26333,15 +26336,17 @@ var ts;
                 case 27 /* GreaterThanToken */:
                 case 28 /* LessThanEqualsToken */:
                 case 29 /* GreaterThanEqualsToken */:
-                    if (!checkForDisallowedESSymbolOperand(operator)) {
-                        return booleanType;
+                    if (checkForDisallowedESSymbolOperand(operator)) {
+                        if (!isTypeComparableTo(leftType, rightType) && !isTypeComparableTo(rightType, leftType)) {
+                            reportOperatorError();
+                        }
                     }
-                // Fall through
+                    return booleanType;
                 case 30 /* EqualsEqualsToken */:
                 case 31 /* ExclamationEqualsToken */:
                 case 32 /* EqualsEqualsEqualsToken */:
                 case 33 /* ExclamationEqualsEqualsToken */:
-                    if (!isTypeComparableTo(leftType, rightType) && !isTypeComparableTo(rightType, leftType)) {
+                    if (!isTypeEqualityComparableTo(leftType, rightType) && !isTypeEqualityComparableTo(rightType, leftType)) {
                         reportOperatorError();
                     }
                     return booleanType;
@@ -27447,7 +27452,7 @@ var ts;
             if (thenSignatures.length === 0) {
                 return undefined;
             }
-            var onfulfilledParameterType = getUnionType(ts.map(thenSignatures, getTypeOfFirstParameterOfSignature));
+            var onfulfilledParameterType = getTypeWithFacts(getUnionType(ts.map(thenSignatures, getTypeOfFirstParameterOfSignature)), 131072 /* NEUndefined */);
             if (onfulfilledParameterType.flags & 1 /* Any */) {
                 return undefined;
             }
@@ -32403,7 +32408,7 @@ var ts;
     ts.createCompilerDiagnosticForInvalidCustomType = createCompilerDiagnosticForInvalidCustomType;
     /* @internal */
     function parseCustomTypeOption(opt, value, errors) {
-        var key = (value || "").trim().toLowerCase();
+        var key = trimString((value || "")).toLowerCase();
         var map = opt.type;
         if (ts.hasProperty(map, key)) {
             return map[key];
@@ -32415,7 +32420,7 @@ var ts;
     ts.parseCustomTypeOption = parseCustomTypeOption;
     /* @internal */
     function parseListTypeOption(opt, value, errors) {
-        var values = (value || "").trim().split(",");
+        var values = trimString((value || "")).split(",");
         switch (opt.element.type) {
             case "number":
                 return ts.map(values, parseInt);
@@ -32742,6 +32747,9 @@ var ts;
     }
     function convertJsonOptionOfListType(option, values, basePath, errors) {
         return ts.filter(ts.map(values, function (v) { return convertJsonOption(option.element, v, basePath, errors); }), function (v) { return !!v; });
+    }
+    function trimString(s) {
+        return typeof s.trim === "function" ? s.trim() : s.replace(/^[\s]+|[\s]+$/g, "");
     }
 })(ts || (ts = {}));
 /// <reference path="checker.ts"/>

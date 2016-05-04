@@ -4696,7 +4696,7 @@ declare var GeneratorFunction: GeneratorFunctionConstructor;
 
 interface IteratorResult<T> {
     done: boolean;
-    value?: T;
+    value: T;
 }
 
 interface Iterator<T> {
