@@ -405,15 +405,20 @@ var ts;
         RelationComparisonResult[RelationComparisonResult["FailedAndReported"] = 3] = "FailedAndReported";
     })(ts.RelationComparisonResult || (ts.RelationComparisonResult = {}));
     var RelationComparisonResult = ts.RelationComparisonResult;
-    (function (FlowKind) {
-        FlowKind[FlowKind["Unreachable"] = 0] = "Unreachable";
-        FlowKind[FlowKind["Start"] = 1] = "Start";
-        FlowKind[FlowKind["Label"] = 2] = "Label";
-        FlowKind[FlowKind["LoopLabel"] = 3] = "LoopLabel";
-        FlowKind[FlowKind["Assignment"] = 4] = "Assignment";
-        FlowKind[FlowKind["Condition"] = 5] = "Condition";
-    })(ts.FlowKind || (ts.FlowKind = {}));
-    var FlowKind = ts.FlowKind;
+    (function (FlowFlags) {
+        FlowFlags[FlowFlags["Unreachable"] = 1] = "Unreachable";
+        FlowFlags[FlowFlags["Start"] = 2] = "Start";
+        FlowFlags[FlowFlags["BranchLabel"] = 4] = "BranchLabel";
+        FlowFlags[FlowFlags["LoopLabel"] = 8] = "LoopLabel";
+        FlowFlags[FlowFlags["Assignment"] = 16] = "Assignment";
+        FlowFlags[FlowFlags["TrueCondition"] = 32] = "TrueCondition";
+        FlowFlags[FlowFlags["FalseCondition"] = 64] = "FalseCondition";
+        FlowFlags[FlowFlags["Referenced"] = 128] = "Referenced";
+        FlowFlags[FlowFlags["Shared"] = 256] = "Shared";
+        FlowFlags[FlowFlags["Label"] = 12] = "Label";
+        FlowFlags[FlowFlags["Condition"] = 96] = "Condition";
+    })(ts.FlowFlags || (ts.FlowFlags = {}));
+    var FlowFlags = ts.FlowFlags;
     var OperationCanceledException = (function () {
         function OperationCanceledException() {
         }
@@ -5705,6 +5710,7 @@ var ts;
         Containing_file_is_not_specified_and_root_directory_cannot_be_determined_skipping_lookup_in_node_modules_folder: { code: 6126, category: ts.DiagnosticCategory.Message, key: "Containing_file_is_not_specified_and_root_directory_cannot_be_determined_skipping_lookup_in_node_mod_6126", message: "Containing file is not specified and root directory cannot be determined, skipping lookup in 'node_modules' folder." },
         Resolving_type_reference_directive_0_containing_file_not_set_root_directory_1: { code: 6127, category: ts.DiagnosticCategory.Message, key: "Resolving_type_reference_directive_0_containing_file_not_set_root_directory_1_6127", message: "======== Resolving type reference directive '{0}', containing file not set, root directory '{1}'. ========" },
         Resolving_type_reference_directive_0_containing_file_not_set_root_directory_not_set: { code: 6128, category: ts.DiagnosticCategory.Message, key: "Resolving_type_reference_directive_0_containing_file_not_set_root_directory_not_set_6128", message: "======== Resolving type reference directive '{0}', containing file not set, root directory not set. ========" },
+        The_config_file_0_found_doesn_t_contain_any_source_files: { code: 6129, category: ts.DiagnosticCategory.Error, key: "The_config_file_0_found_doesn_t_contain_any_source_files_6129", message: "The config file '{0}' found doesn't contain any source files." },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter_0_implicitly_has_an_1_type_7006", message: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member_0_implicitly_has_an_1_type_7008", message: "Member '{0}' implicitly has an '{1}' type." },
@@ -9767,7 +9773,8 @@ var ts;
             //      2) LeftHandSideExpression = AssignmentExpression[?in,?yield]
             //      3) LeftHandSideExpression AssignmentOperator AssignmentExpression[?in,?yield]
             //      4) ArrowFunctionExpression[?in,?yield]
-            //      5) [+Yield] YieldExpression[?In]
+            //      5) AsyncArrowFunctionExpression[in,yield,await]
+            //      6) [+Yield] YieldExpression[?In]
             //
             // Note: for ease of implementation we treat productions '2' and '3' as the same thing.
             // (i.e. they're both BinaryExpressions with an assignment operator in it).
@@ -9775,11 +9782,18 @@ var ts;
             if (isYieldExpression()) {
                 return parseYieldExpression();
             }
-            // Then, check if we have an arrow function (production '4') that starts with a parenthesized
-            // parameter list. If we do, we must *not* recurse for productions 1, 2 or 3. An ArrowFunction is
+            // Then, check if we have an arrow function (production '4' and '5') that starts with a parenthesized
+            // parameter list or is an async arrow function.
+            // AsyncArrowFunctionExpression:
+            //      1) async[no LineTerminator here]AsyncArrowBindingIdentifier[?Yield][no LineTerminator here]=>AsyncConciseBody[?In]
+            //      2) CoverCallExpressionAndAsyncArrowHead[?Yield, ?Await][no LineTerminator here]=>AsyncConciseBody[?In]
+            // Production (1) of AsyncArrowFunctionExpression is parsed in "tryParseAsyncSimpleArrowFunctionExpression".
+            // And production (2) is parsed in "tryParseParenthesizedArrowFunctionExpression". 
+            //
+            // If we do successfully parse arrow-function, we must *not* recurse for productions 1, 2 or 3. An ArrowFunction is
             // not a  LeftHandSideExpression, nor does it start a ConditionalExpression.  So we are done
             // with AssignmentExpression if we see one.
-            var arrowExpression = tryParseParenthesizedArrowFunctionExpression();
+            var arrowExpression = tryParseParenthesizedArrowFunctionExpression() || tryParseAsyncSimpleArrowFunctionExpression();
             if (arrowExpression) {
                 return arrowExpression;
             }
@@ -9859,9 +9873,16 @@ var ts;
                 return finishNode(node);
             }
         }
-        function parseSimpleArrowFunctionExpression(identifier) {
+        function parseSimpleArrowFunctionExpression(identifier, asyncModifier) {
             ts.Debug.assert(token === 34 /* EqualsGreaterThanToken */, "parseSimpleArrowFunctionExpression should only have been called if we had a =>");
-            var node = createNode(179 /* ArrowFunction */, identifier.pos);
+            var node;
+            if (asyncModifier) {
+                node = createNode(179 /* ArrowFunction */, asyncModifier.pos);
+                setModifiers(node, asyncModifier);
+            }
+            else {
+                node = createNode(179 /* ArrowFunction */, identifier.pos);
+            }
             var parameter = createNode(141 /* Parameter */, identifier.pos);
             parameter.name = identifier;
             finishNode(parameter);
@@ -9869,7 +9890,7 @@ var ts;
             node.parameters.pos = parameter.pos;
             node.parameters.end = parameter.end;
             node.equalsGreaterThanToken = parseExpectedToken(34 /* EqualsGreaterThanToken */, /*reportAtCurrentPosition*/ false, ts.Diagnostics._0_expected, "=>");
-            node.body = parseArrowFunctionExpressionBody(/*isAsync*/ false);
+            node.body = parseArrowFunctionExpressionBody(/*isAsync*/ !!asyncModifier);
             return finishNode(node);
         }
         function tryParseParenthesizedArrowFunctionExpression() {
@@ -10012,6 +10033,32 @@ var ts;
         }
         function parsePossibleParenthesizedArrowFunctionExpressionHead() {
             return parseParenthesizedArrowFunctionExpressionHead(/*allowAmbiguity*/ false);
+        }
+        function tryParseAsyncSimpleArrowFunctionExpression() {
+            // We do a check here so that we won't be doing unnecessarily call to "lookAhead"
+            if (token === 118 /* AsyncKeyword */) {
+                var isUnParenthesizedAsyncArrowFunction = lookAhead(isUnParenthesizedAsyncArrowFunctionWorker);
+                if (isUnParenthesizedAsyncArrowFunction === 1 /* True */) {
+                    var asyncModifier = parseModifiersForArrowFunction();
+                    var expr = parseBinaryExpressionOrHigher(/*precedence*/ 0);
+                    return parseSimpleArrowFunctionExpression(expr, asyncModifier);
+                }
+            }
+            return undefined;
+        }
+        function isUnParenthesizedAsyncArrowFunctionWorker() {
+            if (token === 118 /* AsyncKeyword */) {
+                nextToken();
+                if (scanner.hasPrecedingLineBreak()) {
+                    return 0 /* False */;
+                }
+                // Check for un-parenthesized AsyncArrowFunction
+                var expr = parseBinaryExpressionOrHigher(/*precedence*/ 0);
+                if (!scanner.hasPrecedingLineBreak() && expr.kind === 69 /* Identifier */ && token === 34 /* EqualsGreaterThanToken */) {
+                    return 1 /* True */;
+                }
+            }
+            return 0 /* False */;
         }
         function parseParenthesizedArrowFunctionExpressionHead(allowAmbiguity) {
             var node = createNode(179 /* ArrowFunction */);
@@ -13489,8 +13536,8 @@ var ts;
         var symbolCount = 0;
         var Symbol;
         var classifiableNames;
-        var unreachableFlow = { kind: 0 /* Unreachable */ };
-        var reportedUnreachableFlow = { kind: 0 /* Unreachable */ };
+        var unreachableFlow = { flags: 1 /* Unreachable */ };
+        var reportedUnreachableFlow = { flags: 1 /* Unreachable */ };
         function bindSourceFile(f, opts) {
             file = f;
             options = opts;
@@ -13787,7 +13834,7 @@ var ts;
                 savedContinueTarget = currentContinueTarget;
                 savedActiveLabels = activeLabels;
                 hasExplicitReturn = false;
-                currentFlow = { kind: 1 /* Start */ };
+                currentFlow = { flags: 2 /* Start */ };
                 currentBreakTarget = undefined;
                 currentContinueTarget = undefined;
                 activeLabels = undefined;
@@ -13796,7 +13843,7 @@ var ts;
                 bind(node.jsDocComment);
             }
             bindReachableStatement(node);
-            if (currentFlow.kind !== 0 /* Unreachable */ && ts.isFunctionLikeKind(kind) && ts.nodeIsPresent(node.body)) {
+            if (!(currentFlow.flags & 1 /* Unreachable */) && ts.isFunctionLikeKind(kind) && ts.nodeIsPresent(node.body)) {
                 flags |= 32768 /* HasImplicitReturn */;
                 if (hasExplicitReturn) {
                     flags |= 65536 /* HasExplicitReturn */;
@@ -13941,49 +13988,72 @@ var ts;
             }
             return false;
         }
-        function createFlowLabel() {
+        function createBranchLabel() {
             return {
-                kind: 2 /* Label */,
+                flags: 4 /* BranchLabel */,
                 antecedents: undefined
             };
         }
-        function createFlowLoopLabel() {
+        function createLoopLabel() {
             return {
-                kind: 3 /* LoopLabel */,
+                flags: 8 /* LoopLabel */,
                 antecedents: undefined
             };
+        }
+        function setFlowNodeReferenced(flow) {
+            // On first reference we set the Referenced flag, thereafter we set the Shared flag
+            flow.flags |= flow.flags & 128 /* Referenced */ ? 256 /* Shared */ : 128 /* Referenced */;
         }
         function addAntecedent(label, antecedent) {
-            if (antecedent.kind !== 0 /* Unreachable */ && !ts.contains(label.antecedents, antecedent)) {
+            if (!(antecedent.flags & 1 /* Unreachable */) && !ts.contains(label.antecedents, antecedent)) {
                 (label.antecedents || (label.antecedents = [])).push(antecedent);
+                setFlowNodeReferenced(antecedent);
             }
         }
-        function createFlowCondition(antecedent, expression, assumeTrue) {
-            if (antecedent.kind === 0 /* Unreachable */) {
+        function createFlowCondition(flags, antecedent, expression) {
+            if (antecedent.flags & 1 /* Unreachable */) {
                 return antecedent;
             }
             if (!expression) {
-                return assumeTrue ? antecedent : unreachableFlow;
+                return flags & 32 /* TrueCondition */ ? antecedent : unreachableFlow;
             }
-            if (expression.kind === 99 /* TrueKeyword */ && !assumeTrue || expression.kind === 84 /* FalseKeyword */ && assumeTrue) {
+            if (expression.kind === 99 /* TrueKeyword */ && flags & 64 /* FalseCondition */ ||
+                expression.kind === 84 /* FalseKeyword */ && flags & 32 /* TrueCondition */) {
                 return unreachableFlow;
             }
             if (!isNarrowingExpression(expression)) {
                 return antecedent;
             }
+            setFlowNodeReferenced(antecedent);
             return {
-                kind: 5 /* Condition */,
+                flags: flags,
                 antecedent: antecedent,
                 expression: expression,
-                assumeTrue: assumeTrue
             };
         }
         function createFlowAssignment(antecedent, node) {
+            setFlowNodeReferenced(antecedent);
             return {
-                kind: 4 /* Assignment */,
+                flags: 16 /* Assignment */,
                 antecedent: antecedent,
                 node: node
             };
+        }
+        function skipSimpleConditionalFlow(flow) {
+            // We skip over simple conditional flows of the form 'x ? aaa : bbb', where 'aaa' and 'bbb' contain
+            // no constructs that affect control flow type analysis. Such simple flows have no effect on the
+            // code paths that follow and ignoring them means we'll do less work.
+            if (flow.flags & 4 /* BranchLabel */ && flow.antecedents.length === 2) {
+                var a = flow.antecedents[0];
+                var b = flow.antecedents[1];
+                if ((a.flags & 32 /* TrueCondition */ && b.flags & 64 /* FalseCondition */ ||
+                    a.flags & 64 /* FalseCondition */ && b.flags & 32 /* TrueCondition */) &&
+                    a.antecedent === b.antecedent &&
+                    a.expression === b.expression) {
+                    return a.antecedent;
+                }
+            }
+            return flow;
         }
         function finishFlowLabel(flow) {
             var antecedents = flow.antecedents;
@@ -13993,7 +14063,7 @@ var ts;
             if (antecedents.length === 1) {
                 return antecedents[0];
             }
-            return flow;
+            return skipSimpleConditionalFlow(flow);
         }
         function isStatementCondition(node) {
             var parent = node.parent;
@@ -14039,8 +14109,8 @@ var ts;
             currentTrueTarget = saveTrueTarget;
             currentFalseTarget = saveFalseTarget;
             if (!node || !isLogicalExpression(node)) {
-                addAntecedent(trueTarget, createFlowCondition(currentFlow, node, /*assumeTrue*/ true));
-                addAntecedent(falseTarget, createFlowCondition(currentFlow, node, /*assumeTrue*/ false));
+                addAntecedent(trueTarget, createFlowCondition(32 /* TrueCondition */, currentFlow, node));
+                addAntecedent(falseTarget, createFlowCondition(64 /* FalseCondition */, currentFlow, node));
             }
         }
         function bindIterativeStatement(node, breakTarget, continueTarget) {
@@ -14053,9 +14123,9 @@ var ts;
             currentContinueTarget = saveContinueTarget;
         }
         function bindWhileStatement(node) {
-            var preWhileLabel = createFlowLoopLabel();
-            var preBodyLabel = createFlowLabel();
-            var postWhileLabel = createFlowLabel();
+            var preWhileLabel = createLoopLabel();
+            var preBodyLabel = createBranchLabel();
+            var postWhileLabel = createBranchLabel();
             addAntecedent(preWhileLabel, currentFlow);
             currentFlow = preWhileLabel;
             bindCondition(node.expression, preBodyLabel, postWhileLabel);
@@ -14065,9 +14135,9 @@ var ts;
             currentFlow = finishFlowLabel(postWhileLabel);
         }
         function bindDoStatement(node) {
-            var preDoLabel = createFlowLoopLabel();
-            var preConditionLabel = createFlowLabel();
-            var postDoLabel = createFlowLabel();
+            var preDoLabel = createLoopLabel();
+            var preConditionLabel = createBranchLabel();
+            var postDoLabel = createBranchLabel();
             addAntecedent(preDoLabel, currentFlow);
             currentFlow = preDoLabel;
             bindIterativeStatement(node.statement, postDoLabel, preConditionLabel);
@@ -14077,9 +14147,9 @@ var ts;
             currentFlow = finishFlowLabel(postDoLabel);
         }
         function bindForStatement(node) {
-            var preLoopLabel = createFlowLoopLabel();
-            var preBodyLabel = createFlowLabel();
-            var postLoopLabel = createFlowLabel();
+            var preLoopLabel = createLoopLabel();
+            var preBodyLabel = createBranchLabel();
+            var postLoopLabel = createBranchLabel();
             bind(node.initializer);
             addAntecedent(preLoopLabel, currentFlow);
             currentFlow = preLoopLabel;
@@ -14091,8 +14161,8 @@ var ts;
             currentFlow = finishFlowLabel(postLoopLabel);
         }
         function bindForInOrForOfStatement(node) {
-            var preLoopLabel = createFlowLoopLabel();
-            var postLoopLabel = createFlowLabel();
+            var preLoopLabel = createLoopLabel();
+            var postLoopLabel = createBranchLabel();
             addAntecedent(preLoopLabel, currentFlow);
             currentFlow = preLoopLabel;
             bind(node.expression);
@@ -14106,9 +14176,9 @@ var ts;
             currentFlow = finishFlowLabel(postLoopLabel);
         }
         function bindIfStatement(node) {
-            var thenLabel = createFlowLabel();
-            var elseLabel = createFlowLabel();
-            var postIfLabel = createFlowLabel();
+            var thenLabel = createBranchLabel();
+            var elseLabel = createBranchLabel();
+            var postIfLabel = createBranchLabel();
             bindCondition(node.expression, thenLabel, elseLabel);
             currentFlow = finishFlowLabel(thenLabel);
             bind(node.thenStatement);
@@ -14157,7 +14227,7 @@ var ts;
             }
         }
         function bindTryStatement(node) {
-            var postFinallyLabel = createFlowLabel();
+            var postFinallyLabel = createBranchLabel();
             var preTryFlow = currentFlow;
             // TODO: Every statement in try block is potentially an exit point!
             bind(node.tryBlock);
@@ -14174,7 +14244,7 @@ var ts;
             currentFlow = finishFlowLabel(postFinallyLabel);
         }
         function bindSwitchStatement(node) {
-            var postSwitchLabel = createFlowLabel();
+            var postSwitchLabel = createBranchLabel();
             bind(node.expression);
             var saveBreakTarget = currentBreakTarget;
             var savePreSwitchCaseFlow = preSwitchCaseFlow;
@@ -14195,17 +14265,17 @@ var ts;
             for (var i = 0; i < clauses.length; i++) {
                 var clause = clauses[i];
                 if (clause.statements.length) {
-                    if (currentFlow.kind === 0 /* Unreachable */) {
+                    if (currentFlow.flags & 1 /* Unreachable */) {
                         currentFlow = preSwitchCaseFlow;
                     }
                     else {
-                        var preCaseLabel = createFlowLabel();
+                        var preCaseLabel = createBranchLabel();
                         addAntecedent(preCaseLabel, preSwitchCaseFlow);
                         addAntecedent(preCaseLabel, currentFlow);
                         currentFlow = finishFlowLabel(preCaseLabel);
                     }
                     bind(clause);
-                    if (currentFlow.kind !== 0 /* Unreachable */ && i !== clauses.length - 1 && options.noFallthroughCasesInSwitch) {
+                    if (!(currentFlow.flags & 1 /* Unreachable */) && i !== clauses.length - 1 && options.noFallthroughCasesInSwitch) {
                         errorOnFirstToken(clause, ts.Diagnostics.Fallthrough_case_in_switch);
                     }
                 }
@@ -14228,8 +14298,8 @@ var ts;
             activeLabels.pop();
         }
         function bindLabeledStatement(node) {
-            var preStatementLabel = createFlowLoopLabel();
-            var postStatementLabel = createFlowLabel();
+            var preStatementLabel = createLoopLabel();
+            var postStatementLabel = createBranchLabel();
             bind(node.label);
             addAntecedent(preStatementLabel, currentFlow);
             var activeLabel = pushActiveLabel(node.label.text, postStatementLabel, preStatementLabel);
@@ -14277,7 +14347,7 @@ var ts;
             }
         }
         function bindLogicalExpression(node, trueTarget, falseTarget) {
-            var preRightLabel = createFlowLabel();
+            var preRightLabel = createBranchLabel();
             if (node.operatorToken.kind === 51 /* AmpersandAmpersandToken */) {
                 bindCondition(node.left, preRightLabel, falseTarget);
             }
@@ -14305,7 +14375,7 @@ var ts;
             var operator = node.operatorToken.kind;
             if (operator === 51 /* AmpersandAmpersandToken */ || operator === 52 /* BarBarToken */) {
                 if (isTopLevelLogicalExpression(node)) {
-                    var postExpressionLabel = createFlowLabel();
+                    var postExpressionLabel = createBranchLabel();
                     bindLogicalExpression(node, postExpressionLabel, postExpressionLabel);
                     currentFlow = finishFlowLabel(postExpressionLabel);
                 }
@@ -14321,9 +14391,9 @@ var ts;
             }
         }
         function bindConditionalExpressionFlow(node) {
-            var trueLabel = createFlowLabel();
-            var falseLabel = createFlowLabel();
-            var postExpressionLabel = createFlowLabel();
+            var trueLabel = createBranchLabel();
+            var falseLabel = createBranchLabel();
+            var postExpressionLabel = createBranchLabel();
             bindCondition(node.condition, trueLabel, falseLabel);
             currentFlow = finishFlowLabel(trueLabel);
             bind(node.whenTrue);
@@ -15221,7 +15291,7 @@ var ts;
             return instanceState === 1 /* Instantiated */ || (instanceState === 2 /* ConstEnumOnly */ && options.preserveConstEnums);
         }
         function checkUnreachable(node) {
-            if (currentFlow.kind !== 0 /* Unreachable */) {
+            if (!(currentFlow.flags & 1 /* Unreachable */)) {
                 return false;
             }
             if (currentFlow === unreachableFlow) {
@@ -15414,8 +15484,9 @@ var ts;
         var getGlobalThenableType;
         var jsxElementClassType;
         var deferredNodes;
-        var flowStackStart = 0;
-        var flowStackCount = 0;
+        var flowLoopStart = 0;
+        var flowLoopCount = 0;
+        var visitedFlowCount = 0;
         var tupleTypes = {};
         var unionTypes = {};
         var intersectionTypes = {};
@@ -15426,9 +15497,12 @@ var ts;
         var mergedSymbols = [];
         var symbolLinks = [];
         var nodeLinks = [];
-        var flowTypeCaches = [];
-        var flowStackNodes = [];
-        var flowStackCacheKeys = [];
+        var flowLoopCaches = [];
+        var flowLoopNodes = [];
+        var flowLoopKeys = [];
+        var flowLoopTypes = [];
+        var visitedFlowNodes = [];
+        var visitedFlowTypes = [];
         var potentialThisCollisions = [];
         var awaitedTypeStack = [];
         var diagnostics = ts.createDiagnosticCollection();
@@ -22019,12 +22093,12 @@ var ts;
             }
             return false;
         }
-        function getFlowTypeCache(flow) {
+        function getFlowNodeId(flow) {
             if (!flow.id) {
                 flow.id = nextFlowId;
                 nextFlowId++;
             }
-            return flowTypeCaches[flow.id] || (flowTypeCaches[flow.id] = {});
+            return flow.id;
         }
         function typeMaybeAssignableTo(source, target) {
             if (!(source.flags & 16384 /* Union */)) {
@@ -22205,33 +22279,58 @@ var ts;
             if (!reference.flowNode || declaredType === initialType && !(declaredType.flags & 97793 /* Narrowable */)) {
                 return declaredType;
             }
-            return getTypeAtFlowNode(reference.flowNode);
+            var visitedFlowStart = visitedFlowCount;
+            var result = getTypeAtFlowNode(reference.flowNode);
+            visitedFlowCount = visitedFlowStart;
+            return result;
             function getTypeAtFlowNode(flow) {
                 while (true) {
-                    switch (flow.kind) {
-                        case 4 /* Assignment */:
-                            var type = getTypeAtFlowAssignment(flow);
-                            if (!type) {
-                                flow = flow.antecedent;
-                                continue;
+                    if (flow.flags & 256 /* Shared */) {
+                        // We cache results of flow type resolution for shared nodes that were previously visited in
+                        // the same getFlowTypeOfReference invocation. A node is considered shared when it is the
+                        // antecedent of more than one node.
+                        for (var i = visitedFlowStart; i < visitedFlowCount; i++) {
+                            if (visitedFlowNodes[i] === flow) {
+                                return visitedFlowTypes[i];
                             }
-                            return type;
-                        case 5 /* Condition */:
-                            return getTypeAtFlowCondition(flow);
-                        case 2 /* Label */:
-                        case 3 /* LoopLabel */:
-                            if (flow.antecedents.length === 1) {
-                                flow = flow.antecedents[0];
-                                continue;
-                            }
-                            return getTypeAtFlowLabel(flow);
-                        case 0 /* Unreachable */:
-                            // Unreachable code errors are reported in the binding phase. Here we
-                            // simply return the declared type to reduce follow-on errors.
-                            return declaredType;
+                        }
                     }
-                    // At the top of the flow we have the initial type
-                    return initialType;
+                    var type = void 0;
+                    if (flow.flags & 16 /* Assignment */) {
+                        type = getTypeAtFlowAssignment(flow);
+                        if (!type) {
+                            flow = flow.antecedent;
+                            continue;
+                        }
+                    }
+                    else if (flow.flags & 96 /* Condition */) {
+                        type = getTypeAtFlowCondition(flow);
+                    }
+                    else if (flow.flags & 12 /* Label */) {
+                        if (flow.antecedents.length === 1) {
+                            flow = flow.antecedents[0];
+                            continue;
+                        }
+                        type = flow.flags & 4 /* BranchLabel */ ?
+                            getTypeAtFlowBranchLabel(flow) :
+                            getTypeAtFlowLoopLabel(flow);
+                    }
+                    else if (flow.flags & 1 /* Unreachable */) {
+                        // Unreachable code errors are reported in the binding phase. Here we
+                        // simply return the declared type to reduce follow-on errors.
+                        type = declaredType;
+                    }
+                    else {
+                        // At the top of the flow we have the initial type.
+                        type = initialType;
+                    }
+                    if (flow.flags & 256 /* Shared */) {
+                        // Record visited node and the associated type in the cache.
+                        visitedFlowNodes[visitedFlowCount] = flow;
+                        visitedFlowTypes[visitedFlowCount] = type;
+                        visitedFlowCount++;
+                    }
+                    return type;
                 }
             }
             function getTypeAtFlowAssignment(flow) {
@@ -22264,44 +22363,13 @@ var ts;
                 return undefined;
             }
             function getTypeAtFlowCondition(flow) {
-                var type = getTypeAtFlowNode(flow.antecedent);
-                return type && narrowType(type, flow.expression, flow.assumeTrue);
+                return narrowType(getTypeAtFlowNode(flow.antecedent), flow.expression, (flow.flags & 32 /* TrueCondition */) !== 0);
             }
-            function getTypeAtFlowNodeCached(flow) {
-                var cache = getFlowTypeCache(flow);
-                if (!key) {
-                    key = getFlowCacheKey(reference);
-                }
-                var cached = cache[key];
-                if (cached) {
-                    return cached;
-                }
-                // Return undefined if we're already processing the given node.
-                for (var i = flowStackStart; i < flowStackCount; i++) {
-                    if (flowStackNodes[i] === flow && flowStackCacheKeys[i] === key) {
-                        return undefined;
-                    }
-                }
-                // Record node and key on stack of nodes being processed.
-                flowStackNodes[flowStackCount] = flow;
-                flowStackCacheKeys[flowStackCount] = key;
-                flowStackCount++;
-                var type = getTypeAtFlowNode(flow);
-                flowStackCount--;
-                // Record the result only if the cache is still empty. If checkExpressionCached was called
-                // during processing it is possible we've already recorded a result.
-                return cache[key] || type && (cache[key] = type);
-            }
-            function getTypeAtFlowLabel(flow) {
+            function getTypeAtFlowBranchLabel(flow) {
                 var antecedentTypes = [];
                 for (var _i = 0, _a = flow.antecedents; _i < _a.length; _i++) {
                     var antecedent = _a[_i];
-                    var type = flow.kind === 3 /* LoopLabel */ ?
-                        getTypeAtFlowNodeCached(antecedent) :
-                        getTypeAtFlowNode(antecedent);
-                    if (!type) {
-                        break;
-                    }
+                    var type = getTypeAtFlowNode(antecedent);
                     // If the type at a particular antecedent path is the declared type and the
                     // reference is known to always be assigned (i.e. when declared and initial types
                     // are the same), there is no reason to process more antecedents since the only
@@ -22313,9 +22381,57 @@ var ts;
                         antecedentTypes.push(type);
                     }
                 }
-                return antecedentTypes.length === 0 ? undefined :
-                    antecedentTypes.length === 1 ? antecedentTypes[0] :
-                        getUnionType(antecedentTypes);
+                return antecedentTypes.length === 1 ? antecedentTypes[0] : getUnionType(antecedentTypes);
+            }
+            function getTypeAtFlowLoopLabel(flow) {
+                // If we have previously computed the control flow type for the reference at
+                // this flow loop junction, return the cached type.
+                var id = getFlowNodeId(flow);
+                var cache = flowLoopCaches[id] || (flowLoopCaches[id] = {});
+                if (!key) {
+                    key = getFlowCacheKey(reference);
+                }
+                if (cache[key]) {
+                    return cache[key];
+                }
+                // If this flow loop junction and reference are already being processed, return
+                // the union of the types computed for each branch so far. We should never see
+                // an empty array here because the first antecedent of a loop junction is always
+                // the non-looping control flow path that leads to the top.
+                for (var i = flowLoopStart; i < flowLoopCount; i++) {
+                    if (flowLoopNodes[i] === flow && flowLoopKeys[i] === key) {
+                        return getUnionType(flowLoopTypes[i]);
+                    }
+                }
+                // Add the flow loop junction and reference to the in-process stack and analyze
+                // each antecedent code path.
+                var antecedentTypes = [];
+                flowLoopNodes[flowLoopCount] = flow;
+                flowLoopKeys[flowLoopCount] = key;
+                flowLoopTypes[flowLoopCount] = antecedentTypes;
+                for (var _i = 0, _a = flow.antecedents; _i < _a.length; _i++) {
+                    var antecedent = _a[_i];
+                    flowLoopCount++;
+                    var type = getTypeAtFlowNode(antecedent);
+                    flowLoopCount--;
+                    // If we see a value appear in the cache it is a sign that control flow  analysis
+                    // was restarted and completed by checkExpressionCached. We can simply pick up
+                    // the resulting type and bail out.
+                    if (cache[key]) {
+                        return cache[key];
+                    }
+                    // If the type at a particular antecedent path is the declared type and the
+                    // reference is known to always be assigned (i.e. when declared and initial types
+                    // are the same), there is no reason to process more antecedents since the only
+                    // possible outcome is subtypes that will be removed in the final union type anyway.
+                    if (type === declaredType && declaredType === initialType) {
+                        return cache[key] = type;
+                    }
+                    if (!ts.contains(antecedentTypes, type)) {
+                        antecedentTypes.push(type);
+                    }
+                }
+                return cache[key] = antecedentTypes.length === 1 ? antecedentTypes[0] : getUnionType(antecedentTypes);
             }
             function narrowTypeByTruthiness(type, expr, assumeTrue) {
                 return isMatchingReference(reference, expr) ? getTypeWithFacts(type, assumeTrue ? 1048576 /* Truthy */ : 2097152 /* Falsy */) : type;
@@ -25452,7 +25568,7 @@ var ts;
             // If signature resolution originated in control flow type analysis (for example to compute the
             // assigned type in a flow assignment) we don't cache the result as it may be based on temporary
             // types from the control flow analysis.
-            links.resolvedSignature = flowStackStart === flowStackCount ? result : cached;
+            links.resolvedSignature = flowLoopStart === flowLoopCount ? result : cached;
             return result;
         }
         function getResolvedOrAnySignature(node) {
@@ -26498,12 +26614,12 @@ var ts;
             var links = getNodeLinks(node);
             if (!links.resolvedType) {
                 // When computing a type that we're going to cache, we need to ignore any ongoing control flow
-                // analysis because variables may have transient types in indeterminable states. Moving flowStackStart
+                // analysis because variables may have transient types in indeterminable states. Moving flowLoopStart
                 // to the top of the stack ensures all transient types are computed from a known point.
-                var saveFlowStackStart = flowStackStart;
-                flowStackStart = flowStackCount;
+                var saveFlowLoopStart = flowLoopStart;
+                flowLoopStart = flowLoopCount;
                 links.resolvedType = checkExpression(node, contextualMapper);
-                flowStackStart = saveFlowStackStart;
+                flowLoopStart = saveFlowLoopStart;
             }
             return links.resolvedType;
         }

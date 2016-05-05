@@ -1044,16 +1044,21 @@ declare namespace ts {
         postParameterName?: Identifier;
         isBracketed: boolean;
     }
-    const enum FlowKind {
-        Unreachable = 0,
-        Start = 1,
-        Label = 2,
-        LoopLabel = 3,
-        Assignment = 4,
-        Condition = 5,
+    const enum FlowFlags {
+        Unreachable = 1,
+        Start = 2,
+        BranchLabel = 4,
+        LoopLabel = 8,
+        Assignment = 16,
+        TrueCondition = 32,
+        FalseCondition = 64,
+        Referenced = 128,
+        Shared = 256,
+        Label = 12,
+        Condition = 96,
     }
     interface FlowNode {
-        kind: FlowKind;
+        flags: FlowFlags;
         id?: number;
     }
     interface FlowLabel extends FlowNode {
@@ -1065,7 +1070,6 @@ declare namespace ts {
     }
     interface FlowCondition extends FlowNode {
         expression: Expression;
-        assumeTrue: boolean;
         antecedent: FlowNode;
     }
     interface AmdDependency {
@@ -6693,6 +6697,12 @@ declare namespace ts {
             message: string;
         };
         Resolving_type_reference_directive_0_containing_file_not_set_root_directory_not_set: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        The_config_file_0_found_doesn_t_contain_any_source_files: {
             code: number;
             category: DiagnosticCategory;
             key: string;

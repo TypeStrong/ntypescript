@@ -4622,7 +4622,7 @@ interface StringConstructor {
 
 interface MapConstructor {
     new (): Map<any, any>;
-    new <K, V>(): Map<K, V>;
+    new <K, V>(entries?: [K, V][]): Map<K, V>;
     readonly prototype: Map<any, any>;
 }
 declare var Map: MapConstructor;
@@ -4638,7 +4638,7 @@ interface WeakMap<K, V> {
 
 interface WeakMapConstructor {
     new (): WeakMap<any, any>;
-    new <K, V>(): WeakMap<K, V>;
+    new <K, V>(entries?: [K, V][]): WeakMap<K, V>;
     readonly prototype: WeakMap<any, any>;
 }
 declare var WeakMap: WeakMapConstructor;
@@ -4647,20 +4647,14 @@ interface Set<T> {
     add(value: T): Set<T>;
     clear(): void;
     delete(value: T): boolean;
-    entries(): IterableIterator<[T, T]>;
     forEach(callbackfn: (value: T, index: T, set: Set<T>) => void, thisArg?: any): void;
     has(value: T): boolean;
-    keys(): IterableIterator<T>;
     readonly size: number;
-    values(): IterableIterator<T>;
-    [Symbol.iterator]():IterableIterator<T>;
-    readonly [Symbol.toStringTag]: "Set";
 }
 
 interface SetConstructor {
     new (): Set<any>;
-    new <T>(): Set<T>;
-    new <T>(iterable: Iterable<T>): Set<T>;
+    new <T>(values?: T[]): Set<T>;
     readonly prototype: Set<any>;
 }
 declare var Set: SetConstructor;
@@ -4670,13 +4664,12 @@ interface WeakSet<T> {
     clear(): void;
     delete(value: T): boolean;
     has(value: T): boolean;
-    readonly [Symbol.toStringTag]: "WeakSet";
+
 }
 
 interface WeakSetConstructor {
     new (): WeakSet<any>;
-    new <T>(): WeakSet<T>;
-    new <T>(iterable: Iterable<T>): WeakSet<T>;
+    new <T>(values?: T[]): WeakSet<T>;
     readonly prototype: WeakSet<any>;
 }
 declare var WeakSet: WeakSetConstructor;
@@ -4694,6 +4687,14 @@ interface GeneratorFunctionConstructor {
 declare var GeneratorFunction: GeneratorFunctionConstructor;
 /// <reference path="lib.es2015.symbol.d.ts" />
 
+interface SymbolConstructor {
+    /** 
+      * A method that returns the default iterator for an object. Called by the semantics of the 
+      * for-of statement.
+      */
+    readonly iterator: symbol;
+}
+
 interface IteratorResult<T> {
     done: boolean;
     value: T;
@@ -4705,11 +4706,18 @@ interface Iterator<T> {
     throw?(e?: any): IteratorResult<T>;
 }
 
-interface Iterable<T> { }
+interface Iterable<T> {
+    [Symbol.iterator](): Iterator<T>;
+}
 
-interface IterableIterator<T> extends Iterator<T> { }
+interface IterableIterator<T> extends Iterator<T> {
+    [Symbol.iterator](): IterableIterator<T>;
+}
 
 interface Array<T> {
+    /** Iterator */
+    [Symbol.iterator](): IterableIterator<T>;
+
     /** 
       * Returns an array of key, value pairs for every entry in the array
       */
@@ -4742,7 +4750,13 @@ interface ArrayConstructor {
     from<T>(iterable: Iterable<T>): Array<T>;
 }
 
+interface IArguments {
+    /** Iterator */
+    [Symbol.iterator](): IterableIterator<any>;
+}
+
 interface Map<K, V> {
+    [Symbol.iterator](): IterableIterator<[K,V]>;
     entries(): IterableIterator<[K, V]>;
     keys(): IterableIterator<K>;
     values(): IterableIterator<V>;
@@ -4756,6 +4770,23 @@ interface WeakMap<K, V> { }
 
 interface WeakMapConstructor {
     new <K, V>(iterable: Iterable<[K, V]>): WeakMap<K, V>;
+}
+
+interface Set<T> {
+    [Symbol.iterator](): IterableIterator<T>;
+    entries(): IterableIterator<[T, T]>;
+    keys(): IterableIterator<T>;
+    values(): IterableIterator<T>;
+}
+
+interface SetConstructor {
+    new <T>(iterable: Iterable<T>): Set<T>;
+}
+
+interface WeakSet<T> { }
+
+interface WeakSetConstructor {
+    new <T>(iterable: Iterable<T>): WeakSet<T>;
 }
 
 interface Promise<T> { }
@@ -4782,11 +4813,17 @@ declare namespace Reflect {
     function enumerate(target: any): IterableIterator<any>;
 }
 
+interface String {
+    /** Iterator */
+    [Symbol.iterator](): IterableIterator<string>;
+}
+
 /**
   * A typed array of 8-bit integer values. The contents are initialized to 0. If the requested 
   * number of bytes could not be allocated an exception is raised.
   */
 interface Int8Array {
+    [Symbol.iterator](): IterableIterator<number>;
     /** 
       * Returns an array of key, value pairs for every entry in the array
       */
@@ -4818,6 +4855,7 @@ interface Int8ArrayConstructor {
   * requested number of bytes could not be allocated an exception is raised.
   */
 interface Uint8Array {
+    [Symbol.iterator](): IterableIterator<number>;
     /** 
       * Returns an array of key, value pairs for every entry in the array
       */
@@ -4849,6 +4887,7 @@ interface Uint8ArrayConstructor {
   * If the requested number of bytes could not be allocated an exception is raised.
   */
 interface Uint8ClampedArray {
+    [Symbol.iterator](): IterableIterator<number>;
     /** 
       * Returns an array of key, value pairs for every entry in the array
       */
@@ -4883,6 +4922,7 @@ interface Uint8ClampedArrayConstructor {
   * requested number of bytes could not be allocated an exception is raised.
   */
 interface Int16Array {
+    [Symbol.iterator](): IterableIterator<number>;
     /** 
       * Returns an array of key, value pairs for every entry in the array
       */
@@ -4916,6 +4956,7 @@ interface Int16ArrayConstructor {
   * requested number of bytes could not be allocated an exception is raised.
   */
 interface Uint16Array {
+    [Symbol.iterator](): IterableIterator<number>;
     /** 
       * Returns an array of key, value pairs for every entry in the array
       */
@@ -4947,6 +4988,7 @@ interface Uint16ArrayConstructor {
   * requested number of bytes could not be allocated an exception is raised.
   */
 interface Int32Array {
+    [Symbol.iterator](): IterableIterator<number>;
     /** 
       * Returns an array of key, value pairs for every entry in the array
       */
@@ -4978,6 +5020,7 @@ interface Int32ArrayConstructor {
   * requested number of bytes could not be allocated an exception is raised.
   */
 interface Uint32Array {
+    [Symbol.iterator](): IterableIterator<number>;
     /** 
       * Returns an array of key, value pairs for every entry in the array
       */
@@ -5009,6 +5052,7 @@ interface Uint32ArrayConstructor {
   * of bytes could not be allocated an exception is raised.
   */
 interface Float32Array {
+    [Symbol.iterator](): IterableIterator<number>;
     /** 
       * Returns an array of key, value pairs for every entry in the array
       */
@@ -5040,6 +5084,7 @@ interface Float32ArrayConstructor {
   * number of bytes could not be allocated an exception is raised.
   */
 interface Float64Array {
+    [Symbol.iterator](): IterableIterator<number>;
     /** 
       * Returns an array of key, value pairs for every entry in the array
       */
@@ -5230,12 +5275,6 @@ interface SymbolConstructor {
       */
     readonly isConcatSpreadable: symbol;
 
-    /** 
-      * A method that returns the default iterator for an object. Called by the semantics of the 
-      * for-of statement.
-      */
-    readonly iterator: symbol;
-
     /**
       * A regular expression method that matches the regular expression against a string. Called 
       * by the String.prototype.match method. 
@@ -5290,9 +5329,6 @@ interface Symbol {
 }
 
 interface Array<T> {
-    /** Iterator */
-    [Symbol.iterator](): IterableIterator<T>;
-
     /**
      * Returns an object whose properties have the value 'true'
      * when they will be absent when used in a 'with' statement.
@@ -5333,12 +5369,19 @@ interface Date {
 }
 
 interface Map<K, V> {
-    [Symbol.iterator]():IterableIterator<[K,V]>;
     readonly [Symbol.toStringTag]: "Map";
 }
 
 interface WeakMap<K, V>{
     readonly [Symbol.toStringTag]: "WeakMap";
+}
+
+interface Set<T> {
+    readonly [Symbol.toStringTag]: "Set";
+}
+
+interface WeakSet<T> {
+    readonly [Symbol.toStringTag]: "WeakSet";
 }
 
 interface JSON {
@@ -5358,21 +5401,6 @@ interface Function {
 
 interface GeneratorFunction extends Function {
     readonly [Symbol.toStringTag]: "GeneratorFunction";
-}
-
-interface IArguments {
-    /** Iterator */
-    [Symbol.iterator](): IterableIterator<any>;
-}
-
-interface Iterator<T> { }
-
-interface Iterable<T> {
-    [Symbol.iterator](): Iterator<T>;
-}
-
-interface IterableIterator<T> extends Iterator<T> {
-    [Symbol.iterator](): IterableIterator<T>;
 }
 
 interface Math {
@@ -5440,9 +5468,6 @@ interface RegExpConstructor {
 }
 
 interface String {
-    /** Iterator */
-    [Symbol.iterator](): IterableIterator<string>;
-   
     /**
       * Matches a string an object that supports being matched against, and returns an array containing the results of that search.
       * @param matcher An object that supports being matched against.
@@ -5496,7 +5521,6 @@ interface DataView {
   * number of bytes could not be allocated an exception is raised.
   */
 interface Int8Array {
-    [Symbol.iterator](): IterableIterator<number>;
     readonly [Symbol.toStringTag]: "Int8Array";
 }
 
@@ -5505,7 +5529,6 @@ interface Int8Array {
   * requested number of bytes could not be allocated an exception is raised.
   */
 interface Uint8Array {
-    [Symbol.iterator](): IterableIterator<number>;
     readonly [Symbol.toStringTag]: "UInt8Array";
 }
 
@@ -5514,7 +5537,6 @@ interface Uint8Array {
   * If the requested number of bytes could not be allocated an exception is raised.
   */
 interface Uint8ClampedArray {
-    [Symbol.iterator](): IterableIterator<number>;
     readonly [Symbol.toStringTag]: "Uint8ClampedArray";
 }
 
@@ -5523,7 +5545,6 @@ interface Uint8ClampedArray {
   * requested number of bytes could not be allocated an exception is raised.
   */
 interface Int16Array {
-    [Symbol.iterator](): IterableIterator<number>;
     readonly [Symbol.toStringTag]: "Int16Array";
 }
 
@@ -5532,7 +5553,6 @@ interface Int16Array {
   * requested number of bytes could not be allocated an exception is raised.
   */
 interface Uint16Array {
-    [Symbol.iterator](): IterableIterator<number>;
     readonly [Symbol.toStringTag]: "Uint16Array";
 }
 
@@ -5541,7 +5561,6 @@ interface Uint16Array {
   * requested number of bytes could not be allocated an exception is raised.
   */
 interface Int32Array {
-    [Symbol.iterator](): IterableIterator<number>;
     readonly [Symbol.toStringTag]: "Int32Array";
 }
 
@@ -5550,7 +5569,6 @@ interface Int32Array {
   * requested number of bytes could not be allocated an exception is raised.
   */
 interface Uint32Array {
-    [Symbol.iterator](): IterableIterator<number>;
     readonly [Symbol.toStringTag]: "Uint32Array";
 }
 
@@ -5559,7 +5577,6 @@ interface Uint32Array {
   * of bytes could not be allocated an exception is raised.
   */
 interface Float32Array {
-    [Symbol.iterator](): IterableIterator<number>;
     readonly [Symbol.toStringTag]: "Float32Array";
 }
 
@@ -5568,7 +5585,6 @@ interface Float32Array {
   * number of bytes could not be allocated an exception is raised.
   */
 interface Float64Array {
-    [Symbol.iterator](): IterableIterator<number>;
     readonly [Symbol.toStringTag]: "Float64Array";
 }
 /////////////////////////////
