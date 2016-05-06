@@ -1856,6 +1856,7 @@ declare namespace ts {
         options: CompilerOptions;
         typingOptions?: TypingOptions;
         fileNames: string[];
+        raw?: any;
         errors: Diagnostic[];
     }
     interface CommandLineOptionBase {
@@ -2013,6 +2014,7 @@ declare namespace ts {
         readFile(fileName: string): string;
         trace?(s: string): void;
         directoryExists?(directoryName: string): boolean;
+        realpath?(path: string): string;
     }
     interface ResolvedModule {
         resolvedFileName: string;
@@ -2236,6 +2238,7 @@ declare namespace ts {
         createHash?(data: string): string;
         getMemoryUsage?(): number;
         exit(exitCode?: number): void;
+        realpath?(path: string): string;
     }
     interface FileWatcher {
         close(): void;
@@ -5346,12 +5349,6 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Module_augmentation_cannot_introduce_new_names_in_the_top_level_scope: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
         Exports_and_export_assignments_are_not_permitted_in_module_augmentations: {
             code: number;
             category: DiagnosticCategory;
@@ -5448,7 +5445,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        A_setter_cannot_have_a_this_parameter: {
+        get_and_set_accessor_must_have_the_same_this_type: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6703,6 +6700,12 @@ declare namespace ts {
             message: string;
         };
         The_config_file_0_found_doesn_t_contain_any_source_files: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Resolving_real_path_for_0_result_1: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -8583,6 +8586,7 @@ declare namespace ts {
     class CoreServicesShimHostAdapter implements ParseConfigHost, ModuleResolutionHost {
         private shimHost;
         directoryExists: (directoryName: string) => boolean;
+        realpath: (path: string) => string;
         constructor(shimHost: CoreServicesShimHost);
         readDirectory(rootDir: string, extension: string, exclude: string[], depth?: number): string[];
         fileExists(fileName: string): boolean;

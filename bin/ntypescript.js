@@ -2160,10 +2160,14 @@ var ts;
                 },
                 exit: function (exitCode) {
                     process.exit(exitCode);
+                },
+                realpath: function (path) {
+                    return _fs.realpathSync(path);
                 }
             };
         }
         function getChakraSystem() {
+            var realpath = ChakraHost.realpath && (function (path) { return ChakraHost.realpath(path); });
             return {
                 newLine: ChakraHost.newLine || "\r\n",
                 args: ChakraHost.args,
@@ -2188,6 +2192,7 @@ var ts;
                 getCurrentDirectory: function () { return ChakraHost.currentDirectory; },
                 readDirectory: ChakraHost.readDirectory,
                 exit: ChakraHost.quit,
+                realpath: realpath
             };
         }
         if (typeof ChakraHost !== "undefined") {
@@ -4320,7 +4325,12 @@ var ts;
     }
     ts.getFirstConstructorWithBody = getFirstConstructorWithBody;
     function getSetAccessorTypeAnnotationNode(accessor) {
-        return accessor && accessor.parameters.length > 0 && accessor.parameters[0].type;
+        if (accessor && accessor.parameters.length > 0) {
+            var hasThis = accessor.parameters.length === 2 &&
+                accessor.parameters[0].name.kind === 69 /* Identifier */ &&
+                accessor.parameters[0].name.originalKeywordKind === 97 /* ThisKeyword */;
+            return accessor.parameters[hasThis ? 1 : 0].type;
+        }
     }
     ts.getSetAccessorTypeAnnotationNode = getSetAccessorTypeAnnotationNode;
     function getAllAccessorDeclarations(declarations, accessor) {
@@ -5484,7 +5494,6 @@ var ts;
         Cannot_find_name_0_Did_you_mean_the_static_member_1_0: { code: 2662, category: ts.DiagnosticCategory.Error, key: "Cannot_find_name_0_Did_you_mean_the_static_member_1_0_2662", message: "Cannot find name '{0}'. Did you mean the static member '{1}.{0}'?" },
         Cannot_find_name_0_Did_you_mean_the_instance_member_this_0: { code: 2663, category: ts.DiagnosticCategory.Error, key: "Cannot_find_name_0_Did_you_mean_the_instance_member_this_0_2663", message: "Cannot find name '{0}'. Did you mean the instance member 'this.{0}'?" },
         Invalid_module_name_in_augmentation_module_0_cannot_be_found: { code: 2664, category: ts.DiagnosticCategory.Error, key: "Invalid_module_name_in_augmentation_module_0_cannot_be_found_2664", message: "Invalid module name in augmentation, module '{0}' cannot be found." },
-        Module_augmentation_cannot_introduce_new_names_in_the_top_level_scope: { code: 2665, category: ts.DiagnosticCategory.Error, key: "Module_augmentation_cannot_introduce_new_names_in_the_top_level_scope_2665", message: "Module augmentation cannot introduce new names in the top level scope." },
         Exports_and_export_assignments_are_not_permitted_in_module_augmentations: { code: 2666, category: ts.DiagnosticCategory.Error, key: "Exports_and_export_assignments_are_not_permitted_in_module_augmentations_2666", message: "Exports and export assignments are not permitted in module augmentations." },
         Imports_are_not_permitted_in_module_augmentations_Consider_moving_them_to_the_enclosing_external_module: { code: 2667, category: ts.DiagnosticCategory.Error, key: "Imports_are_not_permitted_in_module_augmentations_Consider_moving_them_to_the_enclosing_external_mod_2667", message: "Imports are not permitted in module augmentations. Consider moving them to the enclosing external module." },
         export_modifier_cannot_be_applied_to_ambient_modules_and_module_augmentations_since_they_are_always_visible: { code: 2668, category: ts.DiagnosticCategory.Error, key: "export_modifier_cannot_be_applied_to_ambient_modules_and_module_augmentations_since_they_are_always__2668", message: "'export' modifier cannot be applied to ambient modules and module augmentations since they are always visible." },
@@ -5501,7 +5510,7 @@ var ts;
         A_function_that_is_called_with_the_new_keyword_cannot_have_a_this_type_that_is_void: { code: 2679, category: ts.DiagnosticCategory.Error, key: "A_function_that_is_called_with_the_new_keyword_cannot_have_a_this_type_that_is_void_2679", message: "A function that is called with the 'new' keyword cannot have a 'this' type that is 'void'." },
         A_this_parameter_must_be_the_first_parameter: { code: 2680, category: ts.DiagnosticCategory.Error, key: "A_this_parameter_must_be_the_first_parameter_2680", message: "A 'this' parameter must be the first parameter." },
         A_constructor_cannot_have_a_this_parameter: { code: 2681, category: ts.DiagnosticCategory.Error, key: "A_constructor_cannot_have_a_this_parameter_2681", message: "A constructor cannot have a 'this' parameter." },
-        A_setter_cannot_have_a_this_parameter: { code: 2682, category: ts.DiagnosticCategory.Error, key: "A_setter_cannot_have_a_this_parameter_2682", message: "A setter cannot have a 'this' parameter." },
+        get_and_set_accessor_must_have_the_same_this_type: { code: 2682, category: ts.DiagnosticCategory.Error, key: "get_and_set_accessor_must_have_the_same_this_type_2682", message: "'get' and 'set' accessor must have the same 'this' type." },
         this_implicitly_has_type_any_because_it_does_not_have_a_type_annotation: { code: 2683, category: ts.DiagnosticCategory.Error, key: "this_implicitly_has_type_any_because_it_does_not_have_a_type_annotation_2683", message: "'this' implicitly has type 'any' because it does not have a type annotation." },
         The_this_context_of_type_0_is_not_assignable_to_method_s_this_of_type_1: { code: 2684, category: ts.DiagnosticCategory.Error, key: "The_this_context_of_type_0_is_not_assignable_to_method_s_this_of_type_1_2684", message: "The 'this' context of type '{0}' is not assignable to method's 'this' of type '{1}'." },
         The_this_types_of_each_signature_are_incompatible: { code: 2685, category: ts.DiagnosticCategory.Error, key: "The_this_types_of_each_signature_are_incompatible_2685", message: "The 'this' types of each signature are incompatible." },
@@ -5711,6 +5720,7 @@ var ts;
         Resolving_type_reference_directive_0_containing_file_not_set_root_directory_1: { code: 6127, category: ts.DiagnosticCategory.Message, key: "Resolving_type_reference_directive_0_containing_file_not_set_root_directory_1_6127", message: "======== Resolving type reference directive '{0}', containing file not set, root directory '{1}'. ========" },
         Resolving_type_reference_directive_0_containing_file_not_set_root_directory_not_set: { code: 6128, category: ts.DiagnosticCategory.Message, key: "Resolving_type_reference_directive_0_containing_file_not_set_root_directory_not_set_6128", message: "======== Resolving type reference directive '{0}', containing file not set, root directory not set. ========" },
         The_config_file_0_found_doesn_t_contain_any_source_files: { code: 6129, category: ts.DiagnosticCategory.Error, key: "The_config_file_0_found_doesn_t_contain_any_source_files_6129", message: "The config file '{0}' found doesn't contain any source files." },
+        Resolving_real_path_for_0_result_1: { code: 6130, category: ts.DiagnosticCategory.Message, key: "Resolving_real_path_for_0_result_1_6130", message: "Resolving real path for '{0}', result '{1}'" },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter_0_implicitly_has_an_1_type_7006", message: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member_0_implicitly_has_an_1_type_7008", message: "Member '{0}' implicitly has an '{1}' type." },
@@ -10047,9 +10057,14 @@ var ts;
             return undefined;
         }
         function isUnParenthesizedAsyncArrowFunctionWorker() {
+            // AsyncArrowFunctionExpression:
+            //      1) async[no LineTerminator here]AsyncArrowBindingIdentifier[?Yield][no LineTerminator here]=>AsyncConciseBody[?In]
+            //      2) CoverCallExpressionAndAsyncArrowHead[?Yield, ?Await][no LineTerminator here]=>AsyncConciseBody[?In]
             if (token === 118 /* AsyncKeyword */) {
                 nextToken();
-                if (scanner.hasPrecedingLineBreak()) {
+                // If the "async" is followed by "=>" token then it is not a begining of an async arrow-function
+                // but instead a simple arrow-function which will be parsed inside "parseAssignmentExpressionOrHigher"
+                if (scanner.hasPrecedingLineBreak() || token === 34 /* EqualsGreaterThanToken */) {
                     return 0 /* False */;
                 }
                 // Check for un-parenthesized AsyncArrowFunction
@@ -17977,7 +17992,12 @@ var ts;
                 if (func.kind === 149 /* SetAccessor */ && !ts.hasDynamicName(func)) {
                     var getter = ts.getDeclarationOfKind(declaration.parent.symbol, 148 /* GetAccessor */);
                     if (getter) {
-                        return getReturnTypeOfSignature(getSignatureFromDeclaration(getter));
+                        var signature = getSignatureFromDeclaration(getter);
+                        var thisParameter = getAccessorThisParameter(func);
+                        if (thisParameter && declaration === thisParameter) {
+                            return signature.thisType;
+                        }
+                        return getReturnTypeOfSignature(signature);
                     }
                 }
                 // Use contextual parameter type if one is available
@@ -18171,6 +18191,15 @@ var ts;
                 else {
                     var setterTypeAnnotation = ts.getSetAccessorTypeAnnotationNode(accessor);
                     return setterTypeAnnotation && getTypeFromTypeNode(setterTypeAnnotation);
+                }
+            }
+            return undefined;
+        }
+        function getAnnotatedAccessorThisType(accessor) {
+            if (accessor) {
+                var parameter = getAccessorThisParameter(accessor);
+                if (parameter && parameter.type) {
+                    return getTypeFromTypeNode(accessor.parameters[0].type);
                 }
             }
             return undefined;
@@ -19320,20 +19349,12 @@ var ts;
         function getSignatureFromDeclaration(declaration) {
             var links = getNodeLinks(declaration);
             if (!links.resolvedSignature) {
-                var classType = declaration.kind === 147 /* Constructor */ ?
-                    getDeclaredTypeOfClassOrInterface(getMergedSymbol(declaration.parent.symbol))
-                    : undefined;
-                var typeParameters = classType ? classType.localTypeParameters :
-                    declaration.typeParameters ? getTypeParametersFromDeclaration(declaration.typeParameters) :
-                        getTypeParametersFromJSDocTemplate(declaration);
                 var parameters = [];
                 var hasStringLiterals = false;
                 var minArgumentCount = -1;
                 var thisType = undefined;
                 var hasThisParameter = void 0;
                 var isJSConstructSignature = ts.isJSDocConstructSignature(declaration);
-                var returnType = undefined;
-                var typePredicate = undefined;
                 // If this is a JSDoc construct signature, then skip the first parameter in the
                 // parameter list.  The first parameter represents the return type of the construct
                 // signature.
@@ -19365,42 +19386,59 @@ var ts;
                         minArgumentCount = -1;
                     }
                 }
+                // If only one accessor includes a this-type annotation, the other behaves as if it had the same type annotation
+                if ((declaration.kind === 148 /* GetAccessor */ || declaration.kind === 149 /* SetAccessor */) &&
+                    !ts.hasDynamicName(declaration) &&
+                    (!hasThisParameter || thisType === unknownType)) {
+                    var otherKind = declaration.kind === 148 /* GetAccessor */ ? 149 /* SetAccessor */ : 148 /* GetAccessor */;
+                    var setter = ts.getDeclarationOfKind(declaration.symbol, otherKind);
+                    thisType = getAnnotatedAccessorThisType(setter);
+                }
                 if (minArgumentCount < 0) {
                     minArgumentCount = declaration.parameters.length - (hasThisParameter ? 1 : 0);
                 }
                 if (isJSConstructSignature) {
                     minArgumentCount--;
-                    returnType = getTypeFromTypeNode(declaration.parameters[0].type);
                 }
-                else if (classType) {
-                    returnType = classType;
-                }
-                else if (declaration.type) {
-                    returnType = getTypeFromTypeNode(declaration.type);
-                    if (declaration.type.kind === 153 /* TypePredicate */) {
-                        typePredicate = createTypePredicateFromTypePredicateNode(declaration.type);
-                    }
-                }
-                else {
-                    if (declaration.flags & 134217728 /* JavaScriptFile */) {
-                        var type = getReturnTypeFromJSDocComment(declaration);
-                        if (type && type !== unknownType) {
-                            returnType = type;
-                        }
-                    }
-                    // TypeScript 1.0 spec (April 2014):
-                    // If only one accessor includes a type annotation, the other behaves as if it had the same type annotation.
-                    if (declaration.kind === 148 /* GetAccessor */ && !ts.hasDynamicName(declaration)) {
-                        var setter = ts.getDeclarationOfKind(declaration.symbol, 149 /* SetAccessor */);
-                        returnType = getAnnotatedAccessorType(setter);
-                    }
-                    if (!returnType && ts.nodeIsMissing(declaration.body)) {
-                        returnType = anyType;
-                    }
-                }
+                var classType = declaration.kind === 147 /* Constructor */ ?
+                    getDeclaredTypeOfClassOrInterface(getMergedSymbol(declaration.parent.symbol))
+                    : undefined;
+                var typeParameters = classType ? classType.localTypeParameters :
+                    declaration.typeParameters ? getTypeParametersFromDeclaration(declaration.typeParameters) :
+                        getTypeParametersFromJSDocTemplate(declaration);
+                var returnType = getSignatureReturnTypeFromDeclaration(declaration, minArgumentCount, isJSConstructSignature, classType);
+                var typePredicate = declaration.type && declaration.type.kind === 153 /* TypePredicate */ ?
+                    createTypePredicateFromTypePredicateNode(declaration.type) :
+                    undefined;
                 links.resolvedSignature = createSignature(declaration, typeParameters, thisType, parameters, returnType, typePredicate, minArgumentCount, ts.hasRestParameter(declaration), hasStringLiterals);
             }
             return links.resolvedSignature;
+        }
+        function getSignatureReturnTypeFromDeclaration(declaration, minArgumentCount, isJSConstructSignature, classType) {
+            if (isJSConstructSignature) {
+                return getTypeFromTypeNode(declaration.parameters[0].type);
+            }
+            else if (classType) {
+                return classType;
+            }
+            else if (declaration.type) {
+                return getTypeFromTypeNode(declaration.type);
+            }
+            if (declaration.flags & 134217728 /* JavaScriptFile */) {
+                var type = getReturnTypeFromJSDocComment(declaration);
+                if (type && type !== unknownType) {
+                    return type;
+                }
+            }
+            // TypeScript 1.0 spec (April 2014):
+            // If only one accessor includes a type annotation, the other behaves as if it had the same type annotation.
+            if (declaration.kind === 148 /* GetAccessor */ && !ts.hasDynamicName(declaration)) {
+                var setter = ts.getDeclarationOfKind(declaration.symbol, 149 /* SetAccessor */);
+                return getAnnotatedAccessorType(setter);
+            }
+            if (ts.nodeIsMissing(declaration.body)) {
+                return anyType;
+            }
         }
         function getSignaturesOfSymbol(symbol) {
             if (!symbol)
@@ -23152,6 +23190,20 @@ var ts;
         function getContextuallyTypedParameterType(parameter) {
             var func = parameter.parent;
             if (isContextSensitiveFunctionOrObjectLiteralMethod(func)) {
+                var iife = getImmediatelyInvokedFunctionExpression(func);
+                if (iife) {
+                    var indexOfParameter = ts.indexOf(func.parameters, parameter);
+                    if (iife.arguments && indexOfParameter < iife.arguments.length) {
+                        if (parameter.dotDotDotToken) {
+                            var restTypes = [];
+                            for (var i = indexOfParameter; i < iife.arguments.length; i++) {
+                                restTypes.push(getTypeOfExpression(iife.arguments[i]));
+                            }
+                            return createArrayType(getUnionType(restTypes));
+                        }
+                        return checkExpression(iife.arguments[indexOfParameter]);
+                    }
+                }
                 var contextualSignature = getContextualSignature(func);
                 if (contextualSignature) {
                     var funcHasRestParameters = ts.hasRestParameter(func);
@@ -23169,6 +23221,19 @@ var ts;
                 }
             }
             return undefined;
+        }
+        function getImmediatelyInvokedFunctionExpression(func) {
+            if (isFunctionExpressionOrArrowFunction(func)) {
+                var prev = func;
+                var parent_8 = func.parent;
+                while (parent_8.kind === 177 /* ParenthesizedExpression */) {
+                    prev = parent_8;
+                    parent_8 = parent_8.parent;
+                }
+                if (parent_8.kind === 173 /* CallExpression */ && parent_8.expression === prev) {
+                    return parent_8;
+                }
+            }
         }
         // In a variable, parameter or property declaration with a type annotation,
         //   the contextual type of an initializer expression is the type of the variable, parameter or property.
@@ -23493,9 +23558,9 @@ var ts;
                 : undefined;
         }
         function getContextualTypeForFunctionLikeDeclaration(node) {
-            return ts.isObjectLiteralMethod(node)
-                ? getContextualTypeForObjectLiteralMethod(node)
-                : getApparentTypeOfContextualType(node);
+            return ts.isObjectLiteralMethod(node) ?
+                getContextualTypeForObjectLiteralMethod(node) :
+                getApparentTypeOfContextualType(node);
         }
         // Return the contextual signature for a given expression node. A contextual type provides a
         // contextual signature if it has a single call signature and if that call signature is non-generic.
@@ -24581,13 +24646,13 @@ var ts;
             for (var _i = 0, signatures_2 = signatures; _i < signatures_2.length; _i++) {
                 var signature = signatures_2[_i];
                 var symbol = signature.declaration && getSymbolOfNode(signature.declaration);
-                var parent_8 = signature.declaration && signature.declaration.parent;
+                var parent_9 = signature.declaration && signature.declaration.parent;
                 if (!lastSymbol || symbol === lastSymbol) {
-                    if (lastParent && parent_8 === lastParent) {
+                    if (lastParent && parent_9 === lastParent) {
                         index++;
                     }
                     else {
-                        lastParent = parent_8;
+                        lastParent = parent_9;
                         index = cutoffIndex;
                     }
                 }
@@ -24595,7 +24660,7 @@ var ts;
                     // current declaration belongs to a different symbol
                     // set cutoffIndex so re-orderings in the future won't change result set from 0 to cutoffIndex
                     index = cutoffIndex = result.length;
-                    lastParent = parent_8;
+                    lastParent = parent_9;
                 }
                 lastSymbol = symbol;
                 // specialized signatures always need to be placed before non-specialized signatures regardless
@@ -26812,9 +26877,6 @@ var ts;
                 if (func.kind === 147 /* Constructor */ || func.kind === 151 /* ConstructSignature */ || func.kind === 156 /* ConstructorType */) {
                     error(node, ts.Diagnostics.A_constructor_cannot_have_a_this_parameter);
                 }
-                if (func.kind === 149 /* SetAccessor */) {
-                    error(node, ts.Diagnostics.A_setter_cannot_have_a_this_parameter);
-                }
             }
             // Only check rest parameter type if it's not a binding pattern. Since binding patterns are
             // not allowed in a rest parameter, we already have an error from checkGrammarParameterList.
@@ -26893,9 +26955,9 @@ var ts;
                 case 155 /* FunctionType */:
                 case 146 /* MethodDeclaration */:
                 case 145 /* MethodSignature */:
-                    var parent_9 = node.parent;
-                    if (node === parent_9.type) {
-                        return parent_9;
+                    var parent_10 = node.parent;
+                    if (node === parent_10.type) {
+                        return parent_10;
                     }
             }
         }
@@ -27150,15 +27212,10 @@ var ts;
                         if (((node.flags & 128 /* Abstract */) !== (otherAccessor.flags & 128 /* Abstract */))) {
                             error(node.name, ts.Diagnostics.Accessors_must_both_be_abstract_or_non_abstract);
                         }
-                        var currentAccessorType = getAnnotatedAccessorType(node);
-                        var otherAccessorType = getAnnotatedAccessorType(otherAccessor);
                         // TypeScript 1.0 spec (April 2014): 4.5
                         // If both accessors include type annotations, the specified types must be identical.
-                        if (currentAccessorType && otherAccessorType) {
-                            if (!isTypeIdenticalTo(currentAccessorType, otherAccessorType)) {
-                                error(node, ts.Diagnostics.get_and_set_accessor_must_have_the_same_type);
-                            }
-                        }
+                        checkAccessorDeclarationTypesIdentical(node, otherAccessor, getAnnotatedAccessorType, ts.Diagnostics.get_and_set_accessor_must_have_the_same_type);
+                        checkAccessorDeclarationTypesIdentical(node, otherAccessor, getAnnotatedAccessorThisType, ts.Diagnostics.get_and_set_accessor_must_have_the_same_this_type);
                     }
                 }
                 getTypeOfAccessors(getSymbolOfNode(node));
@@ -27168,6 +27225,13 @@ var ts;
             }
             else {
                 checkNodeDeferred(node);
+            }
+        }
+        function checkAccessorDeclarationTypesIdentical(first, second, getAnnotatedType, message) {
+            var firstType = getAnnotatedType(first);
+            var secondType = getAnnotatedType(second);
+            if (firstType && secondType && !isTypeIdenticalTo(firstType, secondType)) {
+                error(first, message);
             }
         }
         function checkAccessorDeferred(node) {
@@ -28183,12 +28247,12 @@ var ts;
                     checkComputedPropertyName(node.propertyName);
                 }
                 // check private/protected variable access
-                var parent_10 = node.parent.parent;
-                var parentType = getTypeForBindingElementParent(parent_10);
+                var parent_11 = node.parent.parent;
+                var parentType = getTypeForBindingElementParent(parent_11);
                 var name_17 = node.propertyName || node.name;
                 var property = getPropertyOfType(parentType, getTextOfPropertyName(name_17));
-                if (parent_10.initializer && property && getParentOfSymbol(property)) {
-                    checkClassPropertyAccess(parent_10, parent_10.initializer, parentType, property);
+                if (parent_11.initializer && property && getParentOfSymbol(property)) {
+                    checkClassPropertyAccess(parent_11, parent_11.initializer, parentType, property);
                 }
             }
             // For a binding pattern, check contained binding elements
@@ -29561,13 +29625,6 @@ var ts;
                     grammarErrorOnFirstToken(node, ts.Diagnostics.Exports_and_export_assignments_are_not_permitted_in_module_augmentations);
                     break;
                 case 228 /* ImportEqualsDeclaration */:
-                    if (node.moduleReference.kind !== 9 /* StringLiteral */) {
-                        if (!isGlobalAugmentation) {
-                            error(node.name, ts.Diagnostics.Module_augmentation_cannot_introduce_new_names_in_the_top_level_scope);
-                        }
-                        break;
-                    }
-                // fallthrough
                 case 229 /* ImportDeclaration */:
                     grammarErrorOnFirstToken(node, ts.Diagnostics.Imports_are_not_permitted_in_module_augmentations_Consider_moving_them_to_the_enclosing_external_module);
                     break;
@@ -29602,9 +29659,6 @@ var ts;
                         if (!reportError) {
                             // symbol should not originate in augmentation
                             reportError = ts.isExternalModuleAugmentation(symbol.parent.declarations[0]);
-                        }
-                        if (reportError) {
-                            error(node, ts.Diagnostics.Module_augmentation_cannot_introduce_new_names_in_the_top_level_scope);
                         }
                     }
                     break;
@@ -30338,6 +30392,9 @@ var ts;
             return undefined;
         }
         function getSymbolAtLocation(node) {
+            if (node.kind === 255 /* SourceFile */) {
+                return ts.isExternalModule(node) ? getMergedSymbol(node.symbol) : undefined;
+            }
             if (isInsideWithStatementBody(node)) {
                 // We cannot answer semantic questions within a with block, do not proceed any further
                 return undefined;
@@ -30947,9 +31004,9 @@ var ts;
                 // external modules cannot define or contribute to type declaration files
                 var current = symbol;
                 while (true) {
-                    var parent_11 = getParentOfSymbol(current);
-                    if (parent_11) {
-                        current = parent_11;
+                    var parent_12 = getParentOfSymbol(current);
+                    if (parent_12) {
+                        current = parent_12;
                     }
                     else {
                         break;
@@ -31718,15 +31775,14 @@ var ts;
             else if (accessor.typeParameters) {
                 return grammarErrorOnNode(accessor.name, ts.Diagnostics.An_accessor_cannot_have_type_parameters);
             }
-            else if (kind === 148 /* GetAccessor */ && accessor.parameters.length) {
-                return grammarErrorOnNode(accessor.name, ts.Diagnostics.A_get_accessor_cannot_have_parameters);
+            else if (!doesAccessorHaveCorrectParameterCount(accessor)) {
+                return grammarErrorOnNode(accessor.name, kind === 148 /* GetAccessor */ ?
+                    ts.Diagnostics.A_get_accessor_cannot_have_parameters :
+                    ts.Diagnostics.A_set_accessor_must_have_exactly_one_parameter);
             }
             else if (kind === 149 /* SetAccessor */) {
                 if (accessor.type) {
                     return grammarErrorOnNode(accessor.name, ts.Diagnostics.A_set_accessor_cannot_have_a_return_type_annotation);
-                }
-                else if (accessor.parameters.length !== 1) {
-                    return grammarErrorOnNode(accessor.name, ts.Diagnostics.A_set_accessor_must_have_exactly_one_parameter);
                 }
                 else {
                     var parameter = accessor.parameters[0];
@@ -31743,6 +31799,20 @@ var ts;
                         return grammarErrorOnNode(accessor.name, ts.Diagnostics.A_set_accessor_parameter_cannot_have_an_initializer);
                     }
                 }
+            }
+        }
+        /** Does the accessor have the right number of parameters?
+
+            A get accessor has no parameters or a single `this` parameter.
+            A set accessor has one parameter or a `this` parameter and one more parameter */
+        function doesAccessorHaveCorrectParameterCount(accessor) {
+            return getAccessorThisParameter(accessor) || accessor.parameters.length === (accessor.kind === 148 /* GetAccessor */ ? 0 : 1);
+        }
+        function getAccessorThisParameter(accessor) {
+            if (accessor.parameters.length === (accessor.kind === 148 /* GetAccessor */ ? 1 : 2) &&
+                accessor.parameters[0].name.kind === 69 /* Identifier */ &&
+                accessor.parameters[0].name.originalKeywordKind === 97 /* ThisKeyword */) {
+                return accessor.parameters[0];
             }
         }
         function checkGrammarForNonSymbolComputedProperty(node, message) {
@@ -32706,6 +32776,9 @@ var ts;
         }
         return output;
     }
+    // Skip over any minified JavaScript files (ending in ".min.js")
+    // Skip over dotted files and folders as well
+    var IgnoreFileNamePattern = /(\.min\.js$)|([\\/]\.[\w.])/;
     /**
       * Parse the contents of a config file (tsconfig.json).
       * @param json The contents of the config file to parse
@@ -32725,6 +32798,7 @@ var ts;
             options: options,
             fileNames: fileNames,
             typingOptions: typingOptions,
+            raw: json,
             errors: errors
         };
         function getFileNames(errors) {
@@ -32765,8 +32839,7 @@ var ts;
                         if (extension === ".ts" && ts.fileExtensionIs(fileName, ".d.ts")) {
                             continue;
                         }
-                        // Skip over any minified JavaScript files (ending in ".min.js")
-                        if (/\.min\.js$/.test(fileName)) {
+                        if (IgnoreFileNamePattern.test(fileName)) {
                             continue;
                         }
                         // If this is one of the output extension (which would be .d.ts and .js if we are allowing compilation of js files)
@@ -36140,13 +36213,13 @@ var ts;
             }
             function isNameOfNestedBlockScopedRedeclarationOrCapturedBinding(node) {
                 if (languageVersion < 2 /* ES6 */) {
-                    var parent_12 = node.parent;
-                    switch (parent_12.kind) {
+                    var parent_13 = node.parent;
+                    switch (parent_13.kind) {
                         case 168 /* BindingElement */:
                         case 220 /* ClassDeclaration */:
                         case 223 /* EnumDeclaration */:
                         case 217 /* VariableDeclaration */:
-                            return parent_12.name === node && resolver.isDeclarationWithCollidingName(parent_12);
+                            return parent_13.name === node && resolver.isDeclarationWithCollidingName(parent_13);
                     }
                 }
                 return false;
@@ -42545,20 +42618,26 @@ var ts;
         var failedLookupLocations = [];
         var state = { compilerOptions: compilerOptions, host: host, traceEnabled: traceEnabled, skipTsx: false };
         var resolvedFileName = tryLoadModuleUsingOptionalResolutionSettings(moduleName, containingDirectory, nodeLoadModuleByRelativeName, failedLookupLocations, supportedExtensions, state);
-        if (resolvedFileName) {
-            return createResolvedModule(resolvedFileName, /*isExternalLibraryImport*/ false, failedLookupLocations);
-        }
         var isExternalLibraryImport = false;
-        if (moduleHasNonRelativeName(moduleName)) {
-            if (traceEnabled) {
-                trace(host, ts.Diagnostics.Loading_module_0_from_node_modules_folder, moduleName);
+        if (!resolvedFileName) {
+            if (moduleHasNonRelativeName(moduleName)) {
+                if (traceEnabled) {
+                    trace(host, ts.Diagnostics.Loading_module_0_from_node_modules_folder, moduleName);
+                }
+                resolvedFileName = loadModuleFromNodeModules(moduleName, containingDirectory, failedLookupLocations, state);
+                isExternalLibraryImport = resolvedFileName !== undefined;
             }
-            resolvedFileName = loadModuleFromNodeModules(moduleName, containingDirectory, failedLookupLocations, state);
-            isExternalLibraryImport = resolvedFileName !== undefined;
+            else {
+                var candidate = ts.normalizePath(ts.combinePaths(containingDirectory, moduleName));
+                resolvedFileName = nodeLoadModuleByRelativeName(candidate, supportedExtensions, failedLookupLocations, /*onlyRecordFailures*/ false, state);
+            }
         }
-        else {
-            var candidate = ts.normalizePath(ts.combinePaths(containingDirectory, moduleName));
-            resolvedFileName = nodeLoadModuleByRelativeName(candidate, supportedExtensions, failedLookupLocations, /*onlyRecordFailures*/ false, state);
+        if (resolvedFileName && host.realpath) {
+            var originalFileName = resolvedFileName;
+            resolvedFileName = ts.normalizePath(host.realpath(resolvedFileName));
+            if (traceEnabled) {
+                trace(host, ts.Diagnostics.Resolving_real_path_for_0_result_1, originalFileName, resolvedFileName);
+            }
         }
         return createResolvedModule(resolvedFileName, isExternalLibraryImport, failedLookupLocations);
     }
@@ -42804,6 +42883,7 @@ var ts;
             return ts.getDirectoryPath(ts.normalizePath(ts.sys.getExecutingFilePath()));
         }
         var newLine = ts.getNewLineCharacter(options);
+        var realpath = ts.sys.realpath && (function (path) { return ts.sys.realpath(path); });
         return {
             getSourceFile: getSourceFile,
             getDefaultLibLocation: getDefaultLibLocation,
@@ -42816,7 +42896,8 @@ var ts;
             fileExists: function (fileName) { return ts.sys.fileExists(fileName); },
             readFile: function (fileName) { return ts.sys.readFile(fileName); },
             trace: function (s) { return ts.sys.write(s + newLine); },
-            directoryExists: function (directoryName) { return ts.sys.directoryExists(directoryName); }
+            directoryExists: function (directoryName) { return ts.sys.directoryExists(directoryName); },
+            realpath: realpath
         };
     }
     ts.createCompilerHost = createCompilerHost;
@@ -44695,28 +44776,28 @@ var ts;
                 switch (n.kind) {
                     case 198 /* Block */:
                         if (!ts.isFunctionBlock(n)) {
-                            var parent_13 = n.parent;
+                            var parent_14 = n.parent;
                             var openBrace = ts.findChildOfKind(n, 15 /* OpenBraceToken */, sourceFile);
                             var closeBrace = ts.findChildOfKind(n, 16 /* CloseBraceToken */, sourceFile);
                             // Check if the block is standalone, or 'attached' to some parent statement.
                             // If the latter, we want to collapse the block, but consider its hint span
                             // to be the entire span of the parent.
-                            if (parent_13.kind === 203 /* DoStatement */ ||
-                                parent_13.kind === 206 /* ForInStatement */ ||
-                                parent_13.kind === 207 /* ForOfStatement */ ||
-                                parent_13.kind === 205 /* ForStatement */ ||
-                                parent_13.kind === 202 /* IfStatement */ ||
-                                parent_13.kind === 204 /* WhileStatement */ ||
-                                parent_13.kind === 211 /* WithStatement */ ||
-                                parent_13.kind === 251 /* CatchClause */) {
-                                addOutliningSpan(parent_13, openBrace, closeBrace, autoCollapse(n));
+                            if (parent_14.kind === 203 /* DoStatement */ ||
+                                parent_14.kind === 206 /* ForInStatement */ ||
+                                parent_14.kind === 207 /* ForOfStatement */ ||
+                                parent_14.kind === 205 /* ForStatement */ ||
+                                parent_14.kind === 202 /* IfStatement */ ||
+                                parent_14.kind === 204 /* WhileStatement */ ||
+                                parent_14.kind === 211 /* WithStatement */ ||
+                                parent_14.kind === 251 /* CatchClause */) {
+                                addOutliningSpan(parent_14, openBrace, closeBrace, autoCollapse(n));
                                 break;
                             }
-                            if (parent_13.kind === 215 /* TryStatement */) {
+                            if (parent_14.kind === 215 /* TryStatement */) {
                                 // Could be the try-block, or the finally-block.
-                                var tryStatement = parent_13;
+                                var tryStatement = parent_14;
                                 if (tryStatement.tryBlock === n) {
-                                    addOutliningSpan(parent_13, openBrace, closeBrace, autoCollapse(n));
+                                    addOutliningSpan(parent_14, openBrace, closeBrace, autoCollapse(n));
                                     break;
                                 }
                                 else if (tryStatement.finallyBlock === n) {
@@ -51393,9 +51474,9 @@ var ts;
                 return false;
             }
             // If the parent is not sourceFile or module block it is local variable
-            for (var parent_14 = declaration.parent; !ts.isFunctionBlock(parent_14); parent_14 = parent_14.parent) {
+            for (var parent_15 = declaration.parent; !ts.isFunctionBlock(parent_15); parent_15 = parent_15.parent) {
                 // Reached source file or module block
-                if (parent_14.kind === 255 /* SourceFile */ || parent_14.kind === 225 /* ModuleBlock */) {
+                if (parent_15.kind === 255 /* SourceFile */ || parent_15.kind === 225 /* ModuleBlock */) {
                     return false;
                 }
             }
@@ -52648,13 +52729,13 @@ var ts;
                     log("Returning an empty list because completion was requested in an invalid position.");
                     return undefined;
                 }
-                var parent_15 = contextToken.parent, kind = contextToken.kind;
+                var parent_16 = contextToken.parent, kind = contextToken.kind;
                 if (kind === 21 /* DotToken */) {
-                    if (parent_15.kind === 171 /* PropertyAccessExpression */) {
+                    if (parent_16.kind === 171 /* PropertyAccessExpression */) {
                         node = contextToken.parent.expression;
                         isRightOfDot = true;
                     }
-                    else if (parent_15.kind === 138 /* QualifiedName */) {
+                    else if (parent_16.kind === 138 /* QualifiedName */) {
                         node = contextToken.parent.left;
                         isRightOfDot = true;
                     }
@@ -53030,9 +53111,9 @@ var ts;
                     switch (contextToken.kind) {
                         case 15 /* OpenBraceToken */: // const x = { |
                         case 24 /* CommaToken */:
-                            var parent_16 = contextToken.parent;
-                            if (parent_16 && (parent_16.kind === 170 /* ObjectLiteralExpression */ || parent_16.kind === 166 /* ObjectBindingPattern */)) {
-                                return parent_16;
+                            var parent_17 = contextToken.parent;
+                            if (parent_17 && (parent_17.kind === 170 /* ObjectLiteralExpression */ || parent_17.kind === 166 /* ObjectBindingPattern */)) {
+                                return parent_17;
                             }
                             break;
                     }
@@ -53059,37 +53140,37 @@ var ts;
             }
             function tryGetContainingJsxElement(contextToken) {
                 if (contextToken) {
-                    var parent_17 = contextToken.parent;
+                    var parent_18 = contextToken.parent;
                     switch (contextToken.kind) {
                         case 26 /* LessThanSlashToken */:
                         case 39 /* SlashToken */:
                         case 69 /* Identifier */:
                         case 245 /* JsxAttribute */:
                         case 246 /* JsxSpreadAttribute */:
-                            if (parent_17 && (parent_17.kind === 241 /* JsxSelfClosingElement */ || parent_17.kind === 242 /* JsxOpeningElement */)) {
-                                return parent_17;
+                            if (parent_18 && (parent_18.kind === 241 /* JsxSelfClosingElement */ || parent_18.kind === 242 /* JsxOpeningElement */)) {
+                                return parent_18;
                             }
-                            else if (parent_17.kind === 245 /* JsxAttribute */) {
-                                return parent_17.parent;
+                            else if (parent_18.kind === 245 /* JsxAttribute */) {
+                                return parent_18.parent;
                             }
                             break;
                         // The context token is the closing } or " of an attribute, which means
                         // its parent is a JsxExpression, whose parent is a JsxAttribute,
                         // whose parent is a JsxOpeningLikeElement
                         case 9 /* StringLiteral */:
-                            if (parent_17 && ((parent_17.kind === 245 /* JsxAttribute */) || (parent_17.kind === 246 /* JsxSpreadAttribute */))) {
-                                return parent_17.parent;
+                            if (parent_18 && ((parent_18.kind === 245 /* JsxAttribute */) || (parent_18.kind === 246 /* JsxSpreadAttribute */))) {
+                                return parent_18.parent;
                             }
                             break;
                         case 16 /* CloseBraceToken */:
-                            if (parent_17 &&
-                                parent_17.kind === 247 /* JsxExpression */ &&
-                                parent_17.parent &&
-                                (parent_17.parent.kind === 245 /* JsxAttribute */)) {
-                                return parent_17.parent.parent;
+                            if (parent_18 &&
+                                parent_18.kind === 247 /* JsxExpression */ &&
+                                parent_18.parent &&
+                                (parent_18.parent.kind === 245 /* JsxAttribute */)) {
+                                return parent_18.parent.parent;
                             }
-                            if (parent_17 && parent_17.kind === 246 /* JsxSpreadAttribute */) {
-                                return parent_17.parent;
+                            if (parent_18 && parent_18.kind === 246 /* JsxSpreadAttribute */) {
+                                return parent_18.parent;
                             }
                             break;
                     }
@@ -54341,19 +54422,19 @@ var ts;
                 function getThrowStatementOwner(throwStatement) {
                     var child = throwStatement;
                     while (child.parent) {
-                        var parent_18 = child.parent;
-                        if (ts.isFunctionBlock(parent_18) || parent_18.kind === 255 /* SourceFile */) {
-                            return parent_18;
+                        var parent_19 = child.parent;
+                        if (ts.isFunctionBlock(parent_19) || parent_19.kind === 255 /* SourceFile */) {
+                            return parent_19;
                         }
                         // A throw-statement is only owned by a try-statement if the try-statement has
                         // a catch clause, and if the throw-statement occurs within the try block.
-                        if (parent_18.kind === 215 /* TryStatement */) {
-                            var tryStatement = parent_18;
+                        if (parent_19.kind === 215 /* TryStatement */) {
+                            var tryStatement = parent_19;
                             if (tryStatement.tryBlock === child && tryStatement.catchClause) {
                                 return child;
                             }
                         }
-                        child = parent_18;
+                        child = parent_19;
                     }
                     return undefined;
                 }
@@ -57985,6 +58066,9 @@ var ts;
             if ("directoryExists" in this.shimHost) {
                 this.directoryExists = function (directoryName) { return _this.shimHost.directoryExists(directoryName); };
             }
+            if ("realpath" in this.shimHost) {
+                this.realpath = function (path) { return _this.shimHost.realpath(path); };
+            }
         }
         CoreServicesShimHostAdapter.prototype.readDirectory = function (rootDir, extension, exclude, depth) {
             // Wrap the API changes for 2.0 release. This try/catch
@@ -58418,6 +58502,7 @@ var ts;
                         options: {},
                         typingOptions: {},
                         files: [],
+                        raw: {},
                         errors: [realizeDiagnostic(result.error, "\r\n")]
                     };
                 }
@@ -58427,6 +58512,7 @@ var ts;
                     options: configFile.options,
                     typingOptions: configFile.typingOptions,
                     files: configFile.fileNames,
+                    raw: configFile.raw,
                     errors: realizeDiagnostics(configFile.errors, "\r\n")
                 };
             });
