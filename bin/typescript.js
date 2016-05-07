@@ -3193,6 +3193,7 @@ var ts;
     ts.isJSXTagName = isJSXTagName;
     function isExpression(node) {
         switch (node.kind) {
+            case 97 /* ThisKeyword */:
             case 95 /* SuperKeyword */:
             case 93 /* NullKeyword */:
             case 99 /* TrueKeyword */:
@@ -20104,6 +20105,7 @@ var ts;
                 case 93 /* NullKeyword */:
                     return nullType;
                 case 164 /* ThisType */:
+                case 97 /* ThisKeyword */:
                     return getTypeFromThisTypeNode(node);
                 case 165 /* StringLiteralType */:
                     return getTypeFromStringLiteralTypeNode(node);
@@ -26726,7 +26728,7 @@ var ts;
         }
         // Checks an expression and returns its type. The contextualMapper parameter serves two purposes: When
         // contextualMapper is not undefined and not equal to the identityMapper function object it indicates that the
-        // expression is being inferentially typed (section 4.12.2 in spec) and provides the type mapper to use in
+        // expression is being inferentially typed (section 4.15.2 in spec) and provides the type mapper to use in
         // conjunction with the generic contextual type. When contextualMapper is equal to the identityMapper function
         // object, it serves as an indicator that all contained function and arrow expressions should be considered to
         // have the wildcard function type; this form of type check is used during overload resolution to exclude
@@ -28204,26 +28206,52 @@ var ts;
             var func = ts.getContainingFunction(node);
             visit(node.initializer);
             function visit(n) {
-                if (n.kind === 69 /* Identifier */) {
-                    var referencedSymbol = getNodeLinks(n).resolvedSymbol;
+                if (ts.isTypeNode(n) || ts.isDeclarationName(n)) {
+                    // do not dive in types
+                    // skip declaration names (i.e. in object literal expressions)
+                    return;
+                }
+                if (n.kind === 171 /* PropertyAccessExpression */) {
+                    // skip property names in property access expression
+                    return visit(n.expression);
+                }
+                else if (n.kind === 69 /* Identifier */) {
                     // check FunctionLikeDeclaration.locals (stores parameters\function local variable)
-                    // if it contains entry with a specified name and if this entry matches the resolved symbol
-                    if (referencedSymbol && referencedSymbol !== unknownSymbol && getSymbol(func.locals, referencedSymbol.name, 107455 /* Value */) === referencedSymbol) {
-                        if (referencedSymbol.valueDeclaration.kind === 141 /* Parameter */) {
-                            if (referencedSymbol.valueDeclaration === node) {
-                                error(n, ts.Diagnostics.Parameter_0_cannot_be_referenced_in_its_initializer, ts.declarationNameToString(node.name));
-                                return;
-                            }
-                            if (referencedSymbol.valueDeclaration.pos < node.pos) {
-                                // legal case - parameter initializer references some parameter strictly on left of current parameter declaration
-                                return;
-                            }
-                        }
-                        error(n, ts.Diagnostics.Initializer_of_parameter_0_cannot_reference_identifier_1_declared_after_it, ts.declarationNameToString(node.name), ts.declarationNameToString(n));
+                    // if it contains entry with a specified name
+                    var symbol = getSymbol(func.locals, n.text, 107455 /* Value */);
+                    if (!symbol || symbol === unknownSymbol) {
+                        return;
                     }
+                    if (symbol.valueDeclaration === node) {
+                        error(n, ts.Diagnostics.Parameter_0_cannot_be_referenced_in_its_initializer, ts.declarationNameToString(node.name));
+                        return;
+                    }
+                    if (symbol.valueDeclaration.kind === 141 /* Parameter */) {
+                        // it is ok to reference parameter in initializer if either
+                        // - parameter is located strictly on the left of current parameter declaration
+                        if (symbol.valueDeclaration.pos < node.pos) {
+                            return;
+                        }
+                        // - parameter is wrapped in function-like entity
+                        var current = n;
+                        while (current !== node.initializer) {
+                            if (ts.isFunctionLike(current.parent)) {
+                                return;
+                            }
+                            // computed property names/initializers in instance property declaration of class like entities
+                            // are executed in constructor and thus deferred
+                            if (current.parent.kind === 144 /* PropertyDeclaration */ &&
+                                !(current.parent.flags & 32 /* Static */) &&
+                                ts.isClassLike(current.parent.parent)) {
+                                return;
+                            }
+                            current = current.parent;
+                        }
+                    }
+                    error(n, ts.Diagnostics.Initializer_of_parameter_0_cannot_reference_identifier_1_declared_after_it, ts.declarationNameToString(node.name), ts.declarationNameToString(n));
                 }
                 else {
-                    ts.forEachChild(n, visit);
+                    return ts.forEachChild(n, visit);
                 }
             }
         }
@@ -49841,11 +49869,14 @@ var ts;
                 }
                 else {
                     var tokenStart = sourceFile.getLineAndCharacterOfPosition(pos);
-                    if (indentation !== tokenStart.character) {
-                        var startLinePosition = ts.getStartPositionOfLine(tokenStart.line, sourceFile);
+                    var startLinePosition = ts.getStartPositionOfLine(tokenStart.line, sourceFile);
+                    if (indentation !== tokenStart.character || indentationIsDifferent(indentationString, startLinePosition)) {
                         recordReplace(startLinePosition, tokenStart.character, indentationString);
                     }
                 }
+            }
+            function indentationIsDifferent(indentationString, startLinePosition) {
+                return indentationString !== sourceFile.text.substr(startLinePosition, indentationString.length);
             }
             function indentMultilineComment(commentRange, indentation, firstLineIsIndented) {
                 // split comment in lines
@@ -51632,7 +51663,7 @@ var ts;
         var sourceMapText;
         // Create a compilerHost object to allow the compiler to read and write files
         var compilerHost = {
-            getSourceFile: function (fileName, target) { return fileName === ts.normalizeSlashes(inputFileName) ? sourceFile : undefined; },
+            getSourceFile: function (fileName, target) { return fileName === ts.normalizePath(inputFileName) ? sourceFile : undefined; },
             writeFile: function (name, text, writeByteOrderMark) {
                 if (ts.fileExtensionIs(name, ".map")) {
                     ts.Debug.assert(sourceMapText === undefined, "Unexpected multiple source map outputs for the file '" + name + "'");
