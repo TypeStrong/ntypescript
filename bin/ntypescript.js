@@ -28218,37 +28218,42 @@ var ts;
                 else if (n.kind === 69 /* Identifier */) {
                     // check FunctionLikeDeclaration.locals (stores parameters\function local variable)
                     // if it contains entry with a specified name
-                    var symbol = getSymbol(func.locals, n.text, 107455 /* Value */);
-                    if (!symbol || symbol === unknownSymbol) {
+                    var symbol = resolveName(n, n.text, 107455 /* Value */ | 8388608 /* Alias */, /*nameNotFoundMessage*/ undefined, /*nameArg*/ undefined);
+                    if (!symbol || symbol === unknownSymbol || !symbol.valueDeclaration) {
                         return;
                     }
                     if (symbol.valueDeclaration === node) {
                         error(n, ts.Diagnostics.Parameter_0_cannot_be_referenced_in_its_initializer, ts.declarationNameToString(node.name));
                         return;
                     }
-                    if (symbol.valueDeclaration.kind === 141 /* Parameter */) {
-                        // it is ok to reference parameter in initializer if either
-                        // - parameter is located strictly on the left of current parameter declaration
-                        if (symbol.valueDeclaration.pos < node.pos) {
-                            return;
-                        }
-                        // - parameter is wrapped in function-like entity
-                        var current = n;
-                        while (current !== node.initializer) {
-                            if (ts.isFunctionLike(current.parent)) {
+                    // locals map for function contain both parameters and function locals
+                    // so we need to do a bit of extra work to check if reference is legal
+                    var enclosingContainer = ts.getEnclosingBlockScopeContainer(symbol.valueDeclaration);
+                    if (enclosingContainer === func) {
+                        if (symbol.valueDeclaration.kind === 141 /* Parameter */) {
+                            // it is ok to reference parameter in initializer if either
+                            // - parameter is located strictly on the left of current parameter declaration
+                            if (symbol.valueDeclaration.pos < node.pos) {
                                 return;
                             }
-                            // computed property names/initializers in instance property declaration of class like entities
-                            // are executed in constructor and thus deferred
-                            if (current.parent.kind === 144 /* PropertyDeclaration */ &&
-                                !(current.parent.flags & 32 /* Static */) &&
-                                ts.isClassLike(current.parent.parent)) {
-                                return;
+                            // - parameter is wrapped in function-like entity
+                            var current = n;
+                            while (current !== node.initializer) {
+                                if (ts.isFunctionLike(current.parent)) {
+                                    return;
+                                }
+                                // computed property names/initializers in instance property declaration of class like entities
+                                // are executed in constructor and thus deferred
+                                if (current.parent.kind === 144 /* PropertyDeclaration */ &&
+                                    !(current.parent.flags & 32 /* Static */) &&
+                                    ts.isClassLike(current.parent.parent)) {
+                                    return;
+                                }
+                                current = current.parent;
                             }
-                            current = current.parent;
                         }
+                        error(n, ts.Diagnostics.Initializer_of_parameter_0_cannot_reference_identifier_1_declared_after_it, ts.declarationNameToString(node.name), ts.declarationNameToString(n));
                     }
-                    error(n, ts.Diagnostics.Initializer_of_parameter_0_cannot_reference_identifier_1_declared_after_it, ts.declarationNameToString(node.name), ts.declarationNameToString(n));
                 }
                 else {
                     return ts.forEachChild(n, visit);
