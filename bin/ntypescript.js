@@ -3686,6 +3686,12 @@ var ts;
         return false;
     }
     ts.isDeclarationName = isDeclarationName;
+    function isLiteralComputedPropertyDeclarationName(node) {
+        return (node.kind === 9 /* StringLiteral */ || node.kind === 8 /* NumericLiteral */) &&
+            node.parent.kind === 139 /* ComputedPropertyName */ &&
+            isDeclaration(node.parent.parent);
+    }
+    ts.isLiteralComputedPropertyDeclarationName = isLiteralComputedPropertyDeclarationName;
     // Return true if the given identifier is classified as an IdentifierName
     function isIdentifierName(node) {
         var parent = node.parent;
@@ -3868,6 +3874,9 @@ var ts;
             if (isWellKnownSymbolSyntactically(nameExpression)) {
                 var rightHandSideName = nameExpression.name.text;
                 return getPropertyNameForKnownSymbolName(rightHandSideName);
+            }
+            else if (nameExpression.kind === 9 /* StringLiteral */ || nameExpression.kind === 8 /* NumericLiteral */) {
+                return nameExpression.text;
             }
         }
         return undefined;
@@ -16317,6 +16326,8 @@ var ts;
                     else {
                         symbolFromVariable = getPropertyOfVariable(targetSymbol, name_9.text);
                     }
+                    // if symbolFromVariable is export - get its final target
+                    symbolFromVariable = resolveSymbol(symbolFromVariable);
                     var symbolFromModule = getExportOfModule(targetSymbol, name_9.text);
                     var symbol = symbolFromModule && symbolFromVariable ?
                         combineValueAndTypeSymbols(symbolFromVariable, symbolFromModule) :
@@ -30436,6 +30447,9 @@ var ts;
                 // This is a declaration, call getSymbolOfNode
                 return getSymbolOfNode(node.parent);
             }
+            else if (ts.isLiteralComputedPropertyDeclarationName(node)) {
+                return getSymbolOfNode(node.parent.parent);
+            }
             if (node.kind === 69 /* Identifier */) {
                 if (isInRightSideOfImportOrExportAssignment(node)) {
                     return node.parent.kind === 234 /* ExportAssignment */
@@ -30641,7 +30655,11 @@ var ts;
                 return symbols_3;
             }
             else if (symbol.flags & 67108864 /* Transient */) {
-                var target = getSymbolLinks(symbol).target;
+                var target = void 0;
+                var next = symbol;
+                while (next = getSymbolLinks(next).target) {
+                    target = next;
+                }
                 if (target) {
                     return [target];
                 }
@@ -32550,6 +32568,7 @@ var ts;
                     "es2015": "lib.es2015.d.ts",
                     "es7": "lib.es2016.d.ts",
                     "es2016": "lib.es2016.d.ts",
+                    "es2017": "lib.es2017.d.ts",
                     // Host only
                     "dom": "lib.dom.d.ts",
                     "webworker": "lib.webworker.d.ts",
@@ -32564,7 +32583,8 @@ var ts;
                     "es2015.reflect": "lib.es2015.reflect.d.ts",
                     "es2015.symbol": "lib.es2015.symbol.d.ts",
                     "es2015.symbol.wellknown": "lib.es2015.symbol.wellknown.d.ts",
-                    "es2016.array.include": "lib.es2016.array.include.d.ts"
+                    "es2016.array.include": "lib.es2016.array.include.d.ts",
+                    "es2017.object": "lib.es2017.object.d.ts"
                 },
             },
             description: ts.Diagnostics.Specify_library_files_to_be_included_in_the_compilation_Colon
@@ -43796,7 +43816,7 @@ var ts;
                     // add file to program only if:
                     // - resolution was successful
                     // - noResolve is falsy
-                    // - module name come from the list fo imports
+                    // - module name comes from the list of imports
                     var shouldAddFile = resolution &&
                         !options.noResolve &&
                         i < file.imports.length;
@@ -47598,6 +47618,10 @@ var ts;
         // If so we want to search for whatever is under the cursor.
         if (isImportOrExportSpecifierName(location)) {
             return location.getText();
+        }
+        else if (ts.isStringOrNumericLiteral(location.kind) &&
+            location.parent.kind === 139 /* ComputedPropertyName */) {
+            return location.text;
         }
         // Try to get the local symbol if we're dealing with an 'export default'
         // since that symbol has the "true" name.
@@ -52253,10 +52277,32 @@ var ts;
         return node.kind === 69 /* Identifier */ &&
             ts.isFunctionLike(node.parent) && node.parent.name === node;
     }
-    /** Returns true if node is a name of an object literal property, e.g. "a" in x = { "a": 1 } */
-    function isNameOfPropertyAssignment(node) {
-        return (node.kind === 69 /* Identifier */ || node.kind === 9 /* StringLiteral */ || node.kind === 8 /* NumericLiteral */) &&
-            (node.parent.kind === 252 /* PropertyAssignment */ || node.parent.kind === 253 /* ShorthandPropertyAssignment */) && node.parent.name === node;
+    function isObjectLiteralPropertyDeclaration(node) {
+        switch (node.kind) {
+            case 252 /* PropertyAssignment */:
+            case 253 /* ShorthandPropertyAssignment */:
+            case 146 /* MethodDeclaration */:
+            case 148 /* GetAccessor */:
+            case 149 /* SetAccessor */:
+                return true;
+        }
+        return false;
+    }
+    /**
+     * Returns the containing object literal property declaration given a possible name node, e.g. "a" in x = { "a": 1 }
+     */
+    function getContainingObjectLiteralElement(node) {
+        switch (node.kind) {
+            case 9 /* StringLiteral */:
+            case 8 /* NumericLiteral */:
+                if (node.parent.kind === 139 /* ComputedPropertyName */) {
+                    return isObjectLiteralPropertyDeclaration(node.parent.parent) ? node.parent.parent : undefined;
+                }
+            // intential fall through
+            case 69 /* Identifier */:
+                return isObjectLiteralPropertyDeclaration(node.parent) && node.parent.name === node ? node.parent : undefined;
+        }
+        return undefined;
     }
     function isLiteralNameOfPropertyDeclarationOrIndexAccess(node) {
         if (node.kind === 9 /* StringLiteral */ || node.kind === 8 /* NumericLiteral */) {
@@ -52273,6 +52319,8 @@ var ts;
                     return node.parent.name === node;
                 case 172 /* ElementAccessExpression */:
                     return node.parent.argumentExpression === node;
+                case 139 /* ComputedPropertyName */:
+                    return true;
             }
         }
         return false;
@@ -55387,7 +55435,8 @@ var ts;
                 // If the location is name of property symbol from object literal destructuring pattern
                 // Search the property symbol
                 //      for ( { property: p2 } of elems) { }
-                if (isNameOfPropertyAssignment(location) && location.parent.kind !== 253 /* ShorthandPropertyAssignment */) {
+                var containingObjectLiteralElement = getContainingObjectLiteralElement(location);
+                if (containingObjectLiteralElement && containingObjectLiteralElement.kind !== 253 /* ShorthandPropertyAssignment */) {
                     var propertySymbol = getPropertySymbolOfDestructuringAssignment(location);
                     if (propertySymbol) {
                         result.push(propertySymbol);
@@ -55411,8 +55460,8 @@ var ts;
                 // If the location is in a context sensitive location (i.e. in an object literal) try
                 // to get a contextual type for it, and add the property symbol from the contextual
                 // type to the search set
-                if (isNameOfPropertyAssignment(location)) {
-                    ts.forEach(getPropertySymbolsFromContextualType(location), function (contextualSymbol) {
+                if (containingObjectLiteralElement) {
+                    ts.forEach(getPropertySymbolsFromContextualType(containingObjectLiteralElement), function (contextualSymbol) {
                         ts.addRange(result, typeChecker.getRootSymbols(contextualSymbol));
                     });
                     /* Because in short-hand property assignment, location has two meaning : property name and as value of the property
@@ -55524,8 +55573,9 @@ var ts;
                 // If the reference location is in an object literal, try to get the contextual type for the
                 // object literal, lookup the property symbol in the contextual type, and use this symbol to
                 // compare to our searchSymbol
-                if (isNameOfPropertyAssignment(referenceLocation)) {
-                    var contextualSymbol = ts.forEach(getPropertySymbolsFromContextualType(referenceLocation), function (contextualSymbol) {
+                var containingObjectLiteralElement = getContainingObjectLiteralElement(referenceLocation);
+                if (containingObjectLiteralElement) {
+                    var contextualSymbol = ts.forEach(getPropertySymbolsFromContextualType(containingObjectLiteralElement), function (contextualSymbol) {
                         return ts.forEach(typeChecker.getRootSymbols(contextualSymbol), function (s) { return searchSymbols.indexOf(s) >= 0 ? s : undefined; });
                     });
                     if (contextualSymbol) {
@@ -55564,37 +55614,36 @@ var ts;
                     return undefined;
                 });
             }
-            function getPropertySymbolsFromContextualType(node) {
-                if (isNameOfPropertyAssignment(node)) {
-                    var objectLiteral = node.parent.parent;
-                    var contextualType = typeChecker.getContextualType(objectLiteral);
-                    var name_42 = node.text;
-                    if (contextualType) {
-                        if (contextualType.flags & 16384 /* Union */) {
-                            // This is a union type, first see if the property we are looking for is a union property (i.e. exists in all types)
-                            // if not, search the constituent types for the property
-                            var unionProperty = contextualType.getProperty(name_42);
-                            if (unionProperty) {
-                                return [unionProperty];
-                            }
-                            else {
-                                var result_5 = [];
-                                ts.forEach(contextualType.types, function (t) {
-                                    var symbol = t.getProperty(name_42);
-                                    if (symbol) {
-                                        result_5.push(symbol);
-                                    }
-                                });
-                                return result_5;
-                            }
-                        }
-                        else {
-                            var symbol_1 = contextualType.getProperty(name_42);
-                            if (symbol_1) {
-                                return [symbol_1];
-                            }
-                        }
+            function getNameFromObjectLiteralElement(node) {
+                if (node.name.kind === 139 /* ComputedPropertyName */) {
+                    var nameExpression = node.name.expression;
+                    // treat computed property names where expression is string/numeric literal as just string/numeric literal
+                    if (ts.isStringOrNumericLiteral(nameExpression.kind)) {
+                        return nameExpression.text;
                     }
+                    return undefined;
+                }
+                return node.name.text;
+            }
+            function getPropertySymbolsFromContextualType(node) {
+                var objectLiteral = node.parent;
+                var contextualType = typeChecker.getContextualType(objectLiteral);
+                var name = getNameFromObjectLiteralElement(node);
+                if (name && contextualType) {
+                    var result_5 = [];
+                    var symbol_1 = contextualType.getProperty(name);
+                    if (symbol_1) {
+                        result_5.push(symbol_1);
+                    }
+                    if (contextualType.flags & 16384 /* Union */) {
+                        ts.forEach(contextualType.types, function (t) {
+                            var symbol = t.getProperty(name);
+                            if (symbol) {
+                                result_5.push(symbol);
+                            }
+                        });
+                    }
+                    return result_5;
                 }
                 return undefined;
             }
@@ -56854,7 +56903,8 @@ var ts;
                     // "a['propname']" then we want to store "propname" in the name table.
                     if (ts.isDeclarationName(node) ||
                         node.parent.kind === 239 /* ExternalModuleReference */ ||
-                        isArgumentOfElementAccessExpression(node)) {
+                        isArgumentOfElementAccessExpression(node) ||
+                        ts.isLiteralComputedPropertyDeclarationName(node)) {
                         nameTable[node.text] = nameTable[node.text] === undefined ? node.pos : -1;
                     }
                     break;

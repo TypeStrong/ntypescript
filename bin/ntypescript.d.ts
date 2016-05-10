@@ -2404,6 +2404,7 @@ declare namespace ts {
     function isStatement(n: Node): boolean;
     function isClassElement(n: Node): boolean;
     function isDeclarationName(name: Node): boolean;
+    function isLiteralComputedPropertyDeclarationName(node: Node): boolean;
     function isIdentifierName(node: Identifier): boolean;
     function isAliasSymbolDeclaration(node: Node): boolean;
     function getClassExtendsHeritageClauseElement(node: ClassLikeDeclaration): ExpressionWithTypeArguments;
