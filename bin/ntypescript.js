@@ -2265,6 +2265,24 @@ var ts;
         return node.end - node.pos;
     }
     ts.getFullWidth = getFullWidth;
+    function mapIsEqualTo(map1, map2) {
+        if (!map1 || !map2) {
+            return map1 === map2;
+        }
+        return containsAll(map1, map2) && containsAll(map2, map1);
+    }
+    ts.mapIsEqualTo = mapIsEqualTo;
+    function containsAll(map, other) {
+        for (var key in map) {
+            if (!ts.hasProperty(map, key)) {
+                continue;
+            }
+            if (!ts.hasProperty(other, key) || map[key] !== other[key]) {
+                return false;
+            }
+        }
+        return true;
+    }
     function arrayIsEqualTo(array1, array2, equaler) {
         if (!array1 || !array2) {
             return array1 === array2;
@@ -14064,22 +14082,6 @@ var ts;
                 node: node
             };
         }
-        function skipSimpleConditionalFlow(flow) {
-            // We skip over simple conditional flows of the form 'x ? aaa : bbb', where 'aaa' and 'bbb' contain
-            // no constructs that affect control flow type analysis. Such simple flows have no effect on the
-            // code paths that follow and ignoring them means we'll do less work.
-            if (flow.flags & 4 /* BranchLabel */ && flow.antecedents.length === 2) {
-                var a = flow.antecedents[0];
-                var b = flow.antecedents[1];
-                if ((a.flags & 32 /* TrueCondition */ && b.flags & 64 /* FalseCondition */ ||
-                    a.flags & 64 /* FalseCondition */ && b.flags & 32 /* TrueCondition */) &&
-                    a.antecedent === b.antecedent &&
-                    a.expression === b.expression) {
-                    return a.antecedent;
-                }
-            }
-            return flow;
-        }
         function finishFlowLabel(flow) {
             var antecedents = flow.antecedents;
             if (!antecedents) {
@@ -14088,7 +14090,7 @@ var ts;
             if (antecedents.length === 1) {
                 return antecedents[0];
             }
-            return skipSimpleConditionalFlow(flow);
+            return flow;
         }
         function isStatementCondition(node) {
             var parent = node.parent;
@@ -15464,7 +15466,7 @@ var ts;
         var emptyArrayElementType = createIntrinsicType(32 /* Undefined */ | 2097152 /* ContainsUndefinedOrNull */, "undefined");
         var unknownType = createIntrinsicType(1 /* Any */, "unknown");
         var emptyObjectType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
-        var emptyUnionType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
+        var nothingType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         var emptyGenericType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         emptyGenericType.instantiations = {};
         var anyFunctionType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
@@ -17178,7 +17180,7 @@ var ts;
                         writeUnionOrIntersectionType(type, flags);
                     }
                     else if (type.flags & 65536 /* Anonymous */) {
-                        if (type === emptyUnionType) {
+                        if (type === nothingType) {
                             writer.writeKeyword("nothing");
                         }
                         else {
@@ -19920,7 +19922,7 @@ var ts;
                 if (type.flags & 64 /* Null */)
                     typeSet.containsNull = true;
             }
-            else if (type !== emptyUnionType && !ts.contains(typeSet, type)) {
+            else if (type !== nothingType && !ts.contains(typeSet, type)) {
                 typeSet.push(type);
             }
         }
@@ -19958,7 +19960,10 @@ var ts;
         // a named type that circularly references itself.
         function getUnionType(types, noSubtypeReduction) {
             if (types.length === 0) {
-                return emptyUnionType;
+                return nothingType;
+            }
+            if (types.length === 1) {
+                return types[0];
             }
             var typeSet = [];
             addTypesToSet(typeSet, types, 16384 /* Union */);
@@ -19977,7 +19982,7 @@ var ts;
             if (typeSet.length === 0) {
                 return typeSet.containsNull ? nullType :
                     typeSet.containsUndefined ? undefinedType :
-                        emptyUnionType;
+                        nothingType;
             }
             else if (typeSet.length === 1) {
                 return typeSet[0];
@@ -22212,7 +22217,7 @@ var ts;
         }
         function getTypeWithFacts(type, include) {
             if (!(type.flags & 16384 /* Union */)) {
-                return getTypeFacts(type) & include ? type : emptyUnionType;
+                return getTypeFacts(type) & include ? type : nothingType;
             }
             var firstType;
             var types;
@@ -22230,7 +22235,7 @@ var ts;
                     }
                 }
             }
-            return firstType ? types ? getUnionType(types, /*noSubtypeReduction*/ true) : firstType : emptyUnionType;
+            return firstType ? types ? getUnionType(types, /*noSubtypeReduction*/ true) : firstType : nothingType;
         }
         function getTypeWithDefault(type, defaultExpression) {
             if (defaultExpression) {
@@ -22333,6 +22338,9 @@ var ts;
             var visitedFlowStart = visitedFlowCount;
             var result = getTypeAtFlowNode(reference.flowNode);
             visitedFlowCount = visitedFlowStart;
+            if (reference.parent.kind === 195 /* NonNullExpression */ && getTypeWithFacts(result, 524288 /* NEUndefinedOrNull */) === nothingType) {
+                return declaredType;
+            }
             return result;
             function getTypeAtFlowNode(flow) {
                 while (true) {
@@ -22414,7 +22422,22 @@ var ts;
                 return undefined;
             }
             function getTypeAtFlowCondition(flow) {
-                return narrowType(getTypeAtFlowNode(flow.antecedent), flow.expression, (flow.flags & 32 /* TrueCondition */) !== 0);
+                var type = getTypeAtFlowNode(flow.antecedent);
+                if (type !== nothingType) {
+                    // If we have an antecedent type (meaning we're reachable in some way), we first
+                    // attempt to narrow the antecedent type. If that produces the nothing type, then
+                    // we take the type guard as an indication that control could reach here in a
+                    // manner not understood by the control flow analyzer (e.g. a function argument
+                    // has an invalid type, or a nested function has possibly made an assignment to a
+                    // captured variable). We proceed by reverting to the declared type and then
+                    // narrow that.
+                    var assumeTrue = (flow.flags & 32 /* TrueCondition */) !== 0;
+                    type = narrowType(type, flow.expression, assumeTrue);
+                    if (type === nothingType) {
+                        type = narrowType(declaredType, flow.expression, assumeTrue);
+                    }
+                }
+                return type;
             }
             function getTypeAtFlowBranchLabel(flow) {
                 var antecedentTypes = [];
@@ -22432,7 +22455,7 @@ var ts;
                         antecedentTypes.push(type);
                     }
                 }
-                return antecedentTypes.length === 1 ? antecedentTypes[0] : getUnionType(antecedentTypes);
+                return getUnionType(antecedentTypes);
             }
             function getTypeAtFlowLoopLabel(flow) {
                 // If we have previously computed the control flow type for the reference at
@@ -22471,18 +22494,17 @@ var ts;
                     if (cache[key]) {
                         return cache[key];
                     }
-                    // If the type at a particular antecedent path is the declared type and the
-                    // reference is known to always be assigned (i.e. when declared and initial types
-                    // are the same), there is no reason to process more antecedents since the only
-                    // possible outcome is subtypes that will be removed in the final union type anyway.
-                    if (type === declaredType && declaredType === initialType) {
-                        return cache[key] = type;
-                    }
                     if (!ts.contains(antecedentTypes, type)) {
                         antecedentTypes.push(type);
                     }
+                    // If the type at a particular antecedent path is the declared type there is no
+                    // reason to process more antecedents since the only possible outcome is subtypes
+                    // that will be removed in the final union type anyway.
+                    if (type === declaredType) {
+                        break;
+                    }
                 }
-                return cache[key] = antecedentTypes.length === 1 ? antecedentTypes[0] : getUnionType(antecedentTypes);
+                return cache[key] = getUnionType(antecedentTypes);
             }
             function narrowTypeByTruthiness(type, expr, assumeTrue) {
                 return isMatchingReference(reference, expr) ? getTypeWithFacts(type, assumeTrue ? 1048576 /* Truthy */ : 2097152 /* Falsy */) : type;
@@ -22622,7 +22644,7 @@ var ts;
                 var targetType = type.flags & 512 /* TypeParameter */ ? getApparentType(type) : type;
                 return isTypeAssignableTo(candidate, targetType) ? candidate :
                     isTypeAssignableTo(type, candidate) ? type :
-                        emptyUnionType;
+                        nothingType;
             }
             function narrowTypeByTypePredicate(type, callExpression, assumeTrue) {
                 if (type.flags & 1 /* Any */ || !hasMatchingArgument(callExpression, reference)) {
@@ -28684,7 +28706,7 @@ var ts;
                 arrayType = getUnionType(ts.filter(arrayOrStringType.types, function (t) { return !(t.flags & 258 /* StringLike */); }));
             }
             else if (arrayOrStringType.flags & 258 /* StringLike */) {
-                arrayType = emptyUnionType;
+                arrayType = nothingType;
             }
             var hasStringConstituent = arrayOrStringType !== arrayType;
             var reportedError = false;
@@ -28695,7 +28717,7 @@ var ts;
                 }
                 // Now that we've removed all the StringLike types, if no constituents remain, then the entire
                 // arrayOrStringType was a string.
-                if (arrayType === emptyUnionType) {
+                if (arrayType === nothingType) {
                     return stringType;
                 }
             }
@@ -43074,6 +43096,7 @@ var ts;
         program = {
             getRootFileNames: function () { return rootNames; },
             getSourceFile: getSourceFile,
+            getSourceFileByPath: getSourceFileByPath,
             getSourceFiles: function () { return files; },
             getCompilerOptions: function () { return options; },
             getSyntacticDiagnostics: getSyntacticDiagnostics,
@@ -43142,7 +43165,11 @@ var ts;
                 (oldOptions.allowJs !== options.allowJs) ||
                 (oldOptions.rootDir !== options.rootDir) ||
                 (oldOptions.typesSearchPaths !== options.typesSearchPaths) ||
-                (oldOptions.configFilePath !== options.configFilePath)) {
+                (oldOptions.configFilePath !== options.configFilePath) ||
+                (oldOptions.baseUrl !== options.baseUrl) ||
+                (oldOptions.typesRoot !== options.typesRoot) ||
+                !ts.arrayIsEqualTo(oldOptions.rootDirs, options.rootDirs) ||
+                !ts.mapIsEqualTo(oldOptions.paths, options.paths)) {
                 return false;
             }
             ts.Debug.assert(!oldProgram.structureIsReused);
@@ -43160,7 +43187,9 @@ var ts;
             var modifiedSourceFiles = [];
             for (var _i = 0, _a = oldProgram.getSourceFiles(); _i < _a.length; _i++) {
                 var oldSourceFile = _a[_i];
-                var newSourceFile = host.getSourceFile(oldSourceFile.fileName, options.target);
+                var newSourceFile = host.getSourceFileByPath
+                    ? host.getSourceFileByPath(oldSourceFile.fileName, oldSourceFile.path, options.target)
+                    : host.getSourceFile(oldSourceFile.fileName, options.target);
                 if (!newSourceFile) {
                     return false;
                 }
@@ -43244,6 +43273,7 @@ var ts;
                 getCurrentDirectory: function () { return currentDirectory; },
                 getNewLine: function () { return host.getNewLine(); },
                 getSourceFile: program.getSourceFile,
+                getSourceFileByPath: program.getSourceFileByPath,
                 getSourceFiles: program.getSourceFiles,
                 writeFile: writeFileCallback || (function (fileName, data, writeByteOrderMark, onError, sourceFiles) { return host.writeFile(fileName, data, writeByteOrderMark, onError, sourceFiles); }),
                 isEmitBlocked: isEmitBlocked,
@@ -43299,7 +43329,10 @@ var ts;
             return emitResult;
         }
         function getSourceFile(fileName) {
-            return filesByName.get(ts.toPath(fileName, currentDirectory, getCanonicalFileName));
+            return getSourceFileByPath(ts.toPath(fileName, currentDirectory, getCanonicalFileName));
+        }
+        function getSourceFileByPath(path) {
+            return filesByName.get(path);
         }
         function getDiagnosticsHelper(sourceFile, getDiagnostics, cancellationToken) {
             if (sourceFile) {
@@ -51596,10 +51629,12 @@ var ts;
         };
         HostCache.prototype.getOrCreateEntry = function (fileName) {
             var path = ts.toPath(fileName, this.currentDirectory, this.getCanonicalFileName);
-            if (this.contains(path)) {
-                return this.getEntry(path);
-            }
-            return this.createEntry(fileName, path);
+            return this.getOrCreateEntryByPath(fileName, path);
+        };
+        HostCache.prototype.getOrCreateEntryByPath = function (fileName, path) {
+            return this.contains(path)
+                ? this.getEntry(path)
+                : this.createEntry(fileName, path);
         };
         HostCache.prototype.getRootFileNames = function () {
             var fileNames = [];
@@ -51799,11 +51834,10 @@ var ts;
         // for those settings.
         var buckets = {};
         var getCanonicalFileName = ts.createGetCanonicalFileName(!!useCaseSensitiveFileNames);
-        function getKeyFromCompilationSettings(settings) {
-            return "_" + settings.target + "|" + settings.module + "|" + settings.noResolve + "|" + settings.jsx + +"|" + settings.allowJs;
+        function getKeyForCompilationSettings(settings) {
+            return ("_" + settings.target + "|" + settings.module + "|" + settings.noResolve + "|" + settings.jsx + "|" + settings.allowJs + "|" + settings.baseUrl + "|" + settings.typesRoot + "|" + settings.typesSearchPaths + "|" + JSON.stringify(settings.rootDirs) + "|" + JSON.stringify(settings.paths));
         }
-        function getBucketForCompilationSettings(settings, createIfMissing) {
-            var key = getKeyFromCompilationSettings(settings);
+        function getBucketForCompilationSettings(key, createIfMissing) {
             var bucket = ts.lookUp(buckets, key);
             if (!bucket && createIfMissing) {
                 buckets[key] = bucket = ts.createFileMap();
@@ -51830,14 +51864,23 @@ var ts;
             return JSON.stringify(bucketInfoArray, undefined, 2);
         }
         function acquireDocument(fileName, compilationSettings, scriptSnapshot, version, scriptKind) {
-            return acquireOrUpdateDocument(fileName, compilationSettings, scriptSnapshot, version, /*acquiring*/ true, scriptKind);
+            var path = ts.toPath(fileName, currentDirectory, getCanonicalFileName);
+            var key = getKeyForCompilationSettings(compilationSettings);
+            return acquireDocumentWithKey(fileName, path, compilationSettings, key, scriptSnapshot, version, scriptKind);
+        }
+        function acquireDocumentWithKey(fileName, path, compilationSettings, key, scriptSnapshot, version, scriptKind) {
+            return acquireOrUpdateDocument(fileName, path, compilationSettings, key, scriptSnapshot, version, /*acquiring*/ true, scriptKind);
         }
         function updateDocument(fileName, compilationSettings, scriptSnapshot, version, scriptKind) {
-            return acquireOrUpdateDocument(fileName, compilationSettings, scriptSnapshot, version, /*acquiring*/ false, scriptKind);
-        }
-        function acquireOrUpdateDocument(fileName, compilationSettings, scriptSnapshot, version, acquiring, scriptKind) {
-            var bucket = getBucketForCompilationSettings(compilationSettings, /*createIfMissing*/ true);
             var path = ts.toPath(fileName, currentDirectory, getCanonicalFileName);
+            var key = getKeyForCompilationSettings(compilationSettings);
+            return updateDocumentWithKey(fileName, path, compilationSettings, key, scriptSnapshot, version, scriptKind);
+        }
+        function updateDocumentWithKey(fileName, path, compilationSettings, key, scriptSnapshot, version, scriptKind) {
+            return acquireOrUpdateDocument(fileName, path, compilationSettings, key, scriptSnapshot, version, /*acquiring*/ false, scriptKind);
+        }
+        function acquireOrUpdateDocument(fileName, path, compilationSettings, key, scriptSnapshot, version, acquiring, scriptKind) {
+            var bucket = getBucketForCompilationSettings(key, /*createIfMissing*/ true);
             var entry = bucket.get(path);
             if (!entry) {
                 ts.Debug.assert(acquiring, "How could we be trying to update a document that the registry doesn't have?");
@@ -51869,9 +51912,13 @@ var ts;
             return entry.sourceFile;
         }
         function releaseDocument(fileName, compilationSettings) {
-            var bucket = getBucketForCompilationSettings(compilationSettings, /*createIfMissing*/ false);
-            ts.Debug.assert(bucket !== undefined);
             var path = ts.toPath(fileName, currentDirectory, getCanonicalFileName);
+            var key = getKeyForCompilationSettings(compilationSettings);
+            return releaseDocumentWithKey(path, key);
+        }
+        function releaseDocumentWithKey(path, key) {
+            var bucket = getBucketForCompilationSettings(key, /*createIfMissing*/ false);
+            ts.Debug.assert(bucket !== undefined);
             var entry = bucket.get(path);
             entry.languageServiceRefCount--;
             ts.Debug.assert(entry.languageServiceRefCount >= 0);
@@ -51881,9 +51928,13 @@ var ts;
         }
         return {
             acquireDocument: acquireDocument,
+            acquireDocumentWithKey: acquireDocumentWithKey,
             updateDocument: updateDocument,
+            updateDocumentWithKey: updateDocumentWithKey,
             releaseDocument: releaseDocument,
-            reportStats: reportStats
+            releaseDocumentWithKey: releaseDocumentWithKey,
+            reportStats: reportStats,
+            getKeyForCompilationSettings: getKeyForCompilationSettings
         };
     }
     ts.createDocumentRegistry = createDocumentRegistry;
@@ -52529,6 +52580,7 @@ var ts;
             // Now create a new compiler
             var compilerHost = {
                 getSourceFile: getOrCreateSourceFile,
+                getSourceFileByPath: getOrCreateSourceFileByPath,
                 getCancellationToken: function () { return cancellationToken; },
                 getCanonicalFileName: getCanonicalFileName,
                 useCaseSensitiveFileNames: function () { return useCaseSensitivefileNames; },
@@ -52562,15 +52614,17 @@ var ts;
                     return host.resolveTypeReferenceDirectives(typeReferenceDirectiveNames, containingFile);
                 };
             }
+            var documentRegistryBucketKey = documentRegistry.getKeyForCompilationSettings(newSettings);
             var newProgram = ts.createProgram(hostCache.getRootFileNames(), newSettings, compilerHost, program);
             // Release any files we have acquired in the old program but are
             // not part of the new program.
             if (program) {
                 var oldSourceFiles = program.getSourceFiles();
+                var oldSettingsKey = documentRegistry.getKeyForCompilationSettings(oldSettings);
                 for (var _i = 0, oldSourceFiles_1 = oldSourceFiles; _i < oldSourceFiles_1.length; _i++) {
                     var oldSourceFile = oldSourceFiles_1[_i];
                     if (!newProgram.getSourceFile(oldSourceFile.fileName) || changesInCompilationSettingsAffectSyntax) {
-                        documentRegistry.releaseDocument(oldSourceFile.fileName, oldSettings);
+                        documentRegistry.releaseDocumentWithKey(oldSourceFile.path, oldSettingsKey);
                     }
                 }
             }
@@ -52583,11 +52637,14 @@ var ts;
             program.getTypeChecker();
             return;
             function getOrCreateSourceFile(fileName) {
+                return getOrCreateSourceFileByPath(fileName, ts.toPath(fileName, currentDirectory, getCanonicalFileName));
+            }
+            function getOrCreateSourceFileByPath(fileName, path) {
                 ts.Debug.assert(hostCache !== undefined);
                 // The program is asking for this file, check first if the host can locate it.
                 // If the host can not locate the file, then it does not exist. return undefined
                 // to the program to allow reporting of errors for missing files.
-                var hostFileInformation = hostCache.getOrCreateEntry(fileName);
+                var hostFileInformation = hostCache.getOrCreateEntryByPath(fileName, path);
                 if (!hostFileInformation) {
                     return undefined;
                 }
@@ -52596,7 +52653,7 @@ var ts;
                 // can not be reused. we have to dump all syntax trees and create new ones.
                 if (!changesInCompilationSettingsAffectSyntax) {
                     // Check if the old program had this file already
-                    var oldSourceFile = program && program.getSourceFile(fileName);
+                    var oldSourceFile = program && program.getSourceFileByPath(path);
                     if (oldSourceFile) {
                         // We already had a source file for this file name.  Go to the registry to
                         // ensure that we get the right up to date version of it.  We need this to
@@ -52622,12 +52679,12 @@ var ts;
                         // We do not support the scenario where a host can modify a registered
                         // file's script kind, i.e. in one project some file is treated as ".ts"
                         // and in another as ".js"
-                        ts.Debug.assert(hostFileInformation.scriptKind === oldSourceFile.scriptKind, "Registered script kind (" + oldSourceFile.scriptKind + ") should match new script kind (" + hostFileInformation.scriptKind + ") for file: " + fileName);
-                        return documentRegistry.updateDocument(fileName, newSettings, hostFileInformation.scriptSnapshot, hostFileInformation.version, hostFileInformation.scriptKind);
+                        ts.Debug.assert(hostFileInformation.scriptKind === oldSourceFile.scriptKind, "Registered script kind (" + oldSourceFile.scriptKind + ") should match new script kind (" + hostFileInformation.scriptKind + ") for file: " + path);
+                        return documentRegistry.updateDocumentWithKey(fileName, path, newSettings, documentRegistryBucketKey, hostFileInformation.scriptSnapshot, hostFileInformation.version, hostFileInformation.scriptKind);
                     }
                 }
                 // Could not find this file in the old program, create a new SourceFile for it.
-                return documentRegistry.acquireDocument(fileName, newSettings, hostFileInformation.scriptSnapshot, hostFileInformation.version, hostFileInformation.scriptKind);
+                return documentRegistry.acquireDocumentWithKey(fileName, path, newSettings, documentRegistryBucketKey, hostFileInformation.scriptSnapshot, hostFileInformation.version, hostFileInformation.scriptKind);
             }
             function sourceFileUpToDate(sourceFile) {
                 if (!sourceFile) {
