@@ -378,8 +378,10 @@ var ts;
         NodeFlags[NodeFlags["ThisNodeOrAnySubNodesHasError"] = 268435456] = "ThisNodeOrAnySubNodesHasError";
         NodeFlags[NodeFlags["HasAggregatedChildData"] = 536870912] = "HasAggregatedChildData";
         NodeFlags[NodeFlags["HasJsxSpreadAttribute"] = 1073741824] = "HasJsxSpreadAttribute";
-        NodeFlags[NodeFlags["Modifier"] = 959] = "Modifier";
+        NodeFlags[NodeFlags["Modifier"] = 1023] = "Modifier";
         NodeFlags[NodeFlags["AccessibilityModifier"] = 28] = "AccessibilityModifier";
+        // Accessibility modifiers and 'readonly' can be attached to a parameter in a constructor to make it a property.
+        NodeFlags[NodeFlags["ParameterPropertyModifier"] = 92] = "ParameterPropertyModifier";
         NodeFlags[NodeFlags["BlockScoped"] = 3072] = "BlockScoped";
         NodeFlags[NodeFlags["ReachabilityCheckFlags"] = 98304] = "ReachabilityCheckFlags";
         NodeFlags[NodeFlags["EmitHelperFlags"] = 3932160] = "EmitHelperFlags";
@@ -5042,7 +5044,7 @@ var ts;
     }
     ts.getTypeParameterOwner = getTypeParameterOwner;
     function isParameterPropertyDeclaration(node) {
-        return node.flags & 28 /* AccessibilityModifier */ && node.parent.kind === 147 /* Constructor */ && ts.isClassLike(node.parent.parent);
+        return node.flags & 92 /* ParameterPropertyModifier */ && node.parent.kind === 147 /* Constructor */ && ts.isClassLike(node.parent.parent);
     }
     ts.isParameterPropertyDeclaration = isParameterPropertyDeclaration;
     function startsWith(str, prefix) {
@@ -13976,6 +13978,9 @@ var ts;
                 case 186 /* BinaryExpression */:
                     bindBinaryExpressionFlow(node);
                     break;
+                case 180 /* DeleteExpression */:
+                    bindDeleteExpressionFlow(node);
+                    break;
                 case 187 /* ConditionalExpression */:
                     bindConditionalExpressionFlow(node);
                     break;
@@ -14415,6 +14420,12 @@ var ts;
                 if (operator === 56 /* EqualsToken */ && !ts.isAssignmentTarget(node)) {
                     bindAssignmentTargetFlow(node.left);
                 }
+            }
+        }
+        function bindDeleteExpressionFlow(node) {
+            ts.forEachChild(node, bind);
+            if (node.expression.kind === 171 /* PropertyAccessExpression */) {
+                bindAssignmentTargetFlow(node.expression);
             }
         }
         function bindConditionalExpressionFlow(node) {
@@ -16399,8 +16410,8 @@ var ts;
             var symbol = getSymbolOfNode(node);
             var target = resolveAlias(symbol);
             if (target) {
-                var markAlias = (target === unknownSymbol && compilerOptions.isolatedModules) ||
-                    (target !== unknownSymbol && (target.flags & 107455 /* Value */) && !isConstEnumOrConstEnumOnlyModule(target));
+                var markAlias = target === unknownSymbol ||
+                    ((target.flags & 107455 /* Value */) && !isConstEnumOrConstEnumOnlyModule(target));
                 if (markAlias) {
                     markAliasSymbolAsReferenced(symbol);
                 }
@@ -17743,7 +17754,7 @@ var ts;
                         // Add the referenced top container visible
                         var internalModuleReference = declaration.moduleReference;
                         var firstIdentifier = getFirstIdentifier(internalModuleReference);
-                        var importSymbol = resolveName(declaration, firstIdentifier.text, 107455 /* Value */ | 793056 /* Type */ | 1536 /* Namespace */, ts.Diagnostics.Cannot_find_name_0, firstIdentifier);
+                        var importSymbol = resolveName(declaration, firstIdentifier.text, 107455 /* Value */ | 793056 /* Type */ | 1536 /* Namespace */, undefined, undefined);
                         if (importSymbol) {
                             buildVisibleNodeList(importSymbol.declarations);
                         }
@@ -22285,6 +22296,8 @@ var ts;
                     return checkRightHandSideOfForOf(parent.expression) || unknownType;
                 case 186 /* BinaryExpression */:
                     return getAssignedTypeOfBinaryExpression(parent);
+                case 180 /* DeleteExpression */:
+                    return undefinedType;
                 case 169 /* ArrayLiteralExpression */:
                     return getAssignedTypeOfArrayLiteralElement(parent, node);
                 case 190 /* SpreadElementExpression */:
@@ -26896,7 +26909,7 @@ var ts;
             checkGrammarDecorators(node) || checkGrammarModifiers(node);
             checkVariableLikeDeclaration(node);
             var func = ts.getContainingFunction(node);
-            if (node.flags & 28 /* AccessibilityModifier */) {
+            if (node.flags & 92 /* ParameterPropertyModifier */) {
                 func = ts.getContainingFunction(node);
                 if (!(func.kind === 147 /* Constructor */ && ts.nodeIsPresent(func.body))) {
                     error(node, ts.Diagnostics.A_parameter_property_is_only_allowed_in_a_constructor_implementation);
@@ -27185,7 +27198,7 @@ var ts;
                     // - The constructor declares parameter properties
                     //   or the containing class declares instance member variables with initializers.
                     var superCallShouldBeFirst = ts.forEach(node.parent.members, isInstancePropertyWithInitializer) ||
-                        ts.forEach(node.parameters, function (p) { return p.flags & (4 /* Public */ | 8 /* Private */ | 16 /* Protected */); });
+                        ts.forEach(node.parameters, function (p) { return p.flags & 92 /* ParameterPropertyModifier */; });
                     // Skip past any prologue directives to find the first statement
                     // to ensure that it was a super call.
                     if (superCallShouldBeFirst) {
@@ -29804,7 +29817,7 @@ var ts;
                 // If we hit an import declaration in an illegal context, just bail out to avoid cascading errors.
                 return;
             }
-            if (!checkGrammarDecorators(node) && !checkGrammarModifiers(node) && (node.flags & 959 /* Modifier */)) {
+            if (!checkGrammarDecorators(node) && !checkGrammarModifiers(node) && (node.flags & 1023 /* Modifier */)) {
                 grammarErrorOnFirstToken(node, ts.Diagnostics.An_import_declaration_cannot_have_modifiers);
             }
             if (checkExternalImportOrExportDeclaration(node)) {
@@ -29863,7 +29876,7 @@ var ts;
                 // If we hit an export in an illegal context, just bail out to avoid cascading errors.
                 return;
             }
-            if (!checkGrammarDecorators(node) && !checkGrammarModifiers(node) && (node.flags & 959 /* Modifier */)) {
+            if (!checkGrammarDecorators(node) && !checkGrammarModifiers(node) && (node.flags & 1023 /* Modifier */)) {
                 grammarErrorOnFirstToken(node, ts.Diagnostics.An_export_declaration_cannot_have_modifiers);
             }
             if (!node.moduleSpecifier || checkExternalImportOrExportDeclaration(node)) {
@@ -29916,7 +29929,7 @@ var ts;
                 return;
             }
             // Grammar checking
-            if (!checkGrammarDecorators(node) && !checkGrammarModifiers(node) && (node.flags & 959 /* Modifier */)) {
+            if (!checkGrammarDecorators(node) && !checkGrammarModifiers(node) && (node.flags & 1023 /* Modifier */)) {
                 grammarErrorOnFirstToken(node, ts.Diagnostics.An_export_assignment_cannot_have_modifiers);
             }
             if (node.expression.kind === 69 /* Identifier */) {
@@ -30829,14 +30842,12 @@ var ts;
         }
         function isAliasResolvedToValue(symbol) {
             var target = resolveAlias(symbol);
-            if (target === unknownSymbol && compilerOptions.isolatedModules) {
+            if (target === unknownSymbol) {
                 return true;
             }
             // const enums and modules that contain only const enums are not considered values from the emit perspective
             // unless 'preserveConstEnums' option is set to true
-            return target !== unknownSymbol &&
-                target &&
-                target.flags & 107455 /* Value */ &&
+            return target.flags & 107455 /* Value */ &&
                 (compilerOptions.preserveConstEnums || !isConstEnumOrConstEnumOnlyModule(target));
         }
         function isConstEnumOrConstEnumOnlyModule(s) {
@@ -31342,7 +31353,8 @@ var ts;
                         if (flags & 64 /* Readonly */) {
                             return grammarErrorOnNode(modifier, ts.Diagnostics._0_modifier_already_seen, "readonly");
                         }
-                        else if (node.kind !== 144 /* PropertyDeclaration */ && node.kind !== 143 /* PropertySignature */ && node.kind !== 152 /* IndexSignature */) {
+                        else if (node.kind !== 144 /* PropertyDeclaration */ && node.kind !== 143 /* PropertySignature */ && node.kind !== 152 /* IndexSignature */ && node.kind !== 141 /* Parameter */) {
+                            // If node.kind === SyntaxKind.Parameter, checkParameter report an error if it's not a parameter property.
                             return grammarErrorOnNode(modifier, ts.Diagnostics.readonly_modifier_can_only_appear_on_a_property_declaration_or_index_signature);
                         }
                         flags |= 64 /* Readonly */;
@@ -31444,7 +31456,7 @@ var ts;
             else if ((node.kind === 229 /* ImportDeclaration */ || node.kind === 228 /* ImportEqualsDeclaration */) && flags & 2 /* Ambient */) {
                 return grammarErrorOnNode(lastDeclare, ts.Diagnostics.A_0_modifier_cannot_be_used_with_an_import_declaration, "declare");
             }
-            else if (node.kind === 141 /* Parameter */ && (flags & 28 /* AccessibilityModifier */) && ts.isBindingPattern(node.name)) {
+            else if (node.kind === 141 /* Parameter */ && (flags & 92 /* ParameterPropertyModifier */) && ts.isBindingPattern(node.name)) {
                 return grammarErrorOnNode(node, ts.Diagnostics.A_parameter_property_may_not_be_a_binding_pattern);
             }
             if (flags & 256 /* Async */) {
@@ -31548,7 +31560,7 @@ var ts;
             if (parameter.dotDotDotToken) {
                 return grammarErrorOnNode(parameter.dotDotDotToken, ts.Diagnostics.An_index_signature_cannot_have_a_rest_parameter);
             }
-            if (parameter.flags & 959 /* Modifier */) {
+            if (parameter.flags & 1023 /* Modifier */) {
                 return grammarErrorOnNode(parameter.name, ts.Diagnostics.An_index_signature_parameter_cannot_have_an_accessibility_modifier);
             }
             if (parameter.questionToken) {
@@ -31861,9 +31873,6 @@ var ts;
                     var parameter = accessor.parameters[0];
                     if (parameter.dotDotDotToken) {
                         return grammarErrorOnNode(parameter.dotDotDotToken, ts.Diagnostics.A_set_accessor_cannot_have_rest_parameter);
-                    }
-                    else if (parameter.flags & 959 /* Modifier */) {
-                        return grammarErrorOnNode(accessor.name, ts.Diagnostics.A_parameter_property_is_only_allowed_in_a_constructor_implementation);
                     }
                     else if (parameter.questionToken) {
                         return grammarErrorOnNode(parameter.questionToken, ts.Diagnostics.A_set_accessor_cannot_have_an_optional_parameter);
@@ -33937,7 +33946,7 @@ var ts;
             function emitParameterProperties(constructorDeclaration) {
                 if (constructorDeclaration) {
                     ts.forEach(constructorDeclaration.parameters, function (param) {
-                        if (param.flags & 28 /* AccessibilityModifier */) {
+                        if (param.flags & 92 /* ParameterPropertyModifier */) {
                             emitPropertyDeclaration(param);
                         }
                     });
@@ -36551,7 +36560,7 @@ var ts;
                         write("Object.defineProperty(");
                         emit(tempVar);
                         write(", ");
-                        emitStart(node.name);
+                        emitStart(property.name);
                         emitExpressionForPropertyName(property.name);
                         emitEnd(property.name);
                         write(", {");
@@ -39234,7 +39243,7 @@ var ts;
             }
             function emitParameterPropertyAssignments(node) {
                 ts.forEach(node.parameters, function (param) {
-                    if (param.flags & 28 /* AccessibilityModifier */) {
+                    if (param.flags & 92 /* ParameterPropertyModifier */) {
                         writeLine();
                         emitStart(param);
                         emitStart(param.name);
@@ -45366,7 +45375,7 @@ var ts;
                         if (ts.isBindingPattern(node.name)) {
                             break;
                         }
-                        if ((node.flags & 959 /* Modifier */) === 0) {
+                        if ((node.flags & 1023 /* Modifier */) === 0) {
                             return undefined;
                         }
                         return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberVariableElement);
@@ -51303,8 +51312,8 @@ var ts;
                         }
                         break;
                     case 141 /* Parameter */:
-                        // Only consider properties defined as constructor parameters
-                        if (!(node.flags & 28 /* AccessibilityModifier */)) {
+                        // Only consider parameter properties
+                        if (!(node.flags & 92 /* ParameterPropertyModifier */)) {
                             break;
                         }
                     // fall through
@@ -52488,7 +52497,7 @@ var ts;
             case 147 /* Constructor */: return ScriptElementKind.constructorImplementationElement;
             case 140 /* TypeParameter */: return ScriptElementKind.typeParameterElement;
             case 254 /* EnumMember */: return ScriptElementKind.variableElement;
-            case 141 /* Parameter */: return (node.flags & 28 /* AccessibilityModifier */) ? ScriptElementKind.memberVariableElement : ScriptElementKind.parameterElement;
+            case 141 /* Parameter */: return (node.flags & 92 /* ParameterPropertyModifier */) ? ScriptElementKind.memberVariableElement : ScriptElementKind.parameterElement;
             case 228 /* ImportEqualsDeclaration */:
             case 233 /* ImportSpecifier */:
             case 230 /* ImportClause */:
@@ -53847,7 +53856,7 @@ var ts;
                                         displayParts.push(ts.keywordPart(92 /* NewKeyword */));
                                         displayParts.push(ts.spacePart());
                                     }
-                                    if (!(type.flags & 65536 /* Anonymous */)) {
+                                    if (!(type.flags & 65536 /* Anonymous */) && type.symbol) {
                                         ts.addRange(displayParts, ts.symbolToDisplayParts(typeChecker, type.symbol, enclosingDeclaration, /*meaning*/ undefined, 1 /* WriteTypeParametersOrArguments */));
                                     }
                                     addSignatureDisplayParts(signature, allSignatures, 8 /* WriteArrowStyleSignature */);
