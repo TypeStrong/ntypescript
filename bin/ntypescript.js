@@ -25798,6 +25798,12 @@ var ts;
             var links = getSymbolLinks(parameter);
             if (!links.type) {
                 links.type = instantiateType(contextualType, mapper);
+                // if inference didn't come up with anything but {}, fall back to the binding pattern if present.
+                if (links.type === emptyObjectType &&
+                    (parameter.valueDeclaration.name.kind === 166 /* ObjectBindingPattern */ ||
+                        parameter.valueDeclaration.name.kind === 167 /* ArrayBindingPattern */)) {
+                    links.type = getTypeFromBindingPattern(parameter.valueDeclaration.name);
+                }
                 assignBindingElementTypes(parameter.valueDeclaration);
             }
             else if (isInferentialContext(mapper)) {
@@ -45272,6 +45278,7 @@ var ts;
                             break;
                         case 223 /* EnumDeclaration */:
                         case 221 /* InterfaceDeclaration */:
+                        case 222 /* TypeAliasDeclaration */:
                             topLevelNodes.push(node);
                             break;
                         case 224 /* ModuleDeclaration */:
@@ -45478,6 +45485,8 @@ var ts;
                         return createModuleItem(node);
                     case 219 /* FunctionDeclaration */:
                         return createFunctionItem(node);
+                    case 222 /* TypeAliasDeclaration */:
+                        return createTypeAliasItem(node);
                 }
                 return undefined;
                 function getModuleName(moduleDeclaration) {
@@ -45505,6 +45514,9 @@ var ts;
                         return getNavigationBarItem(!node.name ? "default" : node.name.text, ts.ScriptElementKind.functionElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
                     }
                     return undefined;
+                }
+                function createTypeAliasItem(node) {
+                    return getNavigationBarItem(node.name.text, ts.ScriptElementKind.typeElement, ts.getNodeModifiers(node), [getNodeSpan(node)], [], getIndent(node));
                 }
                 function createMemberFunctionLikeItem(node) {
                     if (node.body && node.body.kind === 198 /* Block */) {
@@ -49347,9 +49359,9 @@ var ts;
         }
         function findOutermostParent(position, expectedTokenKind, sourceFile) {
             var precedingToken = ts.findPrecedingToken(position, sourceFile);
-            // when it is claimed that trigger character was typed at given position 
+            // when it is claimed that trigger character was typed at given position
             // we verify that there is a token with a matching kind whose end is equal to position (because the character was just typed).
-            // If this condition is not hold - then trigger character was typed in some other context, 
+            // If this condition is not hold - then trigger character was typed in some other context,
             // i.e.in comment and thus should not trigger autoformatting
             if (!precedingToken ||
                 precedingToken.kind !== expectedTokenKind ||
@@ -49358,12 +49370,12 @@ var ts;
             }
             // walk up and search for the parent node that ends at the same position with precedingToken.
             // for cases like this
-            // 
+            //
             // let x = 1;
             // while (true) {
-            // } 
+            // }
             // after typing close curly in while statement we want to reformat just the while statement.
-            // However if we just walk upwards searching for the parent that has the same end value - 
+            // However if we just walk upwards searching for the parent that has the same end value -
             // we'll end up with the whole source file. isListElement allows to stop on the list element level
             var current = precedingToken;
             while (current &&
@@ -49428,7 +49440,7 @@ var ts;
                 // 'index' tracks the index of the most recent error that was checked.
                 while (true) {
                     if (index >= sorted.length) {
-                        // all errors in the range were already checked -> no error in specified range 
+                        // all errors in the range were already checked -> no error in specified range
                         return false;
                     }
                     var error = sorted[index];
@@ -49677,12 +49689,12 @@ var ts;
                 // a useful observations when tracking context node
                 //        /
                 //      [a]
-                //   /   |   \ 
+                //   /   |   \
                 //  [b] [c] [d]
-                // node 'a' is a context node for nodes 'b', 'c', 'd' 
+                // node 'a' is a context node for nodes 'b', 'c', 'd'
                 // except for the leftmost leaf token in [b] - in this case context node ('e') is located somewhere above 'a'
                 // this rule can be applied recursively to child nodes of 'a'.
-                // 
+                //
                 // context node is set to parent node value after processing every child node
                 // context node is set to parent of the token after processing every token
                 var childContextNode = contextNode;
@@ -49701,7 +49713,7 @@ var ts;
                     }
                     consumeTokenAndAdvanceScanner(tokenInfo, node, nodeDynamicIndentation);
                 }
-                function processChildNode(child, inheritedIndentation, parent, parentDynamicIndentation, parentStartLine, undecoratedParentStartLine, isListItem) {
+                function processChildNode(child, inheritedIndentation, parent, parentDynamicIndentation, parentStartLine, undecoratedParentStartLine, isListItem, isFirstListItem) {
                     var childStartPos = child.getStart(sourceFile);
                     var childStartLine = sourceFile.getLineAndCharacterOfPosition(childStartPos).line;
                     var undecoratedChildStartLine = childStartLine;
@@ -49746,6 +49758,9 @@ var ts;
                     var childIndentation = computeIndentation(child, childStartLine, childIndentationAmount, node, parentDynamicIndentation, effectiveParentStartLine);
                     processNode(child, childContextNode, childStartLine, undecoratedChildStartLine, childIndentation.indentation, childIndentation.delta);
                     childContextNode = node;
+                    if (isFirstListItem && parent.kind === 169 /* ArrayLiteralExpression */ && inheritedIndentation === -1 /* Unknown */) {
+                        inheritedIndentation = childIndentation.indentation;
+                    }
                     return inheritedIndentation;
                 }
                 function processChildNodes(nodes, parent, parentStartLine, parentDynamicIndentation) {
@@ -49775,16 +49790,16 @@ var ts;
                         }
                     }
                     var inheritedIndentation = -1 /* Unknown */;
-                    for (var _i = 0, nodes_7 = nodes; _i < nodes_7.length; _i++) {
-                        var child = nodes_7[_i];
-                        inheritedIndentation = processChildNode(child, inheritedIndentation, node, listDynamicIndentation, startLine, startLine, /*isListElement*/ true);
+                    for (var i = 0; i < nodes.length; i++) {
+                        var child = nodes[i];
+                        inheritedIndentation = processChildNode(child, inheritedIndentation, node, listDynamicIndentation, startLine, startLine, /*isListElement*/ true, /*isFirstListItem*/ i === 0);
                     }
                     if (listEndToken !== 0 /* Unknown */) {
                         if (formattingScanner.isOnToken()) {
                             var tokenInfo = formattingScanner.readTokenInfo(parent);
                             // consume the list end token only if it is still belong to the parent
                             // there might be the case when current token matches end token but does not considered as one
-                            // function (x: function) <-- 
+                            // function (x: function) <--
                             // without this check close paren will be interpreted as list end token for function expression which is wrong
                             if (tokenInfo.token.kind === listEndToken && ts.rangeContainsRange(parent, tokenInfo.token)) {
                                 // consume list end token
@@ -49904,7 +49919,7 @@ var ts;
                     applyRuleEdits(rule, previousItem, previousStartLine, currentItem, currentStartLine);
                     if (rule.Operation.Action & (2 /* Space */ | 8 /* Delete */) && currentStartLine !== previousStartLine) {
                         lineAdded = false;
-                        // Handle the case where the next line is moved to be the end of this line. 
+                        // Handle the case where the next line is moved to be the end of this line.
                         // In this case we don't indent the next line in the next pass.
                         if (currentParent.getStart(sourceFile) === currentItem.pos) {
                             dynamicIndentation.recomputeIndentation(/*lineAdded*/ false);
@@ -49912,7 +49927,7 @@ var ts;
                     }
                     else if (rule.Operation.Action & 4 /* NewLine */ && currentStartLine === previousStartLine) {
                         lineAdded = true;
-                        // Handle the case where token2 is moved to the new line. 
+                        // Handle the case where token2 is moved to the new line.
                         // In this case we indent token2 in the next pass but we set
                         // sameLineIndent flag to notify the indenter that the indentation is within the line.
                         if (currentParent.getStart(sourceFile) === currentItem.pos) {
@@ -50756,8 +50771,8 @@ var ts;
             var list = createNode(278 /* SyntaxList */, nodes.pos, nodes.end, 0, this);
             list._children = [];
             var pos = nodes.pos;
-            for (var _i = 0, nodes_8 = nodes; _i < nodes_8.length; _i++) {
-                var node = nodes_8[_i];
+            for (var _i = 0, nodes_7 = nodes; _i < nodes_7.length; _i++) {
+                var node = nodes_7[_i];
                 if (pos < node.pos) {
                     pos = this.addSyntheticNodes(list._children, pos, node.pos);
                 }
@@ -51261,6 +51276,7 @@ var ts;
             function visit(node) {
                 switch (node.kind) {
                     case 219 /* FunctionDeclaration */:
+                    case 178 /* FunctionExpression */:
                     case 146 /* MethodDeclaration */:
                     case 145 /* MethodSignature */:
                         var functionDeclaration = node;
@@ -51283,6 +51299,7 @@ var ts;
                         }
                         break;
                     case 220 /* ClassDeclaration */:
+                    case 191 /* ClassExpression */:
                     case 221 /* InterfaceDeclaration */:
                     case 222 /* TypeAliasDeclaration */:
                     case 223 /* EnumDeclaration */:
@@ -51297,19 +51314,7 @@ var ts;
                     case 149 /* SetAccessor */:
                     case 158 /* TypeLiteral */:
                         addDeclaration(node);
-                    // fall through
-                    case 147 /* Constructor */:
-                    case 199 /* VariableStatement */:
-                    case 218 /* VariableDeclarationList */:
-                    case 166 /* ObjectBindingPattern */:
-                    case 167 /* ArrayBindingPattern */:
-                    case 225 /* ModuleBlock */:
                         ts.forEachChild(node, visit);
-                        break;
-                    case 198 /* Block */:
-                        if (ts.isFunctionBlock(node)) {
-                            ts.forEachChild(node, visit);
-                        }
                         break;
                     case 141 /* Parameter */:
                         // Only consider parameter properties
@@ -51318,11 +51323,15 @@ var ts;
                         }
                     // fall through
                     case 217 /* VariableDeclaration */:
-                    case 168 /* BindingElement */:
-                        if (ts.isBindingPattern(node.name)) {
-                            ts.forEachChild(node.name, visit);
+                    case 168 /* BindingElement */: {
+                        var decl = node;
+                        if (ts.isBindingPattern(decl.name)) {
+                            ts.forEachChild(decl.name, visit);
                             break;
                         }
+                        if (decl.initializer)
+                            visit(decl.initializer);
+                    }
                     case 254 /* EnumMember */:
                     case 144 /* PropertyDeclaration */:
                     case 143 /* PropertySignature */:
@@ -51356,6 +51365,8 @@ var ts;
                             }
                         }
                         break;
+                    default:
+                        ts.forEachChild(node, visit);
                 }
             }
         };
@@ -52472,7 +52483,9 @@ var ts;
     /* @internal */ function getNodeKind(node) {
         switch (node.kind) {
             case 224 /* ModuleDeclaration */: return ScriptElementKind.moduleElement;
-            case 220 /* ClassDeclaration */: return ScriptElementKind.classElement;
+            case 220 /* ClassDeclaration */:
+            case 191 /* ClassExpression */:
+                return ScriptElementKind.classElement;
             case 221 /* InterfaceDeclaration */: return ScriptElementKind.interfaceElement;
             case 222 /* TypeAliasDeclaration */: return ScriptElementKind.typeElement;
             case 223 /* EnumDeclaration */: return ScriptElementKind.enumElement;
@@ -52482,7 +52495,9 @@ var ts;
                     : ts.isLet(node)
                         ? ScriptElementKind.letElement
                         : ScriptElementKind.variableElement;
-            case 219 /* FunctionDeclaration */: return ScriptElementKind.functionElement;
+            case 219 /* FunctionDeclaration */:
+            case 178 /* FunctionExpression */:
+                return ScriptElementKind.functionElement;
             case 148 /* GetAccessor */: return ScriptElementKind.memberGetAccessorElement;
             case 149 /* SetAccessor */: return ScriptElementKind.memberSetAccessorElement;
             case 146 /* MethodDeclaration */:
@@ -54136,7 +54151,7 @@ var ts;
             synchronizeHostData();
             var sourceFile = getValidSourceFile(fileName);
             var node = ts.getTouchingPropertyName(sourceFile, position);
-            if (!node) {
+            if (node === sourceFile) {
                 return undefined;
             }
             if (isLabelName(node)) {
@@ -54271,16 +54286,6 @@ var ts;
         function getDefinitionAtPosition(fileName, position) {
             synchronizeHostData();
             var sourceFile = getValidSourceFile(fileName);
-            var node = ts.getTouchingPropertyName(sourceFile, position);
-            if (!node) {
-                return undefined;
-            }
-            // Labels
-            if (isJumpStatementTarget(node)) {
-                var labelName = node.text;
-                var label = getTargetLabel(node.parent, node.text);
-                return label ? [createDefinitionInfo(label, ScriptElementKind.label, labelName, /*containerName*/ undefined)] : undefined;
-            }
             /// Triple slash reference comments
             var comment = findReferenceInPosition(sourceFile.referencedFiles, position);
             if (comment) {
@@ -54298,6 +54303,16 @@ var ts;
                     return [getDefinitionInfoForFileReference(typeReferenceDirective.fileName, referenceFile.resolvedFileName)];
                 }
                 return undefined;
+            }
+            var node = ts.getTouchingPropertyName(sourceFile, position);
+            if (node === sourceFile) {
+                return undefined;
+            }
+            // Labels
+            if (isJumpStatementTarget(node)) {
+                var labelName = node.text;
+                var label = getTargetLabel(node.parent, node.text);
+                return label ? [createDefinitionInfo(label, ScriptElementKind.label, labelName, /*containerName*/ undefined)] : undefined;
             }
             var typeChecker = program.getTypeChecker();
             var symbol = typeChecker.getSymbolAtLocation(node);
@@ -54346,7 +54361,7 @@ var ts;
             synchronizeHostData();
             var sourceFile = getValidSourceFile(fileName);
             var node = ts.getTouchingPropertyName(sourceFile, position);
-            if (!node) {
+            if (node === sourceFile) {
                 return undefined;
             }
             var typeChecker = program.getTypeChecker();
@@ -54960,7 +54975,7 @@ var ts;
             synchronizeHostData();
             var sourceFile = getValidSourceFile(fileName);
             var node = ts.getTouchingPropertyName(sourceFile, position);
-            if (!node) {
+            if (node === sourceFile) {
                 return undefined;
             }
             if (node.kind !== 69 /* Identifier */ &&
@@ -55939,7 +55954,7 @@ var ts;
             var sourceFile = syntaxTreeCache.getCurrentSourceFile(fileName);
             // Get node at the location
             var node = ts.getTouchingPropertyName(sourceFile, startPos);
-            if (!node) {
+            if (node === sourceFile) {
                 return;
             }
             switch (node.kind) {
