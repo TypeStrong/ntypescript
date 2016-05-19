@@ -24089,13 +24089,13 @@ var ts;
          * element is not a class element, or the class element type cannot be determined, returns 'undefined'.
          * For example, in the element <MyClass>, the element instance type is `MyClass` (not `typeof MyClass`).
          */
-        function getJsxElementInstanceType(node) {
-            var valueType = checkExpression(node.tagName);
+        function getJsxElementInstanceType(node, valueType) {
+            ts.Debug.assert(!(valueType.flags & 16384 /* Union */));
             if (isTypeAny(valueType)) {
                 // Short-circuit if the class tag is using an element type 'any'
                 return anyType;
             }
-            // Resolve the signatures, preferring constructors
+            // Resolve the signatures, preferring constructor
             var signatures = getSignaturesOfType(valueType, 1 /* Construct */);
             if (signatures.length === 0) {
                 // No construct signatures, try call signatures
@@ -24141,6 +24141,94 @@ var ts;
             }
         }
         /**
+         * Given React element instance type and the class type, resolve the Jsx type
+         * Pass elemType to handle individual type in the union typed element type.
+         */
+        function getResolvedJsxType(node, elemType, elemClassType) {
+            if (!elemType) {
+                elemType = checkExpression(node.tagName);
+            }
+            if (elemType.flags & 16384 /* Union */) {
+                var types = elemType.types;
+                return getUnionType(types.map(function (type) {
+                    return getResolvedJsxType(node, type, elemClassType);
+                }));
+            }
+            // Get the element instance type (the result of newing or invoking this tag)
+            var elemInstanceType = getJsxElementInstanceType(node, elemType);
+            if (!elemClassType || !isTypeAssignableTo(elemInstanceType, elemClassType)) {
+                // Is this is a stateless function component? See if its single signature's return type is
+                // assignable to the JSX Element Type
+                if (jsxElementType) {
+                    var callSignatures = elemType && getSignaturesOfType(elemType, 0 /* Call */);
+                    var callSignature = callSignatures && callSignatures.length > 0 && callSignatures[0];
+                    var callReturnType = callSignature && getReturnTypeOfSignature(callSignature);
+                    var paramType = callReturnType && (callSignature.parameters.length === 0 ? emptyObjectType : getTypeOfSymbol(callSignature.parameters[0]));
+                    if (callReturnType && isTypeAssignableTo(callReturnType, jsxElementType)) {
+                        // Intersect in JSX.IntrinsicAttributes if it exists
+                        var intrinsicAttributes = getJsxType(JsxNames.IntrinsicAttributes);
+                        if (intrinsicAttributes !== unknownType) {
+                            paramType = intersectTypes(intrinsicAttributes, paramType);
+                        }
+                        return paramType;
+                    }
+                }
+            }
+            // Issue an error if this return type isn't assignable to JSX.ElementClass
+            if (elemClassType) {
+                checkTypeRelatedTo(elemInstanceType, elemClassType, assignableRelation, node, ts.Diagnostics.JSX_element_type_0_is_not_a_constructor_function_for_JSX_elements);
+            }
+            if (isTypeAny(elemInstanceType)) {
+                return elemInstanceType;
+            }
+            var propsName = getJsxElementPropertiesName();
+            if (propsName === undefined) {
+                // There is no type ElementAttributesProperty, return 'any'
+                return anyType;
+            }
+            else if (propsName === "") {
+                // If there is no e.g. 'props' member in ElementAttributesProperty, use the element class type instead
+                return elemInstanceType;
+            }
+            else {
+                var attributesType = getTypeOfPropertyOfType(elemInstanceType, propsName);
+                if (!attributesType) {
+                    // There is no property named 'props' on this instance type
+                    return emptyObjectType;
+                }
+                else if (isTypeAny(attributesType) || (attributesType === unknownType)) {
+                    // Props is of type 'any' or unknown
+                    return attributesType;
+                }
+                else if (attributesType.flags & 16384 /* Union */) {
+                    // Props cannot be a union type
+                    error(node.tagName, ts.Diagnostics.JSX_element_attributes_type_0_may_not_be_a_union_type, typeToString(attributesType));
+                    return anyType;
+                }
+                else {
+                    // Normal case -- add in IntrinsicClassElements<T> and IntrinsicElements
+                    var apparentAttributesType = attributesType;
+                    var intrinsicClassAttribs = getJsxType(JsxNames.IntrinsicClassAttributes);
+                    if (intrinsicClassAttribs !== unknownType) {
+                        var typeParams = getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(intrinsicClassAttribs.symbol);
+                        if (typeParams) {
+                            if (typeParams.length === 1) {
+                                apparentAttributesType = intersectTypes(createTypeReference(intrinsicClassAttribs, [elemInstanceType]), apparentAttributesType);
+                            }
+                        }
+                        else {
+                            apparentAttributesType = intersectTypes(attributesType, intrinsicClassAttribs);
+                        }
+                    }
+                    var intrinsicAttribs = getJsxType(JsxNames.IntrinsicAttributes);
+                    if (intrinsicAttribs !== unknownType) {
+                        apparentAttributesType = intersectTypes(intrinsicAttribs, apparentAttributesType);
+                    }
+                    return apparentAttributesType;
+                }
+            }
+        }
+        /**
          * Given an opening/self-closing element, get the 'element attributes type', i.e. the type that tells
          * us which attributes are valid on a given element.
          */
@@ -24155,85 +24243,14 @@ var ts;
                     else if (links.jsxFlags & 2 /* IntrinsicIndexedElement */) {
                         return links.resolvedJsxType = getIndexInfoOfSymbol(symbol, 0 /* String */).type;
                     }
+                    else {
+                        return links.resolvedJsxType = unknownType;
+                    }
                 }
                 else {
-                    // Get the element instance type (the result of newing or invoking this tag)
-                    var elemInstanceType = getJsxElementInstanceType(node);
                     var elemClassType = getJsxGlobalElementClassType();
-                    if (!elemClassType || !isTypeAssignableTo(elemInstanceType, elemClassType)) {
-                        // Is this is a stateless function component? See if its single signature's return type is
-                        // assignable to the JSX Element Type
-                        if (jsxElementType) {
-                            var elemType = checkExpression(node.tagName);
-                            var callSignatures = elemType && getSignaturesOfType(elemType, 0 /* Call */);
-                            var callSignature = callSignatures && callSignatures.length > 0 && callSignatures[0];
-                            var callReturnType = callSignature && getReturnTypeOfSignature(callSignature);
-                            var paramType = callReturnType && (callSignature.parameters.length === 0 ? emptyObjectType : getTypeOfSymbol(callSignature.parameters[0]));
-                            if (callReturnType && isTypeAssignableTo(callReturnType, jsxElementType)) {
-                                // Intersect in JSX.IntrinsicAttributes if it exists
-                                var intrinsicAttributes = getJsxType(JsxNames.IntrinsicAttributes);
-                                if (intrinsicAttributes !== unknownType) {
-                                    paramType = intersectTypes(intrinsicAttributes, paramType);
-                                }
-                                return links.resolvedJsxType = paramType;
-                            }
-                        }
-                    }
-                    // Issue an error if this return type isn't assignable to JSX.ElementClass
-                    if (elemClassType) {
-                        checkTypeRelatedTo(elemInstanceType, elemClassType, assignableRelation, node, ts.Diagnostics.JSX_element_type_0_is_not_a_constructor_function_for_JSX_elements);
-                    }
-                    if (isTypeAny(elemInstanceType)) {
-                        return links.resolvedJsxType = elemInstanceType;
-                    }
-                    var propsName = getJsxElementPropertiesName();
-                    if (propsName === undefined) {
-                        // There is no type ElementAttributesProperty, return 'any'
-                        return links.resolvedJsxType = anyType;
-                    }
-                    else if (propsName === "") {
-                        // If there is no e.g. 'props' member in ElementAttributesProperty, use the element class type instead
-                        return links.resolvedJsxType = elemInstanceType;
-                    }
-                    else {
-                        var attributesType = getTypeOfPropertyOfType(elemInstanceType, propsName);
-                        if (!attributesType) {
-                            // There is no property named 'props' on this instance type
-                            return links.resolvedJsxType = emptyObjectType;
-                        }
-                        else if (isTypeAny(attributesType) || (attributesType === unknownType)) {
-                            // Props is of type 'any' or unknown
-                            return links.resolvedJsxType = attributesType;
-                        }
-                        else if (attributesType.flags & 16384 /* Union */) {
-                            // Props cannot be a union type
-                            error(node.tagName, ts.Diagnostics.JSX_element_attributes_type_0_may_not_be_a_union_type, typeToString(attributesType));
-                            return links.resolvedJsxType = anyType;
-                        }
-                        else {
-                            // Normal case -- add in IntrinsicClassElements<T> and IntrinsicElements
-                            var apparentAttributesType = attributesType;
-                            var intrinsicClassAttribs = getJsxType(JsxNames.IntrinsicClassAttributes);
-                            if (intrinsicClassAttribs !== unknownType) {
-                                var typeParams = getLocalTypeParametersOfClassOrInterfaceOrTypeAlias(intrinsicClassAttribs.symbol);
-                                if (typeParams) {
-                                    if (typeParams.length === 1) {
-                                        apparentAttributesType = intersectTypes(createTypeReference(intrinsicClassAttribs, [elemInstanceType]), apparentAttributesType);
-                                    }
-                                }
-                                else {
-                                    apparentAttributesType = intersectTypes(attributesType, intrinsicClassAttribs);
-                                }
-                            }
-                            var intrinsicAttribs = getJsxType(JsxNames.IntrinsicAttributes);
-                            if (intrinsicAttribs !== unknownType) {
-                                apparentAttributesType = intersectTypes(intrinsicAttribs, apparentAttributesType);
-                            }
-                            return links.resolvedJsxType = apparentAttributesType;
-                        }
-                    }
+                    return links.resolvedJsxType = getResolvedJsxType(node, undefined, elemClassType);
                 }
-                return links.resolvedJsxType = unknownType;
             }
             return links.resolvedJsxType;
         }
