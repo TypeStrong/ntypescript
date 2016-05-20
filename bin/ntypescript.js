@@ -3400,8 +3400,15 @@ var ts;
         else if (lhs.expression.kind === 172 /* PropertyAccessExpression */) {
             // chained dot, e.g. x.y.z = expr; this var is the 'x.y' part
             var innerPropertyAccess = lhs.expression;
-            if (innerPropertyAccess.expression.kind === 69 /* Identifier */ && innerPropertyAccess.name.text === "prototype") {
-                return 3 /* PrototypeProperty */;
+            if (innerPropertyAccess.expression.kind === 69 /* Identifier */) {
+                // module.exports.name = expr
+                var innerPropertyAccessIdentifier = innerPropertyAccess.expression;
+                if (innerPropertyAccessIdentifier.text === "module" && innerPropertyAccess.name.text === "exports") {
+                    return 1 /* ExportsProperty */;
+                }
+                if (innerPropertyAccess.name.text === "prototype") {
+                    return 3 /* PrototypeProperty */;
+                }
             }
         }
         return 0 /* None */;
@@ -19564,12 +19571,7 @@ var ts;
             if (!signature.typeParameters)
                 return signature;
             if (!signature.erasedSignatureCache) {
-                if (signature.target) {
-                    signature.erasedSignatureCache = instantiateSignature(getErasedSignature(signature.target), signature.mapper);
-                }
-                else {
-                    signature.erasedSignatureCache = instantiateSignature(signature, createTypeEraser(signature.typeParameters), /*eraseTypeParameters*/ true);
-                }
+                signature.erasedSignatureCache = instantiateSignature(signature, createTypeEraser(signature.typeParameters), /*eraseTypeParameters*/ true);
             }
             return signature.erasedSignatureCache;
         }
@@ -20366,7 +20368,7 @@ var ts;
                         if (declaration.typeParameters) {
                             for (var _i = 0, _a = declaration.typeParameters; _i < _a.length; _i++) {
                                 var d = _a[_i];
-                                if (ts.contains(mappedTypes, getDeclaredTypeOfTypeParameter(d.symbol))) {
+                                if (ts.contains(mappedTypes, getDeclaredTypeOfTypeParameter(getSymbolOfNode(d)))) {
                                     return true;
                                 }
                             }
@@ -20863,7 +20865,7 @@ var ts;
                 if (type.flags & 80896 /* ObjectType */) {
                     var resolved = resolveStructuredTypeMembers(type);
                     if ((relation === assignableRelation || relation === comparableRelation) &&
-                        (type === globalObjectType || resolved.properties.length === 0) ||
+                        (type === globalObjectType || isEmptyObjectType(resolved)) ||
                         resolved.stringIndexInfo || resolved.numberIndexInfo || getPropertyOfType(type, name)) {
                         return true;
                     }
@@ -20877,6 +20879,13 @@ var ts;
                     }
                 }
                 return false;
+            }
+            function isEmptyObjectType(t) {
+                return t.properties.length === 0 &&
+                    t.callSignatures.length === 0 &&
+                    t.constructSignatures.length === 0 &&
+                    !t.stringIndexInfo &&
+                    !t.numberIndexInfo;
             }
             function hasExcessProperties(source, target, reportErrors) {
                 if (!(target.flags & 67108864 /* ObjectLiteralPatternWithComputedProperties */) && maybeTypeOfKind(target, 80896 /* ObjectType */)) {
@@ -23261,7 +23270,12 @@ var ts;
                             }
                             return createArrayType(getUnionType(restTypes));
                         }
-                        return checkExpression(iife.arguments[indexOfParameter]);
+                        var links = getNodeLinks(iife);
+                        var cached = links.resolvedSignature;
+                        links.resolvedSignature = anySignature;
+                        var type = checkExpression(iife.arguments[indexOfParameter]);
+                        links.resolvedSignature = cached;
+                        return type;
                     }
                 }
                 var contextualSignature = getContextualSignature(func);
@@ -32942,11 +32956,11 @@ var ts;
                 }
                 else {
                     // by default exclude node_modules, and any specificied output directory
-                    exclude = ["node_modules"];
-                    var outDir = json["compilerOptions"] && json["compilerOptions"]["outDir"];
-                    if (outDir) {
-                        exclude.push(outDir);
-                    }
+                    exclude = ["node_modules", "bower_components", "jspm_packages"];
+                }
+                var outDir = json["compilerOptions"] && json["compilerOptions"]["outDir"];
+                if (outDir) {
+                    exclude.push(outDir);
                 }
                 exclude = ts.map(exclude, ts.normalizeSlashes);
                 var supportedExtensions = ts.getSupportedExtensions(options);
