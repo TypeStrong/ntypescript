@@ -47378,7 +47378,7 @@ var ts;
         return ts.forEach(commentRanges, jsDocPrefix);
         function jsDocPrefix(c) {
             var text = sourceFile.text;
-            return text.length >= c.pos + 3 && text[c.pos] === '/' && text[c.pos + 1] === '*' && text[c.pos + 2] === '*';
+            return text.length >= c.pos + 3 && text[c.pos] === "/" && text[c.pos + 1] === "*" && text[c.pos + 2] === "*";
         }
     }
     ts.hasDocComment = hasDocComment;
@@ -47436,7 +47436,7 @@ var ts;
             result.push(ts.ScriptElementKindModifier.exportedModifier);
         if (ts.isInAmbientContext(node))
             result.push(ts.ScriptElementKindModifier.ambientModifier);
-        return result.length > 0 ? result.join(',') : ts.ScriptElementKindModifier.none;
+        return result.length > 0 ? result.join(",") : ts.ScriptElementKindModifier.none;
     }
     ts.getNodeModifiers = getNodeModifiers;
     function getTypeArgumentOrTypeParameterList(node) {
