@@ -1788,6 +1788,7 @@ declare namespace ts {
         allowJs?: boolean;
         noImplicitUseStrict?: boolean;
         strictNullChecks?: boolean;
+        skipLibCheck?: boolean;
         listEmittedFiles?: boolean;
         lib?: string[];
         stripInternal?: boolean;
@@ -3257,7 +3258,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Cannot_compile_modules_unless_the_module_flag_is_provided_with_a_valid_module_type_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file: {
+        Cannot_use_imports_exports_or_module_augmentations_when_module_is_none: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6035,7 +6036,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Substututions_for_pattern_0_should_be_an_array: {
+        Substitutions_for_pattern_0_should_be_an_array: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6108,6 +6109,12 @@ declare namespace ts {
             message: string;
         };
         Allow_default_imports_from_modules_with_no_default_export_This_does_not_affect_code_emit_just_typechecking: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Skip_type_checking_of_declaration_files: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6719,6 +6726,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Cannot_compile_modules_using_option_0_unless_the_module_flag_is_amd_or_system: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Variable_0_implicitly_has_an_1_type: {
             code: number;
             category: DiagnosticCategory;
@@ -7236,7 +7249,7 @@ declare namespace ts.OutliningElementsCollector {
     function collectElements(sourceFile: SourceFile): OutliningSpan[];
 }
 declare namespace ts.NavigateTo {
-    function getNavigateToItems(program: Program, cancellationToken: CancellationToken, searchValue: string, maxResultCount: number): NavigateToItem[];
+    function getNavigateToItems(program: Program, checker: TypeChecker, cancellationToken: CancellationToken, searchValue: string, maxResultCount: number): NavigateToItem[];
 }
 declare namespace ts.NavigationBar {
     function getNavigationBarItems(sourceFile: SourceFile, compilerOptions: CompilerOptions): ts.NavigationBarItem[];
@@ -8270,26 +8283,55 @@ declare namespace ts {
     namespace ScriptElementKind {
         const unknown: string;
         const warning: string;
+        /** predefined type (void) or keyword (class) */
         const keyword: string;
+        /** top level script node */
         const scriptElement: string;
+        /** module foo {} */
         const moduleElement: string;
+        /** class X {} */
         const classElement: string;
+        /** var x = class X {} */
         const localClassElement: string;
+        /** interface Y {} */
         const interfaceElement: string;
+        /** type T = ... */
         const typeElement: string;
+        /** enum E */
         const enumElement: string;
+        /**
+         * Inside module and script only
+         * const v = ..
+         */
         const variableElement: string;
+        /** Inside function */
         const localVariableElement: string;
+        /**
+         * Inside module and script only
+         * function f() { }
+         */
         const functionElement: string;
+        /** Inside function */
         const localFunctionElement: string;
+        /** class X { [public|private]* foo() {} } */
         const memberFunctionElement: string;
+        /** class X { [public|private]* [get|set] foo:number; } */
         const memberGetAccessorElement: string;
         const memberSetAccessorElement: string;
+        /**
+         * class X { [public|private]* foo:number; }
+         * interface Y { foo:number; }
+         */
         const memberVariableElement: string;
+        /** class X { constructor() { } } */
         const constructorImplementationElement: string;
+        /** interface Y { ():number; } */
         const callSignatureElement: string;
+        /** interface Y { []:number; } */
         const indexSignatureElement: string;
+        /** interface Y { new():Y; } */
         const constructSignatureElement: string;
+        /** function foo(*Y*: string) */
         const parameterElement: string;
         const typeParameterElement: string;
         const primitiveType: string;

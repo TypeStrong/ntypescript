@@ -5184,7 +5184,7 @@ var ts;
         or_expected: { code: 1144, category: ts.DiagnosticCategory.Error, key: "or_expected_1144", message: "'{' or ';' expected." },
         Declaration_expected: { code: 1146, category: ts.DiagnosticCategory.Error, key: "Declaration_expected_1146", message: "Declaration expected." },
         Import_declarations_in_a_namespace_cannot_reference_a_module: { code: 1147, category: ts.DiagnosticCategory.Error, key: "Import_declarations_in_a_namespace_cannot_reference_a_module_1147", message: "Import declarations in a namespace cannot reference a module." },
-        Cannot_compile_modules_unless_the_module_flag_is_provided_with_a_valid_module_type_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file: { code: 1148, category: ts.DiagnosticCategory.Error, key: "Cannot_compile_modules_unless_the_module_flag_is_provided_with_a_valid_module_type_Consider_setting__1148", message: "Cannot compile modules unless the '--module' flag is provided with a valid module type. Consider setting the 'module' compiler option in a 'tsconfig.json' file." },
+        Cannot_use_imports_exports_or_module_augmentations_when_module_is_none: { code: 1148, category: ts.DiagnosticCategory.Error, key: "Cannot_use_imports_exports_or_module_augmentations_when_module_is_none_1148", message: "Cannot use imports, exports, or module augmentations when '--module' is 'none'." },
         File_name_0_differs_from_already_included_file_name_1_only_in_casing: { code: 1149, category: ts.DiagnosticCategory.Error, key: "File_name_0_differs_from_already_included_file_name_1_only_in_casing_1149", message: "File name '{0}' differs from already included file name '{1}' only in casing" },
         new_T_cannot_be_used_to_create_an_array_Use_new_Array_T_instead: { code: 1150, category: ts.DiagnosticCategory.Error, key: "new_T_cannot_be_used_to_create_an_array_Use_new_Array_T_instead_1150", message: "'new T[]' cannot be used to create an array. Use 'new Array<T>()' instead." },
         const_declarations_must_be_initialized: { code: 1155, category: ts.DiagnosticCategory.Error, key: "const_declarations_must_be_initialized_1155", message: "'const' declarations must be initialized" },
@@ -5647,7 +5647,7 @@ var ts;
         Option_paths_cannot_be_used_without_specifying_baseUrl_option: { code: 5060, category: ts.DiagnosticCategory.Error, key: "Option_paths_cannot_be_used_without_specifying_baseUrl_option_5060", message: "Option 'paths' cannot be used without specifying '--baseUrl' option." },
         Pattern_0_can_have_at_most_one_Asterisk_character: { code: 5061, category: ts.DiagnosticCategory.Error, key: "Pattern_0_can_have_at_most_one_Asterisk_character_5061", message: "Pattern '{0}' can have at most one '*' character" },
         Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character: { code: 5062, category: ts.DiagnosticCategory.Error, key: "Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character_5062", message: "Substitution '{0}' in pattern '{1}' in can have at most one '*' character" },
-        Substututions_for_pattern_0_should_be_an_array: { code: 5063, category: ts.DiagnosticCategory.Error, key: "Substututions_for_pattern_0_should_be_an_array_5063", message: "Substututions for pattern '{0}' should be an array." },
+        Substitutions_for_pattern_0_should_be_an_array: { code: 5063, category: ts.DiagnosticCategory.Error, key: "Substitutions_for_pattern_0_should_be_an_array_5063", message: "Substitutions for pattern '{0}' should be an array." },
         Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2: { code: 5064, category: ts.DiagnosticCategory.Error, key: "Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2_5064", message: "Substitution '{0}' for pattern '{1}' has incorrect type, expected 'string', got '{2}'." },
         Concatenate_and_emit_output_to_single_file: { code: 6001, category: ts.DiagnosticCategory.Message, key: "Concatenate_and_emit_output_to_single_file_6001", message: "Concatenate and emit output to single file." },
         Generates_corresponding_d_ts_file: { code: 6002, category: ts.DiagnosticCategory.Message, key: "Generates_corresponding_d_ts_file_6002", message: "Generates corresponding '.d.ts' file." },
@@ -5660,6 +5660,7 @@ var ts;
         Do_not_emit_comments_to_output: { code: 6009, category: ts.DiagnosticCategory.Message, key: "Do_not_emit_comments_to_output_6009", message: "Do not emit comments to output." },
         Do_not_emit_outputs: { code: 6010, category: ts.DiagnosticCategory.Message, key: "Do_not_emit_outputs_6010", message: "Do not emit outputs." },
         Allow_default_imports_from_modules_with_no_default_export_This_does_not_affect_code_emit_just_typechecking: { code: 6011, category: ts.DiagnosticCategory.Message, key: "Allow_default_imports_from_modules_with_no_default_export_This_does_not_affect_code_emit_just_typech_6011", message: "Allow default imports from modules with no default export. This does not affect code emit, just typechecking." },
+        Skip_type_checking_of_declaration_files: { code: 6012, category: ts.DiagnosticCategory.Message, key: "Skip_type_checking_of_declaration_files_6012", message: "Skip type checking of declaration files." },
         Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015: { code: 6015, category: ts.DiagnosticCategory.Message, key: "Specify_ECMAScript_target_version_Colon_ES3_default_ES5_or_ES2015_6015", message: "Specify ECMAScript target version: 'ES3' (default), 'ES5', or 'ES2015'" },
         Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es2015: { code: 6016, category: ts.DiagnosticCategory.Message, key: "Specify_module_code_generation_Colon_commonjs_amd_system_umd_or_es2015_6016", message: "Specify module code generation: 'commonjs', 'amd', 'system', 'umd' or 'es2015'" },
         Print_this_message: { code: 6017, category: ts.DiagnosticCategory.Message, key: "Print_this_message_6017", message: "Print this message." },
@@ -5761,6 +5762,7 @@ var ts;
         Resolving_type_reference_directive_0_containing_file_not_set_root_directory_not_set: { code: 6128, category: ts.DiagnosticCategory.Message, key: "Resolving_type_reference_directive_0_containing_file_not_set_root_directory_not_set_6128", message: "======== Resolving type reference directive '{0}', containing file not set, root directory not set. ========" },
         The_config_file_0_found_doesn_t_contain_any_source_files: { code: 6129, category: ts.DiagnosticCategory.Error, key: "The_config_file_0_found_doesn_t_contain_any_source_files_6129", message: "The config file '{0}' found doesn't contain any source files." },
         Resolving_real_path_for_0_result_1: { code: 6130, category: ts.DiagnosticCategory.Message, key: "Resolving_real_path_for_0_result_1_6130", message: "Resolving real path for '{0}', result '{1}'" },
+        Cannot_compile_modules_using_option_0_unless_the_module_flag_is_amd_or_system: { code: 6131, category: ts.DiagnosticCategory.Error, key: "Cannot_compile_modules_using_option_0_unless_the_module_flag_is_amd_or_system_6131", message: "Cannot compile modules using option '{0}' unless the '--module' flag is 'amd' or 'system'." },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter_0_implicitly_has_an_1_type_7006", message: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member_0_implicitly_has_an_1_type_7008", message: "Member '{0}' implicitly has an '{1}' type." },
@@ -26200,8 +26202,14 @@ var ts;
                 if (symbol.flags & 4 /* Property */ &&
                     (expr.kind === 172 /* PropertyAccessExpression */ || expr.kind === 173 /* ElementAccessExpression */) &&
                     expr.expression.kind === 97 /* ThisKeyword */) {
+                    // Look for if this is the constructor for the class that `symbol` is a property of.
                     var func = ts.getContainingFunction(expr);
-                    return !(func && func.kind === 148 /* Constructor */ && func.parent === symbol.valueDeclaration.parent);
+                    if (!(func && func.kind === 148 /* Constructor */))
+                        return true;
+                    // If func.parent is a class and symbol is a (readonly) property of that class, or
+                    // if func is a constructor and symbol is a (readonly) parameter property declared in it,
+                    // then symbol is writeable here.
+                    return !(func.parent === symbol.valueDeclaration.parent || func === symbol.valueDeclaration.parent);
                 }
                 return true;
             }
@@ -30226,14 +30234,11 @@ var ts;
         function checkSourceFileWorker(node) {
             var links = getNodeLinks(node);
             if (!(links.flags & 1 /* TypeChecked */)) {
-                // Check whether the file has declared it is the default lib,
-                // and whether the user has specifically chosen to avoid checking it.
-                if (compilerOptions.skipDefaultLibCheck) {
-                    // If the user specified '--noLib' and a file has a '/// <reference no-default-lib="true"/>',
-                    // then we should treat that file as a default lib.
-                    if (node.hasNoDefaultLib) {
-                        return;
-                    }
+                // If skipLibCheck is enabled, skip type checking if file is a declaration file.
+                // If skipDefaultLibCheck is enabled, skip type checking if file contains a
+                // '/// <reference no-default-lib="true"/>' directive.
+                if (compilerOptions.skipLibCheck && node.isDeclarationFile || compilerOptions.skipDefaultLibCheck && node.hasNoDefaultLib) {
+                    return;
                 }
                 // Grammar checking
                 checkGrammarSourceFile(node);
@@ -32415,6 +32420,11 @@ var ts;
         {
             name: "skipDefaultLibCheck",
             type: "boolean",
+        },
+        {
+            name: "skipLibCheck",
+            type: "boolean",
+            description: ts.Diagnostics.Skip_type_checking_of_declaration_files,
         },
         {
             name: "out",
@@ -44015,7 +44025,7 @@ var ts;
                         }
                     }
                     else {
-                        programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Substututions_for_pattern_0_should_be_an_array, key));
+                        programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Substitutions_for_pattern_0_should_be_an_array, key));
                     }
                 }
             }
@@ -44066,15 +44076,21 @@ var ts;
             else if (firstExternalModuleSourceFile && languageVersion < 2 /* ES6 */ && options.module === ts.ModuleKind.None) {
                 // We cannot use createDiagnosticFromNode because nodes do not have parents yet
                 var span = ts.getErrorSpanForNode(firstExternalModuleSourceFile, firstExternalModuleSourceFile.externalModuleIndicator);
-                programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_unless_the_module_flag_is_provided_with_a_valid_module_type_Consider_setting_the_module_compiler_option_in_a_tsconfig_json_file));
+                programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_use_imports_exports_or_module_augmentations_when_module_is_none));
             }
             // Cannot specify module gen target of es6 when below es6
             if (options.module === ts.ModuleKind.ES6 && languageVersion < 2 /* ES6 */) {
                 programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_compile_modules_into_es2015_when_targeting_ES5_or_lower));
             }
             // Cannot specify module gen that isn't amd or system with --out
-            if (outFile && options.module && !(options.module === ts.ModuleKind.AMD || options.module === ts.ModuleKind.System)) {
-                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Only_amd_and_system_modules_are_supported_alongside_0, options.out ? "out" : "outFile"));
+            if (outFile) {
+                if (options.module && !(options.module === ts.ModuleKind.AMD || options.module === ts.ModuleKind.System)) {
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Only_amd_and_system_modules_are_supported_alongside_0, options.out ? "out" : "outFile"));
+                }
+                else if (options.module === undefined && firstExternalModuleSourceFile) {
+                    var span = ts.getErrorSpanForNode(firstExternalModuleSourceFile, firstExternalModuleSourceFile.externalModuleIndicator);
+                    programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_using_option_0_unless_the_module_flag_is_amd_or_system, options.out ? "out" : "outFile"));
+                }
             }
             // there has to be common source directory if user specified --outdir || --sourceRoot
             // if user specified --mapRoot, there needs to be common source directory if there would be multiple files being emitted
@@ -45006,7 +45022,7 @@ var ts;
 (function (ts) {
     var NavigateTo;
     (function (NavigateTo) {
-        function getNavigateToItems(program, cancellationToken, searchValue, maxResultCount) {
+        function getNavigateToItems(program, checker, cancellationToken, searchValue, maxResultCount) {
             var patternMatcher = ts.createPatternMatcher(searchValue);
             var rawItems = [];
             // This means "compare in a case insensitive manner."
@@ -45043,6 +45059,18 @@ var ts;
                             rawItems.push({ name: name_35, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
                         }
                     }
+                }
+            });
+            // Remove imports when the imported declaration is already in the list and has the same name.
+            rawItems = ts.filter(rawItems, function (item) {
+                var decl = item.declaration;
+                if (decl.kind === 231 /* ImportClause */ || decl.kind === 234 /* ImportSpecifier */ || decl.kind === 229 /* ImportEqualsDeclaration */) {
+                    var importer = checker.getSymbolAtLocation(decl.name);
+                    var imported = checker.getAliasedSymbol(importer);
+                    return importer.name !== imported.name;
+                }
+                else {
+                    return true;
                 }
             });
             rawItems.sort(compareNavigateToItems);
@@ -51500,49 +51528,55 @@ var ts;
     (function (ScriptElementKind) {
         ScriptElementKind.unknown = "";
         ScriptElementKind.warning = "warning";
-        // predefined type (void) or keyword (class)
+        /** predefined type (void) or keyword (class) */
         ScriptElementKind.keyword = "keyword";
-        // top level script node
+        /** top level script node */
         ScriptElementKind.scriptElement = "script";
-        // module foo {}
+        /** module foo {} */
         ScriptElementKind.moduleElement = "module";
-        // class X {}
+        /** class X {} */
         ScriptElementKind.classElement = "class";
-        // var x = class X {}
+        /** var x = class X {} */
         ScriptElementKind.localClassElement = "local class";
-        // interface Y {}
+        /** interface Y {} */
         ScriptElementKind.interfaceElement = "interface";
-        // type T = ...
+        /** type T = ... */
         ScriptElementKind.typeElement = "type";
-        // enum E
+        /** enum E */
         ScriptElementKind.enumElement = "enum";
-        // Inside module and script only
-        // const v = ..
+        /**
+         * Inside module and script only
+         * const v = ..
+         */
         ScriptElementKind.variableElement = "var";
-        // Inside function
+        /** Inside function */
         ScriptElementKind.localVariableElement = "local var";
-        // Inside module and script only
-        // function f() { }
+        /**
+         * Inside module and script only
+         * function f() { }
+         */
         ScriptElementKind.functionElement = "function";
-        // Inside function
+        /** Inside function */
         ScriptElementKind.localFunctionElement = "local function";
-        // class X { [public|private]* foo() {} }
+        /** class X { [public|private]* foo() {} } */
         ScriptElementKind.memberFunctionElement = "method";
-        // class X { [public|private]* [get|set] foo:number; }
+        /** class X { [public|private]* [get|set] foo:number; } */
         ScriptElementKind.memberGetAccessorElement = "getter";
         ScriptElementKind.memberSetAccessorElement = "setter";
-        // class X { [public|private]* foo:number; }
-        // interface Y { foo:number; }
+        /**
+         * class X { [public|private]* foo:number; }
+         * interface Y { foo:number; }
+         */
         ScriptElementKind.memberVariableElement = "property";
-        // class X { constructor() { } }
+        /** class X { constructor() { } } */
         ScriptElementKind.constructorImplementationElement = "constructor";
-        // interface Y { ():number; }
+        /** interface Y { ():number; } */
         ScriptElementKind.callSignatureElement = "call";
-        // interface Y { []:number; }
+        /** interface Y { []:number; } */
         ScriptElementKind.indexSignatureElement = "index";
-        // interface Y { new():Y; }
+        /** interface Y { new():Y; } */
         ScriptElementKind.constructSignatureElement = "construct";
-        // function foo(*Y*: string)
+        /** function foo(*Y*: string) */
         ScriptElementKind.parameterElement = "parameter";
         ScriptElementKind.typeParameterElement = "type parameter";
         ScriptElementKind.primitiveType = "primitive type";
@@ -54450,8 +54484,7 @@ var ts;
         }
         function getDocumentHighlights(fileName, position, filesToSearch) {
             synchronizeHostData();
-            filesToSearch = ts.map(filesToSearch, ts.normalizeSlashes);
-            var sourceFilesToSearch = ts.filter(program.getSourceFiles(), function (f) { return ts.contains(filesToSearch, f.fileName); });
+            var sourceFilesToSearch = ts.map(filesToSearch, function (f) { return program.getSourceFile(f); });
             var sourceFile = getValidSourceFile(fileName);
             var node = ts.getTouchingWord(sourceFile, position);
             if (!node) {
@@ -55841,7 +55874,8 @@ var ts;
         /// NavigateTo
         function getNavigateToItems(searchValue, maxResultCount) {
             synchronizeHostData();
-            return ts.NavigateTo.getNavigateToItems(program, cancellationToken, searchValue, maxResultCount);
+            var checker = getProgram().getTypeChecker();
+            return ts.NavigateTo.getNavigateToItems(program, checker, cancellationToken, searchValue, maxResultCount);
         }
         function getEmitOutput(fileName) {
             synchronizeHostData();
