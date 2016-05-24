@@ -256,7 +256,7 @@ var ts;
         SyntaxKind[SyntaxKind["ModuleDeclaration"] = 225] = "ModuleDeclaration";
         SyntaxKind[SyntaxKind["ModuleBlock"] = 226] = "ModuleBlock";
         SyntaxKind[SyntaxKind["CaseBlock"] = 227] = "CaseBlock";
-        SyntaxKind[SyntaxKind["GlobalModuleExportDeclaration"] = 228] = "GlobalModuleExportDeclaration";
+        SyntaxKind[SyntaxKind["NamespaceExportDeclaration"] = 228] = "NamespaceExportDeclaration";
         SyntaxKind[SyntaxKind["ImportEqualsDeclaration"] = 229] = "ImportEqualsDeclaration";
         SyntaxKind[SyntaxKind["ImportDeclaration"] = 230] = "ImportDeclaration";
         SyntaxKind[SyntaxKind["ImportClause"] = 231] = "ImportClause";
@@ -3767,7 +3767,7 @@ var ts;
     // export default ...
     function isAliasSymbolDeclaration(node) {
         return node.kind === 229 /* ImportEqualsDeclaration */ ||
-            node.kind === 228 /* GlobalModuleExportDeclaration */ ||
+            node.kind === 228 /* NamespaceExportDeclaration */ ||
             node.kind === 231 /* ImportClause */ && !!node.name ||
             node.kind === 232 /* NamespaceImport */ ||
             node.kind === 234 /* ImportSpecifier */ ||
@@ -5554,6 +5554,7 @@ var ts;
         this_implicitly_has_type_any_because_it_does_not_have_a_type_annotation: { code: 2683, category: ts.DiagnosticCategory.Error, key: "this_implicitly_has_type_any_because_it_does_not_have_a_type_annotation_2683", message: "'this' implicitly has type 'any' because it does not have a type annotation." },
         The_this_context_of_type_0_is_not_assignable_to_method_s_this_of_type_1: { code: 2684, category: ts.DiagnosticCategory.Error, key: "The_this_context_of_type_0_is_not_assignable_to_method_s_this_of_type_1_2684", message: "The 'this' context of type '{0}' is not assignable to method's 'this' of type '{1}'." },
         The_this_types_of_each_signature_are_incompatible: { code: 2685, category: ts.DiagnosticCategory.Error, key: "The_this_types_of_each_signature_are_incompatible_2685", message: "The 'this' types of each signature are incompatible." },
+        Identifier_0_must_be_imported_from_a_module: { code: 2686, category: ts.DiagnosticCategory.Error, key: "Identifier_0_must_be_imported_from_a_module_2686", message: "Identifier '{0}' must be imported from a module" },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -7760,7 +7761,7 @@ var ts;
             case 231 /* ImportClause */:
                 return visitNode(cbNode, node.name) ||
                     visitNode(cbNode, node.namedBindings);
-            case 228 /* GlobalModuleExportDeclaration */:
+            case 228 /* NamespaceExportDeclaration */:
                 return visitNode(cbNode, node.name);
             case 232 /* NamespaceImport */:
                 return visitNode(cbNode, node.name);
@@ -12169,7 +12170,7 @@ var ts;
             return nextToken() === 39 /* SlashToken */;
         }
         function parseGlobalModuleExportDeclaration(fullStart, decorators, modifiers) {
-            var exportDeclaration = createNode(228 /* GlobalModuleExportDeclaration */, fullStart);
+            var exportDeclaration = createNode(228 /* NamespaceExportDeclaration */, fullStart);
             exportDeclaration.decorators = decorators;
             exportDeclaration.modifiers = modifiers;
             parseExpected(116 /* AsKeyword */);
@@ -15068,8 +15069,8 @@ var ts;
                 case 234 /* ImportSpecifier */:
                 case 238 /* ExportSpecifier */:
                     return declareSymbolAndAddToSymbolTable(node, 8388608 /* Alias */, 8388608 /* AliasExcludes */);
-                case 228 /* GlobalModuleExportDeclaration */:
-                    return bindGlobalModuleExportDeclaration(node);
+                case 228 /* NamespaceExportDeclaration */:
+                    return bindNamespaceExportDeclaration(node);
                 case 231 /* ImportClause */:
                     return bindImportClause(node);
                 case 236 /* ExportDeclaration */:
@@ -15114,7 +15115,7 @@ var ts;
                 declareSymbol(container.symbol.exports, container.symbol, node, 4 /* Property */, 107455 /* PropertyExcludes */ | 8388608 /* AliasExcludes */);
             }
         }
-        function bindGlobalModuleExportDeclaration(node) {
+        function bindNamespaceExportDeclaration(node) {
             if (node.modifiers && node.modifiers.length) {
                 file.bindDiagnostics.push(ts.createDiagnosticForNode(node, ts.Diagnostics.Modifiers_cannot_appear_here));
             }
@@ -15969,6 +15970,7 @@ var ts;
             var propertyWithInvalidInitializer;
             var errorLocation = location;
             var grandparent;
+            var isInExternalModule = false;
             loop: while (location) {
                 // Locals of a source file are not in scope (because they get merged into the global symbol table)
                 if (location.locals && !isGlobalSourceFile(location)) {
@@ -16011,6 +16013,7 @@ var ts;
                     case 256 /* SourceFile */:
                         if (!ts.isExternalOrCommonJsModule(location))
                             break;
+                        isInExternalModule = true;
                     case 225 /* ModuleDeclaration */:
                         var moduleExports = getSymbolOfNode(location).exports;
                         if (location.kind === 256 /* SourceFile */ || ts.isAmbientModule(location)) {
@@ -16192,6 +16195,13 @@ var ts;
                     var exportOrLocalSymbol = getExportSymbolOfValueSymbolIfExported(result);
                     if (exportOrLocalSymbol.flags & 2 /* BlockScopedVariable */) {
                         checkResolvedBlockScopedVariable(exportOrLocalSymbol, errorLocation);
+                    }
+                }
+                // If we're in an external module, we can't reference symbols created from UMD export declarations
+                if (result && isInExternalModule) {
+                    var decls = result.declarations;
+                    if (decls && decls.length === 1 && decls[0].kind === 228 /* NamespaceExportDeclaration */) {
+                        error(errorLocation, ts.Diagnostics.Identifier_0_must_be_imported_from_a_module, name);
                     }
                 }
             }
@@ -16396,7 +16406,7 @@ var ts;
                     return getTargetOfExportSpecifier(node);
                 case 235 /* ExportAssignment */:
                     return getTargetOfExportAssignment(node);
-                case 228 /* GlobalModuleExportDeclaration */:
+                case 228 /* NamespaceExportDeclaration */:
                     return getTargetOfGlobalModuleExportDeclaration(node);
             }
         }
@@ -17870,7 +17880,7 @@ var ts;
         // assigned by contextual typing.
         function getTypeForBindingElementParent(node) {
             var symbol = getSymbolOfNode(node);
-            return symbol && getSymbolLinks(symbol).type || getTypeForVariableLikeDeclaration(node);
+            return symbol && getSymbolLinks(symbol).type || getTypeForVariableLikeDeclaration(node, /*includeOptionality*/ false);
         }
         function getTextOfPropertyName(name) {
             switch (name.kind) {
@@ -17996,7 +18006,7 @@ var ts;
             return strictNullChecks && optional ? addNullableKind(type, 32 /* Undefined */) : type;
         }
         // Return the inferred type for a variable, parameter, or property declaration
-        function getTypeForVariableLikeDeclaration(declaration) {
+        function getTypeForVariableLikeDeclaration(declaration, includeOptionality) {
             if (declaration.flags & 134217728 /* JavaScriptFile */) {
                 // If this is a variable in a JavaScript file, then use the JSDoc type (if it has
                 // one as its type), otherwise fallback to the below standard TS codepaths to
@@ -18022,7 +18032,7 @@ var ts;
             }
             // Use type from type annotation if one is present
             if (declaration.type) {
-                return addOptionality(getTypeFromTypeNode(declaration.type), /*optional*/ !!declaration.questionToken);
+                return addOptionality(getTypeFromTypeNode(declaration.type), /*optional*/ declaration.questionToken && includeOptionality);
             }
             if (declaration.kind === 142 /* Parameter */) {
                 var func = declaration.parent;
@@ -18043,12 +18053,12 @@ var ts;
                     ? getContextuallyTypedThisType(func)
                     : getContextuallyTypedParameterType(declaration);
                 if (type) {
-                    return addOptionality(type, /*optional*/ !!declaration.questionToken);
+                    return addOptionality(type, /*optional*/ declaration.questionToken && includeOptionality);
                 }
             }
             // Use the type of the initializer expression if one is present
             if (declaration.initializer) {
-                return addOptionality(checkExpressionCached(declaration.initializer), /*optional*/ !!declaration.questionToken);
+                return addOptionality(checkExpressionCached(declaration.initializer), /*optional*/ declaration.questionToken && includeOptionality);
             }
             // If it is a short-hand property assignment, use the type of the identifier
             if (declaration.kind === 254 /* ShorthandPropertyAssignment */) {
@@ -18142,7 +18152,7 @@ var ts;
         // binding pattern [x, s = ""]. Because the contextual type is a tuple type, the resulting type of [1, "one"] is the
         // tuple type [number, string]. Thus, the type inferred for 'x' is number and the type inferred for 's' is string.
         function getWidenedTypeForVariableLikeDeclaration(declaration, reportErrors) {
-            var type = getTypeForVariableLikeDeclaration(declaration);
+            var type = getTypeForVariableLikeDeclaration(declaration, /*includeOptionality*/ true);
             if (type) {
                 if (reportErrors) {
                     reportErrorsFromWidening(declaration, type);
@@ -20706,7 +20716,7 @@ var ts;
                     return isIdenticalTo(source, target);
                 }
                 if (!(target.flags & 134217728 /* Never */)) {
-                    if (target.flags & 1 /* Any */)
+                    if (target.flags & 1 /* Any */ || source.flags & 134217728 /* Never */)
                         return -1 /* True */;
                     if (source.flags & 32 /* Undefined */) {
                         if (!strictNullChecks || target.flags & (32 /* Undefined */ | 16 /* Void */) || source === emptyArrayElementType)
@@ -20726,7 +20736,7 @@ var ts;
                     if (source.flags & 256 /* StringLiteral */ && target === stringType)
                         return -1 /* True */;
                     if (relation === assignableRelation || relation === comparableRelation) {
-                        if (source.flags & (1 /* Any */ | 134217728 /* Never */))
+                        if (source.flags & 1 /* Any */)
                             return -1 /* True */;
                         if (source === numberType && target.flags & 128 /* Enum */)
                             return -1 /* True */;
@@ -21621,41 +21631,52 @@ var ts;
                 getSignaturesOfType(type, 0 /* Call */).length === 0 &&
                 getSignaturesOfType(type, 1 /* Construct */).length === 0;
         }
+        function createTransientSymbol(source, type) {
+            var symbol = createSymbol(source.flags | 67108864 /* Transient */, source.name);
+            symbol.declarations = source.declarations;
+            symbol.parent = source.parent;
+            symbol.type = type;
+            symbol.target = source;
+            if (source.valueDeclaration) {
+                symbol.valueDeclaration = source.valueDeclaration;
+            }
+            return symbol;
+        }
+        function transformTypeOfMembers(type, f) {
+            var members = {};
+            for (var _i = 0, _a = getPropertiesOfObjectType(type); _i < _a.length; _i++) {
+                var property = _a[_i];
+                var original = getTypeOfSymbol(property);
+                var updated = f(original);
+                members[property.name] = updated === original ? property : createTransientSymbol(property, updated);
+            }
+            ;
+            return members;
+        }
+        /**
+         * If the the provided object literal is subject to the excess properties check,
+         * create a new that is exempt. Recursively mark object literal members as exempt.
+         * Leave signatures alone since they are not subject to the check.
+         */
         function getRegularTypeOfObjectLiteral(type) {
-            if (type.flags & 1048576 /* FreshObjectLiteral */) {
-                var regularType = type.regularType;
-                if (!regularType) {
-                    regularType = createType(type.flags & ~1048576 /* FreshObjectLiteral */);
-                    regularType.symbol = type.symbol;
-                    regularType.members = type.members;
-                    regularType.properties = type.properties;
-                    regularType.callSignatures = type.callSignatures;
-                    regularType.constructSignatures = type.constructSignatures;
-                    regularType.stringIndexInfo = type.stringIndexInfo;
-                    regularType.numberIndexInfo = type.numberIndexInfo;
-                    type.regularType = regularType;
-                }
+            if (!(type.flags & 1048576 /* FreshObjectLiteral */)) {
+                return type;
+            }
+            var regularType = type.regularType;
+            if (regularType) {
                 return regularType;
             }
-            return type;
+            var resolved = type;
+            var members = transformTypeOfMembers(type, getRegularTypeOfObjectLiteral);
+            var regularNew = createAnonymousType(resolved.symbol, members, resolved.callSignatures, resolved.constructSignatures, resolved.stringIndexInfo, resolved.numberIndexInfo);
+            regularNew.flags = resolved.flags & ~1048576 /* FreshObjectLiteral */;
+            type.regularType = regularNew;
+            return regularNew;
         }
         function getWidenedTypeOfObjectLiteral(type) {
-            var properties = getPropertiesOfObjectType(type);
-            var members = {};
-            ts.forEach(properties, function (p) {
-                var propType = getTypeOfSymbol(p);
-                var widenedType = getWidenedType(propType);
-                if (propType !== widenedType) {
-                    var symbol = createSymbol(p.flags | 67108864 /* Transient */, p.name);
-                    symbol.declarations = p.declarations;
-                    symbol.parent = p.parent;
-                    symbol.type = widenedType;
-                    symbol.target = p;
-                    if (p.valueDeclaration)
-                        symbol.valueDeclaration = p.valueDeclaration;
-                    p = symbol;
-                }
-                members[p.name] = p;
+            var members = transformTypeOfMembers(type, function (prop) {
+                var widened = getWidenedType(prop);
+                return prop === widened ? prop : widened;
             });
             var stringIndexInfo = getIndexInfoOfType(type, 0 /* String */);
             var numberIndexInfo = getIndexInfoOfType(type, 1 /* Number */);
@@ -25923,7 +25944,7 @@ var ts;
                 var types = void 0;
                 var funcIsGenerator = !!func.asteriskToken;
                 if (funcIsGenerator) {
-                    types = checkAndAggregateYieldOperandTypes(func.body, contextualMapper);
+                    types = checkAndAggregateYieldOperandTypes(func, contextualMapper);
                     if (types.length === 0) {
                         var iterableIteratorAny = createIterableIteratorType(anyType);
                         if (compilerOptions.noImplicitAny) {
@@ -25933,8 +25954,7 @@ var ts;
                     }
                 }
                 else {
-                    var hasImplicitReturn = !!(func.flags & 32768 /* HasImplicitReturn */);
-                    types = checkAndAggregateReturnExpressionTypes(func.body, contextualMapper, isAsync, hasImplicitReturn);
+                    types = checkAndAggregateReturnExpressionTypes(func, contextualMapper);
                     if (!types) {
                         return neverType;
                     }
@@ -25988,9 +26008,9 @@ var ts;
                 return widenedType;
             }
         }
-        function checkAndAggregateYieldOperandTypes(body, contextualMapper) {
+        function checkAndAggregateYieldOperandTypes(func, contextualMapper) {
             var aggregatedTypes = [];
-            ts.forEachYieldExpression(body, function (yieldExpression) {
+            ts.forEachYieldExpression(func.body, function (yieldExpression) {
                 var expr = yieldExpression.expression;
                 if (expr) {
                     var type = checkExpressionCached(expr, contextualMapper);
@@ -26005,10 +26025,12 @@ var ts;
             });
             return aggregatedTypes;
         }
-        function checkAndAggregateReturnExpressionTypes(body, contextualMapper, isAsync, hasImplicitReturn) {
+        function checkAndAggregateReturnExpressionTypes(func, contextualMapper) {
+            var isAsync = ts.isAsyncFunctionLike(func);
             var aggregatedTypes = [];
-            var hasOmittedExpressions = false;
-            ts.forEachReturnStatement(body, function (returnStatement) {
+            var hasReturnWithNoExpression = !!(func.flags & 32768 /* HasImplicitReturn */);
+            var hasReturnOfTypeNever = false;
+            ts.forEachReturnStatement(func.body, function (returnStatement) {
                 var expr = returnStatement.expression;
                 if (expr) {
                     var type = checkExpressionCached(expr, contextualMapper);
@@ -26017,20 +26039,24 @@ var ts;
                         // Promise/A+ compatible implementation will always assimilate any foreign promise, so the
                         // return type of the body should be unwrapped to its awaited type, which should be wrapped in
                         // the native Promise<T> type by the caller.
-                        type = checkAwaitedType(type, body.parent, ts.Diagnostics.Return_expression_in_async_function_does_not_have_a_valid_callable_then_member);
+                        type = checkAwaitedType(type, func, ts.Diagnostics.Return_expression_in_async_function_does_not_have_a_valid_callable_then_member);
                     }
-                    if (type !== neverType && !ts.contains(aggregatedTypes, type)) {
+                    if (type === neverType) {
+                        hasReturnOfTypeNever = true;
+                    }
+                    else if (!ts.contains(aggregatedTypes, type)) {
                         aggregatedTypes.push(type);
                     }
                 }
                 else {
-                    hasOmittedExpressions = true;
+                    hasReturnWithNoExpression = true;
                 }
             });
-            if (aggregatedTypes.length === 0 && !hasOmittedExpressions && !hasImplicitReturn) {
+            if (aggregatedTypes.length === 0 && !hasReturnWithNoExpression && (hasReturnOfTypeNever ||
+                func.kind === 179 /* FunctionExpression */ || func.kind === 180 /* ArrowFunction */)) {
                 return undefined;
             }
-            if (strictNullChecks && aggregatedTypes.length && (hasOmittedExpressions || hasImplicitReturn)) {
+            if (strictNullChecks && aggregatedTypes.length && hasReturnWithNoExpression) {
                 if (!ts.contains(aggregatedTypes, undefinedType)) {
                     aggregatedTypes.push(undefinedType);
                 }
@@ -30655,7 +30681,7 @@ var ts;
                 return symbol && getTypeOfSymbol(symbol);
             }
             if (ts.isBindingPattern(node)) {
-                return getTypeForVariableLikeDeclaration(node.parent);
+                return getTypeForVariableLikeDeclaration(node.parent, /*includeOptionality*/ true);
             }
             if (isInRightSideOfImportOrExportAssignment(node)) {
                 var symbol = getSymbolAtLocation(node);
@@ -31194,7 +31220,7 @@ var ts;
                 if (file.moduleAugmentations.length) {
                     (augmentations || (augmentations = [])).push(file.moduleAugmentations);
                 }
-                if (file.wasReferenced && file.symbol && file.symbol.globalExports) {
+                if (file.symbol && file.symbol.globalExports) {
                     mergeSymbolTable(globals, file.symbol.globalExports);
                 }
             });
@@ -32318,6 +32344,11 @@ var ts;
             shortName: "h",
             type: "boolean",
             description: ts.Diagnostics.Print_this_message,
+        },
+        {
+            name: "help",
+            shortName: "?",
+            type: "boolean"
         },
         {
             name: "init",
@@ -43797,9 +43828,6 @@ var ts;
                 if (file_1 && options.forceConsistentCasingInFileNames && ts.getNormalizedAbsolutePath(file_1.fileName, currentDirectory) !== ts.getNormalizedAbsolutePath(fileName, currentDirectory)) {
                     reportFileNamesDifferOnlyInCasingError(fileName, file_1.fileName, refFile, refPos, refEnd);
                 }
-                if (file_1) {
-                    file_1.wasReferenced = file_1.wasReferenced || isReference;
-                }
                 return file_1;
             }
             // We haven't looked for this file, do so now and cache result
@@ -43813,7 +43841,6 @@ var ts;
             });
             filesByName.set(path, file);
             if (file) {
-                file.wasReferenced = file.wasReferenced || isReference;
                 file.path = path;
                 if (host.useCaseSensitiveFileNames()) {
                     // for case-sensitive file systems check if we've already seen some file with similar filename ignoring case
@@ -45471,6 +45498,8 @@ var ts;
                         return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberSetAccessorElement);
                     case 153 /* IndexSignature */:
                         return createItem(node, "[]", ts.ScriptElementKind.indexSignatureElement);
+                    case 224 /* EnumDeclaration */:
+                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.enumElement);
                     case 255 /* EnumMember */:
                         return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberVariableElement);
                     case 151 /* CallSignature */:

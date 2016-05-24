@@ -246,7 +246,7 @@ declare namespace ts {
         ModuleDeclaration = 225,
         ModuleBlock = 226,
         CaseBlock = 227,
-        GlobalModuleExportDeclaration = 228,
+        NamespaceExportDeclaration = 228,
         ImportEqualsDeclaration = 229,
         ImportDeclaration = 230,
         ImportClause = 231,
@@ -934,7 +934,7 @@ declare namespace ts {
     interface NamespaceImport extends Declaration {
         name: Identifier;
     }
-    interface GlobalModuleExportDeclaration extends DeclarationStatement {
+    interface NamespaceExportDeclaration extends DeclarationStatement {
         name: Identifier;
         moduleReference: LiteralLikeNode;
     }
@@ -1104,7 +1104,6 @@ declare namespace ts {
         scriptKind: ScriptKind;
         externalModuleIndicator: Node;
         commonJsModuleIndicator: Node;
-        wasReferenced?: boolean;
         identifiers: Map<string>;
         nodeCount: number;
         identifierCount: number;
@@ -5473,6 +5472,12 @@ declare namespace ts {
             message: string;
         };
         The_this_types_of_each_signature_are_incompatible: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Identifier_0_must_be_imported_from_a_module: {
             code: number;
             category: DiagnosticCategory;
             key: string;
