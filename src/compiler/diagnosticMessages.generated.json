@@ -481,6 +481,7 @@
   "The_this_context_of_type_0_is_not_assignable_to_method_s_this_of_type_1_2684" : "The 'this' context of type '{0}' is not assignable to method's 'this' of type '{1}'.",
   "The_this_types_of_each_signature_are_incompatible_2685" : "The 'this' types of each signature are incompatible.",
   "Identifier_0_must_be_imported_from_a_module_2686" : "Identifier '{0}' must be imported from a module",
+  "All_declarations_of_0_must_have_identical_modifiers_2687" : "All declarations of '{0}' must have identical modifiers.",
   "Import_declaration_0_is_using_private_name_1_4000" : "Import declaration '{0}' is using private name '{1}'.",
   "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002" : "Type parameter '{0}' of exported class has or is using private name '{1}'.",
   "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004" : "Type parameter '{0}' of exported interface has or is using private name '{1}'.",

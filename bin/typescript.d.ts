@@ -1427,7 +1427,7 @@ declare namespace ts {
         FunctionScopedVariableExcludes = 107454,
         BlockScopedVariableExcludes = 107455,
         ParameterExcludes = 107455,
-        PropertyExcludes = 107455,
+        PropertyExcludes = 0,
         EnumMemberExcludes = 107455,
         FunctionExcludes = 106927,
         ClassExcludes = 899519,
@@ -2020,6 +2020,7 @@ declare namespace ts {
         trace?(s: string): void;
         directoryExists?(directoryName: string): boolean;
         realpath?(path: string): string;
+        getCurrentDirectory?(): string;
     }
     interface ResolvedModule {
         resolvedFileName: string;
@@ -2043,6 +2044,7 @@ declare namespace ts {
         getCancellationToken?(): CancellationToken;
         getDefaultLibFileName(options: CompilerOptions): string;
         getDefaultLibLocation?(): string;
+        getDefaultTypeDirectiveNames?(rootPath: string): string[];
         writeFile: WriteFileCallback;
         getCurrentDirectory(): string;
         getCanonicalFileName(fileName: string): string;
@@ -2239,6 +2241,7 @@ declare namespace ts {
         createDirectory(path: string): void;
         getExecutingFilePath(): string;
         getCurrentDirectory(): string;
+        getDirectories(path: string): string[];
         readDirectory(path: string, extension?: string, exclude?: string[]): string[];
         getModifiedTime?(path: string): Date;
         createHash?(data: string): string;
@@ -5483,6 +5486,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        All_declarations_of_0_must_have_identical_modifiers: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;
@@ -7242,6 +7251,7 @@ declare namespace ts {
     function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
     function getPreEmitDiagnostics(program: Program, sourceFile?: SourceFile, cancellationToken?: CancellationToken): Diagnostic[];
     function flattenDiagnosticMessageText(messageText: string | DiagnosticMessageChain, newLine: string): string;
+    function getDefaultTypeDirectiveNames(options: CompilerOptions, rootFiles: string[], host: CompilerHost): string[];
     function createProgram(rootNames: string[], options: CompilerOptions, host?: CompilerHost, oldProgram?: Program): Program;
 }
 declare namespace ts {
@@ -7484,7 +7494,7 @@ declare namespace ts.formatting {
     class RuleOperation {
         Context: RuleOperationContext;
         Action: RuleAction;
-        constructor();
+        constructor(Context: RuleOperationContext, Action: RuleAction);
         toString(): string;
         static create1(action: RuleAction): RuleOperation;
         static create2(context: RuleOperationContext, action: RuleAction): RuleOperation;
@@ -7689,7 +7699,7 @@ declare namespace ts.formatting {
     }
 }
 declare namespace ts.formatting {
-    module Shared {
+    namespace Shared {
         interface ITokenAccess {
             GetTokens(): SyntaxKind[];
             Contains(token: SyntaxKind): boolean;
@@ -7774,7 +7784,7 @@ declare namespace ts.formatting {
     function getIndentationString(indentation: number, options: FormatCodeOptions): string;
 }
 declare namespace ts.formatting {
-    module SmartIndenter {
+    namespace SmartIndenter {
         function getIndentation(position: number, sourceFile: SourceFile, options: EditorOptions): number;
         function getIndentationForNode(n: Node, ignoreActualIndentationRange: TextRange, sourceFile: SourceFile, options: FormatCodeOptions): number;
         function childStartsOnTheSameLineWithElseInIfStatement(parent: Node, child: TextRangeWithKind, childStartLine: number, sourceFile: SourceFile): boolean;
@@ -8481,6 +8491,7 @@ declare namespace ts {
         getLocalizedDiagnosticMessages(): string;
         getCancellationToken(): HostCancellationToken;
         getCurrentDirectory(): string;
+        getDirectories(path: string): string[];
         getDefaultLibFileName(options: string): string;
         getNewLine?(): string;
         getProjectVersion?(): string;
@@ -8644,6 +8655,7 @@ declare namespace ts {
         getLocalizedDiagnosticMessages(): any;
         getCancellationToken(): HostCancellationToken;
         getCurrentDirectory(): string;
+        getDirectories(path: string): string[];
         getDefaultLibFileName(options: CompilerOptions): string;
     }
     class CoreServicesShimHostAdapter implements ParseConfigHost, ModuleResolutionHost {
