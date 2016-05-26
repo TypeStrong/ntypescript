@@ -15181,12 +15181,20 @@ var ts;
             declareSymbol(file.symbol.exports, file.symbol, node, 4 /* Property */ | 7340032 /* Export */ | 512 /* ValueModule */, 0 /* None */);
         }
         function bindThisPropertyAssignment(node) {
-            // Declare a 'member' in case it turns out the container was an ES5 class
-            if (container.kind === 179 /* FunctionExpression */ || container.kind === 220 /* FunctionDeclaration */) {
-                container.symbol.members = container.symbol.members || {};
-                // It's acceptable for multiple 'this' assignments of the same identifier to occur
-                declareSymbol(container.symbol.members, container.symbol, node, 4 /* Property */, 0 /* PropertyExcludes */ & ~4 /* Property */);
+            // Declare a 'member' in case it turns out the container was an ES5 class or ES6 constructor
+            var assignee;
+            if (container.kind === 220 /* FunctionDeclaration */ || container.kind === 220 /* FunctionDeclaration */) {
+                assignee = container;
             }
+            else if (container.kind === 148 /* Constructor */) {
+                assignee = container.parent;
+            }
+            else {
+                return;
+            }
+            assignee.symbol.members = assignee.symbol.members || {};
+            // It's acceptable for multiple 'this' assignments of the same identifier to occur
+            declareSymbol(assignee.symbol.members, assignee.symbol, node, 4 /* Property */, 0 /* PropertyExcludes */ & ~4 /* Property */);
         }
         function bindPrototypePropertyAssignment(node) {
             // We saw a node of the form 'x.prototype.y = z'. Declare a 'member' y on x if x was a function.
@@ -15309,7 +15317,7 @@ var ts;
             // containing class.
             if (ts.isParameterPropertyDeclaration(node)) {
                 var classDeclaration = node.parent.parent;
-                declareSymbol(classDeclaration.symbol.members, classDeclaration.symbol, node, 4 /* Property */, 0 /* PropertyExcludes */);
+                declareSymbol(classDeclaration.symbol.members, classDeclaration.symbol, node, 4 /* Property */ | (node.questionToken ? 536870912 /* Optional */ : 0 /* None */), 0 /* PropertyExcludes */);
             }
         }
         function bindFunctionDeclaration(node) {
@@ -20887,9 +20895,10 @@ var ts;
             function isKnownProperty(type, name) {
                 if (type.flags & 80896 /* ObjectType */) {
                     var resolved = resolveStructuredTypeMembers(type);
-                    if ((relation === assignableRelation || relation === comparableRelation) &&
-                        (type === globalObjectType || isEmptyObjectType(resolved)) ||
-                        resolved.stringIndexInfo || resolved.numberIndexInfo || getPropertyOfType(type, name)) {
+                    if ((relation === assignableRelation || relation === comparableRelation) && (type === globalObjectType || isEmptyObjectType(resolved)) ||
+                        resolved.stringIndexInfo ||
+                        (resolved.numberIndexInfo && isNumericLiteralName(name)) ||
+                        getPropertyOfType(type, name)) {
                         return true;
                     }
                 }
@@ -28565,6 +28574,11 @@ var ts;
             }
         }
         function areDeclarationFlagsIdentical(left, right) {
+            if ((left.kind === 142 /* Parameter */ && right.kind === 218 /* VariableDeclaration */) ||
+                (left.kind === 218 /* VariableDeclaration */ && right.kind === 142 /* Parameter */)) {
+                // Differences in optionality between parameters and variables are allowed.
+                return true;
+            }
             if (ts.hasQuestionToken(left) !== ts.hasQuestionToken(right)) {
                 return false;
             }
@@ -39797,17 +39811,17 @@ var ts;
                         //
                         //  TypeScript                      | Javascript
                         //  --------------------------------|------------------------------------
-                        //  @dec                            | let C_1;
-                        //  class C {                       | let C = C_1 = class C {
-                        //    static x() { return C.y; }    |   static x() { return C_1.y; }
-                        //    static y = 1;                 | }
+                        //  @dec                            | let C_1 = class C {
+                        //  class C {                       |   static x() { return C_1.y; }
+                        //    static x() { return C.y; }    | }
+                        //    static y = 1;                 | let C = C_1;
                         //  }                               | C.y = 1;
                         //                                  | C = C_1 = __decorate([dec], C);
                         //  --------------------------------|------------------------------------
-                        //  @dec                            | let C_1;
-                        //  export class C {                | export let C = C_1 = class C {
-                        //    static x() { return C.y; }    |   static x() { return C_1.y; }
-                        //    static y = 1;                 | }
+                        //  @dec                            | let C_1 = class C {
+                        //  export class C {                |   static x() { return C_1.y; }
+                        //    static x() { return C.y; }    | }
+                        //    static y = 1;                 | export let C = C_1;
                         //  }                               | C.y = 1;
                         //                                  | C = C_1 = __decorate([dec], C);
                         //  ---------------------------------------------------------------------
@@ -39836,10 +39850,10 @@ var ts;
                         //
                         //  TypeScript                      | Javascript
                         //  --------------------------------|------------------------------------
-                        //  @dec                            | let C_1;
-                        //  export default class C {        | let C = C_1 = class C {
-                        //    static x() { return C.y; }    |   static x() { return C_1.y; }
-                        //    static y = 1;                 | }
+                        //  @dec                            | let C_1 = class C {
+                        //  export default class C {        |   static x() { return C_1.y; }
+                        //    static x() { return C.y; }    | };
+                        //    static y = 1;                 | let C = C_1;
                         //  }                               | C.y = 1;
                         //                                  | C = C_1 = __decorate([dec], C);
                         //                                  | export default C;
@@ -39847,23 +39861,23 @@ var ts;
                         //  [Example 4]
                         //
                         // NOTE: we reuse the same rewriting logic for cases when targeting ES6 and module kind is System.
-                        // Because of hoisting top level class declaration need to be emitted as class expressions. 
+                        // Because of hoisting top level class declaration need to be emitted as class expressions.
                         // Double bind case is only required if node is decorated.
                         if (isDecorated && resolver.getNodeCheckFlags(node) & 524288 /* ClassWithBodyScopedClassBinding */) {
                             decoratedClassAlias = ts.unescapeIdentifier(makeUniqueName(node.name ? node.name.text : "default"));
                             decoratedClassAliases[ts.getNodeId(node)] = decoratedClassAlias;
-                            write("let " + decoratedClassAlias + ";");
-                            writeLine();
                         }
-                        if (isES6ExportedDeclaration(node) && !(node.flags & 512 /* Default */)) {
+                        if (isES6ExportedDeclaration(node) && !(node.flags & 512 /* Default */) && decoratedClassAlias === undefined) {
                             write("export ");
                         }
                         if (!isHoistedDeclarationInSystemModule) {
                             write("let ");
                         }
-                        emitDeclarationName(node);
                         if (decoratedClassAlias !== undefined) {
-                            write(" = " + decoratedClassAlias);
+                            write("" + decoratedClassAlias);
+                        }
+                        else {
+                            emitDeclarationName(node);
                         }
                         write(" = ");
                     }
@@ -39917,6 +39931,16 @@ var ts;
                 writeLine();
                 emitToken(16 /* CloseBraceToken */, node.members.end);
                 if (rewriteAsClassExpression) {
+                    if (decoratedClassAlias !== undefined) {
+                        write(";");
+                        writeLine();
+                        if (isES6ExportedDeclaration(node) && !(node.flags & 512 /* Default */)) {
+                            write("export ");
+                        }
+                        write("let ");
+                        emitDeclarationName(node);
+                        write(" = " + decoratedClassAlias);
+                    }
                     decoratedClassAliases[ts.getNodeId(node)] = undefined;
                     write(";");
                 }
@@ -45439,6 +45463,7 @@ var ts;
                         case 229 /* ImportEqualsDeclaration */:
                         case 234 /* ImportSpecifier */:
                         case 238 /* ExportSpecifier */:
+                        case 223 /* TypeAliasDeclaration */:
                             childNodes.push(node);
                             break;
                     }
@@ -45624,8 +45649,12 @@ var ts;
                         return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.enumElement);
                     case 255 /* EnumMember */:
                         return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberVariableElement);
+                    case 225 /* ModuleDeclaration */:
+                        return createItem(node, getModuleName(node), ts.ScriptElementKind.moduleElement);
                     case 222 /* InterfaceDeclaration */:
                         return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.interfaceElement);
+                    case 223 /* TypeAliasDeclaration */:
+                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.typeElement);
                     case 151 /* CallSignature */:
                         return createItem(node, "()", ts.ScriptElementKind.callSignatureElement);
                     case 152 /* ConstructSignature */:
@@ -45633,6 +45662,8 @@ var ts;
                     case 145 /* PropertyDeclaration */:
                     case 144 /* PropertySignature */:
                         return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberVariableElement);
+                    case 221 /* ClassDeclaration */:
+                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.classElement);
                     case 220 /* FunctionDeclaration */:
                         return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.functionElement);
                     case 218 /* VariableDeclaration */:
@@ -45718,20 +45749,6 @@ var ts;
                         return createTypeAliasItem(node);
                 }
                 return undefined;
-                function getModuleName(moduleDeclaration) {
-                    // We want to maintain quotation marks.
-                    if (ts.isAmbientModule(moduleDeclaration)) {
-                        return getTextOfNode(moduleDeclaration.name);
-                    }
-                    // Otherwise, we need to aggregate each identifier to build up the qualified name.
-                    var result = [];
-                    result.push(moduleDeclaration.name.text);
-                    while (moduleDeclaration.body && moduleDeclaration.body.kind === 225 /* ModuleDeclaration */) {
-                        moduleDeclaration = moduleDeclaration.body;
-                        result.push(moduleDeclaration.name.text);
-                    }
-                    return result.join(".");
-                }
                 function createModuleItem(node) {
                     var moduleName = getModuleName(node);
                     var childItems = getItemsWorker(getChildNodes(getInnermostModule(node).body.statements), createChildItem);
@@ -45801,6 +45818,20 @@ var ts;
                     var childItems = getItemsWorker(sortNodes(removeDynamicallyNamedProperties(node)), createChildItem);
                     return getNavigationBarItem(node.name.text, ts.ScriptElementKind.interfaceElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
                 }
+            }
+            function getModuleName(moduleDeclaration) {
+                // We want to maintain quotation marks.
+                if (ts.isAmbientModule(moduleDeclaration)) {
+                    return getTextOfNode(moduleDeclaration.name);
+                }
+                // Otherwise, we need to aggregate each identifier to build up the qualified name.
+                var result = [];
+                result.push(moduleDeclaration.name.text);
+                while (moduleDeclaration.body && moduleDeclaration.body.kind === 225 /* ModuleDeclaration */) {
+                    moduleDeclaration = moduleDeclaration.body;
+                    result.push(moduleDeclaration.name.text);
+                }
+                return result.join(".");
             }
             function removeComputedProperties(node) {
                 return ts.filter(node.members, function (member) { return member.name === undefined || member.name.kind !== 140 /* ComputedPropertyName */; });
@@ -47362,6 +47393,9 @@ var ts;
             // find the child that contains 'position'
             for (var i = 0, n = current.getChildCount(sourceFile); i < n; i++) {
                 var child = current.getChildAt(i);
+                if (position < child.getFullStart() || position > child.getEnd()) {
+                    continue;
+                }
                 var start = allowPositionInLeadingTrivia ? child.getFullStart() : child.getStart(sourceFile);
                 if (start <= position) {
                     var end = child.getEnd();
