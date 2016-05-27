@@ -16485,11 +16485,7 @@ var ts;
             }
         }
         // This function is only for imports with entity names
-        function getSymbolOfPartOfRightHandSideOfImportEquals(entityName, importDeclaration) {
-            if (!importDeclaration) {
-                importDeclaration = ts.getAncestor(entityName, 229 /* ImportEqualsDeclaration */);
-                ts.Debug.assert(importDeclaration !== undefined);
-            }
+        function getSymbolOfPartOfRightHandSideOfImportEquals(entityName, importDeclaration, dontResolveAlias) {
             // There are three things we might try to look for. In the following examples,
             // the search term is enclosed in |...|:
             //
@@ -16501,20 +16497,20 @@ var ts;
             }
             // Check for case 1 and 3 in the above example
             if (entityName.kind === 69 /* Identifier */ || entityName.parent.kind === 139 /* QualifiedName */) {
-                return resolveEntityName(entityName, 1536 /* Namespace */);
+                return resolveEntityName(entityName, 1536 /* Namespace */, /*ignoreErrors*/ false, dontResolveAlias);
             }
             else {
                 // Case 2 in above example
                 // entityName.kind could be a QualifiedName or a Missing identifier
                 ts.Debug.assert(entityName.parent.kind === 229 /* ImportEqualsDeclaration */);
-                return resolveEntityName(entityName, 107455 /* Value */ | 793056 /* Type */ | 1536 /* Namespace */);
+                return resolveEntityName(entityName, 107455 /* Value */ | 793056 /* Type */ | 1536 /* Namespace */, /*ignoreErrors*/ false, dontResolveAlias);
             }
         }
         function getFullyQualifiedName(symbol) {
             return symbol.parent ? getFullyQualifiedName(symbol.parent) + "." + symbolToString(symbol) : symbolToString(symbol);
         }
         // Resolves a qualified name and any involved aliases
-        function resolveEntityName(name, meaning, ignoreErrors) {
+        function resolveEntityName(name, meaning, ignoreErrors, dontResolveAlias) {
             if (ts.nodeIsMissing(name)) {
                 return undefined;
             }
@@ -16545,7 +16541,7 @@ var ts;
                 ts.Debug.fail("Unknown entity name kind.");
             }
             ts.Debug.assert((symbol.flags & 16777216 /* Instantiated */) === 0, "Should never get an instantiated symbol here.");
-            return symbol.flags & meaning ? symbol : resolveAlias(symbol);
+            return (symbol.flags & meaning) || dontResolveAlias ? symbol : resolveAlias(symbol);
         }
         function resolveExternalModuleName(location, moduleReferenceExpression) {
             return resolveExternalModuleNameWorker(location, moduleReferenceExpression, ts.Diagnostics.Cannot_find_module_0);
@@ -24507,9 +24503,9 @@ var ts;
                 return type;
             }
             var apparentType = getApparentType(getWidenedType(type));
-            if (apparentType === unknownType) {
-                // handle cases when type is Type parameter with invalid constraint
-                return unknownType;
+            if (apparentType === unknownType || (type.flags & 512 /* TypeParameter */ && isTypeAny(apparentType))) {
+                // handle cases when type is Type parameter with invalid or any constraint
+                return apparentType;
             }
             var prop = getPropertyOfType(apparentType, right.text);
             if (!prop) {
@@ -25568,7 +25564,9 @@ var ts;
             // types are provided for the argument expressions, and the result is always of type Any.
             // We exclude union types because we may have a union of function types that happen to have
             // no common signatures.
-            if (isTypeAny(funcType) || (!callSignatures.length && !constructSignatures.length && !(funcType.flags & 16384 /* Union */) && isTypeAssignableTo(funcType, globalFunctionType))) {
+            if (isTypeAny(funcType) ||
+                (isTypeAny(apparentType) && funcType.flags & 512 /* TypeParameter */) ||
+                (!callSignatures.length && !constructSignatures.length && !(funcType.flags & 16384 /* Union */) && isTypeAssignableTo(funcType, globalFunctionType))) {
                 // The unknownType indicates that an error already occurred (and was reported).  No
                 // need to report another error in this case.
                 if (funcType !== unknownType && node.typeArguments) {
@@ -30607,7 +30605,9 @@ var ts;
             if (entityName.kind !== 172 /* PropertyAccessExpression */) {
                 if (isInRightSideOfImportOrExportAssignment(entityName)) {
                     // Since we already checked for ExportAssignment, this really could only be an Import
-                    return getSymbolOfPartOfRightHandSideOfImportEquals(entityName);
+                    var importEqualsDeclaration = ts.getAncestor(entityName, 229 /* ImportEqualsDeclaration */);
+                    ts.Debug.assert(importEqualsDeclaration !== undefined);
+                    return getSymbolOfPartOfRightHandSideOfImportEquals(entityName, importEqualsDeclaration, /*dontResolveAlias*/ true);
                 }
             }
             if (ts.isRightSideOfQualifiedNameOrPropertyAccess(entityName)) {
@@ -30691,9 +30691,7 @@ var ts;
             }
             if (node.kind === 69 /* Identifier */) {
                 if (isInRightSideOfImportOrExportAssignment(node)) {
-                    return node.parent.kind === 235 /* ExportAssignment */
-                        ? getSymbolOfEntityNameOrPropertyAccessExpression(node)
-                        : getSymbolOfPartOfRightHandSideOfImportEquals(node);
+                    return getSymbolOfEntityNameOrPropertyAccessExpression(node);
                 }
                 else if (node.parent.kind === 169 /* BindingElement */ &&
                     node.parent.parent.kind === 167 /* ObjectBindingPattern */ &&
@@ -45381,14 +45379,9 @@ var ts;
             if (ts.isSourceFileJavaScript(sourceFile)) {
                 return getJsNavigationBarItems(sourceFile, compilerOptions);
             }
-            // If the source file has any child items, then it included in the tree
-            // and takes lexical ownership of all other top-level items.
-            var hasGlobalNode = false;
             return getItemsWorker(getTopLevelNodes(sourceFile), createTopLevelItem);
             function getIndent(node) {
-                // If we have a global node in the tree,
-                // then it adds an extra layer of depth to all subnodes.
-                var indent = hasGlobalNode ? 1 : 0;
+                var indent = 1; // Global node is the only one with indent 0.
                 var current = node.parent;
                 while (current) {
                     switch (current.kind) {
@@ -45493,7 +45486,7 @@ var ts;
             function sortNodes(nodes) {
                 return nodes.slice(0).sort(function (n1, n2) {
                     if (n1.name && n2.name) {
-                        return ts.getPropertyNameForPropertyNameNode(n1.name).localeCompare(ts.getPropertyNameForPropertyNameNode(n2.name));
+                        return localeCompareFix(ts.getPropertyNameForPropertyNameNode(n1.name), ts.getPropertyNameForPropertyNameNode(n2.name));
                     }
                     else if (n1.name) {
                         return 1;
@@ -45505,6 +45498,15 @@ var ts;
                         return n1.kind - n2.kind;
                     }
                 });
+                // node 0.10 treats "a" as greater than "B".
+                // For consistency, sort alphabetically, falling back to which is lower-case.
+                function localeCompareFix(a, b) {
+                    var cmp = a.toLowerCase().localeCompare(b.toLowerCase());
+                    if (cmp !== 0)
+                        return cmp;
+                    // Return the *opposite* of the `<` operator, which works the same in node 0.10 and 6.0.
+                    return a < b ? 1 : a > b ? -1 : 0;
+                }
             }
             function addTopLevelNodes(nodes, topLevelNodes) {
                 nodes = sortNodes(nodes);
@@ -45783,10 +45785,6 @@ var ts;
                 }
                 function createSourceFileItem(node) {
                     var childItems = getItemsWorker(getChildNodes(node.statements), createChildItem);
-                    if (childItems === undefined || childItems.length === 0) {
-                        return undefined;
-                    }
-                    hasGlobalNode = true;
                     var rootName = ts.isExternalModule(node)
                         ? "\"" + ts.escapeString(ts.getBaseFileName(ts.removeFileExtension(ts.normalizePath(node.fileName)))) + "\""
                         : "<global>";
