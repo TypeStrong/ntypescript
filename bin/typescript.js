@@ -14311,8 +14311,8 @@ var ts;
             preSwitchCaseFlow = currentFlow;
             bind(node.caseBlock);
             addAntecedent(postSwitchLabel, currentFlow);
-            var hasDefault = ts.forEach(node.caseBlock.clauses, function (c) { return c.kind === 250 /* DefaultClause */; });
-            if (!hasDefault) {
+            var hasNonEmptyDefault = ts.forEach(node.caseBlock.clauses, function (c) { return c.kind === 250 /* DefaultClause */ && c.statements.length; });
+            if (!hasNonEmptyDefault) {
                 addAntecedent(postSwitchLabel, preSwitchCaseFlow);
             }
             currentBreakTarget = saveBreakTarget;
