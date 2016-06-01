@@ -297,8 +297,11 @@ declare namespace ts {
         JSDocReturnTag = 276,
         JSDocTypeTag = 277,
         JSDocTemplateTag = 278,
-        SyntaxList = 279,
-        Count = 280,
+        JSDocTypedefTag = 279,
+        JSDocPropertyTag = 280,
+        JSDocTypeLiteral = 281,
+        SyntaxList = 282,
+        Count = 283,
         FirstAssignment = 56,
         LastAssignment = 68,
         FirstReservedWord = 70,
@@ -322,6 +325,10 @@ declare namespace ts {
         FirstBinaryOperator = 25,
         LastBinaryOperator = 68,
         FirstNode = 139,
+        FirstJSDocNode = 257,
+        LastJSDocNode = 281,
+        FirstJSDocTagNode = 273,
+        LastJSDocTagNode = 281,
     }
     const enum NodeFlags {
         None = 0,
@@ -362,6 +369,7 @@ declare namespace ts {
         BlockScoped = 3072,
         ReachabilityCheckFlags = 98304,
         EmitHelperFlags = 3932160,
+        ReachabilityAndEmitFlags = 4030464,
         ContextFlags = 197132288,
         TypeExcludesFlags = 41943040,
     }
@@ -385,7 +393,7 @@ declare namespace ts {
         modifiers?: ModifiersArray;
         id?: number;
         parent?: Node;
-        jsDocComment?: JSDocComment;
+        jsDocComments?: JSDocComment[];
         symbol?: Symbol;
         locals?: SymbolTable;
         nextContainer?: Node;
@@ -1040,6 +1048,19 @@ declare namespace ts {
     interface JSDocTypeTag extends JSDocTag {
         typeExpression: JSDocTypeExpression;
     }
+    interface JSDocTypedefTag extends JSDocTag, Declaration {
+        name?: Identifier;
+        typeExpression?: JSDocTypeExpression;
+        jsDocTypeLiteral?: JSDocTypeLiteral;
+    }
+    interface JSDocPropertyTag extends JSDocTag, TypeElement {
+        name: Identifier;
+        typeExpression: JSDocTypeExpression;
+    }
+    interface JSDocTypeLiteral extends JSDocType {
+        jsDocPropertyTags?: NodeArray<JSDocPropertyTag>;
+        jsDocTypeTag?: JSDocTypeTag;
+    }
     interface JSDocParameterTag extends JSDocTag {
         preParameterName?: Identifier;
         typeExpression?: JSDocTypeExpression;
@@ -1062,6 +1083,9 @@ declare namespace ts {
     interface FlowNode {
         flags: FlowFlags;
         id?: number;
+    }
+    interface FlowStart extends FlowNode {
+        container?: FunctionExpression | ArrowFunction;
     }
     interface FlowLabel extends FlowNode {
         antecedents: FlowNode[];
@@ -2071,6 +2095,9 @@ declare namespace ts {
         getModificationCount(): number;
         reattachFileDiagnostics(newFile: SourceFile): void;
     }
+    interface SyntaxList extends Node {
+        _children: Node[];
+    }
 }
 declare namespace ts {
     /**
@@ -2303,7 +2330,8 @@ declare namespace ts {
     function getEndLinePosition(line: number, sourceFile: SourceFile): number;
     function nodeIsMissing(node: Node): boolean;
     function nodeIsPresent(node: Node): boolean;
-    function getTokenPosOfNode(node: Node, sourceFile?: SourceFile): number;
+    function getTokenPosOfNode(node: Node, sourceFile?: SourceFile, includeJsDocComment?: boolean): number;
+    function isJSDocNode(node: Node): boolean;
     function getNonDecoratorTokenPosOfNode(node: Node, sourceFile?: SourceFile): number;
     function getSourceTextOfNodeFromSourceFile(sourceFile: SourceFile, node: Node, includeTrivia?: boolean): string;
     function getTextOfNodeFromSourceText(sourceText: string, node: Node): string;
@@ -2365,6 +2393,7 @@ declare namespace ts {
       *   i.e. super property access is illegal in function declaration but can be legal in the statement list
       */
     function getSuperContainer(node: Node, stopOnFunctions: boolean): Node;
+    function getImmediatelyInvokedFunctionExpression(func: Node): CallExpression;
     /**
      * Determines whether a node is a property or element access expression for super.
      */
@@ -3819,6 +3848,12 @@ declare namespace ts {
             message: string;
         };
         Function_declarations_are_not_allowed_inside_blocks_in_strict_mode_when_targeting_ES3_or_ES5_Modules_are_automatically_in_strict_mode: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        _0_tag_cannot_be_used_independently_as_a_top_level_JSDoc_tag: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -7113,7 +7148,7 @@ declare namespace ts {
     function isLineBreak(ch: number): boolean;
     function isOctalDigit(ch: number): boolean;
     function couldStartTrivia(text: string, pos: number): boolean;
-    function skipTrivia(text: string, pos: number, stopAfterLineBreak?: boolean): number;
+    function skipTrivia(text: string, pos: number, stopAfterLineBreak?: boolean, stopAtComments?: boolean): number;
     function getLeadingCommentRanges(text: string, pos: number): CommentRange[];
     function getTrailingCommentRanges(text: string, pos: number): CommentRange[];
     /** Optionally, get the shebang */
@@ -7312,12 +7347,12 @@ declare namespace ts {
     function hasChildOfKind(n: Node, kind: SyntaxKind, sourceFile?: SourceFile): boolean;
     function findChildOfKind(n: Node, kind: SyntaxKind, sourceFile?: SourceFile): Node;
     function findContainingList(node: Node): Node;
-    function getTouchingWord(sourceFile: SourceFile, position: number): Node;
-    function getTouchingPropertyName(sourceFile: SourceFile, position: number): Node;
+    function getTouchingWord(sourceFile: SourceFile, position: number, includeJsDocComment?: boolean): Node;
+    function getTouchingPropertyName(sourceFile: SourceFile, position: number, includeJsDocComment?: boolean): Node;
     /** Returns the token if position is in [start, end) or if position === end and includeItemAtEndPosition(token) === true */
-    function getTouchingToken(sourceFile: SourceFile, position: number, includeItemAtEndPosition?: (n: Node) => boolean): Node;
+    function getTouchingToken(sourceFile: SourceFile, position: number, includeItemAtEndPosition?: (n: Node) => boolean, includeJsDocComment?: boolean): Node;
     /** Returns a token if position is in [start-of-leading-trivia, end) */
-    function getTokenAtPosition(sourceFile: SourceFile, position: number): Node;
+    function getTokenAtPosition(sourceFile: SourceFile, position: number, includeJsDocComment?: boolean): Node;
     /**
       * The token on the left of the position is the token that strictly includes the position
       * or sits to the left of the cursor if it is on a boundary. For example
@@ -7805,7 +7840,7 @@ declare namespace ts {
         getChildCount(sourceFile?: SourceFile): number;
         getChildAt(index: number, sourceFile?: SourceFile): Node;
         getChildren(sourceFile?: SourceFile): Node[];
-        getStart(sourceFile?: SourceFile): number;
+        getStart(sourceFile?: SourceFile, includeJsDocComment?: boolean): number;
         getFullStart(): number;
         getEnd(): number;
         getWidth(sourceFile?: SourceFile): number;
