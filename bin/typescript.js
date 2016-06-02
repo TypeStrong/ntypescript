@@ -7957,7 +7957,13 @@ var ts;
     ts.updateSourceFile = updateSourceFile;
     /* @internal */
     function parseIsolatedJSDocComment(content, start, length) {
-        return Parser.JSDocParser.parseIsolatedJSDocComment(content, start, length);
+        var result = Parser.JSDocParser.parseIsolatedJSDocComment(content, start, length);
+        if (result && result.jsDocComment) {
+            // because the jsDocComment was parsed out of the source file, it might
+            // not be covered by the fixupParentReferences.
+            Parser.fixupParentReferences(result.jsDocComment);
+        }
+        return result;
     }
     ts.parseIsolatedJSDocComment = parseIsolatedJSDocComment;
     /* @internal */
@@ -8141,13 +8147,13 @@ var ts;
             }
             return node;
         }
-        function fixupParentReferences(sourceFile) {
+        function fixupParentReferences(rootNode) {
             // normally parent references are set during binding. However, for clients that only need
             // a syntax tree, and no semantic features, then the binding process is an unnecessary
             // overhead.  This functions allows us to set all the parents, without all the expense of
             // binding.
-            var parent = sourceFile;
-            forEachChild(sourceFile, visitNode);
+            var parent = rootNode;
+            forEachChild(rootNode, visitNode);
             return;
             function visitNode(n) {
                 // walk down setting parents that differ from the parent we think it should be.  This
@@ -14726,6 +14732,8 @@ var ts;
                     return 1 /* IsContainer */ | 4 /* IsControlFlowContainer */ | 32 /* HasLocals */ | 8 /* IsFunctionLike */ | 16 /* IsFunctionExpression */;
                 case 226 /* ModuleBlock */:
                     return 4 /* IsControlFlowContainer */;
+                case 145 /* PropertyDeclaration */:
+                    return node.initializer ? 4 /* IsControlFlowContainer */ : 0;
                 case 252 /* CatchClause */:
                 case 206 /* ForStatement */:
                 case 207 /* ForInStatement */:
