@@ -628,7 +628,7 @@ var ts;
         /* @internal */
         TypeFlags[TypeFlags["FreshObjectLiteral"] = 1048576] = "FreshObjectLiteral";
         /* @internal */
-        TypeFlags[TypeFlags["ContainsUndefinedOrNull"] = 2097152] = "ContainsUndefinedOrNull";
+        TypeFlags[TypeFlags["ContainsWideningType"] = 2097152] = "ContainsWideningType";
         /* @internal */
         TypeFlags[TypeFlags["ContainsObjectLiteral"] = 4194304] = "ContainsObjectLiteral";
         /* @internal */
@@ -15734,16 +15734,16 @@ var ts;
         };
         var unknownSymbol = createSymbol(4 /* Property */ | 67108864 /* Transient */, "unknown");
         var resolvingSymbol = createSymbol(67108864 /* Transient */, "__resolving__");
-        var nullableWideningFlags = strictNullChecks ? 0 : 2097152 /* ContainsUndefinedOrNull */;
         var anyType = createIntrinsicType(1 /* Any */, "any");
         var stringType = createIntrinsicType(2 /* String */, "string");
         var numberType = createIntrinsicType(4 /* Number */, "number");
         var booleanType = createIntrinsicType(8 /* Boolean */, "boolean");
         var esSymbolType = createIntrinsicType(16777216 /* ESSymbol */, "symbol");
         var voidType = createIntrinsicType(16 /* Void */, "void");
-        var undefinedType = createIntrinsicType(32 /* Undefined */ | nullableWideningFlags, "undefined");
-        var nullType = createIntrinsicType(64 /* Null */ | nullableWideningFlags, "null");
-        var emptyArrayElementType = createIntrinsicType(32 /* Undefined */ | 2097152 /* ContainsUndefinedOrNull */, "undefined");
+        var undefinedType = createIntrinsicType(32 /* Undefined */, "undefined");
+        var undefinedWideningType = strictNullChecks ? undefinedType : createIntrinsicType(32 /* Undefined */ | 2097152 /* ContainsWideningType */, "undefined");
+        var nullType = createIntrinsicType(64 /* Null */, "null");
+        var nullWideningType = strictNullChecks ? nullType : createIntrinsicType(64 /* Null */ | 2097152 /* ContainsWideningType */, "null");
         var unknownType = createIntrinsicType(1 /* Any */, "unknown");
         var neverType = createIntrinsicType(134217728 /* Never */, "never");
         var emptyObjectType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
@@ -18722,7 +18722,7 @@ var ts;
                     error(type.symbol.valueDeclaration, ts.Diagnostics._0_is_referenced_directly_or_indirectly_in_its_own_base_expression, symbolToString(type.symbol));
                     return type.resolvedBaseConstructorType = unknownType;
                 }
-                if (baseConstructorType !== unknownType && baseConstructorType !== nullType && !isConstructorType(baseConstructorType)) {
+                if (baseConstructorType !== unknownType && baseConstructorType !== nullWideningType && !isConstructorType(baseConstructorType)) {
                     error(baseTypeNode.expression, ts.Diagnostics.Type_0_is_not_a_constructor_function_type, typeToString(baseConstructorType));
                     return type.resolvedBaseConstructorType = unknownType;
                 }
@@ -20213,6 +20213,8 @@ var ts;
                     typeSet.containsUndefined = true;
                 if (type.flags & 64 /* Null */)
                     typeSet.containsNull = true;
+                if (!(type.flags & 2097152 /* ContainsWideningType */))
+                    typeSet.containsNonWideningType = true;
             }
             else if (type !== neverType && !ts.contains(typeSet, type)) {
                 typeSet.push(type);
@@ -20272,8 +20274,8 @@ var ts;
                 removeSubtypes(typeSet);
             }
             if (typeSet.length === 0) {
-                return typeSet.containsNull ? nullType :
-                    typeSet.containsUndefined ? undefinedType :
+                return typeSet.containsNull ? typeSet.containsNonWideningType ? nullType : nullWideningType :
+                    typeSet.containsUndefined ? typeSet.containsNonWideningType ? undefinedType : undefinedWideningType :
                         neverType;
             }
             else if (typeSet.length === 1) {
@@ -20980,7 +20982,7 @@ var ts;
                     if (target.flags & 1 /* Any */ || source.flags & 134217728 /* Never */)
                         return -1 /* True */;
                     if (source.flags & 32 /* Undefined */) {
-                        if (!strictNullChecks || target.flags & (32 /* Undefined */ | 16 /* Void */) || source === emptyArrayElementType)
+                        if (!strictNullChecks || target.flags & (32 /* Undefined */ | 16 /* Void */))
                             return -1 /* True */;
                     }
                     if (source.flags & 64 /* Null */) {
@@ -22003,7 +22005,7 @@ var ts;
                 for (var _d = 0, _e = getPropertiesOfObjectType(type); _d < _e.length; _d++) {
                     var p = _e[_d];
                     var t = getTypeOfSymbol(p);
-                    if (t.flags & 2097152 /* ContainsUndefinedOrNull */) {
+                    if (t.flags & 2097152 /* ContainsWideningType */) {
                         if (!reportWideningErrorsInType(t)) {
                             error(p.valueDeclaration, ts.Diagnostics.Object_literal_s_property_0_implicitly_has_an_1_type, p.name, typeToString(getWidenedType(t)));
                         }
@@ -22048,7 +22050,7 @@ var ts;
             error(declaration, diagnostic, ts.declarationNameToString(declaration.name), typeAsString);
         }
         function reportErrorsFromWidening(declaration, type) {
-            if (produceDiagnostics && compilerOptions.noImplicitAny && type.flags & 2097152 /* ContainsUndefinedOrNull */) {
+            if (produceDiagnostics && compilerOptions.noImplicitAny && type.flags & 2097152 /* ContainsWideningType */) {
                 // Report implicit any error within type if possible, otherwise report error on declaration
                 if (!reportWideningErrorsInType(type)) {
                     reportImplicitAnyError(declaration, type);
@@ -23250,7 +23252,7 @@ var ts;
             var classSymbol = getSymbolOfNode(classDecl);
             var classInstanceType = getDeclaredTypeOfSymbol(classSymbol);
             var baseConstructorType = getBaseConstructorTypeOfClass(classInstanceType);
-            return baseConstructorType === nullType;
+            return baseConstructorType === nullWideningType;
         }
         function checkThisExpression(node) {
             // Stop at the first arrow function so that we can
@@ -24066,7 +24068,7 @@ var ts;
                     }
                 }
             }
-            return createArrayType(elementTypes.length ? getUnionType(elementTypes) : emptyArrayElementType);
+            return createArrayType(elementTypes.length ? getUnionType(elementTypes) : strictNullChecks ? neverType : undefinedWideningType);
         }
         function isNumericName(name) {
             return name.kind === 140 /* ComputedPropertyName */ ? isNumericComputedName(name) : isNumericLiteralName(name.text);
@@ -26565,7 +26567,7 @@ var ts;
         }
         function checkVoidExpression(node) {
             checkExpression(node.expression);
-            return undefinedType;
+            return undefinedWideningType;
         }
         function checkAwaitExpression(node) {
             // Grammar checking
@@ -26942,7 +26944,7 @@ var ts;
                 case 90 /* InKeyword */:
                     return checkInExpression(left, right, leftType, rightType);
                 case 51 /* AmpersandAmpersandToken */:
-                    return addNullableKind(rightType, getNullableKind(leftType));
+                    return strictNullChecks ? addNullableKind(rightType, getNullableKind(leftType)) : rightType;
                 case 52 /* BarBarToken */:
                     return getUnionType([getNonNullableType(leftType), rightType]);
                 case 56 /* EqualsToken */:
@@ -27174,7 +27176,7 @@ var ts;
                 case 95 /* SuperKeyword */:
                     return checkSuperExpression(node);
                 case 93 /* NullKeyword */:
-                    return nullType;
+                    return nullWideningType;
                 case 99 /* TrueKeyword */:
                 case 84 /* FalseKeyword */:
                     return booleanType;
@@ -27232,7 +27234,7 @@ var ts;
                 case 191 /* SpreadElementExpression */:
                     return checkSpreadElementExpression(node, contextualMapper);
                 case 193 /* OmittedExpression */:
-                    return undefinedType;
+                    return undefinedWideningType;
                 case 190 /* YieldExpression */:
                     return checkYieldExpression(node);
                 case 248 /* JsxExpression */:
@@ -31601,7 +31603,7 @@ var ts;
             }
             // Setup global builtins
             addToSymbolTable(globals, builtinGlobals, ts.Diagnostics.Declaration_name_conflicts_with_built_in_global_identifier_0);
-            getSymbolLinks(undefinedSymbol).type = undefinedType;
+            getSymbolLinks(undefinedSymbol).type = undefinedWideningType;
             getSymbolLinks(argumentsSymbol).type = getGlobalType("IArguments");
             getSymbolLinks(unknownSymbol).type = unknownType;
             // Initialize special types

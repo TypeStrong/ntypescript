@@ -1565,7 +1565,7 @@ declare namespace ts {
         FromSignature = 262144,
         ObjectLiteral = 524288,
         FreshObjectLiteral = 1048576,
-        ContainsUndefinedOrNull = 2097152,
+        ContainsWideningType = 2097152,
         ContainsObjectLiteral = 4194304,
         ContainsAnyFunctionType = 8388608,
         ESSymbol = 16777216,
