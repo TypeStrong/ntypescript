@@ -24771,23 +24771,13 @@ var ts;
                 checkClassPropertyAccess(node, left, apparentType, prop);
             }
             var propType = getTypeOfSymbol(prop);
+            // Only compute control flow type if this is a property access expression that isn't an
+            // assignment target, and the referenced property was declared as a variable, property,
+            // accessor, or optional method.
             if (node.kind !== 172 /* PropertyAccessExpression */ || ts.isAssignmentTarget(node) ||
-                !(propType.flags & 16384 /* Union */) && !(prop.flags & (3 /* Variable */ | 4 /* Property */ | 98304 /* Accessor */))) {
+                !(prop.flags & (3 /* Variable */ | 4 /* Property */ | 98304 /* Accessor */)) &&
+                    !(prop.flags & 8192 /* Method */ && propType.flags & 16384 /* Union */)) {
                 return propType;
-            }
-            var leftmostNode = getLeftmostIdentifierOrThis(node);
-            if (!leftmostNode) {
-                return propType;
-            }
-            if (leftmostNode.kind === 69 /* Identifier */) {
-                var leftmostSymbol = getExportSymbolOfValueSymbolIfExported(getResolvedSymbol(leftmostNode));
-                if (!leftmostSymbol) {
-                    return propType;
-                }
-                var declaration = leftmostSymbol.valueDeclaration;
-                if (!declaration || declaration.kind !== 218 /* VariableDeclaration */ && declaration.kind !== 142 /* Parameter */ && declaration.kind !== 169 /* BindingElement */) {
-                    return propType;
-                }
             }
             return getFlowTypeOfReference(node, propType, /*assumeInitialized*/ true, /*includeOuterFunctions*/ false);
         }
