@@ -2490,8 +2490,8 @@ var ts;
         if (includeJsDocComment && node.jsDocComments && node.jsDocComments.length > 0) {
             return getTokenPosOfNode(node.jsDocComments[0]);
         }
-        // For a syntax list, it is possible that one of its children has JSDocComment nodes, while 
-        // the syntax list itself considers them as normal trivia. Therefore if we simply skip 
+        // For a syntax list, it is possible that one of its children has JSDocComment nodes, while
+        // the syntax list itself considers them as normal trivia. Therefore if we simply skip
         // trivia for the list, we may have skipped the JSDocComment as well. So we should process its
         // first child to determine the actual position of its first token.
         if (node.kind === 282 /* SyntaxList */ && node._children.length > 0) {
@@ -25907,7 +25907,7 @@ var ts;
             }
             var declaringClassDeclaration = getClassLikeDeclarationOfSymbol(declaration.parent.symbol);
             var declaringClass = getDeclaredTypeOfSymbol(declaration.parent.symbol);
-            // A private or protected constructor can only be instantiated within it's own class 
+            // A private or protected constructor can only be instantiated within it's own class
             if (!isNodeWithinClass(node, declaringClassDeclaration)) {
                 if (flags & 8 /* Private */) {
                     error(node, ts.Diagnostics.Constructor_of_class_0_is_private_and_only_accessible_within_the_class_declaration, typeToString(declaringClass));
@@ -30236,12 +30236,12 @@ var ts;
             var symbol = getSymbolOfNode(node);
             var target = resolveAlias(symbol);
             if (target !== unknownSymbol) {
-                // For external modules symbol represent local symbol for an alias. 
+                // For external modules symbol represent local symbol for an alias.
                 // This local symbol will merge any other local declarations (excluding other aliases)
                 // and symbol.flags will contains combined representation for all merged declaration.
                 // Based on symbol.flags we can compute a set of excluded meanings (meaning that resolved alias should not have,
-                // otherwise it will conflict with some local declaration). Note that in addition to normal flags we include matching SymbolFlags.Export* 
-                // in order to prevent collisions with declarations that were exported from the current module (they still contribute to local names). 
+                // otherwise it will conflict with some local declaration). Note that in addition to normal flags we include matching SymbolFlags.Export*
+                // in order to prevent collisions with declarations that were exported from the current module (they still contribute to local names).
                 var excludedMeanings = (symbol.flags & (107455 /* Value */ | 1048576 /* ExportValue */) ? 107455 /* Value */ : 0) |
                     (symbol.flags & 793056 /* Type */ ? 793056 /* Type */ : 0) |
                     (symbol.flags & 1536 /* Namespace */ ? 1536 /* Namespace */ : 0);
@@ -30423,7 +30423,7 @@ var ts;
                         continue;
                     }
                     var _a = exports[id], declarations = _a.declarations, flags = _a.flags;
-                    // ECMA262: 15.2.1.1 It is a Syntax Error if the ExportedNames of ModuleItemList contains any duplicate entries. 
+                    // ECMA262: 15.2.1.1 It is a Syntax Error if the ExportedNames of ModuleItemList contains any duplicate entries.
                     // (TS Exceptions: namespaces, function overloads, enums, and interfaces)
                     if (flags & (1536 /* Namespace */ | 64 /* Interface */ | 384 /* Enum */)) {
                         continue;
@@ -31047,10 +31047,10 @@ var ts;
             return unknownType;
         }
         // Gets the type of object literal or array literal of destructuring assignment.
-        // { a } from 
+        // { a } from
         //     for ( { a } of elems) {
         //     }
-        // [ a ] from 
+        // [ a ] from
         //     [a] = [ some array ...]
         function getTypeOfArrayLiteralOrObjectLiteralDestructuringAssignment(expr) {
             ts.Debug.assert(expr.kind === 171 /* ObjectLiteralExpression */ || expr.kind === 170 /* ArrayLiteralExpression */);
@@ -31081,10 +31081,10 @@ var ts;
             return checkArrayLiteralDestructuringElementAssignment(expr.parent, typeOfArrayLiteral, ts.indexOf(expr.parent.elements, expr), elementType || unknownType);
         }
         // Gets the property symbol corresponding to the property in destructuring assignment
-        // 'property1' from 
+        // 'property1' from
         //     for ( { property1: a } of elems) {
         //     }
-        // 'property1' at location 'a' from: 
+        // 'property1' at location 'a' from:
         //     [a] = [ property1, property2 ]
         function getPropertySymbolOfDestructuringAssignment(location) {
             // Get the type of the object or array literal and then look for property of given name in the type
@@ -33536,7 +33536,7 @@ var ts;
                     // Emit reference in dts, if the file reference was not already emitted
                     if (referencedFile && !ts.contains(emittedReferencedFiles, referencedFile)) {
                         // Add a reference to generated dts file,
-                        // global file reference is added only 
+                        // global file reference is added only
                         //  - if it is not bundled emit (because otherwise it would be self reference)
                         //  - and it is not already added
                         if (writeReferencePath(referencedFile, !isBundledEmit && !addedGlobalFileReference)) {
@@ -33585,7 +33585,7 @@ var ts;
             }
             if (!isBundledEmit && ts.isExternalModule(sourceFile) && sourceFile.moduleAugmentations.length && !resultHasExternalModuleIndicator) {
                 // if file was external module with augmentations - this fact should be preserved in .d.ts as well.
-                // in case if we didn't write any external module specifiers in .d.ts we need to emit something 
+                // in case if we didn't write any external module specifiers in .d.ts we need to emit something
                 // that will force compiler to think that this file is an external module - 'export {}' is a reasonable choice here.
                 write("export {};");
                 writeLine();
@@ -34142,7 +34142,7 @@ var ts;
         }
         function emitExternalModuleSpecifier(parent) {
             // emitExternalModuleSpecifier is usually called when we emit something in the.d.ts file that will make it an external module (i.e. import/export declarations).
-            // the only case when it is not true is when we call it to emit correct name for module augmentation - d.ts files with just module augmentations are not considered 
+            // the only case when it is not true is when we call it to emit correct name for module augmentation - d.ts files with just module augmentations are not considered
             // external modules since they are indistinguishable from script files with ambient modules. To fix this in such d.ts files we'll emit top level 'export {}'
             // so compiler will treat them as external modules.
             resultHasExternalModuleIndicator = resultHasExternalModuleIndicator || parent.kind !== 225 /* ModuleDeclaration */;
@@ -35198,7 +35198,7 @@ var ts;
                 lastEncodedSourceMapSpan = sourceMapData.sourceMapDecodedMappings.length ?
                     sourceMapData.sourceMapDecodedMappings[sourceMapData.sourceMapDecodedMappings.length - 1] :
                     defaultLastEncodedSourceMapSpan;
-                // TODO: Update lastEncodedNameIndex 
+                // TODO: Update lastEncodedNameIndex
                 // Since we dont support this any more, lets not worry about it right now.
                 // When we start supporting nameIndex, we will get back to this
                 // Change the encoded source map
@@ -45440,14 +45440,14 @@ var ts;
             var rawItems = [];
             // This means "compare in a case insensitive manner."
             var baseSensitivity = { sensitivity: "base" };
-            // Search the declarations in all files and output matched NavigateToItem into array of NavigateToItem[] 
+            // Search the declarations in all files and output matched NavigateToItem into array of NavigateToItem[]
             ts.forEach(program.getSourceFiles(), function (sourceFile) {
                 cancellationToken.throwIfCancellationRequested();
                 var nameToDeclarations = sourceFile.getNamedDeclarations();
                 for (var name_36 in nameToDeclarations) {
                     var declarations = ts.getProperty(nameToDeclarations, name_36);
                     if (declarations) {
-                        // First do a quick check to see if the name of the declaration matches the 
+                        // First do a quick check to see if the name of the declaration matches the
                         // last portion of the (possibly) dotted name they're searching for.
                         var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_36);
                         if (!matches) {
@@ -45455,7 +45455,7 @@ var ts;
                         }
                         for (var _i = 0, declarations_7 = declarations; _i < declarations_7.length; _i++) {
                             var declaration = declarations_7[_i];
-                            // It was a match!  If the pattern has dots in it, then also see if the 
+                            // It was a match!  If the pattern has dots in it, then also see if the
                             // declaration container matches as well.
                             if (patternMatcher.patternContainsDots) {
                                 var containers = getContainers(declaration);
@@ -46874,9 +46874,9 @@ var ts;
     var SignatureHelp;
     (function (SignatureHelp) {
         // A partially written generic type expression is not guaranteed to have the correct syntax tree. the expression could be parsed as less than/greater than expression or a comma expression
-        // or some other combination depending on what the user has typed so far. For the purposes of signature help we need to consider any location after "<" as a possible generic type reference. 
-        // To do this, the method will back parse the expression starting at the position required. it will try to parse the current expression as a generic type expression, if it did succeed it 
-        // will return the generic identifier that started the expression (e.g. "foo" in "foo<any, |"). It is then up to the caller to ensure that this is a valid generic expression through 
+        // or some other combination depending on what the user has typed so far. For the purposes of signature help we need to consider any location after "<" as a possible generic type reference.
+        // To do this, the method will back parse the expression starting at the position required. it will try to parse the current expression as a generic type expression, if it did succeed it
+        // will return the generic identifier that started the expression (e.g. "foo" in "foo<any, |"). It is then up to the caller to ensure that this is a valid generic expression through
         // looking up the type. The method will also keep track of the parameter index inside the expression.
         // public static isInPartiallyWrittenTypeArgumentList(syntaxTree: TypeScript.SyntaxTree, position: number): any {
         //    let token = Syntax.findTokenOnLeft(syntaxTree.sourceUnit(), position, /*includeSkippedTokens*/ true);
@@ -47031,7 +47031,7 @@ var ts;
             var resolvedSignature = typeChecker.getResolvedSignature(call, candidates);
             cancellationToken.throwIfCancellationRequested();
             if (!candidates.length) {
-                // We didn't have any sig help items produced by the TS compiler.  If this is a JS 
+                // We didn't have any sig help items produced by the TS compiler.  If this is a JS
                 // file, then see if we can figure out anything better.
                 if (ts.isSourceFileJavaScript(sourceFile)) {
                     return createJavaScriptSignatureHelpItems(argumentInfo);
@@ -47164,8 +47164,8 @@ var ts;
                 return undefined;
             }
             function getArgumentIndex(argumentsList, node) {
-                // The list we got back can include commas.  In the presence of errors it may 
-                // also just have nodes without commas.  For example "Foo(a b c)" will have 3 
+                // The list we got back can include commas.  In the presence of errors it may
+                // also just have nodes without commas.  For example "Foo(a b c)" will have 3
                 // args without commas.   We want to find what index we're at.  So we count
                 // forward until we hit ourselves, only incrementing the index if it isn't a
                 // comma.
@@ -47196,8 +47196,8 @@ var ts;
                 // 'a' '<comma>'.  So, in the case where the last child is a comma, we increase the
                 // arg count by one to compensate.
                 //
-                // Note: this subtlety only applies to the last comma.  If you had "Foo(a,,"  then 
-                // we'll have:  'a' '<comma>' '<missing>' 
+                // Note: this subtlety only applies to the last comma.  If you had "Foo(a,,"  then
+                // we'll have:  'a' '<comma>' '<missing>'
                 // That will give us 2 non-commas.  We then add one for the last comma, givin us an
                 // arg count of 3.
                 var listChildren = argumentsList.getChildren();
@@ -48692,9 +48692,9 @@ var ts;
                 var startPos = (lastTokenInfo && lastTokenInfo.token.pos) || scanner.getStartPos();
                 return startPos < endPos && current !== 1 /* EndOfFileToken */ && !ts.isTrivia(current);
             }
-            // when containing node in the tree is token 
+            // when containing node in the tree is token
             // but its kind differs from the kind that was returned by the scanner,
-            // then kind needs to be fixed. This might happen in cases 
+            // then kind needs to be fixed. This might happen in cases
             // when parser interprets token differently, i.e keyword treated as identifier
             function fixTokenKind(tokenInfo, container) {
                 if (ts.isToken(container) && tokenInfo.token.kind !== container.kind) {
@@ -49234,17 +49234,17 @@ var ts;
             Rules.IsSameLineTokenOrBeforeMultilineBlockContext = function (context) {
                 //// This check is mainly used inside SpaceBeforeOpenBraceInControl and SpaceBeforeOpenBraceInFunction.
                 ////
-                //// Ex: 
+                //// Ex:
                 //// if (1)     { ....
                 ////      * ) and { are on the same line so apply the rule. Here we don't care whether it's same or multi block context
                 ////
-                //// Ex: 
+                //// Ex:
                 //// if (1)
                 //// { ... }
                 ////      * ) and { are on different lines. We only need to format if the block is multiline context. So in this case we don't format.
                 ////
                 //// Ex:
-                //// if (1) 
+                //// if (1)
                 //// { ...
                 //// }
                 ////      * ) and { are on different lines. We only need to format if the block is multiline context. So in this case we format.
@@ -49533,9 +49533,9 @@ var ts;
                 ////    4- Context rules with any token combination
                 ////    5- Non-context rules with specific token combination
                 ////    6- Non-context rules with any token combination
-                //// 
+                ////
                 //// The member rulesInsertionIndexBitmap is used to describe the number of rules
-                //// in each sub-bucket (above) hence can be used to know the index of where to insert 
+                //// in each sub-bucket (above) hence can be used to know the index of where to insert
                 //// the next rule. It's a bitmap which contains 6 different sections each is given 5 bits.
                 ////
                 //// Example:
@@ -57203,11 +57203,11 @@ var ts;
             return { newText: result, caretOffset: preamble.length };
         }
         function isValidBraceCompletionAtPostion(fileName, position, openingBrace) {
-            // '<' is currently not supported, figuring out if we're in a Generic Type vs. a comparison is too 
+            // '<' is currently not supported, figuring out if we're in a Generic Type vs. a comparison is too
             // expensive to do during typing scenarios
             // i.e. whether we're dealing with:
             //      var x = new foo<| ( with class foo<T>{} )
-            // or 
+            // or
             //      var y = 3 <|
             if (openingBrace === 60 /* lessThan */) {
                 return false;
@@ -58020,7 +58020,7 @@ var ts;
     }
     initializeServices();
 })(ts || (ts = {}));
-// Copyright (c) Microsoft. All rights reserved. Licensed under the Apache License, Version 2.0. 
+// Copyright (c) Microsoft. All rights reserved. Licensed under the Apache License, Version 2.0.
 // See LICENSE.txt in the project root for complete license information.
 /// <reference path='services.ts' />
 /* @internal */
@@ -58041,8 +58041,8 @@ var ts;
             if (sourceFile.getLineAndCharacterOfPosition(tokenAtLocation.getStart(sourceFile)).line > lineOfPosition) {
                 // Get previous token if the token is returned starts on new line
                 // eg: let x =10; |--- cursor is here
-                //     let y = 10; 
-                // token at position will return let keyword on second line as the token but we would like to use 
+                //     let y = 10;
+                // token at position will return let keyword on second line as the token but we would like to use
                 // token on same line if trailing trivia (comments or white spaces on same line) part of the last token on that line
                 tokenAtLocation = ts.findPrecedingToken(tokenAtLocation.pos, sourceFile);
                 // It's a blank line
@@ -58229,7 +58229,7 @@ var ts;
                                 return spanInArrayLiteralOrObjectLiteralDestructuringPattern(node);
                             }
                             // Set breakpoint on identifier element of destructuring pattern
-                            // a or ...c  or d: x from 
+                            // a or ...c  or d: x from
                             // [a, b, ...c] or { a, b } or { d: x } from destructuring pattern
                             if ((node.kind === 69 /* Identifier */ ||
                                 node.kind == 191 /* SpreadElementExpression */ ||
@@ -58242,7 +58242,7 @@ var ts;
                                 var binaryExpression = node;
                                 // Set breakpoint in destructuring pattern if its destructuring assignment
                                 // [a, b, c] or {a, b, c} of
-                                // [a, b, c] = expression or 
+                                // [a, b, c] = expression or
                                 // {a, b, c} = expression
                                 if (ts.isArrayLiteralOrObjectLiteralDestructuringPattern(binaryExpression.left)) {
                                     return spanInArrayLiteralOrObjectLiteralDestructuringPattern(binaryExpression.left);
@@ -58250,8 +58250,8 @@ var ts;
                                 if (binaryExpression.operatorToken.kind === 56 /* EqualsToken */ &&
                                     ts.isArrayLiteralOrObjectLiteralDestructuringPattern(binaryExpression.parent)) {
                                     // Set breakpoint on assignment expression element of destructuring pattern
-                                    // a = expression of 
-                                    // [a = expression, b, c] = someExpression or 
+                                    // a = expression of
+                                    // [a = expression, b, c] = someExpression or
                                     // { a = expression, b, c } = someExpression
                                     return textSpan(node);
                                 }
@@ -58351,7 +58351,7 @@ var ts;
                     var declarations = variableDeclaration.parent.declarations;
                     if (declarations && declarations[0] !== variableDeclaration) {
                         // If we cannot set breakpoint on this declaration, set it on previous one
-                        // Because the variable declaration may be binding pattern and 
+                        // Because the variable declaration may be binding pattern and
                         // we would like to set breakpoint in last binding element if that's the case,
                         // use preceding token instead
                         return spanInNode(ts.findPrecedingToken(variableDeclaration.pos, sourceFile, variableDeclaration.parent));
@@ -58471,7 +58471,7 @@ var ts;
                     if (firstBindingElement) {
                         return spanInNode(firstBindingElement);
                     }
-                    // Could be ArrayLiteral from destructuring assignment or 
+                    // Could be ArrayLiteral from destructuring assignment or
                     // just nested element in another destructuring assignment
                     // set breakpoint on assignment when parent is destructuring assignment
                     // Otherwise set breakpoint for this element
@@ -58685,7 +58685,7 @@ var ts;
             this.loggingEnabled = false;
             this.tracingEnabled = false;
             // if shimHost is a COM object then property check will become method call with no arguments.
-            // 'in' does not have this effect. 
+            // 'in' does not have this effect.
             if ("getModuleResolutionsForFile" in this.shimHost) {
                 this.resolveModuleNames = function (moduleNames, containingFile) {
                     var resolutionsInFile = JSON.parse(_this.shimHost.getModuleResolutionsForFile(containingFile));
@@ -59212,7 +59212,7 @@ var ts;
         CoreServicesShimObject.prototype.getPreProcessedFileInfo = function (fileName, sourceTextSnapshot) {
             var _this = this;
             return this.forwardJSONCall("getPreProcessedFileInfo('" + fileName + "')", function () {
-                // for now treat files as JavaScript 
+                // for now treat files as JavaScript
                 var result = ts.preProcessFile(sourceTextSnapshot.getText(0, sourceTextSnapshot.getLength()), /* readImportFiles */ true, /* detectJavaScriptImports */ true);
                 return {
                     referencedFiles: _this.convertFileReferences(result.referencedFiles),
