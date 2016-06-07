@@ -1580,7 +1580,7 @@ declare namespace ts {
         ObjectType = 80896,
         UnionOrIntersection = 49152,
         StructuredType = 130048,
-        Narrowable = 97793,
+        Narrowable = 16908175,
         RequiresWidening = 6291456,
         PropagatingFlags = 14680064,
     }
@@ -2381,7 +2381,6 @@ declare namespace ts {
     function isIdentifierTypePredicate(predicate: TypePredicate): predicate is IdentifierTypePredicate;
     function isThisTypePredicate(predicate: TypePredicate): predicate is ThisTypePredicate;
     function getContainingFunction(node: Node): FunctionLikeDeclaration;
-    function getContainingFunctionOrModule(node: Node): Node;
     function getContainingClass(node: Node): ClassLikeDeclaration;
     function getThisContainer(node: Node, includeArrowFunctions: boolean): Node;
     /**

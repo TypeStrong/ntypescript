@@ -648,7 +648,9 @@ var ts;
         TypeFlags[TypeFlags["ObjectType"] = 80896] = "ObjectType";
         TypeFlags[TypeFlags["UnionOrIntersection"] = 49152] = "UnionOrIntersection";
         TypeFlags[TypeFlags["StructuredType"] = 130048] = "StructuredType";
-        TypeFlags[TypeFlags["Narrowable"] = 97793] = "Narrowable";
+        // 'Narrowable' types are types where narrowing actually narrows.
+        // This *should* be every type other than null, undefined, void, and never
+        TypeFlags[TypeFlags["Narrowable"] = 16908175] = "Narrowable";
         /* @internal */
         TypeFlags[TypeFlags["RequiresWidening"] = 6291456] = "RequiresWidening";
         /* @internal */
@@ -3042,15 +3044,6 @@ var ts;
         }
     }
     ts.getContainingFunction = getContainingFunction;
-    function getContainingFunctionOrModule(node) {
-        while (true) {
-            node = node.parent;
-            if (isFunctionLike(node) || node.kind === 225 /* ModuleDeclaration */ || node.kind === 256 /* SourceFile */) {
-                return node;
-            }
-        }
-    }
-    ts.getContainingFunctionOrModule = getContainingFunctionOrModule;
     function getContainingClass(node) {
         while (true) {
             node = node.parent;
@@ -22651,7 +22644,7 @@ var ts;
         }
         function getFlowTypeOfReference(reference, declaredType, assumeInitialized, includeOuterFunctions) {
             var key;
-            if (!reference.flowNode || assumeInitialized && !(declaredType.flags & 97793 /* Narrowable */)) {
+            if (!reference.flowNode || assumeInitialized && !(declaredType.flags & 16908175 /* Narrowable */)) {
                 return declaredType;
             }
             var initialType = assumeInitialized ? declaredType : addNullableKind(declaredType, 32 /* Undefined */);
@@ -23059,13 +23052,21 @@ var ts;
             }
             return expression;
         }
+        function getControlFlowContainer(node) {
+            while (true) {
+                node = node.parent;
+                if (ts.isFunctionLike(node) || node.kind === 226 /* ModuleBlock */ || node.kind === 256 /* SourceFile */ || node.kind === 145 /* PropertyDeclaration */) {
+                    return node;
+                }
+            }
+        }
         function isDeclarationIncludedInFlow(reference, declaration, includeOuterFunctions) {
-            var declarationContainer = ts.getContainingFunctionOrModule(declaration);
-            var container = ts.getContainingFunctionOrModule(reference);
+            var declarationContainer = getControlFlowContainer(declaration);
+            var container = getControlFlowContainer(reference);
             while (container !== declarationContainer &&
                 (container.kind === 179 /* FunctionExpression */ || container.kind === 180 /* ArrowFunction */) &&
                 (includeOuterFunctions || ts.getImmediatelyInvokedFunctionExpression(container))) {
-                container = ts.getContainingFunctionOrModule(container);
+                container = getControlFlowContainer(container);
             }
             return container === declarationContainer;
         }
@@ -25060,8 +25061,9 @@ var ts;
             }
             return -1;
         }
-        function hasCorrectArity(node, args, signature) {
-            var adjustedArgCount; // Apparent number of arguments we will have in this call
+        function hasCorrectArity(node, args, signature, signatureHelpTrailingComma) {
+            if (signatureHelpTrailingComma === void 0) { signatureHelpTrailingComma = false; }
+            var argCount; // Apparent number of arguments we will have in this call
             var typeArguments; // Type arguments (undefined if none)
             var callIsIncomplete; // In incomplete call we want to be lenient when we have too few arguments
             var isDecorator;
@@ -25070,7 +25072,7 @@ var ts;
                 var tagExpression = node;
                 // Even if the call is incomplete, we'll have a missing expression as our last argument,
                 // so we can say the count is just the arg list length
-                adjustedArgCount = args.length;
+                argCount = args.length;
                 typeArguments = undefined;
                 if (tagExpression.template.kind === 189 /* TemplateExpression */) {
                     // If a tagged template expression lacks a tail literal, the call is incomplete.
@@ -25092,7 +25094,7 @@ var ts;
             else if (node.kind === 143 /* Decorator */) {
                 isDecorator = true;
                 typeArguments = undefined;
-                adjustedArgCount = getEffectiveArgumentCount(node, /*args*/ undefined, signature);
+                argCount = getEffectiveArgumentCount(node, /*args*/ undefined, signature);
             }
             else {
                 var callExpression = node;
@@ -25101,8 +25103,7 @@ var ts;
                     ts.Debug.assert(callExpression.kind === 175 /* NewExpression */);
                     return signature.minArgumentCount === 0;
                 }
-                // For IDE scenarios we may have an incomplete call, so a trailing comma is tantamount to adding another argument.
-                adjustedArgCount = callExpression.arguments.hasTrailingComma ? args.length + 1 : args.length;
+                argCount = signatureHelpTrailingComma ? args.length + 1 : args.length;
                 // If we are missing the close paren, the call is incomplete.
                 callIsIncomplete = callExpression.arguments.end === callExpression.end;
                 typeArguments = callExpression.typeArguments;
@@ -25121,11 +25122,11 @@ var ts;
                 return isRestParameterIndex(signature, spreadArgIndex);
             }
             // Too many arguments implies incorrect arity.
-            if (!signature.hasRestParameter && adjustedArgCount > signature.parameters.length) {
+            if (!signature.hasRestParameter && argCount > signature.parameters.length) {
                 return false;
             }
             // If the call is incomplete, we should skip the lower bound check.
-            var hasEnoughArguments = adjustedArgCount >= signature.minArgumentCount;
+            var hasEnoughArguments = argCount >= signature.minArgumentCount;
             return callIsIncomplete || hasEnoughArguments;
         }
         // If type has a single call signature and no other members, return that signature. Otherwise, return undefined.
@@ -25630,6 +25631,9 @@ var ts;
             var candidateForTypeArgumentError;
             var resultOfFailedInference;
             var result;
+            // If we are in signature help, a trailing comma indicates that we intend to provide another argument,
+            // so we will only accept overloads with arity at least 1 higher than the current number of provided arguments.
+            var signatureHelpTrailingComma = candidatesOutArray && node.kind === 174 /* CallExpression */ && node.arguments.hasTrailingComma;
             // Section 4.12.1:
             // if the candidate list contains one or more signatures for which the type of each argument
             // expression is a subtype of each corresponding parameter type, the return type of the first
@@ -25641,14 +25645,14 @@ var ts;
             // is just important for choosing the best signature. So in the case where there is only one
             // signature, the subtype pass is useless. So skipping it is an optimization.
             if (candidates.length > 1) {
-                result = chooseOverload(candidates, subtypeRelation);
+                result = chooseOverload(candidates, subtypeRelation, signatureHelpTrailingComma);
             }
             if (!result) {
                 // Reinitialize these pointers for round two
                 candidateForArgumentError = undefined;
                 candidateForTypeArgumentError = undefined;
                 resultOfFailedInference = undefined;
-                result = chooseOverload(candidates, assignableRelation);
+                result = chooseOverload(candidates, assignableRelation, signatureHelpTrailingComma);
             }
             if (result) {
                 return result;
@@ -25710,10 +25714,11 @@ var ts;
                 }
                 diagnostics.add(ts.createDiagnosticForNodeFromMessageChain(node, errorInfo));
             }
-            function chooseOverload(candidates, relation) {
+            function chooseOverload(candidates, relation, signatureHelpTrailingComma) {
+                if (signatureHelpTrailingComma === void 0) { signatureHelpTrailingComma = false; }
                 for (var _i = 0, candidates_2 = candidates; _i < candidates_2.length; _i++) {
                     var originalCandidate = candidates_2[_i];
-                    if (!hasCorrectArity(node, args, originalCandidate)) {
+                    if (!hasCorrectArity(node, args, originalCandidate, signatureHelpTrailingComma)) {
                         continue;
                     }
                     var candidate = void 0;
@@ -29303,7 +29308,7 @@ var ts;
                     // In a 'switch' statement, each 'case' expression must be of a type that is comparable
                     // to or from the type of the 'switch' expression.
                     var caseType = checkExpression(caseClause.expression);
-                    if (!isTypeComparableTo(expressionType, caseType)) {
+                    if (!isTypeEqualityComparableTo(expressionType, caseType)) {
                         // expressionType is not comparable to caseType, try the reversed check and report errors if it fails
                         checkTypeComparableTo(caseType, expressionType, caseClause.expression, /*headMessage*/ undefined);
                     }
@@ -31942,9 +31947,6 @@ var ts;
             }
         }
         function checkGrammarParameterList(parameters) {
-            if (checkGrammarForDisallowedTrailingComma(parameters)) {
-                return true;
-            }
             var seenOptionalParameter = false;
             var parameterCount = parameters.length;
             for (var i = 0; i < parameterCount; i++) {
@@ -32051,8 +32053,7 @@ var ts;
             }
         }
         function checkGrammarArguments(node, args) {
-            return checkGrammarForDisallowedTrailingComma(args) ||
-                checkGrammarForOmittedArgument(node, args);
+            return checkGrammarForOmittedArgument(node, args);
         }
         function checkGrammarHeritageClause(node) {
             var types = node.types;
