@@ -639,6 +639,7 @@ var ts;
         TypeFlags[TypeFlags["Never"] = 134217728] = "Never";
         /* @internal */
         TypeFlags[TypeFlags["Nullable"] = 96] = "Nullable";
+        TypeFlags[TypeFlags["Falsy"] = 126] = "Falsy";
         /* @internal */
         TypeFlags[TypeFlags["Intrinsic"] = 150995071] = "Intrinsic";
         /* @internal */
@@ -2780,7 +2781,10 @@ var ts;
     }
     ts.getJsDocComments = getJsDocComments;
     function getJsDocCommentsFromText(node, text) {
-        var commentRanges = (node.kind === 142 /* Parameter */ || node.kind === 141 /* TypeParameter */) ?
+        var commentRanges = (node.kind === 142 /* Parameter */ ||
+            node.kind === 141 /* TypeParameter */ ||
+            node.kind === 179 /* FunctionExpression */ ||
+            node.kind === 180 /* ArrowFunction */) ?
             ts.concatenate(ts.getTrailingCommentRanges(text, node.pos), ts.getLeadingCommentRanges(text, node.pos)) :
             getLeadingCommentRangesOfNodeFromText(node, text);
         return ts.filter(commentRanges, isJsDocComment);
@@ -18207,7 +18211,7 @@ var ts;
             }
             // In strict null checking mode, if a default value of a non-undefined type is specified, remove
             // undefined from the final type.
-            if (strictNullChecks && declaration.initializer && !(getNullableKind(checkExpressionCached(declaration.initializer)) & 32 /* Undefined */)) {
+            if (strictNullChecks && declaration.initializer && !(getCombinedTypeFlags(checkExpressionCached(declaration.initializer)) & 32 /* Undefined */)) {
                 type = getTypeWithFacts(type, 131072 /* NEUndefined */);
             }
             return type;
@@ -18244,7 +18248,7 @@ var ts;
             return undefined;
         }
         function addOptionality(type, optional) {
-            return strictNullChecks && optional ? addNullableKind(type, 32 /* Undefined */) : type;
+            return strictNullChecks && optional ? addTypeKind(type, 32 /* Undefined */) : type;
         }
         // Return the inferred type for a variable, parameter, or property declaration
         function getTypeForVariableLikeDeclaration(declaration, includeOptionality) {
@@ -18548,7 +18552,7 @@ var ts;
             if (!links.type) {
                 var type = createObjectType(65536 /* Anonymous */, symbol);
                 links.type = strictNullChecks && symbol.flags & 536870912 /* Optional */ ?
-                    addNullableKind(type, 32 /* Undefined */) : type;
+                    addTypeKind(type, 32 /* Undefined */) : type;
             }
             return links.type;
         }
@@ -21796,7 +21800,7 @@ var ts;
                 return getUnionType(types);
             }
             var supertype = ts.forEach(primaryTypes, function (t) { return isSupertypeOfEach(t, primaryTypes) ? t : undefined; });
-            return supertype && addNullableKind(supertype, getCombinedFlagsOfTypes(types) & 96 /* Nullable */);
+            return supertype && addTypeKind(supertype, getCombinedFlagsOfTypes(types) & 96 /* Nullable */);
         }
         function reportNoCommonSupertypeError(types, errorLocation, errorMessageChainHead) {
             // The downfallType/bestSupertypeDownfallType is the first type that caused a particular candidate
@@ -21853,28 +21857,27 @@ var ts;
         function isTupleType(type) {
             return !!(type.flags & 8192 /* Tuple */);
         }
-        function getNullableKind(type) {
-            var flags = type.flags;
-            if (flags & 16384 /* Union */) {
-                for (var _i = 0, _a = type.types; _i < _a.length; _i++) {
-                    var t = _a[_i];
-                    flags |= t.flags;
-                }
-            }
-            return flags & 96 /* Nullable */;
+        function getCombinedTypeFlags(type) {
+            return type.flags & 16384 /* Union */ ? getCombinedFlagsOfTypes(type.types) : type.flags;
         }
-        function addNullableKind(type, kind) {
-            if ((getNullableKind(type) & kind) !== kind) {
-                var types = [type];
-                if (kind & 32 /* Undefined */) {
-                    types.push(undefinedType);
-                }
-                if (kind & 64 /* Null */) {
-                    types.push(nullType);
-                }
-                type = getUnionType(types);
+        function addTypeKind(type, kind) {
+            if ((getCombinedTypeFlags(type) & kind) === kind) {
+                return type;
             }
-            return type;
+            var types = [type];
+            if (kind & 2 /* String */)
+                types.push(stringType);
+            if (kind & 4 /* Number */)
+                types.push(numberType);
+            if (kind & 8 /* Boolean */)
+                types.push(booleanType);
+            if (kind & 16 /* Void */)
+                types.push(voidType);
+            if (kind & 32 /* Undefined */)
+                types.push(undefinedType);
+            if (kind & 64 /* Null */)
+                types.push(nullType);
+            return getUnionType(types);
         }
         function getNonNullableType(type) {
             return strictNullChecks ? getTypeWithFacts(type, 524288 /* NEUndefinedOrNull */) : type;
@@ -22642,12 +22645,26 @@ var ts;
                 getInitialTypeOfVariableDeclaration(node) :
                 getInitialTypeOfBindingElement(node);
         }
+        function getReferenceFromExpression(node) {
+            switch (node.kind) {
+                case 178 /* ParenthesizedExpression */:
+                    return getReferenceFromExpression(node.expression);
+                case 187 /* BinaryExpression */:
+                    switch (node.operatorToken.kind) {
+                        case 56 /* EqualsToken */:
+                            return getReferenceFromExpression(node.left);
+                        case 24 /* CommaToken */:
+                            return getReferenceFromExpression(node.right);
+                    }
+            }
+            return node;
+        }
         function getFlowTypeOfReference(reference, declaredType, assumeInitialized, includeOuterFunctions) {
             var key;
             if (!reference.flowNode || assumeInitialized && !(declaredType.flags & 16908175 /* Narrowable */)) {
                 return declaredType;
             }
-            var initialType = assumeInitialized ? declaredType : addNullableKind(declaredType, 32 /* Undefined */);
+            var initialType = assumeInitialized ? declaredType : addTypeKind(declaredType, 32 /* Undefined */);
             var visitedFlowStart = visitedFlowCount;
             var result = getTypeAtFlowNode(reference.flowNode);
             visitedFlowCount = visitedFlowStart;
@@ -22856,7 +22873,7 @@ var ts;
                 if (operator === 31 /* ExclamationEqualsToken */ || operator === 33 /* ExclamationEqualsEqualsToken */) {
                     assumeTrue = !assumeTrue;
                 }
-                if (!strictNullChecks || !isMatchingReference(reference, expr.left)) {
+                if (!strictNullChecks || !isMatchingReference(reference, getReferenceFromExpression(expr.left))) {
                     return type;
                 }
                 var doubleEquals = operator === 30 /* EqualsEqualsToken */ || operator === 31 /* ExclamationEqualsToken */;
@@ -22870,12 +22887,12 @@ var ts;
             function narrowTypeByTypeof(type, expr, assumeTrue) {
                 // We have '==', '!=', '====', or !==' operator with 'typeof xxx' on the left
                 // and string literal on the right
-                var left = expr.left;
+                var left = getReferenceFromExpression(expr.left.expression);
                 var right = expr.right;
-                if (!isMatchingReference(reference, left.expression)) {
+                if (!isMatchingReference(reference, left)) {
                     // For a reference of the form 'x.y', a 'typeof x === ...' type guard resets the
                     // narrowed type of 'y' to its declared type.
-                    if (containsMatchingReference(reference, left.expression)) {
+                    if (containsMatchingReference(reference, left)) {
                         return declaredType;
                     }
                     return type;
@@ -22899,10 +22916,11 @@ var ts;
                 return getTypeWithFacts(type, facts);
             }
             function narrowTypeByInstanceof(type, expr, assumeTrue) {
-                if (!isMatchingReference(reference, expr.left)) {
+                var left = getReferenceFromExpression(expr.left);
+                if (!isMatchingReference(reference, left)) {
                     // For a reference of the form 'x.y', an 'x instanceof T' type guard resets the
                     // narrowed type of 'y' to its declared type.
-                    if (containsMatchingReference(reference, expr.left)) {
+                    if (containsMatchingReference(reference, left)) {
                         return declaredType;
                     }
                     return type;
@@ -23123,7 +23141,7 @@ var ts;
                 ts.getRootDeclaration(declaration).kind === 142 /* Parameter */ || ts.isInAmbientContext(declaration) ||
                 !isDeclarationIncludedInFlow(node, declaration, includeOuterFunctions);
             var flowType = getFlowTypeOfReference(node, type, assumeInitialized, includeOuterFunctions);
-            if (!assumeInitialized && !(getNullableKind(type) & 32 /* Undefined */) && getNullableKind(flowType) & 32 /* Undefined */) {
+            if (!assumeInitialized && !(getCombinedTypeFlags(type) & 32 /* Undefined */) && getCombinedTypeFlags(flowType) & 32 /* Undefined */) {
                 error(node, ts.Diagnostics.Variable_0_is_used_before_being_assigned, symbolToString(symbol));
                 // Return the declared type to reduce follow-on errors
                 return type;
@@ -24733,7 +24751,7 @@ var ts;
         function checkNonNullExpression(node) {
             var type = checkExpression(node);
             if (strictNullChecks) {
-                var kind = getNullableKind(type);
+                var kind = getCombinedTypeFlags(type) & 96 /* Nullable */;
                 if (kind) {
                     error(node, kind & 32 /* Undefined */ ? kind & 64 /* Null */ ?
                         ts.Diagnostics.Object_is_possibly_null_or_undefined :
@@ -26087,7 +26105,7 @@ var ts;
             if (strictNullChecks) {
                 var declaration = symbol.valueDeclaration;
                 if (declaration && declaration.initializer) {
-                    return addNullableKind(type, 32 /* Undefined */);
+                    return addTypeKind(type, 32 /* Undefined */);
                 }
             }
             return type;
@@ -26939,7 +26957,7 @@ var ts;
                 case 90 /* InKeyword */:
                     return checkInExpression(left, right, leftType, rightType);
                 case 51 /* AmpersandAmpersandToken */:
-                    return strictNullChecks ? addNullableKind(rightType, getNullableKind(leftType)) : rightType;
+                    return strictNullChecks ? addTypeKind(rightType, getCombinedTypeFlags(leftType) & 126 /* Falsy */) : rightType;
                 case 52 /* BarBarToken */:
                     return getUnionType([getNonNullableType(leftType), rightType]);
                 case 56 /* EqualsToken */:
@@ -33069,7 +33087,8 @@ var ts;
                     "es2015.symbol": "lib.es2015.symbol.d.ts",
                     "es2015.symbol.wellknown": "lib.es2015.symbol.wellknown.d.ts",
                     "es2016.array.include": "lib.es2016.array.include.d.ts",
-                    "es2017.object": "lib.es2017.object.d.ts"
+                    "es2017.object": "lib.es2017.object.d.ts",
+                    "es2017.sharedmemory": "lib.es2017.sharedmemory.d.ts"
                 },
             },
             description: ts.Diagnostics.Specify_library_files_to_be_included_in_the_compilation_Colon
@@ -33363,7 +33382,7 @@ var ts;
                 if (outDir) {
                     exclude.push(outDir);
                 }
-                exclude = ts.map(exclude, ts.normalizeSlashes);
+                exclude = ts.map(exclude, function (e) { return ts.getNormalizedAbsolutePath(e, basePath); });
                 var supportedExtensions = ts.getSupportedExtensions(options);
                 ts.Debug.assert(ts.indexOf(supportedExtensions, ".ts") < ts.indexOf(supportedExtensions, ".d.ts"), "Changed priority of extensions to pick");
                 // Get files of supported extensions in their order of resolution
@@ -37596,10 +37615,18 @@ var ts;
                     : resolver.getReferencedValueDeclaration(node);
                 return isSourceFileLevelDeclarationInSystemJsModule(targetDeclaration, /*isExported*/ true);
             }
+            function isNameOfExportedDeclarationInNonES6Module(node) {
+                if (modulekind === ts.ModuleKind.System || node.kind !== 69 /* Identifier */ || ts.nodeIsSynthesized(node)) {
+                    return false;
+                }
+                return !exportEquals && exportSpecifiers && ts.hasProperty(exportSpecifiers, node.text);
+            }
             function emitPrefixUnaryExpression(node) {
-                var exportChanged = (node.operator === 41 /* PlusPlusToken */ || node.operator === 42 /* MinusMinusToken */) &&
+                var isPlusPlusOrMinusMinus = (node.operator === 41 /* PlusPlusToken */
+                    || node.operator === 42 /* MinusMinusToken */);
+                var externalExportChanged = isPlusPlusOrMinusMinus &&
                     isNameOfExportedSourceLevelDeclarationInSystemExternalModule(node.operand);
-                if (exportChanged) {
+                if (externalExportChanged) {
                     // emit
                     // ++x
                     // as
@@ -37607,6 +37634,11 @@ var ts;
                     write(exportFunctionForFile + "(\"");
                     emitNodeWithoutSourceMap(node.operand);
                     write("\", ");
+                }
+                var internalExportChanged = isPlusPlusOrMinusMinus &&
+                    isNameOfExportedDeclarationInNonES6Module(node.operand);
+                if (internalExportChanged) {
+                    emitAliasEqual(node.operand);
                 }
                 write(ts.tokenToString(node.operator));
                 // In some cases, we need to emit a space between the operator and the operand. One obvious case
@@ -37631,13 +37663,14 @@ var ts;
                     }
                 }
                 emit(node.operand);
-                if (exportChanged) {
+                if (externalExportChanged) {
                     write(")");
                 }
             }
             function emitPostfixUnaryExpression(node) {
-                var exportChanged = isNameOfExportedSourceLevelDeclarationInSystemExternalModule(node.operand);
-                if (exportChanged) {
+                var externalExportChanged = isNameOfExportedSourceLevelDeclarationInSystemExternalModule(node.operand);
+                var internalExportChanged = isNameOfExportedDeclarationInNonES6Module(node.operand);
+                if (externalExportChanged) {
                     // export function returns the value that was passes as the second argument
                     // however for postfix unary expressions result value should be the value before modification.
                     // emit 'x++' as '(export('x', ++x) - 1)' and 'x--' as '(export('x', --x) + 1)'
@@ -37651,6 +37684,16 @@ var ts;
                     }
                     else {
                         write(") + 1)");
+                    }
+                }
+                else if (internalExportChanged) {
+                    emitAliasEqual(node.operand);
+                    emit(node.operand);
+                    if (node.operator === 41 /* PlusPlusToken */) {
+                        write(" += 1");
+                    }
+                    else {
+                        write(" -= 1");
                     }
                 }
                 else {
@@ -37743,20 +37786,44 @@ var ts;
                     write(")");
                 }
             }
+            function emitAliasEqual(name) {
+                for (var _a = 0, _b = exportSpecifiers[name.text]; _a < _b.length; _a++) {
+                    var specifier = _b[_a];
+                    emitStart(specifier.name);
+                    emitContainingModuleName(specifier);
+                    if (languageVersion === 0 /* ES3 */ && name.text === "default") {
+                        write('["default"]');
+                    }
+                    else {
+                        write(".");
+                        emitNodeWithCommentsAndWithoutSourcemap(specifier.name);
+                    }
+                    emitEnd(specifier.name);
+                    write(" = ");
+                }
+                return true;
+            }
             function emitBinaryExpression(node) {
                 if (languageVersion < 2 /* ES6 */ && node.operatorToken.kind === 56 /* EqualsToken */ &&
                     (node.left.kind === 171 /* ObjectLiteralExpression */ || node.left.kind === 170 /* ArrayLiteralExpression */)) {
                     emitDestructuring(node, node.parent.kind === 202 /* ExpressionStatement */);
                 }
                 else {
-                    var exportChanged = node.operatorToken.kind >= 56 /* FirstAssignment */ &&
-                        node.operatorToken.kind <= 68 /* LastAssignment */ &&
+                    var isAssignment = ts.isAssignmentOperator(node.operatorToken.kind);
+                    var externalExportChanged = isAssignment &&
                         isNameOfExportedSourceLevelDeclarationInSystemExternalModule(node.left);
-                    if (exportChanged) {
+                    if (externalExportChanged) {
                         // emit assignment 'x <op> y' as 'exports("x", x <op> y)'
                         write(exportFunctionForFile + "(\"");
                         emitNodeWithoutSourceMap(node.left);
                         write("\", ");
+                    }
+                    var internalExportChanged = isAssignment &&
+                        isNameOfExportedDeclarationInNonES6Module(node.left);
+                    if (internalExportChanged) {
+                        // export { foo }
+                        // emit foo = 2 as exports.foo = foo = 2
+                        emitAliasEqual(node.left);
                     }
                     if (node.operatorToken.kind === 38 /* AsteriskAsteriskToken */ || node.operatorToken.kind === 60 /* AsteriskAsteriskEqualsToken */) {
                         // Downleveled emit exponentiation operator using Math.pow
@@ -37777,7 +37844,7 @@ var ts;
                         emit(node.right);
                         decreaseIndentIf(indentedBeforeOperator, indentedAfterOperator);
                     }
-                    if (exportChanged) {
+                    if (externalExportChanged) {
                         write(")");
                     }
                 }
@@ -43661,6 +43728,7 @@ var ts;
             // if any of these properties has changed - structure cannot be reused
             var oldOptions = oldProgram.getCompilerOptions();
             if ((oldOptions.module !== options.module) ||
+                (oldOptions.moduleResolution !== options.moduleResolution) ||
                 (oldOptions.noResolve !== options.noResolve) ||
                 (oldOptions.target !== options.target) ||
                 (oldOptions.noLib !== options.noLib) ||
@@ -47007,12 +47075,12 @@ var ts;
         //    return null;
         // }
         var emptyArray = [];
-        var ArgumentListKind;
         (function (ArgumentListKind) {
             ArgumentListKind[ArgumentListKind["TypeArguments"] = 0] = "TypeArguments";
             ArgumentListKind[ArgumentListKind["CallArguments"] = 1] = "CallArguments";
             ArgumentListKind[ArgumentListKind["TaggedTemplateArguments"] = 2] = "TaggedTemplateArguments";
-        })(ArgumentListKind || (ArgumentListKind = {}));
+        })(SignatureHelp.ArgumentListKind || (SignatureHelp.ArgumentListKind = {}));
+        var ArgumentListKind = SignatureHelp.ArgumentListKind;
         function getSignatureHelpItems(program, sourceFile, position, cancellationToken) {
             var typeChecker = program.getTypeChecker();
             // Decide whether to show signature help
@@ -47021,7 +47089,7 @@ var ts;
                 // We are at the beginning of the file
                 return undefined;
             }
-            var argumentInfo = getContainingArgumentInfo(startingToken);
+            var argumentInfo = getContainingArgumentInfo(startingToken, position, sourceFile);
             cancellationToken.throwIfCancellationRequested();
             // Semantic filtering of signature help
             if (!argumentInfo) {
@@ -47035,383 +47103,385 @@ var ts;
                 // We didn't have any sig help items produced by the TS compiler.  If this is a JS
                 // file, then see if we can figure out anything better.
                 if (ts.isSourceFileJavaScript(sourceFile)) {
-                    return createJavaScriptSignatureHelpItems(argumentInfo);
+                    return createJavaScriptSignatureHelpItems(argumentInfo, program);
                 }
                 return undefined;
             }
-            return createSignatureHelpItems(candidates, resolvedSignature, argumentInfo);
-            function createJavaScriptSignatureHelpItems(argumentInfo) {
-                if (argumentInfo.invocation.kind !== 174 /* CallExpression */) {
-                    return undefined;
-                }
-                // See if we can find some symbol with the call expression name that has call signatures.
-                var callExpression = argumentInfo.invocation;
-                var expression = callExpression.expression;
-                var name = expression.kind === 69 /* Identifier */
-                    ? expression
-                    : expression.kind === 172 /* PropertyAccessExpression */
-                        ? expression.name
-                        : undefined;
-                if (!name || !name.text) {
-                    return undefined;
-                }
-                var typeChecker = program.getTypeChecker();
-                for (var _i = 0, _a = program.getSourceFiles(); _i < _a.length; _i++) {
-                    var sourceFile_2 = _a[_i];
-                    var nameToDeclarations = sourceFile_2.getNamedDeclarations();
-                    var declarations = ts.getProperty(nameToDeclarations, name.text);
-                    if (declarations) {
-                        for (var _b = 0, declarations_8 = declarations; _b < declarations_8.length; _b++) {
-                            var declaration = declarations_8[_b];
-                            var symbol = declaration.symbol;
-                            if (symbol) {
-                                var type = typeChecker.getTypeOfSymbolAtLocation(symbol, declaration);
-                                if (type) {
-                                    var callSignatures = type.getCallSignatures();
-                                    if (callSignatures && callSignatures.length) {
-                                        return createSignatureHelpItems(callSignatures, callSignatures[0], argumentInfo);
-                                    }
+            return createSignatureHelpItems(candidates, resolvedSignature, argumentInfo, typeChecker);
+        }
+        SignatureHelp.getSignatureHelpItems = getSignatureHelpItems;
+        function createJavaScriptSignatureHelpItems(argumentInfo, program) {
+            if (argumentInfo.invocation.kind !== 174 /* CallExpression */) {
+                return undefined;
+            }
+            // See if we can find some symbol with the call expression name that has call signatures.
+            var callExpression = argumentInfo.invocation;
+            var expression = callExpression.expression;
+            var name = expression.kind === 69 /* Identifier */
+                ? expression
+                : expression.kind === 172 /* PropertyAccessExpression */
+                    ? expression.name
+                    : undefined;
+            if (!name || !name.text) {
+                return undefined;
+            }
+            var typeChecker = program.getTypeChecker();
+            for (var _i = 0, _a = program.getSourceFiles(); _i < _a.length; _i++) {
+                var sourceFile = _a[_i];
+                var nameToDeclarations = sourceFile.getNamedDeclarations();
+                var declarations = ts.getProperty(nameToDeclarations, name.text);
+                if (declarations) {
+                    for (var _b = 0, declarations_8 = declarations; _b < declarations_8.length; _b++) {
+                        var declaration = declarations_8[_b];
+                        var symbol = declaration.symbol;
+                        if (symbol) {
+                            var type = typeChecker.getTypeOfSymbolAtLocation(symbol, declaration);
+                            if (type) {
+                                var callSignatures = type.getCallSignatures();
+                                if (callSignatures && callSignatures.length) {
+                                    return createSignatureHelpItems(callSignatures, callSignatures[0], argumentInfo, typeChecker);
                                 }
                             }
                         }
                     }
                 }
             }
-            /**
-             * Returns relevant information for the argument list and the current argument if we are
-             * in the argument of an invocation; returns undefined otherwise.
-             */
-            function getImmediatelyContainingArgumentInfo(node) {
-                if (node.parent.kind === 174 /* CallExpression */ || node.parent.kind === 175 /* NewExpression */) {
-                    var callExpression = node.parent;
-                    // There are 3 cases to handle:
-                    //   1. The token introduces a list, and should begin a sig help session
-                    //   2. The token is either not associated with a list, or ends a list, so the session should end
-                    //   3. The token is buried inside a list, and should give sig help
-                    //
-                    // The following are examples of each:
-                    //
-                    //    Case 1:
-                    //          foo<#T, U>(#a, b)    -> The token introduces a list, and should begin a sig help session
-                    //    Case 2:
-                    //          fo#o<T, U>#(a, b)#   -> The token is either not associated with a list, or ends a list, so the session should end
-                    //    Case 3:
-                    //          foo<T#, U#>(a#, #b#) -> The token is buried inside a list, and should give sig help
-                    // Find out if 'node' is an argument, a type argument, or neither
-                    if (node.kind === 25 /* LessThanToken */ ||
-                        node.kind === 17 /* OpenParenToken */) {
-                        // Find the list that starts right *after* the < or ( token.
-                        // If the user has just opened a list, consider this item 0.
-                        var list = getChildListThatStartsWithOpenerToken(callExpression, node, sourceFile);
-                        var isTypeArgList = callExpression.typeArguments && callExpression.typeArguments.pos === list.pos;
-                        ts.Debug.assert(list !== undefined);
-                        return {
-                            kind: isTypeArgList ? 0 /* TypeArguments */ : 1 /* CallArguments */,
-                            invocation: callExpression,
-                            argumentsSpan: getApplicableSpanForArguments(list),
-                            argumentIndex: 0,
-                            argumentCount: getArgumentCount(list)
-                        };
-                    }
-                    // findListItemInfo can return undefined if we are not in parent's argument list
-                    // or type argument list. This includes cases where the cursor is:
-                    //   - To the right of the closing paren, non-substitution template, or template tail.
-                    //   - Between the type arguments and the arguments (greater than token)
-                    //   - On the target of the call (parent.func)
-                    //   - On the 'new' keyword in a 'new' expression
-                    var listItemInfo = ts.findListItemInfo(node);
-                    if (listItemInfo) {
-                        var list = listItemInfo.list;
-                        var isTypeArgList = callExpression.typeArguments && callExpression.typeArguments.pos === list.pos;
-                        var argumentIndex = getArgumentIndex(list, node);
-                        var argumentCount = getArgumentCount(list);
-                        ts.Debug.assert(argumentIndex === 0 || argumentIndex < argumentCount, "argumentCount < argumentIndex, " + argumentCount + " < " + argumentIndex);
-                        return {
-                            kind: isTypeArgList ? 0 /* TypeArguments */ : 1 /* CallArguments */,
-                            invocation: callExpression,
-                            argumentsSpan: getApplicableSpanForArguments(list),
-                            argumentIndex: argumentIndex,
-                            argumentCount: argumentCount
-                        };
-                    }
-                }
-                else if (node.kind === 11 /* NoSubstitutionTemplateLiteral */ && node.parent.kind === 176 /* TaggedTemplateExpression */) {
-                    // Check if we're actually inside the template;
-                    // otherwise we'll fall out and return undefined.
-                    if (ts.isInsideTemplateLiteral(node, position)) {
-                        return getArgumentListInfoForTemplate(node.parent, /*argumentIndex*/ 0);
-                    }
-                }
-                else if (node.kind === 12 /* TemplateHead */ && node.parent.parent.kind === 176 /* TaggedTemplateExpression */) {
-                    var templateExpression = node.parent;
-                    var tagExpression = templateExpression.parent;
-                    ts.Debug.assert(templateExpression.kind === 189 /* TemplateExpression */);
-                    var argumentIndex = ts.isInsideTemplateLiteral(node, position) ? 0 : 1;
-                    return getArgumentListInfoForTemplate(tagExpression, argumentIndex);
-                }
-                else if (node.parent.kind === 197 /* TemplateSpan */ && node.parent.parent.parent.kind === 176 /* TaggedTemplateExpression */) {
-                    var templateSpan = node.parent;
-                    var templateExpression = templateSpan.parent;
-                    var tagExpression = templateExpression.parent;
-                    ts.Debug.assert(templateExpression.kind === 189 /* TemplateExpression */);
-                    // If we're just after a template tail, don't show signature help.
-                    if (node.kind === 14 /* TemplateTail */ && !ts.isInsideTemplateLiteral(node, position)) {
-                        return undefined;
-                    }
-                    var spanIndex = templateExpression.templateSpans.indexOf(templateSpan);
-                    var argumentIndex = getArgumentIndexForTemplatePiece(spanIndex, node);
-                    return getArgumentListInfoForTemplate(tagExpression, argumentIndex);
-                }
-                return undefined;
-            }
-            function getArgumentIndex(argumentsList, node) {
-                // The list we got back can include commas.  In the presence of errors it may
-                // also just have nodes without commas.  For example "Foo(a b c)" will have 3
-                // args without commas.   We want to find what index we're at.  So we count
-                // forward until we hit ourselves, only incrementing the index if it isn't a
-                // comma.
+        }
+        /**
+         * Returns relevant information for the argument list and the current argument if we are
+         * in the argument of an invocation; returns undefined otherwise.
+         */
+        function getImmediatelyContainingArgumentInfo(node, position, sourceFile) {
+            if (node.parent.kind === 174 /* CallExpression */ || node.parent.kind === 175 /* NewExpression */) {
+                var callExpression = node.parent;
+                // There are 3 cases to handle:
+                //   1. The token introduces a list, and should begin a sig help session
+                //   2. The token is either not associated with a list, or ends a list, so the session should end
+                //   3. The token is buried inside a list, and should give sig help
                 //
-                // Note: the subtlety around trailing commas (in getArgumentCount) does not apply
-                // here.  That's because we're only walking forward until we hit the node we're
-                // on.  In that case, even if we're after the trailing comma, we'll still see
-                // that trailing comma in the list, and we'll have generated the appropriate
-                // arg index.
-                var argumentIndex = 0;
-                var listChildren = argumentsList.getChildren();
-                for (var _i = 0, listChildren_1 = listChildren; _i < listChildren_1.length; _i++) {
-                    var child = listChildren_1[_i];
-                    if (child === node) {
-                        break;
-                    }
-                    if (child.kind !== 24 /* CommaToken */) {
-                        argumentIndex++;
-                    }
-                }
-                return argumentIndex;
-            }
-            function getArgumentCount(argumentsList) {
-                // The argument count for a list is normally the number of non-comma children it has.
-                // For example, if you have "Foo(a,b)" then there will be three children of the arg
-                // list 'a' '<comma>' 'b'.  So, in this case the arg count will be 2.  However, there
-                // is a small subtlety.  If you have  "Foo(a,)", then the child list will just have
-                // 'a' '<comma>'.  So, in the case where the last child is a comma, we increase the
-                // arg count by one to compensate.
+                // The following are examples of each:
                 //
-                // Note: this subtlety only applies to the last comma.  If you had "Foo(a,,"  then
-                // we'll have:  'a' '<comma>' '<missing>'
-                // That will give us 2 non-commas.  We then add one for the last comma, givin us an
-                // arg count of 3.
-                var listChildren = argumentsList.getChildren();
-                var argumentCount = ts.countWhere(listChildren, function (arg) { return arg.kind !== 24 /* CommaToken */; });
-                if (listChildren.length > 0 && ts.lastOrUndefined(listChildren).kind === 24 /* CommaToken */) {
-                    argumentCount++;
-                }
-                return argumentCount;
-            }
-            // spanIndex is either the index for a given template span.
-            // This does not give appropriate results for a NoSubstitutionTemplateLiteral
-            function getArgumentIndexForTemplatePiece(spanIndex, node) {
-                // Because the TemplateStringsArray is the first argument, we have to offset each substitution expression by 1.
-                // There are three cases we can encounter:
-                //      1. We are precisely in the template literal (argIndex = 0).
-                //      2. We are in or to the right of the substitution expression (argIndex = spanIndex + 1).
-                //      3. We are directly to the right of the template literal, but because we look for the token on the left,
-                //          not enough to put us in the substitution expression; we should consider ourselves part of
-                //          the *next* span's expression by offsetting the index (argIndex = (spanIndex + 1) + 1).
-                //
-                // Example: f  `# abcd $#{#  1 + 1#  }# efghi ${ #"#hello"#  }  #  `
-                //              ^       ^ ^       ^   ^          ^ ^      ^     ^
-                // Case:        1       1 3       2   1          3 2      2     1
-                ts.Debug.assert(position >= node.getStart(), "Assumed 'position' could not occur before node.");
-                if (ts.isTemplateLiteralKind(node.kind)) {
-                    if (ts.isInsideTemplateLiteral(node, position)) {
-                        return 0;
-                    }
-                    return spanIndex + 2;
-                }
-                return spanIndex + 1;
-            }
-            function getArgumentListInfoForTemplate(tagExpression, argumentIndex) {
-                // argumentCount is either 1 or (numSpans + 1) to account for the template strings array argument.
-                var argumentCount = tagExpression.template.kind === 11 /* NoSubstitutionTemplateLiteral */
-                    ? 1
-                    : tagExpression.template.templateSpans.length + 1;
-                ts.Debug.assert(argumentIndex === 0 || argumentIndex < argumentCount, "argumentCount < argumentIndex, " + argumentCount + " < " + argumentIndex);
-                return {
-                    kind: 2 /* TaggedTemplateArguments */,
-                    invocation: tagExpression,
-                    argumentsSpan: getApplicableSpanForTaggedTemplate(tagExpression),
-                    argumentIndex: argumentIndex,
-                    argumentCount: argumentCount
-                };
-            }
-            function getApplicableSpanForArguments(argumentsList) {
-                // We use full start and skip trivia on the end because we want to include trivia on
-                // both sides. For example,
-                //
-                //    foo(   /*comment */     a, b, c      /*comment*/     )
-                //        |                                               |
-                //
-                // The applicable span is from the first bar to the second bar (inclusive,
-                // but not including parentheses)
-                var applicableSpanStart = argumentsList.getFullStart();
-                var applicableSpanEnd = ts.skipTrivia(sourceFile.text, argumentsList.getEnd(), /*stopAfterLineBreak*/ false);
-                return ts.createTextSpan(applicableSpanStart, applicableSpanEnd - applicableSpanStart);
-            }
-            function getApplicableSpanForTaggedTemplate(taggedTemplate) {
-                var template = taggedTemplate.template;
-                var applicableSpanStart = template.getStart();
-                var applicableSpanEnd = template.getEnd();
-                // We need to adjust the end position for the case where the template does not have a tail.
-                // Otherwise, we will not show signature help past the expression.
-                // For example,
-                //
-                //      `  ${ 1 + 1        foo(10)
-                //       |        |
-                //
-                // This is because a Missing node has no width. However, what we actually want is to include trivia
-                // leading up to the next token in case the user is about to type in a TemplateMiddle or TemplateTail.
-                if (template.kind === 189 /* TemplateExpression */) {
-                    var lastSpan = ts.lastOrUndefined(template.templateSpans);
-                    if (lastSpan.literal.getFullWidth() === 0) {
-                        applicableSpanEnd = ts.skipTrivia(sourceFile.text, applicableSpanEnd, /*stopAfterLineBreak*/ false);
-                    }
-                }
-                return ts.createTextSpan(applicableSpanStart, applicableSpanEnd - applicableSpanStart);
-            }
-            function getContainingArgumentInfo(node) {
-                for (var n = node; n.kind !== 256 /* SourceFile */; n = n.parent) {
-                    if (ts.isFunctionBlock(n)) {
-                        return undefined;
-                    }
-                    // If the node is not a subspan of its parent, this is a big problem.
-                    // There have been crashes that might be caused by this violation.
-                    if (n.pos < n.parent.pos || n.end > n.parent.end) {
-                        ts.Debug.fail("Node of kind " + n.kind + " is not a subspan of its parent of kind " + n.parent.kind);
-                    }
-                    var argumentInfo_1 = getImmediatelyContainingArgumentInfo(n);
-                    if (argumentInfo_1) {
-                        return argumentInfo_1;
-                    }
-                }
-                return undefined;
-            }
-            function getChildListThatStartsWithOpenerToken(parent, openerToken, sourceFile) {
-                var children = parent.getChildren(sourceFile);
-                var indexOfOpenerToken = children.indexOf(openerToken);
-                ts.Debug.assert(indexOfOpenerToken >= 0 && children.length > indexOfOpenerToken + 1);
-                return children[indexOfOpenerToken + 1];
-            }
-            /**
-             * The selectedItemIndex could be negative for several reasons.
-             *     1. There are too many arguments for all of the overloads
-             *     2. None of the overloads were type compatible
-             * The solution here is to try to pick the best overload by picking
-             * either the first one that has an appropriate number of parameters,
-             * or the one with the most parameters.
-             */
-            function selectBestInvalidOverloadIndex(candidates, argumentCount) {
-                var maxParamsSignatureIndex = -1;
-                var maxParams = -1;
-                for (var i = 0; i < candidates.length; i++) {
-                    var candidate = candidates[i];
-                    if (candidate.hasRestParameter || candidate.parameters.length >= argumentCount) {
-                        return i;
-                    }
-                    if (candidate.parameters.length > maxParams) {
-                        maxParams = candidate.parameters.length;
-                        maxParamsSignatureIndex = i;
-                    }
-                }
-                return maxParamsSignatureIndex;
-            }
-            function createSignatureHelpItems(candidates, bestSignature, argumentListInfo) {
-                var applicableSpan = argumentListInfo.argumentsSpan;
-                var isTypeParameterList = argumentListInfo.kind === 0 /* TypeArguments */;
-                var invocation = argumentListInfo.invocation;
-                var callTarget = ts.getInvokedExpression(invocation);
-                var callTargetSymbol = typeChecker.getSymbolAtLocation(callTarget);
-                var callTargetDisplayParts = callTargetSymbol && ts.symbolToDisplayParts(typeChecker, callTargetSymbol, /*enclosingDeclaration*/ undefined, /*meaning*/ undefined);
-                var items = ts.map(candidates, function (candidateSignature) {
-                    var signatureHelpParameters;
-                    var prefixDisplayParts = [];
-                    var suffixDisplayParts = [];
-                    if (callTargetDisplayParts) {
-                        ts.addRange(prefixDisplayParts, callTargetDisplayParts);
-                    }
-                    if (isTypeParameterList) {
-                        prefixDisplayParts.push(ts.punctuationPart(25 /* LessThanToken */));
-                        var typeParameters = candidateSignature.typeParameters;
-                        signatureHelpParameters = typeParameters && typeParameters.length > 0 ? ts.map(typeParameters, createSignatureHelpParameterForTypeParameter) : emptyArray;
-                        suffixDisplayParts.push(ts.punctuationPart(27 /* GreaterThanToken */));
-                        var parameterParts = ts.mapToDisplayParts(function (writer) {
-                            return typeChecker.getSymbolDisplayBuilder().buildDisplayForParametersAndDelimiters(candidateSignature.thisType, candidateSignature.parameters, writer, invocation);
-                        });
-                        ts.addRange(suffixDisplayParts, parameterParts);
-                    }
-                    else {
-                        var typeParameterParts = ts.mapToDisplayParts(function (writer) {
-                            return typeChecker.getSymbolDisplayBuilder().buildDisplayForTypeParametersAndDelimiters(candidateSignature.typeParameters, writer, invocation);
-                        });
-                        ts.addRange(prefixDisplayParts, typeParameterParts);
-                        prefixDisplayParts.push(ts.punctuationPart(17 /* OpenParenToken */));
-                        var parameters = candidateSignature.parameters;
-                        signatureHelpParameters = parameters.length > 0 ? ts.map(parameters, createSignatureHelpParameterForParameter) : emptyArray;
-                        suffixDisplayParts.push(ts.punctuationPart(18 /* CloseParenToken */));
-                    }
-                    var returnTypeParts = ts.mapToDisplayParts(function (writer) {
-                        return typeChecker.getSymbolDisplayBuilder().buildReturnTypeDisplay(candidateSignature, writer, invocation);
-                    });
-                    ts.addRange(suffixDisplayParts, returnTypeParts);
+                //    Case 1:
+                //          foo<#T, U>(#a, b)    -> The token introduces a list, and should begin a sig help session
+                //    Case 2:
+                //          fo#o<T, U>#(a, b)#   -> The token is either not associated with a list, or ends a list, so the session should end
+                //    Case 3:
+                //          foo<T#, U#>(a#, #b#) -> The token is buried inside a list, and should give sig help
+                // Find out if 'node' is an argument, a type argument, or neither
+                if (node.kind === 25 /* LessThanToken */ ||
+                    node.kind === 17 /* OpenParenToken */) {
+                    // Find the list that starts right *after* the < or ( token.
+                    // If the user has just opened a list, consider this item 0.
+                    var list = getChildListThatStartsWithOpenerToken(callExpression, node, sourceFile);
+                    var isTypeArgList = callExpression.typeArguments && callExpression.typeArguments.pos === list.pos;
+                    ts.Debug.assert(list !== undefined);
                     return {
-                        isVariadic: candidateSignature.hasRestParameter,
-                        prefixDisplayParts: prefixDisplayParts,
-                        suffixDisplayParts: suffixDisplayParts,
-                        separatorDisplayParts: [ts.punctuationPart(24 /* CommaToken */), ts.spacePart()],
-                        parameters: signatureHelpParameters,
-                        documentation: candidateSignature.getDocumentationComment()
+                        kind: isTypeArgList ? 0 /* TypeArguments */ : 1 /* CallArguments */,
+                        invocation: callExpression,
+                        argumentsSpan: getApplicableSpanForArguments(list, sourceFile),
+                        argumentIndex: 0,
+                        argumentCount: getArgumentCount(list)
                     };
+                }
+                // findListItemInfo can return undefined if we are not in parent's argument list
+                // or type argument list. This includes cases where the cursor is:
+                //   - To the right of the closing paren, non-substitution template, or template tail.
+                //   - Between the type arguments and the arguments (greater than token)
+                //   - On the target of the call (parent.func)
+                //   - On the 'new' keyword in a 'new' expression
+                var listItemInfo = ts.findListItemInfo(node);
+                if (listItemInfo) {
+                    var list = listItemInfo.list;
+                    var isTypeArgList = callExpression.typeArguments && callExpression.typeArguments.pos === list.pos;
+                    var argumentIndex = getArgumentIndex(list, node);
+                    var argumentCount = getArgumentCount(list);
+                    ts.Debug.assert(argumentIndex === 0 || argumentIndex < argumentCount, "argumentCount < argumentIndex, " + argumentCount + " < " + argumentIndex);
+                    return {
+                        kind: isTypeArgList ? 0 /* TypeArguments */ : 1 /* CallArguments */,
+                        invocation: callExpression,
+                        argumentsSpan: getApplicableSpanForArguments(list, sourceFile),
+                        argumentIndex: argumentIndex,
+                        argumentCount: argumentCount
+                    };
+                }
+                return undefined;
+            }
+            else if (node.kind === 11 /* NoSubstitutionTemplateLiteral */ && node.parent.kind === 176 /* TaggedTemplateExpression */) {
+                // Check if we're actually inside the template;
+                // otherwise we'll fall out and return undefined.
+                if (ts.isInsideTemplateLiteral(node, position)) {
+                    return getArgumentListInfoForTemplate(node.parent, /*argumentIndex*/ 0, sourceFile);
+                }
+            }
+            else if (node.kind === 12 /* TemplateHead */ && node.parent.parent.kind === 176 /* TaggedTemplateExpression */) {
+                var templateExpression = node.parent;
+                var tagExpression = templateExpression.parent;
+                ts.Debug.assert(templateExpression.kind === 189 /* TemplateExpression */);
+                var argumentIndex = ts.isInsideTemplateLiteral(node, position) ? 0 : 1;
+                return getArgumentListInfoForTemplate(tagExpression, argumentIndex, sourceFile);
+            }
+            else if (node.parent.kind === 197 /* TemplateSpan */ && node.parent.parent.parent.kind === 176 /* TaggedTemplateExpression */) {
+                var templateSpan = node.parent;
+                var templateExpression = templateSpan.parent;
+                var tagExpression = templateExpression.parent;
+                ts.Debug.assert(templateExpression.kind === 189 /* TemplateExpression */);
+                // If we're just after a template tail, don't show signature help.
+                if (node.kind === 14 /* TemplateTail */ && !ts.isInsideTemplateLiteral(node, position)) {
+                    return undefined;
+                }
+                var spanIndex = templateExpression.templateSpans.indexOf(templateSpan);
+                var argumentIndex = getArgumentIndexForTemplatePiece(spanIndex, node, position);
+                return getArgumentListInfoForTemplate(tagExpression, argumentIndex, sourceFile);
+            }
+            return undefined;
+        }
+        function getArgumentIndex(argumentsList, node) {
+            // The list we got back can include commas.  In the presence of errors it may 
+            // also just have nodes without commas.  For example "Foo(a b c)" will have 3 
+            // args without commas.   We want to find what index we're at.  So we count
+            // forward until we hit ourselves, only incrementing the index if it isn't a
+            // comma.
+            //
+            // Note: the subtlety around trailing commas (in getArgumentCount) does not apply
+            // here.  That's because we're only walking forward until we hit the node we're
+            // on.  In that case, even if we're after the trailing comma, we'll still see
+            // that trailing comma in the list, and we'll have generated the appropriate
+            // arg index.
+            var argumentIndex = 0;
+            var listChildren = argumentsList.getChildren();
+            for (var _i = 0, listChildren_1 = listChildren; _i < listChildren_1.length; _i++) {
+                var child = listChildren_1[_i];
+                if (child === node) {
+                    break;
+                }
+                if (child.kind !== 24 /* CommaToken */) {
+                    argumentIndex++;
+                }
+            }
+            return argumentIndex;
+        }
+        function getArgumentCount(argumentsList) {
+            // The argument count for a list is normally the number of non-comma children it has.
+            // For example, if you have "Foo(a,b)" then there will be three children of the arg
+            // list 'a' '<comma>' 'b'.  So, in this case the arg count will be 2.  However, there
+            // is a small subtlety.  If you have  "Foo(a,)", then the child list will just have
+            // 'a' '<comma>'.  So, in the case where the last child is a comma, we increase the
+            // arg count by one to compensate.
+            //
+            // Note: this subtlety only applies to the last comma.  If you had "Foo(a,,"  then 
+            // we'll have:  'a' '<comma>' '<missing>' 
+            // That will give us 2 non-commas.  We then add one for the last comma, givin us an
+            // arg count of 3.
+            var listChildren = argumentsList.getChildren();
+            var argumentCount = ts.countWhere(listChildren, function (arg) { return arg.kind !== 24 /* CommaToken */; });
+            if (listChildren.length > 0 && ts.lastOrUndefined(listChildren).kind === 24 /* CommaToken */) {
+                argumentCount++;
+            }
+            return argumentCount;
+        }
+        // spanIndex is either the index for a given template span.
+        // This does not give appropriate results for a NoSubstitutionTemplateLiteral
+        function getArgumentIndexForTemplatePiece(spanIndex, node, position) {
+            // Because the TemplateStringsArray is the first argument, we have to offset each substitution expression by 1.
+            // There are three cases we can encounter:
+            //      1. We are precisely in the template literal (argIndex = 0).
+            //      2. We are in or to the right of the substitution expression (argIndex = spanIndex + 1).
+            //      3. We are directly to the right of the template literal, but because we look for the token on the left,
+            //          not enough to put us in the substitution expression; we should consider ourselves part of
+            //          the *next* span's expression by offsetting the index (argIndex = (spanIndex + 1) + 1).
+            //
+            // Example: f  `# abcd $#{#  1 + 1#  }# efghi ${ #"#hello"#  }  #  `
+            //              ^       ^ ^       ^   ^          ^ ^      ^     ^
+            // Case:        1       1 3       2   1          3 2      2     1
+            ts.Debug.assert(position >= node.getStart(), "Assumed 'position' could not occur before node.");
+            if (ts.isTemplateLiteralKind(node.kind)) {
+                if (ts.isInsideTemplateLiteral(node, position)) {
+                    return 0;
+                }
+                return spanIndex + 2;
+            }
+            return spanIndex + 1;
+        }
+        function getArgumentListInfoForTemplate(tagExpression, argumentIndex, sourceFile) {
+            // argumentCount is either 1 or (numSpans + 1) to account for the template strings array argument.
+            var argumentCount = tagExpression.template.kind === 11 /* NoSubstitutionTemplateLiteral */
+                ? 1
+                : tagExpression.template.templateSpans.length + 1;
+            ts.Debug.assert(argumentIndex === 0 || argumentIndex < argumentCount, "argumentCount < argumentIndex, " + argumentCount + " < " + argumentIndex);
+            return {
+                kind: 2 /* TaggedTemplateArguments */,
+                invocation: tagExpression,
+                argumentsSpan: getApplicableSpanForTaggedTemplate(tagExpression, sourceFile),
+                argumentIndex: argumentIndex,
+                argumentCount: argumentCount
+            };
+        }
+        function getApplicableSpanForArguments(argumentsList, sourceFile) {
+            // We use full start and skip trivia on the end because we want to include trivia on
+            // both sides. For example,
+            //
+            //    foo(   /*comment */     a, b, c      /*comment*/     )
+            //        |                                               |
+            //
+            // The applicable span is from the first bar to the second bar (inclusive,
+            // but not including parentheses)
+            var applicableSpanStart = argumentsList.getFullStart();
+            var applicableSpanEnd = ts.skipTrivia(sourceFile.text, argumentsList.getEnd(), /*stopAfterLineBreak*/ false);
+            return ts.createTextSpan(applicableSpanStart, applicableSpanEnd - applicableSpanStart);
+        }
+        function getApplicableSpanForTaggedTemplate(taggedTemplate, sourceFile) {
+            var template = taggedTemplate.template;
+            var applicableSpanStart = template.getStart();
+            var applicableSpanEnd = template.getEnd();
+            // We need to adjust the end position for the case where the template does not have a tail.
+            // Otherwise, we will not show signature help past the expression.
+            // For example,
+            //
+            //      `  ${ 1 + 1        foo(10)
+            //       |        |
+            //
+            // This is because a Missing node has no width. However, what we actually want is to include trivia
+            // leading up to the next token in case the user is about to type in a TemplateMiddle or TemplateTail.
+            if (template.kind === 189 /* TemplateExpression */) {
+                var lastSpan = ts.lastOrUndefined(template.templateSpans);
+                if (lastSpan.literal.getFullWidth() === 0) {
+                    applicableSpanEnd = ts.skipTrivia(sourceFile.text, applicableSpanEnd, /*stopAfterLineBreak*/ false);
+                }
+            }
+            return ts.createTextSpan(applicableSpanStart, applicableSpanEnd - applicableSpanStart);
+        }
+        function getContainingArgumentInfo(node, position, sourceFile) {
+            for (var n = node; n.kind !== 256 /* SourceFile */; n = n.parent) {
+                if (ts.isFunctionBlock(n)) {
+                    return undefined;
+                }
+                // If the node is not a subspan of its parent, this is a big problem.
+                // There have been crashes that might be caused by this violation.
+                if (n.pos < n.parent.pos || n.end > n.parent.end) {
+                    ts.Debug.fail("Node of kind " + n.kind + " is not a subspan of its parent of kind " + n.parent.kind);
+                }
+                var argumentInfo = getImmediatelyContainingArgumentInfo(n, position, sourceFile);
+                if (argumentInfo) {
+                    return argumentInfo;
+                }
+            }
+            return undefined;
+        }
+        SignatureHelp.getContainingArgumentInfo = getContainingArgumentInfo;
+        function getChildListThatStartsWithOpenerToken(parent, openerToken, sourceFile) {
+            var children = parent.getChildren(sourceFile);
+            var indexOfOpenerToken = children.indexOf(openerToken);
+            ts.Debug.assert(indexOfOpenerToken >= 0 && children.length > indexOfOpenerToken + 1);
+            return children[indexOfOpenerToken + 1];
+        }
+        /**
+         * The selectedItemIndex could be negative for several reasons.
+         *     1. There are too many arguments for all of the overloads
+         *     2. None of the overloads were type compatible
+         * The solution here is to try to pick the best overload by picking
+         * either the first one that has an appropriate number of parameters,
+         * or the one with the most parameters.
+         */
+        function selectBestInvalidOverloadIndex(candidates, argumentCount) {
+            var maxParamsSignatureIndex = -1;
+            var maxParams = -1;
+            for (var i = 0; i < candidates.length; i++) {
+                var candidate = candidates[i];
+                if (candidate.hasRestParameter || candidate.parameters.length >= argumentCount) {
+                    return i;
+                }
+                if (candidate.parameters.length > maxParams) {
+                    maxParams = candidate.parameters.length;
+                    maxParamsSignatureIndex = i;
+                }
+            }
+            return maxParamsSignatureIndex;
+        }
+        function createSignatureHelpItems(candidates, bestSignature, argumentListInfo, typeChecker) {
+            var applicableSpan = argumentListInfo.argumentsSpan;
+            var isTypeParameterList = argumentListInfo.kind === 0 /* TypeArguments */;
+            var invocation = argumentListInfo.invocation;
+            var callTarget = ts.getInvokedExpression(invocation);
+            var callTargetSymbol = typeChecker.getSymbolAtLocation(callTarget);
+            var callTargetDisplayParts = callTargetSymbol && ts.symbolToDisplayParts(typeChecker, callTargetSymbol, /*enclosingDeclaration*/ undefined, /*meaning*/ undefined);
+            var items = ts.map(candidates, function (candidateSignature) {
+                var signatureHelpParameters;
+                var prefixDisplayParts = [];
+                var suffixDisplayParts = [];
+                if (callTargetDisplayParts) {
+                    ts.addRange(prefixDisplayParts, callTargetDisplayParts);
+                }
+                if (isTypeParameterList) {
+                    prefixDisplayParts.push(ts.punctuationPart(25 /* LessThanToken */));
+                    var typeParameters = candidateSignature.typeParameters;
+                    signatureHelpParameters = typeParameters && typeParameters.length > 0 ? ts.map(typeParameters, createSignatureHelpParameterForTypeParameter) : emptyArray;
+                    suffixDisplayParts.push(ts.punctuationPart(27 /* GreaterThanToken */));
+                    var parameterParts = ts.mapToDisplayParts(function (writer) {
+                        return typeChecker.getSymbolDisplayBuilder().buildDisplayForParametersAndDelimiters(candidateSignature.thisType, candidateSignature.parameters, writer, invocation);
+                    });
+                    ts.addRange(suffixDisplayParts, parameterParts);
+                }
+                else {
+                    var typeParameterParts = ts.mapToDisplayParts(function (writer) {
+                        return typeChecker.getSymbolDisplayBuilder().buildDisplayForTypeParametersAndDelimiters(candidateSignature.typeParameters, writer, invocation);
+                    });
+                    ts.addRange(prefixDisplayParts, typeParameterParts);
+                    prefixDisplayParts.push(ts.punctuationPart(17 /* OpenParenToken */));
+                    var parameters = candidateSignature.parameters;
+                    signatureHelpParameters = parameters.length > 0 ? ts.map(parameters, createSignatureHelpParameterForParameter) : emptyArray;
+                    suffixDisplayParts.push(ts.punctuationPart(18 /* CloseParenToken */));
+                }
+                var returnTypeParts = ts.mapToDisplayParts(function (writer) {
+                    return typeChecker.getSymbolDisplayBuilder().buildReturnTypeDisplay(candidateSignature, writer, invocation);
                 });
-                var argumentIndex = argumentListInfo.argumentIndex;
-                // argumentCount is the *apparent* number of arguments.
-                var argumentCount = argumentListInfo.argumentCount;
-                var selectedItemIndex = candidates.indexOf(bestSignature);
-                if (selectedItemIndex < 0) {
-                    selectedItemIndex = selectBestInvalidOverloadIndex(candidates, argumentCount);
-                }
-                ts.Debug.assert(argumentIndex === 0 || argumentIndex < argumentCount, "argumentCount < argumentIndex, " + argumentCount + " < " + argumentIndex);
+                ts.addRange(suffixDisplayParts, returnTypeParts);
                 return {
-                    items: items,
-                    applicableSpan: applicableSpan,
-                    selectedItemIndex: selectedItemIndex,
-                    argumentIndex: argumentIndex,
-                    argumentCount: argumentCount
+                    isVariadic: candidateSignature.hasRestParameter,
+                    prefixDisplayParts: prefixDisplayParts,
+                    suffixDisplayParts: suffixDisplayParts,
+                    separatorDisplayParts: [ts.punctuationPart(24 /* CommaToken */), ts.spacePart()],
+                    parameters: signatureHelpParameters,
+                    documentation: candidateSignature.getDocumentationComment()
                 };
-                function createSignatureHelpParameterForParameter(parameter) {
-                    var displayParts = ts.mapToDisplayParts(function (writer) {
-                        return typeChecker.getSymbolDisplayBuilder().buildParameterDisplay(parameter, writer, invocation);
-                    });
-                    return {
-                        name: parameter.name,
-                        documentation: parameter.getDocumentationComment(),
-                        displayParts: displayParts,
-                        isOptional: typeChecker.isOptionalParameter(parameter.valueDeclaration)
-                    };
-                }
-                function createSignatureHelpParameterForTypeParameter(typeParameter) {
-                    var displayParts = ts.mapToDisplayParts(function (writer) {
-                        return typeChecker.getSymbolDisplayBuilder().buildTypeParameterDisplay(typeParameter, writer, invocation);
-                    });
-                    return {
-                        name: typeParameter.symbol.name,
-                        documentation: emptyArray,
-                        displayParts: displayParts,
-                        isOptional: false
-                    };
-                }
+            });
+            var argumentIndex = argumentListInfo.argumentIndex;
+            // argumentCount is the *apparent* number of arguments.
+            var argumentCount = argumentListInfo.argumentCount;
+            var selectedItemIndex = candidates.indexOf(bestSignature);
+            if (selectedItemIndex < 0) {
+                selectedItemIndex = selectBestInvalidOverloadIndex(candidates, argumentCount);
+            }
+            ts.Debug.assert(argumentIndex === 0 || argumentIndex < argumentCount, "argumentCount < argumentIndex, " + argumentCount + " < " + argumentIndex);
+            return {
+                items: items,
+                applicableSpan: applicableSpan,
+                selectedItemIndex: selectedItemIndex,
+                argumentIndex: argumentIndex,
+                argumentCount: argumentCount
+            };
+            function createSignatureHelpParameterForParameter(parameter) {
+                var displayParts = ts.mapToDisplayParts(function (writer) {
+                    return typeChecker.getSymbolDisplayBuilder().buildParameterDisplay(parameter, writer, invocation);
+                });
+                return {
+                    name: parameter.name,
+                    documentation: parameter.getDocumentationComment(),
+                    displayParts: displayParts,
+                    isOptional: typeChecker.isOptionalParameter(parameter.valueDeclaration)
+                };
+            }
+            function createSignatureHelpParameterForTypeParameter(typeParameter) {
+                var displayParts = ts.mapToDisplayParts(function (writer) {
+                    return typeChecker.getSymbolDisplayBuilder().buildTypeParameterDisplay(typeParameter, writer, invocation);
+                });
+                return {
+                    name: typeParameter.symbol.name,
+                    documentation: emptyArray,
+                    displayParts: displayParts,
+                    isOptional: false
+                };
             }
         }
-        SignatureHelp.getSignatureHelpItems = getSignatureHelpItems;
     })(SignatureHelp = ts.SignatureHelp || (ts.SignatureHelp = {}));
 })(ts || (ts = {}));
 // These utilities are common to multiple language service features.
@@ -47804,8 +47874,23 @@ var ts;
     }
     ts.findPrecedingToken = findPrecedingToken;
     function isInString(sourceFile, position) {
-        var token = getTokenAtPosition(sourceFile, position);
-        return token && (token.kind === 9 /* StringLiteral */ || token.kind === 166 /* StringLiteralType */) && position > token.getStart(sourceFile);
+        var previousToken = findPrecedingToken(position, sourceFile);
+        if (previousToken &&
+            (previousToken.kind === 9 /* StringLiteral */ || previousToken.kind === 166 /* StringLiteralType */)) {
+            var start = previousToken.getStart();
+            var end = previousToken.getEnd();
+            // To be "in" one of these literals, the position has to be:
+            //   1. entirely within the token text.
+            //   2. at the end position of an unterminated token.
+            //   3. at the end of a regular expression (due to trailing flags like '/foo/g').
+            if (start < position && position < end) {
+                return true;
+            }
+            if (position === end) {
+                return !!previousToken.isUnterminated;
+            }
+        }
+        return false;
     }
     ts.isInString = isInString;
     function isInComment(sourceFile, position) {
@@ -51450,34 +51535,48 @@ var ts;
                 // The property length will have two declarations of property length coming
                 // from Array<T> - Array<string> and Array<number>
                 if (ts.indexOf(declarations, declaration) === indexOfDeclaration) {
-                    var sourceFileOfDeclaration_1 = ts.getSourceFileOfNode(declaration);
+                    var sourceFileOfDeclaration = ts.getSourceFileOfNode(declaration);
                     // If it is parameter - try and get the jsDoc comment with @param tag from function declaration's jsDoc comments
                     if (canUseParsedParamTagComments && declaration.kind === 142 /* Parameter */) {
-                        ts.forEach(getJsDocCommentTextRange(declaration.parent, sourceFileOfDeclaration_1), function (jsDocCommentTextRange) {
-                            var cleanedParamJsDocComment = getCleanedParamJsDocComment(jsDocCommentTextRange.pos, jsDocCommentTextRange.end, sourceFileOfDeclaration_1);
-                            if (cleanedParamJsDocComment) {
-                                ts.addRange(jsDocCommentParts, cleanedParamJsDocComment);
-                            }
-                        });
+                        if ((declaration.parent.kind === 179 /* FunctionExpression */ || declaration.parent.kind === 180 /* ArrowFunction */) &&
+                            declaration.parent.parent.kind === 218 /* VariableDeclaration */) {
+                            addCommentParts(declaration.parent.parent.parent, sourceFileOfDeclaration, getCleanedParamJsDocComment);
+                        }
+                        addCommentParts(declaration.parent, sourceFileOfDeclaration, getCleanedParamJsDocComment);
                     }
                     // If this is left side of dotted module declaration, there is no doc comments associated with this node
                     if (declaration.kind === 225 /* ModuleDeclaration */ && declaration.body.kind === 225 /* ModuleDeclaration */) {
                         return;
                     }
+                    if ((declaration.kind === 179 /* FunctionExpression */ || declaration.kind === 180 /* ArrowFunction */) &&
+                        declaration.parent.kind === 218 /* VariableDeclaration */) {
+                        addCommentParts(declaration.parent.parent, sourceFileOfDeclaration, getCleanedJsDocComment);
+                    }
                     // If this is dotted module name, get the doc comments from the parent
                     while (declaration.kind === 225 /* ModuleDeclaration */ && declaration.parent.kind === 225 /* ModuleDeclaration */) {
                         declaration = declaration.parent;
                     }
-                    // Get the cleaned js doc comment text from the declaration
-                    ts.forEach(getJsDocCommentTextRange(declaration.kind === 218 /* VariableDeclaration */ ? declaration.parent.parent : declaration, sourceFileOfDeclaration_1), function (jsDocCommentTextRange) {
-                        var cleanedJsDocComment = getCleanedJsDocComment(jsDocCommentTextRange.pos, jsDocCommentTextRange.end, sourceFileOfDeclaration_1);
-                        if (cleanedJsDocComment) {
-                            ts.addRange(jsDocCommentParts, cleanedJsDocComment);
+                    addCommentParts(declaration.kind === 218 /* VariableDeclaration */ ? declaration.parent.parent : declaration, sourceFileOfDeclaration, getCleanedJsDocComment);
+                    if (declaration.kind === 218 /* VariableDeclaration */) {
+                        var init = declaration.initializer;
+                        if (init && (init.kind === 179 /* FunctionExpression */ || init.kind === 180 /* ArrowFunction */)) {
+                            // Get the cleaned js doc comment text from the initializer
+                            addCommentParts(init, sourceFileOfDeclaration, getCleanedJsDocComment);
                         }
-                    });
+                    }
                 }
             });
             return jsDocCommentParts;
+            function addCommentParts(commented, sourceFileOfDeclaration, getCommentPart) {
+                var ranges = getJsDocCommentTextRange(commented, sourceFileOfDeclaration);
+                // Get the cleaned js doc comment text from the declaration
+                ts.forEach(ranges, function (jsDocCommentTextRange) {
+                    var cleanedComment = getCommentPart(jsDocCommentTextRange.pos, jsDocCommentTextRange.end, sourceFileOfDeclaration);
+                    if (cleanedComment) {
+                        ts.addRange(jsDocCommentParts, cleanedComment);
+                    }
+                });
+            }
             function getJsDocCommentTextRange(node, sourceFile) {
                 return ts.map(ts.getJsDocComments(node, sourceFile), function (jsDocComment) {
                     return {
@@ -53168,6 +53267,7 @@ var ts;
             var changesInCompilationSettingsAffectSyntax = oldSettings &&
                 (oldSettings.target !== newSettings.target ||
                     oldSettings.module !== newSettings.module ||
+                    oldSettings.moduleResolution !== newSettings.moduleResolution ||
                     oldSettings.noResolve !== newSettings.noResolve ||
                     oldSettings.jsx !== newSettings.jsx ||
                     oldSettings.allowJs !== newSettings.allowJs);
@@ -54114,6 +54214,10 @@ var ts;
         }
         function getCompletionsAtPosition(fileName, position) {
             synchronizeHostData();
+            var sourceFile = getValidSourceFile(fileName);
+            if (ts.isInString(sourceFile, position)) {
+                return getStringLiteralCompletionEntries(sourceFile, position);
+            }
             var completionData = getCompletionData(fileName, position);
             if (!completionData) {
                 return undefined;
@@ -54123,10 +54227,9 @@ var ts;
                 // If the current position is a jsDoc tag name, only tag names should be provided for completion
                 return { isMemberCompletion: false, isNewIdentifierLocation: false, entries: getAllJsDocCompletionEntries() };
             }
-            var sourceFile = getValidSourceFile(fileName);
             var entries = [];
             if (ts.isSourceFileJavaScript(sourceFile)) {
-                var uniqueNames = getCompletionEntriesFromSymbols(symbols, entries);
+                var uniqueNames = getCompletionEntriesFromSymbols(symbols, entries, location, /*performCharacterChecks*/ false);
                 ts.addRange(entries, getJavaScriptCompletionEntries(sourceFile, location.pos, uniqueNames));
             }
             else {
@@ -54149,7 +54252,7 @@ var ts;
                         return undefined;
                     }
                 }
-                getCompletionEntriesFromSymbols(symbols, entries);
+                getCompletionEntriesFromSymbols(symbols, entries, location, /*performCharacterChecks*/ true);
             }
             // Add keywords if this is not a member completion list
             if (!isMemberCompletion && !isJsDocTagName) {
@@ -54191,11 +54294,11 @@ var ts;
                     };
                 }));
             }
-            function createCompletionEntry(symbol, location) {
+            function createCompletionEntry(symbol, location, performCharacterChecks) {
                 // Try to get a valid display name for this symbol, if we could not find one, then ignore it.
                 // We would like to only show things that can be added after a dot, so for instance numeric properties can
                 // not be accessed with a dot (a.1 <- invalid)
-                var displayName = getCompletionEntryDisplayNameForSymbol(symbol, program.getCompilerOptions().target, /*performCharacterChecks*/ true, location);
+                var displayName = getCompletionEntryDisplayNameForSymbol(symbol, program.getCompilerOptions().target, performCharacterChecks, location);
                 if (!displayName) {
                     return undefined;
                 }
@@ -54213,13 +54316,13 @@ var ts;
                     sortText: "0",
                 };
             }
-            function getCompletionEntriesFromSymbols(symbols, entries) {
+            function getCompletionEntriesFromSymbols(symbols, entries, location, performCharacterChecks) {
                 var start = new Date().getTime();
                 var uniqueNames = {};
                 if (symbols) {
                     for (var _i = 0, symbols_4 = symbols; _i < symbols_4.length; _i++) {
                         var symbol = symbols_4[_i];
-                        var entry = createCompletionEntry(symbol, location);
+                        var entry = createCompletionEntry(symbol, location, performCharacterChecks);
                         if (entry) {
                             var id = ts.escapeIdentifier(entry.name);
                             if (!ts.lookUp(uniqueNames, id)) {
@@ -54231,6 +54334,84 @@ var ts;
                 }
                 log("getCompletionsAtPosition: getCompletionEntriesFromSymbols: " + (new Date().getTime() - start));
                 return uniqueNames;
+            }
+            function getStringLiteralCompletionEntries(sourceFile, position) {
+                var node = ts.findPrecedingToken(position, sourceFile);
+                if (!node || node.kind !== 9 /* StringLiteral */) {
+                    return undefined;
+                }
+                var argumentInfo = ts.SignatureHelp.getContainingArgumentInfo(node, position, sourceFile);
+                if (argumentInfo) {
+                    // Get string literal completions from specialized signatures of the target
+                    return getStringLiteralCompletionEntriesFromCallExpression(argumentInfo);
+                }
+                else if (ts.isElementAccessExpression(node.parent) && node.parent.argumentExpression === node) {
+                    // Get all names of properties on the expression
+                    return getStringLiteralCompletionEntriesFromElementAccess(node.parent);
+                }
+                else {
+                    // Otherwise, get the completions from the contextual type if one exists
+                    return getStringLiteralCompletionEntriesFromContextualType(node);
+                }
+            }
+            function getStringLiteralCompletionEntriesFromCallExpression(argumentInfo) {
+                var typeChecker = program.getTypeChecker();
+                var candidates = [];
+                var entries = [];
+                typeChecker.getResolvedSignature(argumentInfo.invocation, candidates);
+                for (var _i = 0, candidates_3 = candidates; _i < candidates_3.length; _i++) {
+                    var candidate = candidates_3[_i];
+                    if (candidate.parameters.length > argumentInfo.argumentIndex) {
+                        var parameter = candidate.parameters[argumentInfo.argumentIndex];
+                        addStringLiteralCompletionsFromType(typeChecker.getTypeAtLocation(parameter.valueDeclaration), entries);
+                    }
+                }
+                if (entries.length) {
+                    return { isMemberCompletion: false, isNewIdentifierLocation: true, entries: entries };
+                }
+                return undefined;
+            }
+            function getStringLiteralCompletionEntriesFromElementAccess(node) {
+                var typeChecker = program.getTypeChecker();
+                var type = typeChecker.getTypeAtLocation(node.expression);
+                var entries = [];
+                if (type) {
+                    getCompletionEntriesFromSymbols(type.getApparentProperties(), entries, node, /*performCharacterChecks*/ false);
+                    if (entries.length) {
+                        return { isMemberCompletion: true, isNewIdentifierLocation: true, entries: entries };
+                    }
+                }
+                return undefined;
+            }
+            function getStringLiteralCompletionEntriesFromContextualType(node) {
+                var typeChecker = program.getTypeChecker();
+                var type = typeChecker.getContextualType(node);
+                if (type) {
+                    var entries_1 = [];
+                    addStringLiteralCompletionsFromType(type, entries_1);
+                    if (entries_1.length) {
+                        return { isMemberCompletion: false, isNewIdentifierLocation: false, entries: entries_1 };
+                    }
+                }
+                return undefined;
+            }
+            function addStringLiteralCompletionsFromType(type, result) {
+                if (!type) {
+                    return;
+                }
+                if (type.flags & 16384 /* Union */) {
+                    ts.forEach(type.types, function (t) { return addStringLiteralCompletionsFromType(t, result); });
+                }
+                else {
+                    if (type.flags & 256 /* StringLiteral */) {
+                        result.push({
+                            name: type.text,
+                            kindModifiers: ScriptElementKindModifier.none,
+                            kind: ScriptElementKind.variableElement,
+                            sortText: "0"
+                        });
+                    }
+                }
             }
         }
         function getCompletionEntryDetails(fileName, position, entryName) {
@@ -54960,10 +55141,10 @@ var ts;
         function getOccurrencesAtPosition(fileName, position) {
             var results = getOccurrencesAtPositionCore(fileName, position);
             if (results) {
-                var sourceFile_3 = getCanonicalFileName(ts.normalizeSlashes(fileName));
+                var sourceFile_2 = getCanonicalFileName(ts.normalizeSlashes(fileName));
                 // Get occurrences only supports reporting occurrences for the file queried.  So
                 // filter down to that list.
-                results = ts.filter(results, function (r) { return getCanonicalFileName(ts.normalizeSlashes(r.fileName)) === sourceFile_3; });
+                results = ts.filter(results, function (r) { return getCanonicalFileName(ts.normalizeSlashes(r.fileName)) === sourceFile_2; });
             }
             return results;
         }
@@ -57470,8 +57651,8 @@ var ts;
             }
             function isDefinedInLibraryFile(declaration) {
                 if (defaultLibFileName) {
-                    var sourceFile_4 = declaration.getSourceFile();
-                    var canonicalName = getCanonicalFileName(ts.normalizePath(sourceFile_4.fileName));
+                    var sourceFile_3 = declaration.getSourceFile();
+                    var canonicalName = getCanonicalFileName(ts.normalizePath(sourceFile_3.fileName));
                     if (canonicalName === canonicalDefaultLibName) {
                         return true;
                     }

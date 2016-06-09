@@ -1573,6 +1573,7 @@ declare namespace ts {
         ObjectLiteralPatternWithComputedProperties = 67108864,
         Never = 134217728,
         Nullable = 96,
+        Falsy = 126,
         Intrinsic = 150995071,
         Primitive = 16777726,
         StringLike = 258,
@@ -1753,74 +1754,73 @@ declare namespace ts {
     type TsConfigOnlyOptions = RootPaths | PathSubstitutions;
     type CompilerOptionsValue = string | number | boolean | (string | number)[] | TsConfigOnlyOptions;
     interface CompilerOptions {
+        allowJs?: boolean;
         allowNonTsExtensions?: boolean;
+        allowSyntheticDefaultImports?: boolean;
+        allowUnreachableCode?: boolean;
+        allowUnusedLabels?: boolean;
+        baseUrl?: string;
         charset?: string;
+        configFilePath?: string;
         declaration?: boolean;
         declarationDir?: string;
         diagnostics?: boolean;
         emitBOM?: boolean;
+        emitDecoratorMetadata?: boolean;
+        experimentalDecorators?: boolean;
+        forceConsistentCasingInFileNames?: boolean;
         help?: boolean;
         init?: boolean;
         inlineSourceMap?: boolean;
         inlineSources?: boolean;
+        isolatedModules?: boolean;
         jsx?: JsxEmit;
-        reactNamespace?: string;
+        lib?: string[];
+        listEmittedFiles?: boolean;
         listFiles?: boolean;
-        typesSearchPaths?: string[];
         locale?: string;
         mapRoot?: string;
         module?: ModuleKind;
+        moduleResolution?: ModuleResolutionKind;
         newLine?: NewLineKind;
         noEmit?: boolean;
         noEmitHelpers?: boolean;
         noEmitOnError?: boolean;
         noErrorTruncation?: boolean;
+        noFallthroughCasesInSwitch?: boolean;
         noImplicitAny?: boolean;
+        noImplicitReturns?: boolean;
         noImplicitThis?: boolean;
+        noImplicitUseStrict?: boolean;
         noLib?: boolean;
         noResolve?: boolean;
         out?: string;
-        outFile?: string;
         outDir?: string;
+        outFile?: string;
+        paths?: PathSubstitutions;
         preserveConstEnums?: boolean;
-        pretty?: DiagnosticStyle;
         project?: string;
+        pretty?: DiagnosticStyle;
+        reactNamespace?: string;
         removeComments?: boolean;
         rootDir?: string;
+        rootDirs?: RootPaths;
+        skipLibCheck?: boolean;
+        skipDefaultLibCheck?: boolean;
         sourceMap?: boolean;
         sourceRoot?: string;
+        strictNullChecks?: boolean;
+        stripInternal?: boolean;
         suppressExcessPropertyErrors?: boolean;
         suppressImplicitAnyIndexErrors?: boolean;
+        suppressOutputPathCheck?: boolean;
         target?: ScriptTarget;
+        traceResolution?: boolean;
+        types?: string[];
+        typesRoot?: string;
+        typesSearchPaths?: string[];
         version?: boolean;
         watch?: boolean;
-        isolatedModules?: boolean;
-        experimentalDecorators?: boolean;
-        emitDecoratorMetadata?: boolean;
-        moduleResolution?: ModuleResolutionKind;
-        allowUnusedLabels?: boolean;
-        allowUnreachableCode?: boolean;
-        noImplicitReturns?: boolean;
-        noFallthroughCasesInSwitch?: boolean;
-        forceConsistentCasingInFileNames?: boolean;
-        baseUrl?: string;
-        paths?: PathSubstitutions;
-        rootDirs?: RootPaths;
-        traceResolution?: boolean;
-        allowSyntheticDefaultImports?: boolean;
-        allowJs?: boolean;
-        noImplicitUseStrict?: boolean;
-        strictNullChecks?: boolean;
-        skipLibCheck?: boolean;
-        listEmittedFiles?: boolean;
-        lib?: string[];
-        stripInternal?: boolean;
-        skipDefaultLibCheck?: boolean;
-        suppressOutputPathCheck?: boolean;
-        configFilePath?: string;
-        typesRoot?: string;
-        types?: string[];
-        list?: string[];
         [option: string]: CompilerOptionsValue | undefined;
     }
     interface TypingOptions {
@@ -2247,7 +2247,7 @@ declare namespace ts {
 }
 declare namespace ts {
     type FileWatcherCallback = (fileName: string, removed?: boolean) => void;
-    type DirectoryWatcherCallback = (directoryName: string) => void;
+    type DirectoryWatcherCallback = (fileName: string) => void;
     interface WatchedFile {
         fileName: string;
         callback: FileWatcherCallback;
@@ -7327,7 +7327,20 @@ declare namespace ts {
     function breakIntoWordSpans(identifier: string): TextSpan[];
 }
 declare namespace ts.SignatureHelp {
+    enum ArgumentListKind {
+        TypeArguments = 0,
+        CallArguments = 1,
+        TaggedTemplateArguments = 2,
+    }
+    interface ArgumentListInfo {
+        kind: ArgumentListKind;
+        invocation: CallLikeExpression;
+        argumentsSpan: TextSpan;
+        argumentIndex?: number;
+        argumentCount: number;
+    }
     function getSignatureHelpItems(program: Program, sourceFile: SourceFile, position: number, cancellationToken: CancellationToken): SignatureHelpItems;
+    function getContainingArgumentInfo(node: Node, position: number, sourceFile: SourceFile): ArgumentListInfo;
 }
 declare namespace ts {
     interface ListItemInfo {
