@@ -1681,13 +1681,22 @@ var ts;
     function removeFileExtension(path) {
         for (var _i = 0, extensionsToRemove_1 = extensionsToRemove; _i < extensionsToRemove_1.length; _i++) {
             var ext = extensionsToRemove_1[_i];
-            if (fileExtensionIs(path, ext)) {
-                return path.substr(0, path.length - ext.length);
+            var extensionless = tryRemoveExtension(path, ext);
+            if (extensionless !== undefined) {
+                return extensionless;
             }
         }
         return path;
     }
     ts.removeFileExtension = removeFileExtension;
+    function tryRemoveExtension(path, extension) {
+        return fileExtensionIs(path, extension) ? path.substring(0, path.length - extension.length) : undefined;
+    }
+    ts.tryRemoveExtension = tryRemoveExtension;
+    function isJsxOrTsxExtension(ext) {
+        return ext === ".jsx" || ext === ".tsx";
+    }
+    ts.isJsxOrTsxExtension = isJsxOrTsxExtension;
     function Symbol(flags, name) {
         this.flags = flags;
         this.name = name;
@@ -5691,7 +5700,7 @@ var ts;
         Could_not_write_file_0_Colon_1: { code: 5033, category: ts.DiagnosticCategory.Error, key: "Could_not_write_file_0_Colon_1_5033", message: "Could not write file '{0}': {1}" },
         Option_project_cannot_be_mixed_with_source_files_on_a_command_line: { code: 5042, category: ts.DiagnosticCategory.Error, key: "Option_project_cannot_be_mixed_with_source_files_on_a_command_line_5042", message: "Option 'project' cannot be mixed with source files on a command line." },
         Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES2015_or_higher: { code: 5047, category: ts.DiagnosticCategory.Error, key: "Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES_5047", message: "Option 'isolatedModules' can only be used when either option '--module' is provided or option 'target' is 'ES2015' or higher." },
-        Option_inlineSources_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided: { code: 5051, category: ts.DiagnosticCategory.Error, key: "Option_inlineSources_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_prov_5051", message: "Option 'inlineSources' can only be used when either option '--inlineSourceMap' or option '--sourceMap' is provided." },
+        Option_0_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided: { code: 5051, category: ts.DiagnosticCategory.Error, key: "Option_0_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided_5051", message: "Option '{0} can only be used when either option '--inlineSourceMap' or option '--sourceMap' is provided." },
         Option_0_cannot_be_specified_without_specifying_option_1: { code: 5052, category: ts.DiagnosticCategory.Error, key: "Option_0_cannot_be_specified_without_specifying_option_1_5052", message: "Option '{0}' cannot be specified without specifying option '{1}'." },
         Option_0_cannot_be_specified_with_option_1: { code: 5053, category: ts.DiagnosticCategory.Error, key: "Option_0_cannot_be_specified_with_option_1_5053", message: "Option '{0}' cannot be specified with option '{1}'." },
         A_tsconfig_json_file_is_already_defined_at_Colon_0: { code: 5054, category: ts.DiagnosticCategory.Error, key: "A_tsconfig_json_file_is_already_defined_at_Colon_0_5054", message: "A 'tsconfig.json' file is already defined at: '{0}'." },
@@ -5819,6 +5828,7 @@ var ts;
         The_config_file_0_found_doesn_t_contain_any_source_files: { code: 6129, category: ts.DiagnosticCategory.Error, key: "The_config_file_0_found_doesn_t_contain_any_source_files_6129", message: "The config file '{0}' found doesn't contain any source files." },
         Resolving_real_path_for_0_result_1: { code: 6130, category: ts.DiagnosticCategory.Message, key: "Resolving_real_path_for_0_result_1_6130", message: "Resolving real path for '{0}', result '{1}'" },
         Cannot_compile_modules_using_option_0_unless_the_module_flag_is_amd_or_system: { code: 6131, category: ts.DiagnosticCategory.Error, key: "Cannot_compile_modules_using_option_0_unless_the_module_flag_is_amd_or_system_6131", message: "Cannot compile modules using option '{0}' unless the '--module' flag is 'amd' or 'system'." },
+        File_name_0_has_a_1_extension_stripping_it: { code: 6132, category: ts.DiagnosticCategory.Message, key: "File_name_0_has_a_1_extension_stripping_it_6132", message: "File name '{0}' has a '{1}' extension - stripping it" },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter_0_implicitly_has_an_1_type_7006", message: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member_0_implicitly_has_an_1_type_7008", message: "Member '{0}' implicitly has an '{1}' type." },
@@ -14766,7 +14776,7 @@ var ts;
         }
         function declareSymbolAndAddToSymbolTable(node, symbolFlags, symbolExcludes) {
             // Just call this directly so that the return type of this function stays "void".
-            declareSymbolAndAddToSymbolTableWorker(node, symbolFlags, symbolExcludes);
+            return declareSymbolAndAddToSymbolTableWorker(node, symbolFlags, symbolExcludes);
         }
         function declareSymbolAndAddToSymbolTableWorker(node, symbolFlags, symbolExcludes) {
             switch (container.kind) {
@@ -14860,7 +14870,20 @@ var ts;
                     declareSymbolAndAddToSymbolTable(node, 1024 /* NamespaceModule */, 0 /* NamespaceModuleExcludes */);
                 }
                 else {
-                    declareSymbolAndAddToSymbolTable(node, 512 /* ValueModule */, 106639 /* ValueModuleExcludes */);
+                    var pattern = void 0;
+                    if (node.name.kind === 9 /* StringLiteral */) {
+                        var text = node.name.text;
+                        if (ts.hasZeroOrOneAsteriskCharacter(text)) {
+                            pattern = ts.tryParsePattern(text);
+                        }
+                        else {
+                            errorOnFirstToken(node.name, ts.Diagnostics.Pattern_0_can_have_at_most_one_Asterisk_character, text);
+                        }
+                    }
+                    var symbol = declareSymbolAndAddToSymbolTable(node, 512 /* ValueModule */, 106639 /* ValueModuleExcludes */);
+                    if (pattern) {
+                        (file.patternAmbientModules || (file.patternAmbientModules = [])).push({ pattern: pattern, symbol: symbol });
+                    }
                 }
             }
             else {
@@ -15553,10 +15576,10 @@ var ts;
             checkStrictModeFunctionName(node);
             if (inStrictMode) {
                 checkStrictModeFunctionDeclaration(node);
-                return bindBlockScopedDeclaration(node, 16 /* Function */, 106927 /* FunctionExcludes */);
+                bindBlockScopedDeclaration(node, 16 /* Function */, 106927 /* FunctionExcludes */);
             }
             else {
-                return declareSymbolAndAddToSymbolTable(node, 16 /* Function */, 106927 /* FunctionExcludes */);
+                declareSymbolAndAddToSymbolTable(node, 16 /* Function */, 106927 /* FunctionExcludes */);
             }
         }
         function bindFunctionExpression(node) {
@@ -15755,6 +15778,12 @@ var ts;
         var unknownSignature = createSignature(undefined, undefined, undefined, emptyArray, unknownType, /*typePredicate*/ undefined, 0, /*hasRestParameter*/ false, /*hasStringLiterals*/ false);
         var enumNumberIndexInfo = createIndexInfo(stringType, /*isReadonly*/ true);
         var globals = {};
+        /**
+         * List of every ambient module with a "*" wildcard.
+         * Unlike other ambient modules, these can't be stored in `globals` because symbol tables only deal with exact matches.
+         * This is only used if there is no exact match.
+        */
+        var patternAmbientModules;
         var getGlobalESSymbolConstructorSymbol;
         var getGlobalPromiseConstructorSymbol;
         var globalObjectType;
@@ -16807,6 +16836,12 @@ var ts;
                     error(moduleReferenceLiteral, ts.Diagnostics.File_0_is_not_a_module, sourceFile.fileName);
                 }
                 return undefined;
+            }
+            if (patternAmbientModules) {
+                var pattern = ts.findBestPatternMatch(patternAmbientModules, function (_) { return _.pattern; }, moduleName);
+                if (pattern) {
+                    return getMergedSymbol(pattern.symbol);
+                }
             }
             if (moduleNotFoundError) {
                 // report errors only if it was requested
@@ -22981,7 +23016,7 @@ var ts;
                 var targetType = type.flags & 512 /* TypeParameter */ ? getApparentType(type) : type;
                 return isTypeAssignableTo(candidate, targetType) ? candidate :
                     isTypeAssignableTo(type, candidate) ? type :
-                        neverType;
+                        getIntersectionType([type, candidate]);
             }
             function narrowTypeByTypePredicate(type, callExpression, assumeTrue) {
                 if (type.flags & 1 /* Any */ || !hasMatchingArgument(callExpression, reference)) {
@@ -23331,7 +23366,9 @@ var ts;
             if (needToCaptureLexicalThis) {
                 captureLexicalThis(node, container);
             }
-            if (ts.isFunctionLike(container)) {
+            if (ts.isFunctionLike(container) &&
+                (!isInParameterInitializerBeforeContainingFunction(node) || getFunctionLikeThisParameter(container))) {
+                // Note: a parameter initializer should refer to class-this unless function-this is explicitly annotated.
                 // If this is a function in a JS file, it might be a class method. Check if it's the RHS
                 // of a x.prototype.y = function [name]() { .... }
                 if (container.kind === 179 /* FunctionExpression */ &&
@@ -23658,6 +23695,13 @@ var ts;
         }
         function getContextualTypeForReturnExpression(node) {
             var func = ts.getContainingFunction(node);
+            if (ts.isAsyncFunctionLike(func)) {
+                var contextualReturnType = getContextualReturnType(func);
+                if (contextualReturnType) {
+                    return getPromisedType(contextualReturnType);
+                }
+                return undefined;
+            }
             if (func && !func.asteriskToken) {
                 return getContextualReturnType(func);
             }
@@ -30903,10 +30947,7 @@ var ts;
                     if (ts.isJSXTagName(entityName) && isJsxIntrinsicIdentifier(entityName)) {
                         return getIntrinsicTagSymbol(entityName.parent);
                     }
-                    // Include aliases in the meaning, this ensures that we do not follow aliases to where they point and instead
-                    // return the alias symbol.
-                    var meaning = 107455 /* Value */ | 8388608 /* Alias */;
-                    return resolveEntityName(entityName, meaning);
+                    return resolveEntityName(entityName, 107455 /* Value */, /*ignoreErrors*/ false, /*dontResolveAlias*/ true);
                 }
                 else if (entityName.kind === 172 /* PropertyAccessExpression */) {
                     var symbol = getNodeLinks(entityName).resolvedSymbol;
@@ -30925,10 +30966,7 @@ var ts;
             }
             else if (isTypeReferenceIdentifier(entityName)) {
                 var meaning = (entityName.parent.kind === 155 /* TypeReference */ || entityName.parent.kind === 267 /* JSDocTypeReference */) ? 793056 /* Type */ : 1536 /* Namespace */;
-                // Include aliases in the meaning, this ensures that we do not follow aliases to where they point and instead
-                // return the alias symbol.
-                meaning |= 8388608 /* Alias */;
-                return resolveEntityName(entityName, meaning);
+                return resolveEntityName(entityName, meaning, /*ignoreErrors*/ false, /*dontResolveAlias*/ true);
             }
             else if (entityName.parent.kind === 246 /* JsxAttribute */) {
                 return getJsxAttributePropertySymbol(entityName.parent);
@@ -31596,6 +31634,9 @@ var ts;
                 if (!ts.isExternalOrCommonJsModule(file)) {
                     mergeSymbolTable(globals, file.locals);
                 }
+                if (file.patternAmbientModules && file.patternAmbientModules.length) {
+                    patternAmbientModules = ts.concatenate(patternAmbientModules, file.patternAmbientModules);
+                }
                 if (file.moduleAugmentations.length) {
                     (augmentations || (augmentations = [])).push(file.moduleAugmentations);
                 }
@@ -31713,6 +31754,8 @@ var ts;
                 case 229 /* ImportEqualsDeclaration */:
                 case 236 /* ExportDeclaration */:
                 case 235 /* ExportAssignment */:
+                case 179 /* FunctionExpression */:
+                case 180 /* ArrowFunction */:
                 case 142 /* Parameter */:
                     break;
                 case 220 /* FunctionDeclaration */:
@@ -32361,6 +32404,13 @@ var ts;
                 accessor.parameters[0].name.kind === 69 /* Identifier */ &&
                 accessor.parameters[0].name.originalKeywordKind === 97 /* ThisKeyword */) {
                 return accessor.parameters[0];
+            }
+        }
+        function getFunctionLikeThisParameter(func) {
+            if (func.parameters.length &&
+                func.parameters[0].name.kind === 69 /* Identifier */ &&
+                func.parameters[0].name.originalKeywordKind === 97 /* ThisKeyword */) {
+                return func.parameters[0];
             }
         }
         function checkGrammarForNonSymbolComputedProperty(node, message) {
@@ -42819,6 +42869,7 @@ var ts;
     function isTraceEnabled(compilerOptions, host) {
         return compilerOptions.traceResolution && host.trace !== undefined;
     }
+    /* @internal */
     function hasZeroOrOneAsteriskCharacter(str) {
         var seenAsterisk = false;
         for (var i = 0; i < str.length; i++) {
@@ -42834,6 +42885,7 @@ var ts;
         }
         return true;
     }
+    ts.hasZeroOrOneAsteriskCharacter = hasZeroOrOneAsteriskCharacter;
     function createResolvedModule(resolvedFileName, isExternalLibraryImport, failedLookupLocations) {
         return { resolvedModule: resolvedFileName ? { resolvedFileName: resolvedFileName, isExternalLibraryImport: isExternalLibraryImport } : undefined, failedLookupLocations: failedLookupLocations };
     }
@@ -43169,45 +43221,23 @@ var ts;
         if (state.traceEnabled) {
             trace(state.host, ts.Diagnostics.baseUrl_option_is_set_to_0_using_this_value_to_resolve_non_relative_module_name_1, state.compilerOptions.baseUrl, moduleName);
         }
-        var longestMatchPrefixLength = -1;
-        var matchedPattern;
-        var matchedStar;
+        // string is for exact match
+        var matchedPattern = undefined;
         if (state.compilerOptions.paths) {
             if (state.traceEnabled) {
                 trace(state.host, ts.Diagnostics.paths_option_is_specified_looking_for_a_pattern_to_match_module_name_0, moduleName);
             }
-            for (var key in state.compilerOptions.paths) {
-                var pattern = key;
-                var indexOfStar = pattern.indexOf("*");
-                if (indexOfStar !== -1) {
-                    var prefix = pattern.substr(0, indexOfStar);
-                    var suffix = pattern.substr(indexOfStar + 1);
-                    if (moduleName.length >= prefix.length + suffix.length &&
-                        ts.startsWith(moduleName, prefix) &&
-                        ts.endsWith(moduleName, suffix)) {
-                        // use length of prefix as betterness criteria
-                        if (prefix.length > longestMatchPrefixLength) {
-                            longestMatchPrefixLength = prefix.length;
-                            matchedPattern = pattern;
-                            matchedStar = moduleName.substr(prefix.length, moduleName.length - suffix.length);
-                        }
-                    }
-                }
-                else if (pattern === moduleName) {
-                    // pattern was matched as is - no need to search further
-                    matchedPattern = pattern;
-                    matchedStar = undefined;
-                    break;
-                }
-            }
+            matchedPattern = matchPatternOrExact(ts.getKeys(state.compilerOptions.paths), moduleName);
         }
         if (matchedPattern) {
+            var matchedStar = typeof matchedPattern === "string" ? undefined : matchedText(matchedPattern, moduleName);
+            var matchedPatternText = typeof matchedPattern === "string" ? matchedPattern : patternText(matchedPattern);
             if (state.traceEnabled) {
-                trace(state.host, ts.Diagnostics.Module_name_0_matched_pattern_1, moduleName, matchedPattern);
+                trace(state.host, ts.Diagnostics.Module_name_0_matched_pattern_1, moduleName, matchedPatternText);
             }
-            for (var _i = 0, _a = state.compilerOptions.paths[matchedPattern]; _i < _a.length; _i++) {
+            for (var _i = 0, _a = state.compilerOptions.paths[matchedPatternText]; _i < _a.length; _i++) {
                 var subst = _a[_i];
-                var path = matchedStar ? subst.replace("\*", matchedStar) : subst;
+                var path = matchedStar ? subst.replace("*", matchedStar) : subst;
                 var candidate = ts.normalizePath(ts.combinePaths(state.compilerOptions.baseUrl, path));
                 if (state.traceEnabled) {
                     trace(state.host, ts.Diagnostics.Trying_substitution_0_candidate_module_location_Colon_1, subst, path);
@@ -43227,6 +43257,72 @@ var ts;
             return loader(candidate, supportedExtensions, failedLookupLocations, !directoryProbablyExists(ts.getDirectoryPath(candidate), state.host), state);
         }
     }
+    /**
+     * patternStrings contains both pattern strings (containing "*") and regular strings.
+     * Return an exact match if possible, or a pattern match, or undefined.
+     * (These are verified by verifyCompilerOptions to have 0 or 1 "*" characters.)
+     */
+    function matchPatternOrExact(patternStrings, candidate) {
+        var patterns = [];
+        for (var _i = 0, patternStrings_1 = patternStrings; _i < patternStrings_1.length; _i++) {
+            var patternString = patternStrings_1[_i];
+            var pattern = tryParsePattern(patternString);
+            if (pattern) {
+                patterns.push(pattern);
+            }
+            else if (patternString === candidate) {
+                // pattern was matched as is - no need to search further
+                return patternString;
+            }
+        }
+        return findBestPatternMatch(patterns, function (_) { return _; }, candidate);
+    }
+    function patternText(_a) {
+        var prefix = _a.prefix, suffix = _a.suffix;
+        return prefix + "*" + suffix;
+    }
+    /**
+     * Given that candidate matches pattern, returns the text matching the '*'.
+     * E.g.: matchedText(tryParsePattern("foo*baz"), "foobarbaz") === "bar"
+     */
+    function matchedText(pattern, candidate) {
+        ts.Debug.assert(isPatternMatch(pattern, candidate));
+        return candidate.substr(pattern.prefix.length, candidate.length - pattern.suffix.length);
+    }
+    /** Return the object corresponding to the best pattern to match `candidate`. */
+    /* @internal */
+    function findBestPatternMatch(values, getPattern, candidate) {
+        var matchedValue = undefined;
+        // use length of prefix as betterness criteria
+        var longestMatchPrefixLength = -1;
+        for (var _i = 0, values_1 = values; _i < values_1.length; _i++) {
+            var v = values_1[_i];
+            var pattern = getPattern(v);
+            if (isPatternMatch(pattern, candidate) && pattern.prefix.length > longestMatchPrefixLength) {
+                longestMatchPrefixLength = pattern.prefix.length;
+                matchedValue = v;
+            }
+        }
+        return matchedValue;
+    }
+    ts.findBestPatternMatch = findBestPatternMatch;
+    function isPatternMatch(_a, candidate) {
+        var prefix = _a.prefix, suffix = _a.suffix;
+        return candidate.length >= prefix.length + suffix.length &&
+            ts.startsWith(candidate, prefix) &&
+            ts.endsWith(candidate, suffix);
+    }
+    /* @internal */
+    function tryParsePattern(pattern) {
+        // This should be verified outside of here and a proper error thrown.
+        ts.Debug.assert(hasZeroOrOneAsteriskCharacter(pattern));
+        var indexOfStar = pattern.indexOf("*");
+        return indexOfStar === -1 ? undefined : {
+            prefix: pattern.substr(0, indexOfStar),
+            suffix: pattern.substr(indexOfStar + 1)
+        };
+    }
+    ts.tryParsePattern = tryParsePattern;
     function nodeModuleNameResolver(moduleName, containingFile, compilerOptions, host) {
         var containingDirectory = ts.getDirectoryPath(containingFile);
         var supportedExtensions = ts.getSupportedExtensions(compilerOptions);
@@ -43276,8 +43372,24 @@ var ts;
      * in cases when we know upfront that all load attempts will fail (because containing folder does not exists) however we still need to record all failed lookup locations.
      */
     function loadModuleFromFile(candidate, extensions, failedLookupLocation, onlyRecordFailures, state) {
+        // First try to keep/add an extension: importing "./foo.ts" can be matched by a file "./foo.ts", and "./foo" by "./foo.d.ts"
+        var resolvedByAddingOrKeepingExtension = loadModuleFromFileWorker(candidate, extensions, failedLookupLocation, onlyRecordFailures, state);
+        if (resolvedByAddingOrKeepingExtension) {
+            return resolvedByAddingOrKeepingExtension;
+        }
+        // Then try stripping a ".js" or ".jsx" extension and replacing it with a TypeScript one, e.g. "./foo.js" can be matched by "./foo.ts" or "./foo.d.ts"
+        if (ts.hasJavaScriptFileExtension(candidate)) {
+            var extensionless = ts.removeFileExtension(candidate);
+            if (state.traceEnabled) {
+                var extension = candidate.substring(extensionless.length);
+                trace(state.host, ts.Diagnostics.File_name_0_has_a_1_extension_stripping_it, candidate, extension);
+            }
+            return loadModuleFromFileWorker(extensionless, extensions, failedLookupLocation, onlyRecordFailures, state);
+        }
+    }
+    function loadModuleFromFileWorker(candidate, extensions, failedLookupLocation, onlyRecordFailures, state) {
         if (!onlyRecordFailures) {
-            // check if containig folder exists - if it doesn't then just record failures for all supported extensions without disk probing
+            // check if containing folder exists - if it doesn't then just record failures for all supported extensions without disk probing
             var directory = ts.getDirectoryPath(candidate);
             if (directory) {
                 onlyRecordFailures = !directoryProbablyExists(directory, state.host);
@@ -43285,7 +43397,7 @@ var ts;
         }
         return ts.forEach(extensions, tryLoad);
         function tryLoad(ext) {
-            if (ext === ".tsx" && state.skipTsx) {
+            if (state.skipTsx && ts.isJsxOrTsxExtension(ext)) {
                 return undefined;
             }
             var fileName = ts.fileExtensionIs(candidate, ext) ? candidate : candidate + ext;
@@ -44511,25 +44623,20 @@ var ts;
                     }
                 }
             }
-            if (options.inlineSources) {
-                if (!options.sourceMap && !options.inlineSourceMap) {
-                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_inlineSources_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided));
+            if (!options.sourceMap && !options.inlineSourceMap) {
+                if (options.inlineSources) {
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided, "inlineSources"));
                 }
                 if (options.sourceRoot) {
-                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "sourceRoot", "inlineSources"));
+                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided, "sourceRoot"));
                 }
             }
             if (options.out && options.outFile) {
                 programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_with_option_1, "out", "outFile"));
             }
-            if (!options.sourceMap && (options.mapRoot || options.sourceRoot)) {
-                // Error to specify --mapRoot or --sourceRoot without mapSourceFiles
-                if (options.mapRoot) {
-                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "mapRoot", "sourceMap"));
-                }
-                if (options.sourceRoot && !options.inlineSourceMap) {
-                    programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "sourceRoot", "sourceMap"));
-                }
+            if (options.mapRoot && !options.sourceMap) {
+                // Error to specify --mapRoot without --sourcemap
+                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_0_cannot_be_specified_without_specifying_option_1, "mapRoot", "sourceMap"));
             }
             if (options.declarationDir) {
                 if (!options.declaration) {
@@ -52381,6 +52488,37 @@ var ts;
         sourceFile.version = version;
         sourceFile.scriptSnapshot = scriptSnapshot;
     }
+    var commandLineOptions_stringToEnum;
+    /** JS users may pass in string values for enum compiler options (such as ModuleKind), so convert. */
+    function fixupCompilerOptions(options, diagnostics) {
+        // Lazily create this value to fix module loading errors.
+        commandLineOptions_stringToEnum = commandLineOptions_stringToEnum || ts.filter(ts.optionDeclarations, function (o) {
+            return typeof o.type === "object" && !ts.forEachValue(o.type, function (v) { return typeof v !== "number"; });
+        });
+        options = ts.clone(options);
+        var _loop_3 = function(opt) {
+            if (!ts.hasProperty(options, opt.name)) {
+                return "continue";
+            }
+            var value = options[opt.name];
+            // Value should be a key of opt.type
+            if (typeof value === "string") {
+                // If value is not a string, this will fail
+                options[opt.name] = ts.parseCustomTypeOption(opt, value, diagnostics);
+            }
+            else {
+                if (!ts.forEachValue(opt.type, function (v) { return v === value; })) {
+                    // Supplied value isn't a valid enum value.
+                    diagnostics.push(ts.createCompilerDiagnosticForInvalidCustomType(opt));
+                }
+            }
+        };
+        for (var _i = 0, commandLineOptions_stringToEnum_1 = commandLineOptions_stringToEnum; _i < commandLineOptions_stringToEnum_1.length; _i++) {
+            var opt = commandLineOptions_stringToEnum_1[_i];
+            _loop_3(opt);
+        }
+        return options;
+    }
     /*
      * This function will compile source text from 'input' argument using specified compiler options.
      * If not options are provided - it will use a set of default compiler options.
@@ -52391,7 +52529,8 @@ var ts;
      * - noResolve = true
      */
     function transpileModule(input, transpileOptions) {
-        var options = transpileOptions.compilerOptions ? ts.clone(transpileOptions.compilerOptions) : getDefaultCompilerOptions();
+        var diagnostics = [];
+        var options = transpileOptions.compilerOptions ? fixupCompilerOptions(transpileOptions.compilerOptions, diagnostics) : getDefaultCompilerOptions();
         options.isolatedModules = true;
         // transpileModule does not write anything to disk so there is no need to verify that there are no conflicts between input and output paths.
         options.suppressOutputPathCheck = true;
@@ -52437,9 +52576,7 @@ var ts;
             directoryExists: function (directoryExists) { return true; }
         };
         var program = ts.createProgram([inputFileName], options, compilerHost);
-        var diagnostics;
         if (transpileOptions.reportDiagnostics) {
-            diagnostics = [];
             ts.addRange(/*to*/ diagnostics, /*from*/ program.getSyntacticDiagnostics(sourceFile));
             ts.addRange(/*to*/ diagnostics, /*from*/ program.getOptionsDiagnostics());
         }

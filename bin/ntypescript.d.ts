@@ -1140,6 +1140,7 @@ declare namespace ts {
         resolvedTypeReferenceDirectiveNames: Map<ResolvedTypeReferenceDirective>;
         imports: LiteralExpression[];
         moduleAugmentations: LiteralExpression[];
+        patternAmbientModules?: PatternAmbientModule[];
     }
     interface ScriptReferenceHost {
         getCompilerOptions(): CompilerOptions;
@@ -1509,6 +1510,16 @@ declare namespace ts {
     }
     interface SymbolTable {
         [index: string]: Symbol;
+    }
+    /** Represents a "prefix*suffix" pattern. */
+    interface Pattern {
+        prefix: string;
+        suffix: string;
+    }
+    /** Used to track a `declare module "foo*"`-like declaration. */
+    interface PatternAmbientModule {
+        pattern: Pattern;
+        symbol: Symbol;
     }
     enum NodeCheckFlags {
         TypeChecked = 1,
@@ -2223,6 +2234,8 @@ declare namespace ts {
     function getSupportedExtensions(options?: CompilerOptions): string[];
     function isSupportedSourceFileName(fileName: string, compilerOptions?: CompilerOptions): boolean;
     function removeFileExtension(path: string): string;
+    function tryRemoveExtension(path: string, extension: string): string;
+    function isJsxOrTsxExtension(ext: string): boolean;
     interface ObjectAllocator {
         getNodeConstructor(): new (kind: SyntaxKind, pos?: number, end?: number) => Node;
         getSourceFileConstructor(): new (kind: SyntaxKind, pos?: number, end?: number) => SourceFile;
@@ -6012,7 +6025,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Option_inlineSources_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided: {
+        Option_0_can_only_be_used_when_either_option_inlineSourceMap_or_option_sourceMap_is_provided: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -6780,6 +6793,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        File_name_0_has_a_1_extension_stripping_it: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Variable_0_implicitly_has_an_1_type: {
             code: number;
             category: DiagnosticCategory;
@@ -7190,7 +7209,7 @@ declare namespace ts {
     function createTypeChecker(host: TypeCheckerHost, produceDiagnostics: boolean): TypeChecker;
 }
 declare namespace ts {
-    let optionDeclarations: CommandLineOption[];
+    const optionDeclarations: CommandLineOption[];
     let typingOptionDeclarations: CommandLineOption[];
     interface OptionNameMap {
         optionNameMap: Map<CommandLineOption>;
@@ -7269,6 +7288,7 @@ declare namespace ts {
     function findConfigFile(searchPath: string, fileExists: (fileName: string) => boolean): string;
     function resolveTripleslashReference(moduleName: string, containingFile: string): string;
     function computeCommonSourceDirectoryOfFilenames(fileNames: string[], currentDirectory: string, getCanonicalFileName: (fileName: string) => string): string;
+    function hasZeroOrOneAsteriskCharacter(str: string): boolean;
     /**
      * @param {string | undefined} containingFile - file that contains type reference directive, can be undefined if containing file is unknown.
      * This is possible in case if resolution is performed for directives specified via 'types' parameter. In this case initial path for secondary lookups
@@ -7276,6 +7296,9 @@ declare namespace ts {
      */
     function resolveTypeReferenceDirective(typeReferenceDirectiveName: string, containingFile: string, options: CompilerOptions, host: ModuleResolutionHost): ResolvedTypeReferenceDirectiveWithFailedLookupLocations;
     function resolveModuleName(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
+    /** Return the object corresponding to the best pattern to match `candidate`. */
+    function findBestPatternMatch<T>(values: T[], getPattern: (value: T) => Pattern, candidate: string): T | undefined;
+    function tryParsePattern(pattern: string): Pattern | undefined;
     function nodeModuleNameResolver(moduleName: string, containingFile: string, compilerOptions: CompilerOptions, host: ModuleResolutionHost): ResolvedModuleWithFailedLookupLocations;
     function directoryProbablyExists(directoryName: string, host: {
         directoryExists?: (directoryName: string) => boolean;
