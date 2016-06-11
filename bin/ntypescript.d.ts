@@ -919,7 +919,7 @@ declare namespace ts {
     type ModuleBody = ModuleBlock | ModuleDeclaration;
     interface ModuleDeclaration extends DeclarationStatement {
         name: Identifier | LiteralExpression;
-        body: ModuleBlock | ModuleDeclaration;
+        body?: ModuleBlock | ModuleDeclaration;
     }
     interface ModuleBlock extends Node, Statement {
         statements: NodeArray<Statement>;
@@ -2354,6 +2354,7 @@ declare namespace ts {
     function makeIdentifierFromModuleName(moduleName: string): string;
     function isBlockOrCatchScoped(declaration: Declaration): boolean;
     function isAmbientModule(node: Node): boolean;
+    function isShorthandAmbientModule(node: Node): boolean;
     function isBlockScopedContainerTopLevel(node: Node): boolean;
     function isGlobalScopeAugmentation(module: ModuleDeclaration): boolean;
     function isExternalModuleAugmentation(node: Node): boolean;
@@ -3577,19 +3578,13 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_import_d_from_mod_or_another_module_format_instead: {
+        Import_assignment_cannot_be_used_when_targeting_ECMAScript_2015_modules_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_import_d_from_mod_or_another_module_format_instead: {
             code: number;
             category: DiagnosticCategory;
             key: string;
             message: string;
         };
-        Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_export_default_or_another_module_format_instead: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
-        Cannot_compile_modules_into_es2015_when_targeting_ES5_or_lower: {
+        Export_assignment_cannot_be_used_when_targeting_ECMAScript_2015_modules_Consider_using_export_default_or_another_module_format_instead: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -3667,7 +3662,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Generators_are_only_available_when_targeting_ECMAScript_6_or_higher: {
+        Generators_are_only_available_when_targeting_ECMAScript_2015_or_higher: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -3883,7 +3878,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: {
+        Async_functions_are_only_available_when_targeting_ECMAScript_2015_or_higher: {
             code: number;
             category: DiagnosticCategory;
             key: string;

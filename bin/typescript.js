@@ -2570,6 +2570,11 @@ var ts;
             (node.name.kind === 9 /* StringLiteral */ || isGlobalScopeAugmentation(node));
     }
     ts.isAmbientModule = isAmbientModule;
+    function isShorthandAmbientModule(node) {
+        // The only kind of module that can be missing a body is a shorthand ambient module.
+        return node.kind === 225 /* ModuleDeclaration */ && (!node.body);
+    }
+    ts.isShorthandAmbientModule = isShorthandAmbientModule;
     function isBlockScopedContainerTopLevel(node) {
         return node.kind === 256 /* SourceFile */ ||
             node.kind === 225 /* ModuleDeclaration */ ||
@@ -5292,9 +5297,8 @@ var ts;
         An_extended_Unicode_escape_value_must_be_between_0x0_and_0x10FFFF_inclusive: { code: 1198, category: ts.DiagnosticCategory.Error, key: "An_extended_Unicode_escape_value_must_be_between_0x0_and_0x10FFFF_inclusive_1198", message: "An extended Unicode escape value must be between 0x0 and 0x10FFFF inclusive." },
         Unterminated_Unicode_escape_sequence: { code: 1199, category: ts.DiagnosticCategory.Error, key: "Unterminated_Unicode_escape_sequence_1199", message: "Unterminated Unicode escape sequence." },
         Line_terminator_not_permitted_before_arrow: { code: 1200, category: ts.DiagnosticCategory.Error, key: "Line_terminator_not_permitted_before_arrow_1200", message: "Line terminator not permitted before arrow." },
-        Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_import_d_from_mod_or_another_module_format_instead: { code: 1202, category: ts.DiagnosticCategory.Error, key: "Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_import_Asterisk__1202", message: "Import assignment cannot be used when targeting ECMAScript 6 modules. Consider using 'import * as ns from \"mod\"', 'import {a} from \"mod\"', 'import d from \"mod\"', or another module format instead." },
-        Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_export_default_or_another_module_format_instead: { code: 1203, category: ts.DiagnosticCategory.Error, key: "Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_export_default_o_1203", message: "Export assignment cannot be used when targeting ECMAScript 6 modules. Consider using 'export default' or another module format instead." },
-        Cannot_compile_modules_into_es2015_when_targeting_ES5_or_lower: { code: 1204, category: ts.DiagnosticCategory.Error, key: "Cannot_compile_modules_into_es2015_when_targeting_ES5_or_lower_1204", message: "Cannot compile modules into 'es2015' when targeting 'ES5' or lower." },
+        Import_assignment_cannot_be_used_when_targeting_ECMAScript_2015_modules_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_import_d_from_mod_or_another_module_format_instead: { code: 1202, category: ts.DiagnosticCategory.Error, key: "Import_assignment_cannot_be_used_when_targeting_ECMAScript_2015_modules_Consider_using_import_Asteri_1202", message: "Import assignment cannot be used when targeting ECMAScript 2015 modules. Consider using 'import * as ns from \"mod\"', 'import {a} from \"mod\"', 'import d from \"mod\"', or another module format instead." },
+        Export_assignment_cannot_be_used_when_targeting_ECMAScript_2015_modules_Consider_using_export_default_or_another_module_format_instead: { code: 1203, category: ts.DiagnosticCategory.Error, key: "Export_assignment_cannot_be_used_when_targeting_ECMAScript_2015_modules_Consider_using_export_defaul_1203", message: "Export assignment cannot be used when targeting ECMAScript 2015 modules. Consider using 'export default' or another module format instead." },
         Decorators_are_not_valid_here: { code: 1206, category: ts.DiagnosticCategory.Error, key: "Decorators_are_not_valid_here_1206", message: "Decorators are not valid here." },
         Decorators_cannot_be_applied_to_multiple_get_Slashset_accessors_of_the_same_name: { code: 1207, category: ts.DiagnosticCategory.Error, key: "Decorators_cannot_be_applied_to_multiple_get_Slashset_accessors_of_the_same_name_1207", message: "Decorators cannot be applied to multiple get/set accessors of the same name." },
         Cannot_compile_namespaces_when_the_isolatedModules_flag_is_provided: { code: 1208, category: ts.DiagnosticCategory.Error, key: "Cannot_compile_namespaces_when_the_isolatedModules_flag_is_provided_1208", message: "Cannot compile namespaces when the '--isolatedModules' flag is provided." },
@@ -5307,7 +5311,7 @@ var ts;
         Invalid_use_of_0_Modules_are_automatically_in_strict_mode: { code: 1215, category: ts.DiagnosticCategory.Error, key: "Invalid_use_of_0_Modules_are_automatically_in_strict_mode_1215", message: "Invalid use of '{0}'. Modules are automatically in strict mode." },
         Export_assignment_is_not_supported_when_module_flag_is_system: { code: 1218, category: ts.DiagnosticCategory.Error, key: "Export_assignment_is_not_supported_when_module_flag_is_system_1218", message: "Export assignment is not supported when '--module' flag is 'system'." },
         Experimental_support_for_decorators_is_a_feature_that_is_subject_to_change_in_a_future_release_Set_the_experimentalDecorators_option_to_remove_this_warning: { code: 1219, category: ts.DiagnosticCategory.Error, key: "Experimental_support_for_decorators_is_a_feature_that_is_subject_to_change_in_a_future_release_Set_t_1219", message: "Experimental support for decorators is a feature that is subject to change in a future release. Set the 'experimentalDecorators' option to remove this warning." },
-        Generators_are_only_available_when_targeting_ECMAScript_6_or_higher: { code: 1220, category: ts.DiagnosticCategory.Error, key: "Generators_are_only_available_when_targeting_ECMAScript_6_or_higher_1220", message: "Generators are only available when targeting ECMAScript 6 or higher." },
+        Generators_are_only_available_when_targeting_ECMAScript_2015_or_higher: { code: 1220, category: ts.DiagnosticCategory.Error, key: "Generators_are_only_available_when_targeting_ECMAScript_2015_or_higher_1220", message: "Generators are only available when targeting ECMAScript 2015 or higher." },
         Generators_are_not_allowed_in_an_ambient_context: { code: 1221, category: ts.DiagnosticCategory.Error, key: "Generators_are_not_allowed_in_an_ambient_context_1221", message: "Generators are not allowed in an ambient context." },
         An_overload_signature_cannot_be_declared_as_a_generator: { code: 1222, category: ts.DiagnosticCategory.Error, key: "An_overload_signature_cannot_be_declared_as_a_generator_1222", message: "An overload signature cannot be declared as a generator." },
         _0_tag_already_specified: { code: 1223, category: ts.DiagnosticCategory.Error, key: "_0_tag_already_specified_1223", message: "'{0}' tag already specified." },
@@ -5343,7 +5347,7 @@ var ts;
         _0_tag_cannot_be_used_independently_as_a_top_level_JSDoc_tag: { code: 1253, category: ts.DiagnosticCategory.Error, key: "_0_tag_cannot_be_used_independently_as_a_top_level_JSDoc_tag_1253", message: "'{0}' tag cannot be used independently as a top level JSDoc tag." },
         with_statements_are_not_allowed_in_an_async_function_block: { code: 1300, category: ts.DiagnosticCategory.Error, key: "with_statements_are_not_allowed_in_an_async_function_block_1300", message: "'with' statements are not allowed in an async function block." },
         await_expression_is_only_allowed_within_an_async_function: { code: 1308, category: ts.DiagnosticCategory.Error, key: "await_expression_is_only_allowed_within_an_async_function_1308", message: "'await' expression is only allowed within an async function." },
-        Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher: { code: 1311, category: ts.DiagnosticCategory.Error, key: "Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher_1311", message: "Async functions are only available when targeting ECMAScript 6 and higher." },
+        Async_functions_are_only_available_when_targeting_ECMAScript_2015_or_higher: { code: 1311, category: ts.DiagnosticCategory.Error, key: "Async_functions_are_only_available_when_targeting_ECMAScript_2015_or_higher_1311", message: "Async functions are only available when targeting ECMAScript 2015 or higher." },
         can_only_be_used_in_an_object_literal_property_inside_a_destructuring_assignment: { code: 1312, category: ts.DiagnosticCategory.Error, key: "can_only_be_used_in_an_object_literal_property_inside_a_destructuring_assignment_1312", message: "'=' can only be used in an object literal property inside a destructuring assignment." },
         The_body_of_an_if_statement_cannot_be_the_empty_statement: { code: 1313, category: ts.DiagnosticCategory.Error, key: "The_body_of_an_if_statement_cannot_be_the_empty_statement_1313", message: "The body of an 'if' statement cannot be the empty statement." },
         Global_module_exports_may_only_appear_in_module_files: { code: 1314, category: ts.DiagnosticCategory.Error, key: "Global_module_exports_may_only_appear_in_module_files_1314", message: "Global module exports may only appear in module files." },
@@ -12235,7 +12239,12 @@ var ts;
             else {
                 node.name = parseLiteralNode(/*internName*/ true);
             }
-            node.body = parseModuleBlock();
+            if (token === 15 /* OpenBraceToken */) {
+                node.body = parseModuleBlock();
+            }
+            else {
+                parseSemicolon();
+            }
             return finishNode(node);
         }
         function parseModuleDeclaration(fullStart, decorators, modifiers) {
@@ -13737,7 +13746,8 @@ var ts;
             return state_1;
         }
         else if (node.kind === 225 /* ModuleDeclaration */) {
-            return getModuleInstanceState(node.body);
+            var body = node.body;
+            return body ? getModuleInstanceState(body) : 1 /* Instantiated */;
         }
         else {
             return 1 /* Instantiated */;
@@ -14840,7 +14850,7 @@ var ts;
         }
         function hasExportDeclarations(node) {
             var body = node.kind === 256 /* SourceFile */ ? node : node.body;
-            if (body.kind === 256 /* SourceFile */ || body.kind === 226 /* ModuleBlock */) {
+            if (body && (body.kind === 256 /* SourceFile */ || body.kind === 226 /* ModuleBlock */)) {
                 for (var _i = 0, _a = body.statements; _i < _a.length; _i++) {
                     var stat = _a[_i];
                     if (stat.kind === 236 /* ExportDeclaration */ || stat.kind === 235 /* ExportAssignment */) {
@@ -16564,9 +16574,11 @@ var ts;
         function getTargetOfImportClause(node) {
             var moduleSymbol = resolveExternalModuleName(node, node.parent.moduleSpecifier);
             if (moduleSymbol) {
-                var exportDefaultSymbol = moduleSymbol.exports["export="] ?
-                    getPropertyOfType(getTypeOfSymbol(moduleSymbol.exports["export="]), "default") :
-                    resolveSymbol(moduleSymbol.exports["default"]);
+                var exportDefaultSymbol = ts.isShorthandAmbientModule(moduleSymbol.valueDeclaration) ?
+                    moduleSymbol :
+                    moduleSymbol.exports["export="] ?
+                        getPropertyOfType(getTypeOfSymbol(moduleSymbol.exports["export="]), "default") :
+                        resolveSymbol(moduleSymbol.exports["default"]);
                 if (!exportDefaultSymbol && !allowSyntheticDefaultImports) {
                     error(node.name, ts.Diagnostics.Module_0_has_no_default_export, symbolToString(moduleSymbol));
                 }
@@ -16635,6 +16647,9 @@ var ts;
             if (targetSymbol) {
                 var name_10 = specifier.propertyName || specifier.name;
                 if (name_10.text) {
+                    if (ts.isShorthandAmbientModule(moduleSymbol.valueDeclaration)) {
+                        return moduleSymbol;
+                    }
                     var symbolFromVariable = void 0;
                     // First check if module was specified with "export=". If so, get the member from the resolved type
                     if (moduleSymbol && moduleSymbol.exports && moduleSymbol.exports["export="]) {
@@ -18585,9 +18600,14 @@ var ts;
         function getTypeOfFuncClassEnumModule(symbol) {
             var links = getSymbolLinks(symbol);
             if (!links.type) {
-                var type = createObjectType(65536 /* Anonymous */, symbol);
-                links.type = strictNullChecks && symbol.flags & 536870912 /* Optional */ ?
-                    addTypeKind(type, 32 /* Undefined */) : type;
+                if (symbol.valueDeclaration.kind === 225 /* ModuleDeclaration */ && ts.isShorthandAmbientModule(symbol.valueDeclaration)) {
+                    links.type = anyType;
+                }
+                else {
+                    var type = createObjectType(65536 /* Anonymous */, symbol);
+                    links.type = strictNullChecks && symbol.flags & 536870912 /* Optional */ ?
+                        addTypeKind(type, 32 /* Undefined */) : type;
+                }
             }
             return links.type;
         }
@@ -30174,7 +30194,7 @@ var ts;
                         // - augmentation for a global scope is always applied
                         // - augmentation for some external module is applied if symbol for augmentation is merged (it was combined with target module).
                         var checkBody = isGlobalAugmentation || (getSymbolOfNode(node).flags & 33554432 /* Merged */);
-                        if (checkBody) {
+                        if (checkBody && node.body) {
                             // body of ambient external module is always a module block
                             for (var _i = 0, _a = node.body.statements; _i < _a.length; _i++) {
                                 var statement = _a[_i];
@@ -30202,7 +30222,13 @@ var ts;
                     }
                 }
             }
-            checkSourceElement(node.body);
+            if (compilerOptions.noImplicitAny && !node.body) {
+                // Ambient shorthand module is an implicit any
+                reportImplicitAnyError(node, anyType);
+            }
+            if (node.body) {
+                checkSourceElement(node.body);
+            }
         }
         function checkModuleAugmentationElement(node, isGlobalAugmentation) {
             switch (node.kind) {
@@ -30380,7 +30406,7 @@ var ts;
                 else {
                     if (modulekind === ts.ModuleKind.ES6 && !ts.isInAmbientContext(node)) {
                         // Import equals declaration is deprecated in es6 or above
-                        grammarErrorOnNode(node, ts.Diagnostics.Import_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_import_d_from_mod_or_another_module_format_instead);
+                        grammarErrorOnNode(node, ts.Diagnostics.Import_assignment_cannot_be_used_when_targeting_ECMAScript_2015_modules_Consider_using_import_Asterisk_as_ns_from_mod_import_a_from_mod_import_d_from_mod_or_another_module_format_instead);
                     }
                 }
             }
@@ -30456,7 +30482,7 @@ var ts;
             if (node.isExportEquals && !ts.isInAmbientContext(node)) {
                 if (modulekind === ts.ModuleKind.ES6) {
                     // export assignment is not supported in es6 modules
-                    grammarErrorOnNode(node, ts.Diagnostics.Export_assignment_cannot_be_used_when_targeting_ECMAScript_6_modules_Consider_using_export_default_or_another_module_format_instead);
+                    grammarErrorOnNode(node, ts.Diagnostics.Export_assignment_cannot_be_used_when_targeting_ECMAScript_2015_modules_Consider_using_export_default_or_another_module_format_instead);
                 }
                 else if (modulekind === ts.ModuleKind.System) {
                     // system modules does not support export assignment
@@ -31975,7 +32001,7 @@ var ts;
         }
         function checkGrammarAsyncModifier(node, asyncModifier) {
             if (languageVersion < 2 /* ES6 */) {
-                return grammarErrorOnNode(asyncModifier, ts.Diagnostics.Async_functions_are_only_available_when_targeting_ECMAScript_6_and_higher);
+                return grammarErrorOnNode(asyncModifier, ts.Diagnostics.Async_functions_are_only_available_when_targeting_ECMAScript_2015_or_higher);
             }
             switch (node.kind) {
                 case 147 /* MethodDeclaration */:
@@ -32200,7 +32226,7 @@ var ts;
                     return grammarErrorOnNode(node.asteriskToken, ts.Diagnostics.An_overload_signature_cannot_be_declared_as_a_generator);
                 }
                 if (languageVersion < 2 /* ES6 */) {
-                    return grammarErrorOnNode(node.asteriskToken, ts.Diagnostics.Generators_are_only_available_when_targeting_ECMAScript_6_or_higher);
+                    return grammarErrorOnNode(node.asteriskToken, ts.Diagnostics.Generators_are_only_available_when_targeting_ECMAScript_2015_or_higher);
                 }
             }
         }
@@ -34291,21 +34317,26 @@ var ts;
                     writeTextOfNode(currentText, node.name);
                 }
             }
-            while (node.body.kind !== 226 /* ModuleBlock */) {
+            while (node.body && node.body.kind !== 226 /* ModuleBlock */) {
                 node = node.body;
                 write(".");
                 writeTextOfNode(currentText, node.name);
             }
             var prevEnclosingDeclaration = enclosingDeclaration;
-            enclosingDeclaration = node;
-            write(" {");
-            writeLine();
-            increaseIndent();
-            emitLines(node.body.statements);
-            decreaseIndent();
-            write("}");
-            writeLine();
-            enclosingDeclaration = prevEnclosingDeclaration;
+            if (node.body) {
+                enclosingDeclaration = node;
+                write(" {");
+                writeLine();
+                increaseIndent();
+                emitLines(node.body.statements);
+                decreaseIndent();
+                write("}");
+                writeLine();
+                enclosingDeclaration = prevEnclosingDeclaration;
+            }
+            else {
+                write(";");
+            }
         }
         function writeTypeAliasDeclaration(node) {
             var prevEnclosingDeclaration = enclosingDeclaration;
@@ -40355,7 +40386,11 @@ var ts;
                 }
             }
             function emitClassLikeDeclarationBelowES6(node) {
+                var isES6ExportedClass = isES6ExportedDeclaration(node);
                 if (node.kind === 221 /* ClassDeclaration */) {
+                    if (isES6ExportedClass && !(node.flags & 512 /* Default */)) {
+                        write("export ");
+                    }
                     // source file level classes in system modules are hoisted so 'var's for them are already defined
                     if (!shouldHoistDeclarationInSystemJsModule(node)) {
                         write("var ");
@@ -40420,8 +40455,14 @@ var ts;
                     write(";");
                 }
                 emitEnd(node);
-                if (node.kind === 221 /* ClassDeclaration */) {
+                if (node.kind === 221 /* ClassDeclaration */ && !isES6ExportedClass) {
                     emitExportMemberAssignment(node);
+                }
+                else if (isES6ExportedClass && (node.flags & 512 /* Default */)) {
+                    writeLine();
+                    write("export default ");
+                    emitDeclarationName(node);
+                    write(";");
                 }
             }
             function emitClassMemberPrefix(node, member) {
@@ -40961,7 +41002,7 @@ var ts;
                 }
             }
             function getInnerMostModuleDeclarationFromDottedModule(moduleDeclaration) {
-                if (moduleDeclaration.body.kind === 225 /* ModuleDeclaration */) {
+                if (moduleDeclaration.body && moduleDeclaration.body.kind === 225 /* ModuleDeclaration */) {
                     var recursiveInnerModule = getInnerMostModuleDeclarationFromDottedModule(moduleDeclaration.body);
                     return recursiveInnerModule || moduleDeclaration.body;
                 }
@@ -41003,6 +41044,7 @@ var ts;
                 write(getGeneratedNameForNode(node));
                 emitEnd(node.name);
                 write(") ");
+                ts.Debug.assert(node.body !== undefined); // node.body must exist, as this is a non-ambient module
                 if (node.body.kind === 226 /* ModuleBlock */) {
                     var saveConvertedLoopState = convertedLoopState;
                     var saveTempFlags = tempFlags;
@@ -44329,10 +44371,13 @@ var ts;
                                 // This type of declaration is permitted only in the global module.
                                 // The StringLiteral must specify a top - level external module name.
                                 // Relative external module names are not permitted
-                                // NOTE: body of ambient module is always a module block
-                                for (var _i = 0, _a = node.body.statements; _i < _a.length; _i++) {
-                                    var statement = _a[_i];
-                                    collectModuleReferences(statement, /*inAmbientModule*/ true);
+                                // NOTE: body of ambient module is always a module block, if it exists
+                                var body = node.body;
+                                if (body) {
+                                    for (var _i = 0, _a = body.statements; _i < _a.length; _i++) {
+                                        var statement = _a[_i];
+                                        collectModuleReferences(statement, /*inAmbientModule*/ true);
+                                    }
                                 }
                             }
                         }
@@ -44666,10 +44711,6 @@ var ts;
                 // We cannot use createDiagnosticFromNode because nodes do not have parents yet
                 var span = ts.getErrorSpanForNode(firstExternalModuleSourceFile, firstExternalModuleSourceFile.externalModuleIndicator);
                 programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_use_imports_exports_or_module_augmentations_when_module_is_none));
-            }
-            // Cannot specify module gen target of es6 when below es6
-            if (options.module === ts.ModuleKind.ES6 && languageVersion < 2 /* ES6 */) {
-                programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_compile_modules_into_es2015_when_targeting_ES5_or_lower));
             }
             // Cannot specify module gen that isn't amd or system with --out
             if (outFile) {
@@ -45954,7 +45995,10 @@ var ts;
                         case 225 /* ModuleDeclaration */:
                             var moduleDeclaration = node;
                             topLevelNodes.push(node);
-                            addTopLevelNodes(getInnermostModule(moduleDeclaration).body.statements, topLevelNodes);
+                            var inner = getInnermostModule(moduleDeclaration);
+                            if (inner.body) {
+                                addTopLevelNodes(inner.body.statements, topLevelNodes);
+                            }
                             break;
                         case 220 /* FunctionDeclaration */:
                             var functionDeclaration = node;
@@ -46171,7 +46215,8 @@ var ts;
                 return undefined;
                 function createModuleItem(node) {
                     var moduleName = getModuleName(node);
-                    var childItems = getItemsWorker(getChildNodes(getInnermostModule(node).body.statements), createChildItem);
+                    var body = getInnermostModule(node).body;
+                    var childItems = body ? getItemsWorker(getChildNodes(body.statements), createChildItem) : [];
                     return getNavigationBarItem(moduleName, ts.ScriptElementKind.moduleElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
                 }
                 function createFunctionItem(node) {
@@ -46259,7 +46304,7 @@ var ts;
                 return ts.filter(node.members, function (member) { return !ts.hasDynamicName(member); });
             }
             function getInnermostModule(node) {
-                while (node.body.kind === 225 /* ModuleDeclaration */) {
+                while (node.body && node.body.kind === 225 /* ModuleDeclaration */) {
                     node = node.body;
                 }
                 return node;
@@ -51652,7 +51697,7 @@ var ts;
                         addCommentParts(declaration.parent, sourceFileOfDeclaration, getCleanedParamJsDocComment);
                     }
                     // If this is left side of dotted module declaration, there is no doc comments associated with this node
-                    if (declaration.kind === 225 /* ModuleDeclaration */ && declaration.body.kind === 225 /* ModuleDeclaration */) {
+                    if (declaration.kind === 225 /* ModuleDeclaration */ && declaration.body && declaration.body.kind === 225 /* ModuleDeclaration */) {
                         return;
                     }
                     if ((declaration.kind === 179 /* FunctionExpression */ || declaration.kind === 180 /* ArrowFunction */) &&
