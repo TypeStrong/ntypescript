@@ -2435,6 +2435,11 @@ declare namespace ts {
     */
     function isRequireCall(expression: Node, checkArgumentIsStringLiteral: boolean): expression is CallExpression;
     function isSingleOrDoubleQuote(charCode: number): boolean;
+    /**
+     * Returns true if the node is a variable declaration whose initializer is a function expression.
+     * This function does not test if the node is in a JavaScript file or not.
+     */
+    function isDeclarationOfFunctionExpression(s: Symbol): boolean;
     function getSpecialPropertyAssignmentKind(expression: Node): SpecialPropertyAssignmentKind;
     function getExternalModuleName(node: Node): Expression;
     function hasQuestionToken(node: Node): boolean;
@@ -7221,7 +7226,7 @@ declare namespace ts {
     function getOptionNameMap(): OptionNameMap;
     function createCompilerDiagnosticForInvalidCustomType(opt: CommandLineOptionOfCustomType): Diagnostic;
     function parseCustomTypeOption(opt: CommandLineOptionOfCustomType, value: string, errors: Diagnostic[]): number | string;
-    function parseListTypeOption(opt: CommandLineOptionOfListType, value: string, errors: Diagnostic[]): (string | number)[];
+    function parseListTypeOption(opt: CommandLineOptionOfListType, value: string, errors: Diagnostic[]): (string | number)[] | undefined;
     function parseCommandLine(commandLine: string[], readFile?: (path: string) => string): ParsedCommandLine;
     /**
       * Read tsconfig.json file
@@ -8079,6 +8084,7 @@ declare namespace ts {
         textSpan: TextSpan;
         fileName: string;
         isWriteAccess: boolean;
+        isDefinition: boolean;
     }
     interface DocumentHighlights {
         fileName: string;
@@ -8651,7 +8657,7 @@ declare namespace ts {
         getTypeDefinitionAtPosition(fileName: string, position: number): string;
         /**
          * Returns a JSON-encoded value of the type:
-         * { fileName: string; textSpan: { start: number; length: number}; isWriteAccess: boolean }[]
+         * { fileName: string; textSpan: { start: number; length: number}; isWriteAccess: boolean, isDefinition?: boolean }[]
          */
         getReferencesAtPosition(fileName: string, position: number): string;
         /**

@@ -3430,6 +3430,18 @@ var ts;
         return charCode === 39 /* singleQuote */ || charCode === 34 /* doubleQuote */;
     }
     ts.isSingleOrDoubleQuote = isSingleOrDoubleQuote;
+    /**
+     * Returns true if the node is a variable declaration whose initializer is a function expression.
+     * This function does not test if the node is in a JavaScript file or not.
+     */
+    function isDeclarationOfFunctionExpression(s) {
+        if (s.valueDeclaration && s.valueDeclaration.kind === 218 /* VariableDeclaration */) {
+            var declaration = s.valueDeclaration;
+            return declaration.initializer && declaration.initializer.kind === 179 /* FunctionExpression */;
+        }
+        return false;
+    }
+    ts.isDeclarationOfFunctionExpression = isDeclarationOfFunctionExpression;
     /// Given a BinaryExpression, returns SpecialPropertyAssignmentKind for the various kinds of property
     /// assignments we treat as special in the binder
     function getSpecialPropertyAssignmentKind(expression) {
@@ -15482,7 +15494,7 @@ var ts;
             constructorFunction.parent = classPrototype;
             classPrototype.parent = leftSideOfAssignment;
             var funcSymbol = container.locals[constructorFunction.text];
-            if (!funcSymbol || !(funcSymbol.flags & 16 /* Function */)) {
+            if (!funcSymbol || !(funcSymbol.flags & 16 /* Function */ || ts.isDeclarationOfFunctionExpression(funcSymbol))) {
                 return;
             }
             // Set up the members collection if it doesn't exist already
@@ -26150,8 +26162,12 @@ var ts;
                     // When resolved signature is a call signature (and not a construct signature) the result type is any, unless
                     // the declaring function had members created through 'x.prototype.y = expr' or 'this.y = expr' psuedodeclarations
                     // in a JS file
-                    var funcSymbol = checkExpression(node.expression).symbol;
-                    if (funcSymbol && funcSymbol.members && (funcSymbol.flags & 16 /* Function */)) {
+                    // Note:JS inferred classes might come from a variable declaration instead of a function declaration.
+                    // In this case, using getResolvedSymbol directly is required to avoid losing the members from the declaration.
+                    var funcSymbol = node.expression.kind === 69 /* Identifier */ ?
+                        getResolvedSymbol(node.expression) :
+                        checkExpression(node.expression).symbol;
+                    if (funcSymbol && funcSymbol.members && (funcSymbol.flags & 16 /* Function */ || ts.isDeclarationOfFunctionExpression(funcSymbol))) {
                         return getInferredClassType(funcSymbol);
                     }
                     else if (compilerOptions.noImplicitAny) {
@@ -33263,7 +33279,15 @@ var ts;
     ts.parseCustomTypeOption = parseCustomTypeOption;
     /* @internal */
     function parseListTypeOption(opt, value, errors) {
-        var values = trimString((value || "")).split(",");
+        if (value === void 0) { value = ""; }
+        value = trimString(value);
+        if (ts.startsWith(value, "-")) {
+            return undefined;
+        }
+        if (value === "") {
+            return [];
+        }
+        var values = value.split(",");
         switch (opt.element.type) {
             case "number":
                 return ts.map(values, parseInt);
@@ -33323,8 +33347,11 @@ var ts;
                                     i++;
                                     break;
                                 case "list":
-                                    options[opt.name] = parseListTypeOption(opt, args[i], errors);
-                                    i++;
+                                    var result = parseListTypeOption(opt, args[i], errors);
+                                    options[opt.name] = result || [];
+                                    if (result) {
+                                        i++;
+                                    }
                                     break;
                                 // If not a primitive, the possible types are specified in what is effectively a map of options.
                                 default:
@@ -37311,9 +37338,9 @@ var ts;
                 emit(node.initializer);
             }
             // Return true if identifier resolves to an exported member of a namespace
-            function isNamespaceExportReference(node) {
+            function isExportReference(node) {
                 var container = resolver.getReferencedExportContainer(node);
-                return container && container.kind !== 256 /* SourceFile */;
+                return !!container;
             }
             // Return true if identifier resolves to an imported identifier
             function isImportedReference(node) {
@@ -37344,10 +37371,10 @@ var ts;
                 //   const foo_1 = require('./foo');
                 //   exports.baz = { foo: foo_1.foo };
                 //
-                if (languageVersion < 2 /* ES6 */ || (modulekind !== ts.ModuleKind.ES6 && isImportedReference(node.name)) || isNamespaceExportReference(node.name)) {
+                if (languageVersion < 2 /* ES6 */ || (modulekind !== ts.ModuleKind.ES6 && isImportedReference(node.name)) || isExportReference(node.name)) {
                     // Emit identifier as an identifier
                     write(": ");
-                    emit(node.name);
+                    emitExpressionIdentifier(node.name);
                 }
                 if (languageVersion >= 2 /* ES6 */ && node.objectAssignmentInitializer) {
                     write(" = ");
@@ -40864,10 +40891,10 @@ var ts;
                                 }
                                 if (parameters[i].dotDotDotToken) {
                                     var parameterType = parameters[i].type;
-                                    if (parameterType.kind === 160 /* ArrayType */) {
+                                    if (parameterType && parameterType.kind === 160 /* ArrayType */) {
                                         parameterType = parameterType.elementType;
                                     }
-                                    else if (parameterType.kind === 155 /* TypeReference */ && parameterType.typeArguments && parameterType.typeArguments.length === 1) {
+                                    else if (parameterType && parameterType.kind === 155 /* TypeReference */ && parameterType.typeArguments && parameterType.typeArguments.length === 1) {
                                         parameterType = parameterType.typeArguments[0];
                                     }
                                     else {
@@ -40885,9 +40912,15 @@ var ts;
             }
             /** Serializes the return type of function. Used by the __metadata decorator for a method. */
             function emitSerializedReturnTypeOfNode(node) {
-                if (node && ts.isFunctionLike(node) && node.type) {
-                    emitSerializedTypeNode(node.type);
-                    return;
+                if (node && ts.isFunctionLike(node)) {
+                    if (node.type) {
+                        emitSerializedTypeNode(node.type);
+                        return;
+                    }
+                    else if (ts.isAsyncFunctionLike(node)) {
+                        write("Promise");
+                        return;
+                    }
                 }
                 write("void 0");
             }
@@ -52607,6 +52640,9 @@ var ts;
         // We are not returning a sourceFile for lib file when asked by the program,
         // so pass --noLib to avoid reporting a file not found error.
         options.noLib = true;
+        // Clear out the lib and types option as well
+        options.lib = undefined;
+        options.types = undefined;
         // We are not doing a full typecheck, we are not resolving the whole context,
         // so pass --noResolve to avoid reporting missing file errors.
         options.noResolve = true;
@@ -54478,7 +54514,7 @@ var ts;
                     }
                     if (!uniqueNames[name_42]) {
                         uniqueNames[name_42] = name_42;
-                        var displayName = getCompletionEntryDisplayName(name_42, target, /*performCharacterChecks*/ true);
+                        var displayName = getCompletionEntryDisplayName(ts.unescapeIdentifier(name_42), target, /*performCharacterChecks*/ true);
                         if (displayName) {
                             var entry = {
                                 name: displayName,
@@ -55898,7 +55934,8 @@ var ts;
                         result.push({
                             fileName: entry.fileName,
                             textSpan: highlightSpan.textSpan,
-                            isWriteAccess: highlightSpan.kind === HighlightSpanKind.writtenReference
+                            isWriteAccess: highlightSpan.kind === HighlightSpanKind.writtenReference,
+                            isDefinition: false
                         });
                     }
                 }
@@ -56248,7 +56285,8 @@ var ts;
                                     references: [{
                                             fileName: sourceFile.fileName,
                                             textSpan: ts.createTextSpan(position, searchText.length),
-                                            isWriteAccess: false
+                                            isWriteAccess: false,
+                                            isDefinition: false
                                         }]
                                 });
                             }
@@ -56726,7 +56764,8 @@ var ts;
             return {
                 fileName: node.getSourceFile().fileName,
                 textSpan: ts.createTextSpanFromBounds(start, end),
-                isWriteAccess: isWriteAccess(node)
+                isWriteAccess: isWriteAccess(node),
+                isDefinition: ts.isDeclarationName(node) || ts.isLiteralComputedPropertyDeclarationName(node)
             };
         }
         /** A node is considered a writeAccess iff it is a name of a declaration or a target of an assignment */
@@ -59749,7 +59788,7 @@ var TypeScript;
 // TODO: it should be moved into a namespace though.
 /* @internal */
 var toolsVersion = "1.9";
-/* tslint:enable:no-unused-variable */ 
+/* tslint:enable:no-unused-variable */
 /**
  * Sample: add a new utility function
  */
