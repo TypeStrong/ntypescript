@@ -1584,7 +1584,7 @@ declare namespace ts {
         ObjectLiteralPatternWithComputedProperties = 67108864,
         Never = 134217728,
         Nullable = 96,
-        Falsy = 126,
+        Falsy = 112,
         Intrinsic = 150995071,
         Primitive = 16777726,
         StringLike = 258,
@@ -1827,6 +1827,7 @@ declare namespace ts {
         suppressOutputPathCheck?: boolean;
         target?: ScriptTarget;
         traceResolution?: boolean;
+        disableSizeLimit?: boolean;
         types?: string[];
         /** Paths used to used to compute primary types search locations */
         typeRoots?: string[];
@@ -2274,6 +2275,7 @@ declare namespace ts {
         useCaseSensitiveFileNames: boolean;
         write(s: string): void;
         readFile(path: string, encoding?: string): string;
+        getFileSize?(path: string): number;
         writeFile(path: string, data: string, writeByteOrderMark?: boolean): void;
         watchFile?(path: string, callback: FileWatcherCallback): FileWatcher;
         watchDirectory?(path: string, callback: DirectoryWatcherCallback, recursive?: boolean): FileWatcher;
@@ -2595,6 +2597,7 @@ declare namespace ts {
     function isEmptyObjectLiteralOrArrayLiteral(expression: Node): boolean;
     function getLocalSymbolForExportDefault(symbol: Symbol): Symbol;
     function hasJavaScriptFileExtension(fileName: string): boolean;
+    function hasTypeScriptFileExtension(fileName: string): boolean;
     /**
      * Serialize an object graph into a JSON string. This is intended only for use on an acyclic graph
      * as the fallback implementation does not check for circular references by default.
@@ -7018,12 +7021,6 @@ declare namespace ts {
             message: string;
         };
         parameter_modifiers_can_only_be_used_in_a_ts_file: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
-        property_declarations_can_only_be_used_in_a_ts_file: {
             code: number;
             category: DiagnosticCategory;
             key: string;

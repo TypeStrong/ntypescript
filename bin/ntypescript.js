@@ -639,7 +639,8 @@ var ts;
         TypeFlags[TypeFlags["Never"] = 134217728] = "Never";
         /* @internal */
         TypeFlags[TypeFlags["Nullable"] = 96] = "Nullable";
-        TypeFlags[TypeFlags["Falsy"] = 126] = "Falsy";
+        /* @internal */
+        TypeFlags[TypeFlags["Falsy"] = 112] = "Falsy";
         /* @internal */
         TypeFlags[TypeFlags["Intrinsic"] = 150995071] = "Intrinsic";
         /* @internal */
@@ -2190,6 +2191,16 @@ var ts;
                         global.gc();
                     }
                     return process.memoryUsage().heapUsed;
+                },
+                getFileSize: function (path) {
+                    try {
+                        var stat = _fs.statSync(path);
+                        if (stat.isFile()) {
+                            return stat.size;
+                        }
+                    }
+                    catch (e) { }
+                    return 0;
                 },
                 exit: function (exitCode) {
                     process.exit(exitCode);
@@ -4778,6 +4789,10 @@ var ts;
         return ts.forEach(ts.supportedJavascriptExtensions, function (extension) { return ts.fileExtensionIs(fileName, extension); });
     }
     ts.hasJavaScriptFileExtension = hasJavaScriptFileExtension;
+    function hasTypeScriptFileExtension(fileName) {
+        return ts.forEach(ts.supportedTypeScriptExtensions, function (extension) { return ts.fileExtensionIs(fileName, extension); });
+    }
+    ts.hasTypeScriptFileExtension = hasTypeScriptFileExtension;
     /**
      * Replace each instance of non-ascii characters by one, two, three, or four escape sequences
      * representing the UTF-8 encoding of the character, and return the expanded char code list.
@@ -5883,7 +5898,6 @@ var ts;
         types_can_only_be_used_in_a_ts_file: { code: 8010, category: ts.DiagnosticCategory.Error, key: "types_can_only_be_used_in_a_ts_file_8010", message: "'types' can only be used in a .ts file." },
         type_arguments_can_only_be_used_in_a_ts_file: { code: 8011, category: ts.DiagnosticCategory.Error, key: "type_arguments_can_only_be_used_in_a_ts_file_8011", message: "'type arguments' can only be used in a .ts file." },
         parameter_modifiers_can_only_be_used_in_a_ts_file: { code: 8012, category: ts.DiagnosticCategory.Error, key: "parameter_modifiers_can_only_be_used_in_a_ts_file_8012", message: "'parameter modifiers' can only be used in a .ts file." },
-        property_declarations_can_only_be_used_in_a_ts_file: { code: 8014, category: ts.DiagnosticCategory.Error, key: "property_declarations_can_only_be_used_in_a_ts_file_8014", message: "'property declarations' can only be used in a .ts file." },
         enum_declarations_can_only_be_used_in_a_ts_file: { code: 8015, category: ts.DiagnosticCategory.Error, key: "enum_declarations_can_only_be_used_in_a_ts_file_8015", message: "'enum declarations' can only be used in a .ts file." },
         type_assertion_expressions_can_only_be_used_in_a_ts_file: { code: 8016, category: ts.DiagnosticCategory.Error, key: "type_assertion_expressions_can_only_be_used_in_a_ts_file_8016", message: "'type assertion expressions' can only be used in a .ts file." },
         Only_identifiers_Slashqualified_names_with_optional_type_arguments_are_currently_supported_in_a_class_extends_clauses: { code: 9002, category: ts.DiagnosticCategory.Error, key: "Only_identifiers_Slashqualified_names_with_optional_type_arguments_are_currently_supported_in_a_clas_9002", message: "Only identifiers/qualified-names with optional type arguments are currently supported in a class 'extends' clauses." },
@@ -16216,7 +16230,8 @@ var ts;
             var declarationFile = ts.getSourceFileOfNode(declaration);
             var useFile = ts.getSourceFileOfNode(usage);
             if (declarationFile !== useFile) {
-                if (modulekind || (!compilerOptions.outFile && !compilerOptions.out)) {
+                if ((modulekind && (declarationFile.externalModuleIndicator || useFile.externalModuleIndicator)) ||
+                    (!compilerOptions.outFile && !compilerOptions.out)) {
                     // nodes are in different files and order cannot be determines
                     return true;
                 }
@@ -26187,6 +26202,7 @@ var ts;
         }
         function checkAssertion(node) {
             var exprType = getRegularTypeOfObjectLiteral(checkExpression(node.expression));
+            checkSourceElement(node.type);
             var targetType = getTypeFromTypeNode(node.type);
             if (produceDiagnostics && targetType !== unknownType) {
                 var widenedType = getWidenedType(exprType);
@@ -27056,7 +27072,7 @@ var ts;
                 case 90 /* InKeyword */:
                     return checkInExpression(left, right, leftType, rightType);
                 case 51 /* AmpersandAmpersandToken */:
-                    return strictNullChecks ? addTypeKind(rightType, getCombinedTypeFlags(leftType) & 126 /* Falsy */) : rightType;
+                    return strictNullChecks ? addTypeKind(rightType, getCombinedTypeFlags(leftType) & 112 /* Falsy */) : rightType;
                 case 52 /* BarBarToken */:
                     return getUnionType([getNonNullableType(leftType), rightType]);
                 case 56 /* EqualsToken */:
@@ -28019,9 +28035,6 @@ var ts;
                     }
                 }
             }
-            // when checking exported function declarations across modules check only duplicate implementations
-            // names and consistency of modifiers are verified when we check local symbol
-            var isExportSymbolInsideModule = symbol.parent && symbol.parent.flags & 1536 /* Module */;
             var duplicateFunctionDeclaration = false;
             var multipleConstructorImplementation = false;
             for (var _i = 0, declarations_4 = declarations; _i < declarations_4.length; _i++) {
@@ -28053,7 +28066,7 @@ var ts;
                             duplicateFunctionDeclaration = true;
                         }
                     }
-                    else if (!isExportSymbolInsideModule && previousDeclaration && previousDeclaration.parent === node.parent && previousDeclaration.end !== node.pos) {
+                    else if (previousDeclaration && previousDeclaration.parent === node.parent && previousDeclaration.end !== node.pos) {
                         reportImplementationExpectedError(previousDeclaration);
                     }
                     if (ts.nodeIsPresent(node.body)) {
@@ -28081,7 +28094,7 @@ var ts;
                 });
             }
             // Abstract methods can't have an implementation -- in particular, they don't need one.
-            if (!isExportSymbolInsideModule && lastSeenNonAmbientDeclaration && !lastSeenNonAmbientDeclaration.body &&
+            if (lastSeenNonAmbientDeclaration && !lastSeenNonAmbientDeclaration.body &&
                 !(lastSeenNonAmbientDeclaration.flags & 128 /* Abstract */) && !lastSeenNonAmbientDeclaration.questionToken) {
                 reportImplementationExpectedError(lastSeenNonAmbientDeclaration);
             }
@@ -33210,6 +33223,10 @@ var ts;
             description: ts.Diagnostics.Specify_library_files_to_be_included_in_the_compilation_Colon
         },
         {
+            name: "disableProjectSizeLimit",
+            type: "boolean"
+        },
+        {
             name: "strictNullChecks",
             type: "boolean",
             description: ts.Diagnostics.Enable_strict_null_checks
@@ -33534,8 +33551,10 @@ var ts;
                                 continue;
                             }
                         }
-                        filesSeen[fileName] = true;
-                        fileNames.push(fileName);
+                        if (!filesSeen[fileName]) {
+                            filesSeen[fileName] = true;
+                            fileNames.push(fileName);
+                        }
                     }
                 }
             }
@@ -44280,8 +44299,20 @@ var ts;
                             }
                             break;
                         case 145 /* PropertyDeclaration */:
-                            diagnostics.push(ts.createDiagnosticForNode(node, ts.Diagnostics.property_declarations_can_only_be_used_in_a_ts_file));
-                            return true;
+                            var propertyDeclaration = node;
+                            if (propertyDeclaration.modifiers) {
+                                for (var _i = 0, _a = propertyDeclaration.modifiers; _i < _a.length; _i++) {
+                                    var modifier = _a[_i];
+                                    if (modifier.kind !== 113 /* StaticKeyword */) {
+                                        diagnostics.push(ts.createDiagnosticForNode(modifier, ts.Diagnostics._0_can_only_be_used_in_a_ts_file, ts.tokenToString(modifier.kind)));
+                                        return true;
+                                    }
+                                }
+                            }
+                            if (checkTypeAnnotation(node.type)) {
+                                return true;
+                            }
+                            break;
                         case 224 /* EnumDeclaration */:
                             diagnostics.push(ts.createDiagnosticForNode(node, ts.Diagnostics.enum_declarations_can_only_be_used_in_a_ts_file));
                             return true;
@@ -51478,6 +51509,7 @@ var ts;
     })(formatting = ts.formatting || (ts.formatting = {}));
 })(ts || (ts = {}));
 /// <reference path="..\compiler\program.ts"/>
+/// <reference path="..\compiler\commandLineParser.ts"/>
 /// <reference path='breakpoints.ts' />
 /// <reference path='outliningElementsCollector.ts' />
 /// <reference path='navigateTo.ts' />
@@ -53512,7 +53544,8 @@ var ts;
                     oldSettings.moduleResolution !== newSettings.moduleResolution ||
                     oldSettings.noResolve !== newSettings.noResolve ||
                     oldSettings.jsx !== newSettings.jsx ||
-                    oldSettings.allowJs !== newSettings.allowJs);
+                    oldSettings.allowJs !== newSettings.allowJs ||
+                    oldSettings.disableSizeLimit !== oldSettings.disableSizeLimit);
             // Now create a new compiler
             var compilerHost = {
                 getSourceFile: getOrCreateSourceFile,

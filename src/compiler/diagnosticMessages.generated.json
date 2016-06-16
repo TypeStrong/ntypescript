@@ -729,7 +729,6 @@
   "types_can_only_be_used_in_a_ts_file_8010" : "'types' can only be used in a .ts file.",
   "type_arguments_can_only_be_used_in_a_ts_file_8011" : "'type arguments' can only be used in a .ts file.",
   "parameter_modifiers_can_only_be_used_in_a_ts_file_8012" : "'parameter modifiers' can only be used in a .ts file.",
-  "property_declarations_can_only_be_used_in_a_ts_file_8014" : "'property declarations' can only be used in a .ts file.",
   "enum_declarations_can_only_be_used_in_a_ts_file_8015" : "'enum declarations' can only be used in a .ts file.",
   "type_assertion_expressions_can_only_be_used_in_a_ts_file_8016" : "'type assertion expressions' can only be used in a .ts file.",
   "Only_identifiers_Slashqualified_names_with_optional_type_arguments_are_currently_supported_in_a_clas_9002" : "Only identifiers/qualified-names with optional type arguments are currently supported in a class 'extends' clauses.",

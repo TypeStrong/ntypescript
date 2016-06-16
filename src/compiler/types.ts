@@ -2224,7 +2224,8 @@ namespace ts {
 
         /* @internal */
         Nullable = Undefined | Null,
-        Falsy = String | Number | Boolean | Void | Undefined | Null,
+        /* @internal */
+        Falsy = Void | Undefined | Null,       // TODO: Add false, 0, and ""
         /* @internal */
         Intrinsic = Any | String | Number | Boolean | ESSymbol | Void | Undefined | Null | Never,
         /* @internal */
@@ -2561,6 +2562,7 @@ namespace ts {
         /* @internal */ suppressOutputPathCheck?: boolean;
         target?: ScriptTarget;
         traceResolution?: boolean;
+        disableSizeLimit?: boolean;
         types?: string[];
         /** Paths used to used to compute primary types search locations */
         typeRoots?: string[];
