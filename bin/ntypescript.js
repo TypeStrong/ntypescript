@@ -7696,7 +7696,6 @@ var ts;
                 return visitNodes(cbNodes, node.properties);
             case 172 /* PropertyAccessExpression */:
                 return visitNode(cbNode, node.expression) ||
-                    visitNode(cbNode, node.dotToken) ||
                     visitNode(cbNode, node.name);
             case 173 /* ElementAccessExpression */:
                 return visitNode(cbNode, node.expression) ||
@@ -10720,7 +10719,7 @@ var ts;
             // If it wasn't then just try to parse out a '.' and report an error.
             var node = createNode(172 /* PropertyAccessExpression */, expression.pos);
             node.expression = expression;
-            node.dotToken = parseExpectedToken(21 /* DotToken */, /*reportAtCurrentPosition*/ false, ts.Diagnostics.super_must_be_followed_by_an_argument_list_or_member_access);
+            parseExpectedToken(21 /* DotToken */, /*reportAtCurrentPosition*/ false, ts.Diagnostics.super_must_be_followed_by_an_argument_list_or_member_access);
             node.name = parseRightSideOfDot(/*allowIdentifierNames*/ true);
             return finishNode(node);
         }
@@ -10922,7 +10921,6 @@ var ts;
                 if (dotToken) {
                     var propertyAccess = createNode(172 /* PropertyAccessExpression */, expression.pos);
                     propertyAccess.expression = expression;
-                    propertyAccess.dotToken = dotToken;
                     propertyAccess.name = parseRightSideOfDot(/*allowIdentifierNames*/ true);
                     expression = finishNode(propertyAccess);
                     continue;
@@ -37293,7 +37291,6 @@ var ts;
             function createPropertyAccessExpression(expression, name) {
                 var result = ts.createSynthesizedNode(172 /* PropertyAccessExpression */);
                 result.expression = parenthesizeForAccess(expression);
-                result.dotToken = ts.createSynthesizedNode(21 /* DotToken */);
                 result.name = name;
                 return result;
             }
@@ -37452,7 +37449,10 @@ var ts;
                     return;
                 }
                 emit(node.expression);
-                var indentedBeforeDot = indentIfOnDifferentLines(node, node.expression, node.dotToken);
+                var dotRangeStart = ts.nodeIsSynthesized(node.expression) ? -1 : node.expression.end;
+                var dotRangeEnd = ts.nodeIsSynthesized(node.expression) ? -1 : ts.skipTrivia(currentText, node.expression.end) + 1;
+                var dotToken = { pos: dotRangeStart, end: dotRangeEnd };
+                var indentedBeforeDot = indentIfOnDifferentLines(node, node.expression, dotToken);
                 // 1 .toString is a valid property access, emit a space after the literal
                 // Also emit a space if expression is a integer const enum value - it will appear in generated code as numeric literal
                 var shouldEmitSpace = false;
@@ -37475,7 +37475,7 @@ var ts;
                 else {
                     write(".");
                 }
-                var indentedAfterDot = indentIfOnDifferentLines(node, node.dotToken, node.name);
+                var indentedAfterDot = indentIfOnDifferentLines(node, dotToken, node.name);
                 emit(node.name);
                 decreaseIndentIf(indentedBeforeDot, indentedAfterDot);
             }
@@ -37914,7 +37914,6 @@ var ts;
                         synthesizedLHS = ts.createSynthesizedNode(172 /* PropertyAccessExpression */, /*startsOnNewLine*/ false);
                         var identifier = emitTempVariableAssignment(leftHandSideExpression.expression, /*canDefineTempVariablesInPlace*/ false, /*shouldEmitCommaBeforeAssignment*/ false);
                         synthesizedLHS.expression = identifier;
-                        synthesizedLHS.dotToken = leftHandSideExpression.dotToken;
                         synthesizedLHS.name = leftHandSideExpression.name;
                         write(", ");
                     }
