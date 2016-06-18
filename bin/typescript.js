@@ -424,8 +424,9 @@ var ts;
         FlowFlags[FlowFlags["Assignment"] = 16] = "Assignment";
         FlowFlags[FlowFlags["TrueCondition"] = 32] = "TrueCondition";
         FlowFlags[FlowFlags["FalseCondition"] = 64] = "FalseCondition";
-        FlowFlags[FlowFlags["Referenced"] = 128] = "Referenced";
-        FlowFlags[FlowFlags["Shared"] = 256] = "Shared";
+        FlowFlags[FlowFlags["SwitchClause"] = 128] = "SwitchClause";
+        FlowFlags[FlowFlags["Referenced"] = 256] = "Referenced";
+        FlowFlags[FlowFlags["Shared"] = 512] = "Shared";
         FlowFlags[FlowFlags["Label"] = 12] = "Label";
         FlowFlags[FlowFlags["Condition"] = 96] = "Condition";
     })(ts.FlowFlags || (ts.FlowFlags = {}));
@@ -5652,6 +5653,7 @@ var ts;
         Identifier_0_must_be_imported_from_a_module: { code: 2686, category: ts.DiagnosticCategory.Error, key: "Identifier_0_must_be_imported_from_a_module_2686", message: "Identifier '{0}' must be imported from a module" },
         All_declarations_of_0_must_have_identical_modifiers: { code: 2687, category: ts.DiagnosticCategory.Error, key: "All_declarations_of_0_must_have_identical_modifiers_2687", message: "All declarations of '{0}' must have identical modifiers." },
         Cannot_find_type_definition_file_for_0: { code: 2688, category: ts.DiagnosticCategory.Error, key: "Cannot_find_type_definition_file_for_0_2688", message: "Cannot find type definition file for '{0}'." },
+        Cannot_extend_an_interface_0_Did_you_mean_implements: { code: 2689, category: ts.DiagnosticCategory.Error, key: "Cannot_extend_an_interface_0_Did_you_mean_implements_2689", message: "Cannot extend an interface '{0}'. Did you mean 'implements'?" },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -14253,11 +14255,6 @@ var ts;
                     break;
             }
         }
-        function isNarrowableReference(expr) {
-            return expr.kind === 69 /* Identifier */ ||
-                expr.kind === 97 /* ThisKeyword */ ||
-                expr.kind === 172 /* PropertyAccessExpression */ && isNarrowableReference(expr.expression);
-        }
         function isNarrowingExpression(expr) {
             switch (expr.kind) {
                 case 69 /* Identifier */:
@@ -14265,7 +14262,7 @@ var ts;
                 case 172 /* PropertyAccessExpression */:
                     return isNarrowableReference(expr);
                 case 174 /* CallExpression */:
-                    return true;
+                    return hasNarrowableArgument(expr);
                 case 178 /* ParenthesizedExpression */:
                     return isNarrowingExpression(expr.expression);
                 case 187 /* BinaryExpression */:
@@ -14275,6 +14272,35 @@ var ts;
             }
             return false;
         }
+        function isNarrowableReference(expr) {
+            return expr.kind === 69 /* Identifier */ ||
+                expr.kind === 97 /* ThisKeyword */ ||
+                expr.kind === 172 /* PropertyAccessExpression */ && isNarrowableReference(expr.expression);
+        }
+        function hasNarrowableArgument(expr) {
+            if (expr.arguments) {
+                for (var _i = 0, _a = expr.arguments; _i < _a.length; _i++) {
+                    var argument = _a[_i];
+                    if (isNarrowableReference(argument)) {
+                        return true;
+                    }
+                }
+            }
+            if (expr.expression.kind === 172 /* PropertyAccessExpression */ &&
+                isNarrowableReference(expr.expression.expression)) {
+                return true;
+            }
+            return false;
+        }
+        function isNarrowingNullCheckOperands(expr1, expr2) {
+            return (expr1.kind === 93 /* NullKeyword */ || expr1.kind === 69 /* Identifier */ && expr1.text === "undefined") && isNarrowableOperand(expr2);
+        }
+        function isNarrowingTypeofOperands(expr1, expr2) {
+            return expr1.kind === 182 /* TypeOfExpression */ && isNarrowableOperand(expr1.expression) && expr2.kind === 9 /* StringLiteral */;
+        }
+        function isNarrowingDiscriminant(expr) {
+            return expr.kind === 172 /* PropertyAccessExpression */ && isNarrowableReference(expr.expression);
+        }
         function isNarrowingBinaryExpression(expr) {
             switch (expr.operatorToken.kind) {
                 case 56 /* EqualsToken */:
@@ -14283,33 +14309,33 @@ var ts;
                 case 31 /* ExclamationEqualsToken */:
                 case 32 /* EqualsEqualsEqualsToken */:
                 case 33 /* ExclamationEqualsEqualsToken */:
-                    if ((isNarrowingExpression(expr.left) && (expr.right.kind === 93 /* NullKeyword */ || expr.right.kind === 69 /* Identifier */)) ||
-                        (isNarrowingExpression(expr.right) && (expr.left.kind === 93 /* NullKeyword */ || expr.left.kind === 69 /* Identifier */))) {
-                        return true;
-                    }
-                    if (isTypeOfNarrowingBinaryExpression(expr)) {
-                        return true;
-                    }
-                    return false;
+                    return isNarrowingNullCheckOperands(expr.right, expr.left) || isNarrowingNullCheckOperands(expr.left, expr.right) ||
+                        isNarrowingTypeofOperands(expr.right, expr.left) || isNarrowingTypeofOperands(expr.left, expr.right) ||
+                        isNarrowingDiscriminant(expr.left) || isNarrowingDiscriminant(expr.right);
                 case 91 /* InstanceOfKeyword */:
-                    return isNarrowingExpression(expr.left);
+                    return isNarrowableOperand(expr.left);
                 case 24 /* CommaToken */:
                     return isNarrowingExpression(expr.right);
             }
             return false;
         }
-        function isTypeOfNarrowingBinaryExpression(expr) {
-            var typeOf;
-            if (expr.left.kind === 9 /* StringLiteral */) {
-                typeOf = expr.right;
+        function isNarrowableOperand(expr) {
+            switch (expr.kind) {
+                case 178 /* ParenthesizedExpression */:
+                    return isNarrowableOperand(expr.expression);
+                case 187 /* BinaryExpression */:
+                    switch (expr.operatorToken.kind) {
+                        case 56 /* EqualsToken */:
+                            return isNarrowableOperand(expr.left);
+                        case 24 /* CommaToken */:
+                            return isNarrowableOperand(expr.right);
+                    }
             }
-            else if (expr.right.kind === 9 /* StringLiteral */) {
-                typeOf = expr.left;
-            }
-            else {
-                typeOf = undefined;
-            }
-            return typeOf && typeOf.kind === 182 /* TypeOfExpression */ && isNarrowingExpression(typeOf.expression);
+            return isNarrowableReference(expr);
+        }
+        function isNarrowingSwitchStatement(switchStatement) {
+            var expr = switchStatement.expression;
+            return expr.kind === 172 /* PropertyAccessExpression */ && isNarrowableReference(expr.expression);
         }
         function createBranchLabel() {
             return {
@@ -14325,7 +14351,7 @@ var ts;
         }
         function setFlowNodeReferenced(flow) {
             // On first reference we set the Referenced flag, thereafter we set the Shared flag
-            flow.flags |= flow.flags & 128 /* Referenced */ ? 256 /* Shared */ : 128 /* Referenced */;
+            flow.flags |= flow.flags & 256 /* Referenced */ ? 512 /* Shared */ : 256 /* Referenced */;
         }
         function addAntecedent(label, antecedent) {
             if (!(antecedent.flags & 1 /* Unreachable */) && !ts.contains(label.antecedents, antecedent)) {
@@ -14350,8 +14376,21 @@ var ts;
             setFlowNodeReferenced(antecedent);
             return {
                 flags: flags,
-                antecedent: antecedent,
                 expression: expression,
+                antecedent: antecedent
+            };
+        }
+        function createFlowSwitchClause(antecedent, switchStatement, clauseStart, clauseEnd) {
+            if (!isNarrowingSwitchStatement(switchStatement)) {
+                return antecedent;
+            }
+            setFlowNodeReferenced(antecedent);
+            return {
+                flags: 128 /* SwitchClause */,
+                switchStatement: switchStatement,
+                clauseStart: clauseStart,
+                clauseEnd: clauseEnd,
+                antecedent: antecedent
             };
         }
         function createFlowAssignment(antecedent, node) {
@@ -14562,9 +14601,12 @@ var ts;
             preSwitchCaseFlow = currentFlow;
             bind(node.caseBlock);
             addAntecedent(postSwitchLabel, currentFlow);
-            var hasNonEmptyDefault = ts.forEach(node.caseBlock.clauses, function (c) { return c.kind === 250 /* DefaultClause */ && c.statements.length; });
-            if (!hasNonEmptyDefault) {
-                addAntecedent(postSwitchLabel, preSwitchCaseFlow);
+            var hasDefault = ts.forEach(node.caseBlock.clauses, function (c) { return c.kind === 250 /* DefaultClause */; });
+            // We mark a switch statement as possibly exhaustive if it has no default clause and if all
+            // case clauses have unreachable end points (e.g. they all return).
+            node.possiblyExhaustive = !hasDefault && !postSwitchLabel.antecedents;
+            if (!hasDefault) {
+                addAntecedent(postSwitchLabel, createFlowSwitchClause(preSwitchCaseFlow, node, 0, 0));
             }
             currentBreakTarget = saveBreakTarget;
             preSwitchCaseFlow = savePreSwitchCaseFlow;
@@ -14572,25 +14614,22 @@ var ts;
         }
         function bindCaseBlock(node) {
             var clauses = node.clauses;
+            var fallthroughFlow = unreachableFlow;
             for (var i = 0; i < clauses.length; i++) {
-                var clause = clauses[i];
-                if (clause.statements.length) {
-                    if (currentFlow.flags & 1 /* Unreachable */) {
-                        currentFlow = preSwitchCaseFlow;
-                    }
-                    else {
-                        var preCaseLabel = createBranchLabel();
-                        addAntecedent(preCaseLabel, preSwitchCaseFlow);
-                        addAntecedent(preCaseLabel, currentFlow);
-                        currentFlow = finishFlowLabel(preCaseLabel);
-                    }
-                    bind(clause);
-                    if (!(currentFlow.flags & 1 /* Unreachable */) && i !== clauses.length - 1 && options.noFallthroughCasesInSwitch) {
-                        errorOnFirstToken(clause, ts.Diagnostics.Fallthrough_case_in_switch);
-                    }
+                var clauseStart = i;
+                while (!clauses[i].statements.length && i + 1 < clauses.length) {
+                    bind(clauses[i]);
+                    i++;
                 }
-                else {
-                    bind(clause);
+                var preCaseLabel = createBranchLabel();
+                addAntecedent(preCaseLabel, createFlowSwitchClause(preSwitchCaseFlow, node.parent, clauseStart, i + 1));
+                addAntecedent(preCaseLabel, fallthroughFlow);
+                currentFlow = finishFlowLabel(preCaseLabel);
+                var clause = clauses[i];
+                bind(clause);
+                fallthroughFlow = currentFlow;
+                if (!(currentFlow.flags & 1 /* Unreachable */) && i !== clauses.length - 1 && options.noFallthroughCasesInSwitch) {
+                    errorOnFirstToken(clause, ts.Diagnostics.Fallthrough_case_in_switch);
                 }
             }
         }
@@ -16494,7 +16533,8 @@ var ts;
             }
             if (!result) {
                 if (nameNotFoundMessage) {
-                    if (!checkAndReportErrorForMissingPrefix(errorLocation, name, nameArg)) {
+                    if (!checkAndReportErrorForMissingPrefix(errorLocation, name, nameArg) &&
+                        !checkAndReportErrorForExtendingInterface(errorLocation)) {
                         error(errorLocation, nameNotFoundMessage, typeof nameArg === "string" ? nameArg : ts.declarationNameToString(nameArg));
                     }
                 }
@@ -16565,6 +16605,29 @@ var ts;
                     }
                 }
                 location = location.parent;
+            }
+            return false;
+        }
+        function checkAndReportErrorForExtendingInterface(errorLocation) {
+            var parentClassExpression = errorLocation;
+            while (parentClassExpression) {
+                var kind = parentClassExpression.kind;
+                if (kind === 69 /* Identifier */ || kind === 172 /* PropertyAccessExpression */) {
+                    parentClassExpression = parentClassExpression.parent;
+                    continue;
+                }
+                if (kind === 194 /* ExpressionWithTypeArguments */) {
+                    break;
+                }
+                return false;
+            }
+            if (!parentClassExpression) {
+                return false;
+            }
+            var expression = parentClassExpression.expression;
+            if (resolveEntityName(expression, 64 /* Interface */, /*ignoreErrors*/ true)) {
+                error(errorLocation, ts.Diagnostics.Cannot_extend_an_interface_0_Did_you_mean_implements, ts.getTextOfNode(expression));
+                return true;
             }
             return false;
         }
@@ -20864,6 +20927,9 @@ var ts;
         function isTypeComparableTo(source, target) {
             return checkTypeComparableTo(source, target, /*errorNode*/ undefined);
         }
+        function areTypesComparable(type1, type2) {
+            return isTypeComparableTo(type1, type2) || isTypeComparableTo(type2, type1);
+        }
         function checkTypeSubtypeOf(source, target, errorNode, headMessage, containingMessageChain) {
             return checkTypeRelatedTo(source, target, subtypeRelation, errorNode, headMessage, containingMessageChain);
         }
@@ -21943,8 +22009,10 @@ var ts;
         function isTupleLikeType(type) {
             return !!getPropertyOfType(type, "0");
         }
-        function isStringLiteralType(type) {
-            return type.flags & 256 /* StringLiteral */;
+        function isStringLiteralUnionType(type) {
+            return type.flags & 256 /* StringLiteral */ ? true :
+                type.flags & 16384 /* Union */ ? ts.forEach(type.types, isStringLiteralUnionType) :
+                    false;
         }
         /**
          * Check if a Type was written as a tuple type literal.
@@ -22755,6 +22823,31 @@ var ts;
             }
             return node;
         }
+        function getTypeOfSwitchClause(clause) {
+            if (clause.kind === 249 /* CaseClause */) {
+                var expr = clause.expression;
+                return expr.kind === 9 /* StringLiteral */ ? getStringLiteralTypeForText(expr.text) : checkExpression(expr);
+            }
+            return undefined;
+        }
+        function getSwitchClauseTypes(switchStatement) {
+            var links = getNodeLinks(switchStatement);
+            if (!links.switchTypes) {
+                // If all case clauses specify expressions that have unit types, we return an array
+                // of those unit types. Otherwise we return an empty array.
+                var types = ts.map(switchStatement.caseBlock.clauses, getTypeOfSwitchClause);
+                links.switchTypes = ts.forEach(types, function (t) { return !t || t.flags & 256 /* StringLiteral */; }) ? types : emptyArray;
+            }
+            return links.switchTypes;
+        }
+        function eachTypeContainedIn(source, types) {
+            return source.flags & 16384 /* Union */ ? !ts.forEach(source.types, function (t) { return !ts.contains(types, t); }) : ts.contains(types, source);
+        }
+        function filterType(type, f) {
+            return type.flags & 16384 /* Union */ ?
+                getUnionType(ts.filter(type.types, f)) :
+                f(type) ? type : neverType;
+        }
         function getFlowTypeOfReference(reference, declaredType, assumeInitialized, includeOuterFunctions) {
             var key;
             if (!reference.flowNode || assumeInitialized && !(declaredType.flags & 16908175 /* Narrowable */)) {
@@ -22770,7 +22863,7 @@ var ts;
             return result;
             function getTypeAtFlowNode(flow) {
                 while (true) {
-                    if (flow.flags & 256 /* Shared */) {
+                    if (flow.flags & 512 /* Shared */) {
                         // We cache results of flow type resolution for shared nodes that were previously visited in
                         // the same getFlowTypeOfReference invocation. A node is considered shared when it is the
                         // antecedent of more than one node.
@@ -22790,6 +22883,9 @@ var ts;
                     }
                     else if (flow.flags & 96 /* Condition */) {
                         type = getTypeAtFlowCondition(flow);
+                    }
+                    else if (flow.flags & 128 /* SwitchClause */) {
+                        type = getTypeAtSwitchClause(flow);
                     }
                     else if (flow.flags & 12 /* Label */) {
                         if (flow.antecedents.length === 1) {
@@ -22815,7 +22911,7 @@ var ts;
                         // simply return the declared type to reduce follow-on errors.
                         type = declaredType;
                     }
-                    if (flow.flags & 256 /* Shared */) {
+                    if (flow.flags & 512 /* Shared */) {
                         // Record visited node and the associated type in the cache.
                         visitedFlowNodes[visitedFlowCount] = flow;
                         visitedFlowTypes[visitedFlowCount] = type;
@@ -22870,6 +22966,10 @@ var ts;
                     }
                 }
                 return type;
+            }
+            function getTypeAtSwitchClause(flow) {
+                var type = getTypeAtFlowNode(flow.antecedent);
+                return narrowTypeBySwitchOnDiscriminant(type, flow.switchStatement, flow.clauseStart, flow.clauseEnd);
             }
             function getTypeAtFlowBranchLabel(flow) {
                 var antecedentTypes = [];
@@ -22949,12 +23049,26 @@ var ts;
                     case 31 /* ExclamationEqualsToken */:
                     case 32 /* EqualsEqualsEqualsToken */:
                     case 33 /* ExclamationEqualsEqualsToken */:
-                        if (isNullOrUndefinedLiteral(expr.left) || isNullOrUndefinedLiteral(expr.right)) {
-                            return narrowTypeByNullCheck(type, expr, assumeTrue);
+                        var left = expr.left;
+                        var operator = expr.operatorToken.kind;
+                        var right = expr.right;
+                        if (isNullOrUndefinedLiteral(right)) {
+                            return narrowTypeByNullCheck(type, left, operator, right, assumeTrue);
                         }
-                        if (expr.left.kind === 182 /* TypeOfExpression */ && expr.right.kind === 9 /* StringLiteral */ ||
-                            expr.left.kind === 9 /* StringLiteral */ && expr.right.kind === 182 /* TypeOfExpression */) {
-                            return narrowTypeByTypeof(type, expr, assumeTrue);
+                        if (isNullOrUndefinedLiteral(left)) {
+                            return narrowTypeByNullCheck(type, right, operator, left, assumeTrue);
+                        }
+                        if (left.kind === 182 /* TypeOfExpression */ && right.kind === 9 /* StringLiteral */) {
+                            return narrowTypeByTypeof(type, left, operator, right, assumeTrue);
+                        }
+                        if (right.kind === 182 /* TypeOfExpression */ && left.kind === 9 /* StringLiteral */) {
+                            return narrowTypeByTypeof(type, right, operator, left, assumeTrue);
+                        }
+                        if (left.kind === 172 /* PropertyAccessExpression */) {
+                            return narrowTypeByDiscriminant(type, left, operator, right, assumeTrue);
+                        }
+                        if (right.kind === 172 /* PropertyAccessExpression */) {
+                            return narrowTypeByDiscriminant(type, right, operator, left, assumeTrue);
                         }
                         break;
                     case 91 /* InstanceOfKeyword */:
@@ -22964,40 +23078,34 @@ var ts;
                 }
                 return type;
             }
-            function narrowTypeByNullCheck(type, expr, assumeTrue) {
-                // We have '==', '!=', '===', or '!==' operator with 'null' or 'undefined' on one side
-                var operator = expr.operatorToken.kind;
-                var nullLike = isNullOrUndefinedLiteral(expr.left) ? expr.left : expr.right;
-                var narrowed = isNullOrUndefinedLiteral(expr.left) ? expr.right : expr.left;
+            function narrowTypeByNullCheck(type, target, operator, literal, assumeTrue) {
+                // We have '==', '!=', '===', or '!==' operator with 'null' or 'undefined' as value
                 if (operator === 31 /* ExclamationEqualsToken */ || operator === 33 /* ExclamationEqualsEqualsToken */) {
                     assumeTrue = !assumeTrue;
                 }
-                if (!strictNullChecks || !isMatchingReference(reference, getReferenceFromExpression(narrowed))) {
+                if (!strictNullChecks || !isMatchingReference(reference, getReferenceFromExpression(target))) {
                     return type;
                 }
                 var doubleEquals = operator === 30 /* EqualsEqualsToken */ || operator === 31 /* ExclamationEqualsToken */;
                 var facts = doubleEquals ?
                     assumeTrue ? 65536 /* EQUndefinedOrNull */ : 524288 /* NEUndefinedOrNull */ :
-                    nullLike.kind === 93 /* NullKeyword */ ?
+                    literal.kind === 93 /* NullKeyword */ ?
                         assumeTrue ? 32768 /* EQNull */ : 262144 /* NENull */ :
                         assumeTrue ? 16384 /* EQUndefined */ : 131072 /* NEUndefined */;
                 return getTypeWithFacts(type, facts);
             }
-            function narrowTypeByTypeof(type, expr, assumeTrue) {
-                // We have '==', '!=', '====', or !==' operator with 'typeof xxx' on the left
-                // and string literal on the right
-                var narrowed = getReferenceFromExpression((expr.left.kind === 182 /* TypeOfExpression */ ? expr.left : expr.right).expression);
-                var literal = (expr.right.kind === 9 /* StringLiteral */ ? expr.right : expr.left);
-                if (!isMatchingReference(reference, narrowed)) {
+            function narrowTypeByTypeof(type, typeOfExpr, operator, literal, assumeTrue) {
+                // We have '==', '!=', '====', or !==' operator with 'typeof xxx' and string literal operands
+                var target = getReferenceFromExpression(typeOfExpr.expression);
+                if (!isMatchingReference(reference, target)) {
                     // For a reference of the form 'x.y', a 'typeof x === ...' type guard resets the
                     // narrowed type of 'y' to its declared type.
-                    if (containsMatchingReference(reference, narrowed)) {
+                    if (containsMatchingReference(reference, target)) {
                         return declaredType;
                     }
                     return type;
                 }
-                if (expr.operatorToken.kind === 31 /* ExclamationEqualsToken */ ||
-                    expr.operatorToken.kind === 33 /* ExclamationEqualsEqualsToken */) {
+                if (operator === 31 /* ExclamationEqualsToken */ || operator === 33 /* ExclamationEqualsEqualsToken */) {
                     assumeTrue = !assumeTrue;
                 }
                 if (assumeTrue && !(type.flags & 16384 /* Union */)) {
@@ -23013,6 +23121,56 @@ var ts;
                     ts.getProperty(typeofEQFacts, literal.text) || 64 /* TypeofEQHostObject */ :
                     ts.getProperty(typeofNEFacts, literal.text) || 8192 /* TypeofNEHostObject */;
                 return getTypeWithFacts(type, facts);
+            }
+            function narrowTypeByDiscriminant(type, propAccess, operator, value, assumeTrue) {
+                // We have '==', '!=', '===', or '!==' operator with property access as target
+                if (!isMatchingReference(reference, propAccess.expression)) {
+                    return type;
+                }
+                var propName = propAccess.name.text;
+                var propType = getTypeOfPropertyOfType(type, propName);
+                if (!propType || !isStringLiteralUnionType(propType)) {
+                    return type;
+                }
+                var discriminantType = value.kind === 9 /* StringLiteral */ ? getStringLiteralTypeForText(value.text) : checkExpression(value);
+                if (!isStringLiteralUnionType(discriminantType)) {
+                    return type;
+                }
+                if (operator === 31 /* ExclamationEqualsToken */ || operator === 33 /* ExclamationEqualsEqualsToken */) {
+                    assumeTrue = !assumeTrue;
+                }
+                if (assumeTrue) {
+                    return filterType(type, function (t) { return areTypesComparable(getTypeOfPropertyOfType(t, propName), discriminantType); });
+                }
+                if (discriminantType.flags & 256 /* StringLiteral */) {
+                    return filterType(type, function (t) { return getTypeOfPropertyOfType(t, propName) !== discriminantType; });
+                }
+                return type;
+            }
+            function narrowTypeBySwitchOnDiscriminant(type, switchStatement, clauseStart, clauseEnd) {
+                // We have switch statement with property access expression
+                if (!isMatchingReference(reference, switchStatement.expression.expression)) {
+                    return type;
+                }
+                var propName = switchStatement.expression.name.text;
+                var propType = getTypeOfPropertyOfType(type, propName);
+                if (!propType || !isStringLiteralUnionType(propType)) {
+                    return type;
+                }
+                var switchTypes = getSwitchClauseTypes(switchStatement);
+                if (!switchTypes.length) {
+                    return type;
+                }
+                var clauseTypes = switchTypes.slice(clauseStart, clauseEnd);
+                var hasDefaultClause = clauseStart === clauseEnd || ts.contains(clauseTypes, undefined);
+                var caseTypes = hasDefaultClause ? ts.filter(clauseTypes, function (t) { return !!t; }) : clauseTypes;
+                var discriminantType = caseTypes.length ? getUnionType(caseTypes) : undefined;
+                var caseType = discriminantType && filterType(type, function (t) { return isTypeComparableTo(discriminantType, getTypeOfPropertyOfType(t, propName)); });
+                if (!hasDefaultClause) {
+                    return caseType;
+                }
+                var defaultType = filterType(type, function (t) { return !eachTypeContainedIn(getTypeOfPropertyOfType(t, propName), switchTypes); });
+                return caseType ? getUnionType([caseType, defaultType]) : defaultType;
             }
             function narrowTypeByInstanceof(type, expr, assumeTrue) {
                 var left = getReferenceFromExpression(expr.left);
@@ -23884,9 +24042,6 @@ var ts;
         }
         function getIndexTypeOfContextualType(type, kind) {
             return applyToContextualType(type, function (t) { return getIndexTypeOfStructuredType(t, kind); });
-        }
-        function contextualTypeIsStringLiteralType(type) {
-            return !!(type.flags & 16384 /* Union */ ? ts.forEach(type.types, isStringLiteralType) : isStringLiteralType(type));
         }
         // Return true if the given contextual type is a tuple-like type
         function contextualTypeIsTupleLikeType(type) {
@@ -24888,7 +25043,7 @@ var ts;
             }
             var prop = getPropertyOfType(apparentType, right.text);
             if (!prop) {
-                if (right.text) {
+                if (right.text && !checkAndReportErrorForExtendingInterface(node)) {
                     error(right, ts.Diagnostics.Property_0_does_not_exist_on_type_1, ts.declarationNameToString(right), typeToString(type.flags & 33554432 /* ThisType */ ? apparentType : type));
                 }
                 return unknownType;
@@ -26420,10 +26575,40 @@ var ts;
             });
             return aggregatedTypes;
         }
+        function isExhaustiveSwitchStatement(node) {
+            var expr = node.expression;
+            if (!node.possiblyExhaustive || expr.kind !== 172 /* PropertyAccessExpression */) {
+                return false;
+            }
+            var type = checkExpression(expr.expression);
+            if (!(type.flags & 16384 /* Union */)) {
+                return false;
+            }
+            var propName = expr.name.text;
+            var propType = getTypeOfPropertyOfType(type, propName);
+            if (!propType || !isStringLiteralUnionType(propType)) {
+                return false;
+            }
+            var switchTypes = getSwitchClauseTypes(node);
+            if (!switchTypes.length) {
+                return false;
+            }
+            return eachTypeContainedIn(propType, switchTypes);
+        }
+        function functionHasImplicitReturn(func) {
+            if (!(func.flags & 32768 /* HasImplicitReturn */)) {
+                return false;
+            }
+            var lastStatement = ts.lastOrUndefined(func.body.statements);
+            if (lastStatement && lastStatement.kind === 213 /* SwitchStatement */ && isExhaustiveSwitchStatement(lastStatement)) {
+                return false;
+            }
+            return true;
+        }
         function checkAndAggregateReturnExpressionTypes(func, contextualMapper) {
             var isAsync = ts.isAsyncFunctionLike(func);
             var aggregatedTypes = [];
-            var hasReturnWithNoExpression = !!(func.flags & 32768 /* HasImplicitReturn */);
+            var hasReturnWithNoExpression = functionHasImplicitReturn(func);
             var hasReturnOfTypeNever = false;
             ts.forEachReturnStatement(func.body, function (returnStatement) {
                 var expr = returnStatement.expression;
@@ -26477,7 +26662,7 @@ var ts;
             }
             // If all we have is a function signature, or an arrow function with an expression body, then there is nothing to check.
             // also if HasImplicitReturn flag is not set this means that all codepaths in function body end with return or throw
-            if (ts.nodeIsMissing(func.body) || func.body.kind !== 199 /* Block */ || !(func.flags & 32768 /* HasImplicitReturn */)) {
+            if (ts.nodeIsMissing(func.body) || func.body.kind !== 199 /* Block */ || !functionHasImplicitReturn(func)) {
                 return;
             }
             var hasExplicitReturn = func.flags & 65536 /* HasExplicitReturn */;
@@ -27186,7 +27371,7 @@ var ts;
         }
         function checkStringLiteralExpression(node) {
             var contextualType = getContextualType(node);
-            if (contextualType && contextualTypeIsStringLiteralType(contextualType)) {
+            if (contextualType && isStringLiteralUnionType(contextualType)) {
                 return getStringLiteralTypeForText(node.text);
             }
             return stringType;

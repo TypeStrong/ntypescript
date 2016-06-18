@@ -483,6 +483,7 @@
   "Identifier_0_must_be_imported_from_a_module_2686" : "Identifier '{0}' must be imported from a module",
   "All_declarations_of_0_must_have_identical_modifiers_2687" : "All declarations of '{0}' must have identical modifiers.",
   "Cannot_find_type_definition_file_for_0_2688" : "Cannot find type definition file for '{0}'.",
+  "Cannot_extend_an_interface_0_Did_you_mean_implements_2689" : "Cannot extend an interface '{0}'. Did you mean 'implements'?",
   "Import_declaration_0_is_using_private_name_1_4000" : "Import declaration '{0}' is using private name '{1}'.",
   "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002" : "Type parameter '{0}' of exported class has or is using private name '{1}'.",
   "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004" : "Type parameter '{0}' of exported interface has or is using private name '{1}'.",

@@ -843,6 +843,7 @@ declare namespace ts {
     interface SwitchStatement extends Statement {
         expression: Expression;
         caseBlock: CaseBlock;
+        possiblyExhaustive?: boolean;
     }
     interface CaseBlock extends Node {
         clauses: NodeArray<CaseOrDefaultClause>;
@@ -1074,8 +1075,9 @@ declare namespace ts {
         Assignment = 16,
         TrueCondition = 32,
         FalseCondition = 64,
-        Referenced = 128,
-        Shared = 256,
+        SwitchClause = 128,
+        Referenced = 256,
+        Shared = 512,
         Label = 12,
         Condition = 96,
     }
@@ -1095,6 +1097,12 @@ declare namespace ts {
     }
     interface FlowCondition extends FlowNode {
         expression: Expression;
+        antecedent: FlowNode;
+    }
+    interface FlowSwitchClause extends FlowNode {
+        switchStatement: SwitchStatement;
+        clauseStart: number;
+        clauseEnd: number;
         antecedent: FlowNode;
     }
     interface AmdDependency {
@@ -1552,6 +1560,7 @@ declare namespace ts {
         resolvedJsxType?: Type;
         hasSuperCall?: boolean;
         superCall?: ExpressionStatement;
+        switchTypes?: Type[];
     }
     const enum TypeFlags {
         Any = 1,
@@ -5544,6 +5553,12 @@ declare namespace ts {
             message: string;
         };
         Cannot_find_type_definition_file_for_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Cannot_extend_an_interface_0_Did_you_mean_implements: {
             code: number;
             category: DiagnosticCategory;
             key: string;
