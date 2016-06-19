@@ -43243,7 +43243,7 @@ var ts;
     var typeReferenceExtensions = [".d.ts"];
     function getEffectiveTypeRoots(options, host) {
         return options.typeRoots ||
-            defaultTypeRoots.map(function (d) { return ts.combinePaths(options.configFilePath ? ts.getDirectoryPath(options.configFilePath) : host.getCurrentDirectory(), d); });
+            ts.map(defaultTypeRoots, function (d) { return ts.combinePaths(options.configFilePath ? ts.getDirectoryPath(options.configFilePath) : host.getCurrentDirectory(), d); });
     }
     /**
      * @param {string | undefined} containingFile - file that contains type reference directive, can be undefined if containing file is unknown.
