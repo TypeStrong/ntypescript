@@ -19,6 +19,10 @@ and limitations under the License.
 /// IE Worker APIs
 /////////////////////////////
 
+interface Algorithm {
+    name: string;
+}
+
 interface EventInit {
     bubbles?: boolean;
     cancelable?: boolean;
@@ -32,6 +36,10 @@ interface IDBIndexParameters {
 interface IDBObjectStoreParameters {
     autoIncrement?: boolean;
     keyPath?: IDBKeyPath;
+}
+
+interface KeyAlgorithm {
+    name?: string;
 }
 
 interface EventListener {
@@ -121,6 +129,18 @@ interface Coordinates {
 declare var Coordinates: {
     prototype: Coordinates;
     new(): Coordinates;
+}
+
+interface CryptoKey {
+    readonly algorithm: KeyAlgorithm;
+    readonly extractable: boolean;
+    readonly type: string;
+    readonly usages: string[];
+}
+
+declare var CryptoKey: {
+    prototype: CryptoKey;
+    new(): CryptoKey;
 }
 
 interface DOMError {
@@ -1194,7 +1214,7 @@ declare var console: Console;
 declare function addEventListener(type: "error", listener: (ev: ErrorEvent) => any, useCapture?: boolean): void;
 declare function addEventListener(type: "message", listener: (ev: MessageEvent) => any, useCapture?: boolean): void;
 declare function addEventListener(type: string, listener: EventListenerOrEventListenerObject, useCapture?: boolean): void;
+type AlgorithmIdentifier = string | Algorithm;
 type IDBKeyPath = string;
 type IDBValidKey = number | string | Date | IDBArrayKey;
 type BufferSource = ArrayBuffer | ArrayBufferView;
-type MouseWheelEvent = WheelEvent;
