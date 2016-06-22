@@ -742,6 +742,11 @@ var ts;
         DiagnosticStyle[DiagnosticStyle["Pretty"] = 1] = "Pretty";
     })(ts.DiagnosticStyle || (ts.DiagnosticStyle = {}));
     var DiagnosticStyle = ts.DiagnosticStyle;
+    (function (WatchDirectoryFlags) {
+        WatchDirectoryFlags[WatchDirectoryFlags["None"] = 0] = "None";
+        WatchDirectoryFlags[WatchDirectoryFlags["Recursive"] = 1] = "Recursive";
+    })(ts.WatchDirectoryFlags || (ts.WatchDirectoryFlags = {}));
+    var WatchDirectoryFlags = ts.WatchDirectoryFlags;
     /* @internal */
     (function (CharacterCodes) {
         CharacterCodes[CharacterCodes["nullCharacter"] = 0] = "nullCharacter";
@@ -899,7 +904,7 @@ var ts;
             contains: contains,
             remove: remove,
             forEachValue: forEachValueInMap,
-            clear: clear
+            clear: clear,
         };
         function forEachValueInMap(f) {
             for (var key in files) {
@@ -981,6 +986,15 @@ var ts;
         return -1;
     }
     ts.indexOf = indexOf;
+    function indexOfAnyCharCode(text, charCodes, start) {
+        for (var i = start || 0, len = text.length; i < len; i++) {
+            if (contains(charCodes, text.charCodeAt(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    ts.indexOfAnyCharCode = indexOfAnyCharCode;
     function countWhere(array, predicate) {
         var count = 0;
         if (array) {
@@ -1008,12 +1022,24 @@ var ts;
         return result;
     }
     ts.filter = filter;
+    function filterMutate(array, f) {
+        var outIndex = 0;
+        for (var _i = 0, array_4 = array; _i < array_4.length; _i++) {
+            var item = array_4[_i];
+            if (f(item)) {
+                array[outIndex] = item;
+                outIndex++;
+            }
+        }
+        array.length = outIndex;
+    }
+    ts.filterMutate = filterMutate;
     function map(array, f) {
         var result;
         if (array) {
             result = [];
-            for (var _i = 0, array_4 = array; _i < array_4.length; _i++) {
-                var v = array_4[_i];
+            for (var _i = 0, array_5 = array; _i < array_5.length; _i++) {
+                var v = array_5[_i];
                 result.push(f(v));
             }
         }
@@ -1032,8 +1058,8 @@ var ts;
         var result;
         if (array) {
             result = [];
-            for (var _i = 0, array_5 = array; _i < array_5.length; _i++) {
-                var item = array_5[_i];
+            for (var _i = 0, array_6 = array; _i < array_6.length; _i++) {
+                var item = array_6[_i];
                 if (!contains(result, item, areEqual)) {
                     result.push(item);
                 }
@@ -1044,8 +1070,8 @@ var ts;
     ts.deduplicate = deduplicate;
     function sum(array, prop) {
         var result = 0;
-        for (var _i = 0, array_6 = array; _i < array_6.length; _i++) {
-            var v = array_6[_i];
+        for (var _i = 0, array_7 = array; _i < array_7.length; _i++) {
+            var v = array_7[_i];
             result += v[prop];
         }
         return result;
@@ -1370,6 +1396,30 @@ var ts;
         return a < b ? -1 /* LessThan */ : 1 /* GreaterThan */;
     }
     ts.compareValues = compareValues;
+    function compareStrings(a, b, ignoreCase) {
+        if (a === b)
+            return 0 /* EqualTo */;
+        if (a === undefined)
+            return -1 /* LessThan */;
+        if (b === undefined)
+            return 1 /* GreaterThan */;
+        if (ignoreCase) {
+            if (String.prototype.localeCompare) {
+                var result = a.localeCompare(b, /*locales*/ undefined, { usage: "sort", sensitivity: "accent" });
+                return result < 0 ? -1 /* LessThan */ : result > 0 ? 1 /* GreaterThan */ : 0 /* EqualTo */;
+            }
+            a = a.toUpperCase();
+            b = b.toUpperCase();
+            if (a === b)
+                return 0 /* EqualTo */;
+        }
+        return a < b ? -1 /* LessThan */ : 1 /* GreaterThan */;
+    }
+    ts.compareStrings = compareStrings;
+    function compareStringsCaseInsensitive(a, b) {
+        return compareStrings(a, b, /*ignoreCase*/ true);
+    }
+    ts.compareStringsCaseInsensitive = compareStringsCaseInsensitive;
     function getDiagnosticFileName(diagnostic) {
         return diagnostic.file ? diagnostic.file.fileName : undefined;
     }
@@ -1624,12 +1674,242 @@ var ts;
         return path1 + ts.directorySeparator + path2;
     }
     ts.combinePaths = combinePaths;
+    /**
+     * Removes a trailing directory separator from a path.
+     * @param path The path.
+     */
+    function removeTrailingDirectorySeparator(path) {
+        if (path.charAt(path.length - 1) === ts.directorySeparator) {
+            return path.substr(0, path.length - 1);
+        }
+        return path;
+    }
+    ts.removeTrailingDirectorySeparator = removeTrailingDirectorySeparator;
+    /**
+     * Adds a trailing directory separator to a path, if it does not already have one.
+     * @param path The path.
+     */
+    function ensureTrailingDirectorySeparator(path) {
+        if (path.charAt(path.length - 1) !== ts.directorySeparator) {
+            return path + ts.directorySeparator;
+        }
+        return path;
+    }
+    ts.ensureTrailingDirectorySeparator = ensureTrailingDirectorySeparator;
+    function comparePaths(a, b, currentDirectory, ignoreCase) {
+        if (a === b)
+            return 0 /* EqualTo */;
+        if (a === undefined)
+            return -1 /* LessThan */;
+        if (b === undefined)
+            return 1 /* GreaterThan */;
+        a = removeTrailingDirectorySeparator(a);
+        b = removeTrailingDirectorySeparator(b);
+        var aComponents = getNormalizedPathComponents(a, currentDirectory);
+        var bComponents = getNormalizedPathComponents(b, currentDirectory);
+        var sharedLength = Math.min(aComponents.length, bComponents.length);
+        for (var i = 0; i < sharedLength; i++) {
+            var result = compareStrings(aComponents[i], bComponents[i], ignoreCase);
+            if (result !== 0 /* EqualTo */) {
+                return result;
+            }
+        }
+        return compareValues(aComponents.length, bComponents.length);
+    }
+    ts.comparePaths = comparePaths;
+    function containsPath(parent, child, currentDirectory, ignoreCase) {
+        if (parent === undefined || child === undefined)
+            return false;
+        if (parent === child)
+            return true;
+        parent = removeTrailingDirectorySeparator(parent);
+        child = removeTrailingDirectorySeparator(child);
+        if (parent === child)
+            return true;
+        var parentComponents = getNormalizedPathComponents(parent, currentDirectory);
+        var childComponents = getNormalizedPathComponents(child, currentDirectory);
+        if (childComponents.length < parentComponents.length) {
+            return false;
+        }
+        for (var i = 0; i < parentComponents.length; i++) {
+            var result = compareStrings(parentComponents[i], childComponents[i], ignoreCase);
+            if (result !== 0 /* EqualTo */) {
+                return false;
+            }
+        }
+        return true;
+    }
+    ts.containsPath = containsPath;
     function fileExtensionIs(path, extension) {
         var pathLen = path.length;
         var extLen = extension.length;
         return pathLen > extLen && path.substr(pathLen - extLen, extLen) === extension;
     }
     ts.fileExtensionIs = fileExtensionIs;
+    function fileExtensionIsAny(path, extensions) {
+        for (var _i = 0, extensions_1 = extensions; _i < extensions_1.length; _i++) {
+            var extension = extensions_1[_i];
+            if (fileExtensionIs(path, extension)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    ts.fileExtensionIsAny = fileExtensionIsAny;
+    // Reserved characters, forces escaping of any non-word (or digit), non-whitespace character.
+    // It may be inefficient (we could just match (/[-[\]{}()*+?.,\\^$|#\s]/g), but this is future
+    // proof.
+    var reservedCharacterPattern = /[^\w\s\/]/g;
+    var wildcardCharCodes = [42 /* asterisk */, 63 /* question */];
+    function getRegularExpressionForWildcard(specs, basePath, usage) {
+        if (specs === undefined || specs.length === 0) {
+            return undefined;
+        }
+        var pattern = "";
+        var hasWrittenSubpattern = false;
+        spec: for (var _i = 0, specs_1 = specs; _i < specs_1.length; _i++) {
+            var spec = specs_1[_i];
+            if (!spec) {
+                continue;
+            }
+            var subpattern = "";
+            var hasRecursiveDirectoryWildcard = false;
+            var hasWrittenComponent = false;
+            var components = getNormalizedPathComponents(spec, basePath);
+            if (usage !== "exclude" && components[components.length - 1] === "**") {
+                continue spec;
+            }
+            // getNormalizedPathComponents includes the separator for the root component.
+            // We need to remove to create our regex correctly.
+            components[0] = removeTrailingDirectorySeparator(components[0]);
+            var optionalCount = 0;
+            for (var _a = 0, components_1 = components; _a < components_1.length; _a++) {
+                var component = components_1[_a];
+                if (component === "**") {
+                    if (hasRecursiveDirectoryWildcard) {
+                        continue spec;
+                    }
+                    subpattern += "(/.+?)?";
+                    hasRecursiveDirectoryWildcard = true;
+                    hasWrittenComponent = true;
+                }
+                else {
+                    if (usage === "directories") {
+                        subpattern += "(";
+                        optionalCount++;
+                    }
+                    if (hasWrittenComponent) {
+                        subpattern += ts.directorySeparator;
+                    }
+                    subpattern += component.replace(reservedCharacterPattern, replaceWildcardCharacter);
+                    hasWrittenComponent = true;
+                }
+            }
+            while (optionalCount > 0) {
+                subpattern += ")?";
+                optionalCount--;
+            }
+            if (hasWrittenSubpattern) {
+                pattern += "|";
+            }
+            pattern += "(" + subpattern + ")";
+            hasWrittenSubpattern = true;
+        }
+        if (!pattern) {
+            return undefined;
+        }
+        return "^(" + pattern + (usage === "exclude" ? ")($|/)" : ")$");
+    }
+    ts.getRegularExpressionForWildcard = getRegularExpressionForWildcard;
+    function replaceWildcardCharacter(match) {
+        return match === "*" ? "[^/]*" : match === "?" ? "[^/]" : "\\" + match;
+    }
+    function getFileMatcherPatterns(path, extensions, excludes, includes, useCaseSensitiveFileNames, currentDirectory) {
+        path = normalizePath(path);
+        currentDirectory = normalizePath(currentDirectory);
+        var absolutePath = combinePaths(currentDirectory, path);
+        return {
+            includeFilePattern: getRegularExpressionForWildcard(includes, absolutePath, "files"),
+            includeDirectoryPattern: getRegularExpressionForWildcard(includes, absolutePath, "directories"),
+            excludePattern: getRegularExpressionForWildcard(excludes, absolutePath, "exclude"),
+            basePaths: getBasePaths(path, includes, useCaseSensitiveFileNames)
+        };
+    }
+    ts.getFileMatcherPatterns = getFileMatcherPatterns;
+    function matchFiles(path, extensions, excludes, includes, useCaseSensitiveFileNames, currentDirectory, getFileSystemEntries) {
+        path = normalizePath(path);
+        currentDirectory = normalizePath(currentDirectory);
+        var patterns = getFileMatcherPatterns(path, extensions, excludes, includes, useCaseSensitiveFileNames, currentDirectory);
+        var regexFlag = useCaseSensitiveFileNames ? "" : "i";
+        var includeFileRegex = patterns.includeFilePattern && new RegExp(patterns.includeFilePattern, regexFlag);
+        var includeDirectoryRegex = patterns.includeDirectoryPattern && new RegExp(patterns.includeDirectoryPattern, regexFlag);
+        var excludeRegex = patterns.excludePattern && new RegExp(patterns.excludePattern, regexFlag);
+        var result = [];
+        for (var _i = 0, _a = patterns.basePaths; _i < _a.length; _i++) {
+            var basePath = _a[_i];
+            visitDirectory(basePath, combinePaths(currentDirectory, basePath));
+        }
+        return result;
+        function visitDirectory(path, absolutePath) {
+            var _a = getFileSystemEntries(path), files = _a.files, directories = _a.directories;
+            for (var _i = 0, files_1 = files; _i < files_1.length; _i++) {
+                var current = files_1[_i];
+                var name_1 = combinePaths(path, current);
+                var absoluteName = combinePaths(absolutePath, current);
+                if ((!extensions || fileExtensionIsAny(name_1, extensions)) &&
+                    (!includeFileRegex || includeFileRegex.test(absoluteName)) &&
+                    (!excludeRegex || !excludeRegex.test(absoluteName))) {
+                    result.push(name_1);
+                }
+            }
+            for (var _b = 0, directories_1 = directories; _b < directories_1.length; _b++) {
+                var current = directories_1[_b];
+                var name_2 = combinePaths(path, current);
+                var absoluteName = combinePaths(absolutePath, current);
+                if ((!includeDirectoryRegex || includeDirectoryRegex.test(absoluteName)) &&
+                    (!excludeRegex || !excludeRegex.test(absoluteName))) {
+                    visitDirectory(name_2, absoluteName);
+                }
+            }
+        }
+    }
+    ts.matchFiles = matchFiles;
+    /**
+     * Computes the unique non-wildcard base paths amongst the provided include patterns.
+     */
+    function getBasePaths(path, includes, useCaseSensitiveFileNames) {
+        // Storage for our results in the form of literal paths (e.g. the paths as written by the user).
+        var basePaths = [path];
+        if (includes) {
+            // Storage for literal base paths amongst the include patterns.
+            var includeBasePaths = [];
+            for (var _i = 0, includes_1 = includes; _i < includes_1.length; _i++) {
+                var include = includes_1[_i];
+                if (isRootedDiskPath(include)) {
+                    var wildcardOffset = indexOfAnyCharCode(include, wildcardCharCodes);
+                    var includeBasePath = wildcardOffset < 0
+                        ? removeTrailingDirectorySeparator(getDirectoryPath(include))
+                        : include.substring(0, include.lastIndexOf(ts.directorySeparator, wildcardOffset));
+                    // Append the literal and canonical candidate base paths.
+                    includeBasePaths.push(includeBasePath);
+                }
+            }
+            // Sort the offsets array using either the literal or canonical path representations.
+            includeBasePaths.sort(useCaseSensitiveFileNames ? compareStrings : compareStringsCaseInsensitive);
+            // Iterate over each include base path and include unique base paths that are not a
+            // subpath of an existing base path
+            include: for (var i = 0; i < includeBasePaths.length; i++) {
+                var includeBasePath = includeBasePaths[i];
+                for (var j = 0; j < basePaths.length; j++) {
+                    if (containsPath(basePaths[j], includeBasePath, path, !useCaseSensitiveFileNames)) {
+                        continue include;
+                    }
+                }
+                basePaths.push(includeBasePath);
+            }
+        }
+        return basePaths;
+    }
     function ensureScriptKind(fileName, scriptKind) {
         // Using scriptKind as a condition handles both:
         // - 'scriptKind' is unspecified and thus it is `undefined`
@@ -1679,6 +1959,57 @@ var ts;
         return false;
     }
     ts.isSupportedSourceFileName = isSupportedSourceFileName;
+    /**
+     * Extension boundaries by priority. Lower numbers indicate higher priorities, and are
+     * aligned to the offset of the highest priority extension in the
+     * allSupportedExtensions array.
+     */
+    (function (ExtensionPriority) {
+        ExtensionPriority[ExtensionPriority["TypeScriptFiles"] = 0] = "TypeScriptFiles";
+        ExtensionPriority[ExtensionPriority["DeclarationAndJavaScriptFiles"] = 2] = "DeclarationAndJavaScriptFiles";
+        ExtensionPriority[ExtensionPriority["Limit"] = 5] = "Limit";
+        ExtensionPriority[ExtensionPriority["Highest"] = 0] = "Highest";
+        ExtensionPriority[ExtensionPriority["Lowest"] = 2] = "Lowest";
+    })(ts.ExtensionPriority || (ts.ExtensionPriority = {}));
+    var ExtensionPriority = ts.ExtensionPriority;
+    function getExtensionPriority(path, supportedExtensions) {
+        for (var i = supportedExtensions.length - 1; i >= 0; i--) {
+            if (fileExtensionIs(path, supportedExtensions[i])) {
+                return adjustExtensionPriority(i);
+            }
+        }
+        // If its not in the list of supported extensions, this is likely a
+        // TypeScript file with a non-ts extension
+        return 0 /* Highest */;
+    }
+    ts.getExtensionPriority = getExtensionPriority;
+    /**
+     * Adjusts an extension priority to be the highest priority within the same range.
+     */
+    function adjustExtensionPriority(extensionPriority) {
+        if (extensionPriority < 2 /* DeclarationAndJavaScriptFiles */) {
+            return 0 /* TypeScriptFiles */;
+        }
+        else if (extensionPriority < 5 /* Limit */) {
+            return 2 /* DeclarationAndJavaScriptFiles */;
+        }
+        else {
+            return 5 /* Limit */;
+        }
+    }
+    ts.adjustExtensionPriority = adjustExtensionPriority;
+    /**
+     * Gets the next lowest extension priority for a given priority.
+     */
+    function getNextLowestExtensionPriority(extensionPriority) {
+        if (extensionPriority < 2 /* DeclarationAndJavaScriptFiles */) {
+            return 2 /* DeclarationAndJavaScriptFiles */;
+        }
+        else {
+            return 5 /* Limit */;
+        }
+    }
+    ts.getNextLowestExtensionPriority = getNextLowestExtensionPriority;
     var extensionsToRemove = [".d.ts", ".ts", ".js", ".tsx", ".jsx"];
     function removeFileExtension(path) {
         for (var _i = 0, extensionsToRemove_1 = extensionsToRemove; _i < extensionsToRemove_1.length; _i++) {
@@ -1699,6 +2030,10 @@ var ts;
         return ext === ".jsx" || ext === ".tsx";
     }
     ts.isJsxOrTsxExtension = isJsxOrTsxExtension;
+    function changeExtension(path, newExtension) {
+        return (removeFileExtension(path) + newExtension);
+    }
+    ts.changeExtension = changeExtension;
     function Symbol(flags, name) {
         this.flags = flags;
         this.name = name;
@@ -1777,6 +2112,7 @@ var ts;
     ts.sys = (function () {
         function getWScriptSystem() {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var shell = new ActiveXObject("WScript.Shell");
             var fileStream = new ActiveXObject("ADODB.Stream");
             fileStream.Type = 2 /*text*/;
             var binaryStream = new ActiveXObject("ADODB.Stream");
@@ -1838,9 +2174,6 @@ var ts;
                     fileStream.Close();
                 }
             }
-            function getCanonicalPath(path) {
-                return path.toLowerCase();
-            }
             function getNames(collection) {
                 var result = [];
                 for (var e = new Enumerator(collection); !e.atEnd(); e.moveNext()) {
@@ -1852,30 +2185,19 @@ var ts;
                 var folder = fso.GetFolder(path);
                 return getNames(folder.subfolders);
             }
-            function readDirectory(path, extension, exclude) {
-                var result = [];
-                exclude = ts.map(exclude, function (s) { return getCanonicalPath(ts.combinePaths(path, s)); });
-                visitDirectory(path);
-                return result;
-                function visitDirectory(path) {
+            function getAccessibleFileSystemEntries(path) {
+                try {
                     var folder = fso.GetFolder(path || ".");
                     var files = getNames(folder.files);
-                    for (var _i = 0, files_1 = files; _i < files_1.length; _i++) {
-                        var current = files_1[_i];
-                        var name_1 = ts.combinePaths(path, current);
-                        if ((!extension || ts.fileExtensionIs(name_1, extension)) && !ts.contains(exclude, getCanonicalPath(name_1))) {
-                            result.push(name_1);
-                        }
-                    }
-                    var subfolders = getNames(folder.subfolders);
-                    for (var _a = 0, subfolders_1 = subfolders; _a < subfolders_1.length; _a++) {
-                        var current = subfolders_1[_a];
-                        var name_2 = ts.combinePaths(path, current);
-                        if (!ts.contains(exclude, getCanonicalPath(name_2))) {
-                            visitDirectory(name_2);
-                        }
-                    }
+                    var directories = getNames(folder.subfolders);
+                    return { files: files, directories: directories };
                 }
+                catch (e) {
+                    return { files: [], directories: [] };
+                }
+            }
+            function readDirectory(path, extensions, excludes, includes) {
+                return ts.matchFiles(path, extensions, excludes, includes, /*useCaseSensitiveFileNames*/ false, shell.CurrentDirectory, getAccessibleFileSystemEntries);
             }
             return {
                 args: args,
@@ -1904,7 +2226,7 @@ var ts;
                     return WScript.ScriptFullName;
                 },
                 getCurrentDirectory: function () {
-                    return new ActiveXObject("WScript.Shell").CurrentDirectory;
+                    return shell.CurrentDirectory;
                 },
                 getDirectories: getDirectories,
                 readDirectory: readDirectory,
@@ -2043,8 +2365,41 @@ var ts;
                     }
                 }
             }
-            function getCanonicalPath(path) {
-                return useCaseSensitiveFileNames ? path : path.toLowerCase();
+            function getAccessibleFileSystemEntries(path) {
+                try {
+                    var entries = _fs.readdirSync(path || ".").sort();
+                    var files = [];
+                    var directories = [];
+                    for (var _i = 0, entries_1 = entries; _i < entries_1.length; _i++) {
+                        var entry = entries_1[_i];
+                        // This is necessary because on some file system node fails to exclude
+                        // "." and "..". See https://github.com/nodejs/node/issues/4002
+                        if (entry === "." || entry === "..") {
+                            continue;
+                        }
+                        var name_3 = ts.combinePaths(path, entry);
+                        var stat = void 0;
+                        try {
+                            stat = _fs.statSync(name_3);
+                        }
+                        catch (e) {
+                            continue;
+                        }
+                        if (stat.isFile()) {
+                            files.push(entry);
+                        }
+                        else if (stat.isDirectory()) {
+                            directories.push(entry);
+                        }
+                    }
+                    return { files: files, directories: directories };
+                }
+                catch (e) {
+                    return { files: [], directories: [] };
+                }
+            }
+            function readDirectory(path, extensions, excludes, includes) {
+                return ts.matchFiles(path, extensions, excludes, includes, useCaseSensitiveFileNames, process.cwd(), getAccessibleFileSystemEntries);
             }
             var FileSystemEntryKind;
             (function (FileSystemEntryKind) {
@@ -2071,40 +2426,6 @@ var ts;
             }
             function getDirectories(path) {
                 return ts.filter(_fs.readdirSync(path), function (p) { return fileSystemEntryExists(ts.combinePaths(path, p), 1 /* Directory */); });
-            }
-            function readDirectory(path, extension, exclude) {
-                var result = [];
-                exclude = ts.map(exclude, function (s) { return getCanonicalPath(ts.combinePaths(path, s)); });
-                visitDirectory(path);
-                return result;
-                function visitDirectory(path) {
-                    var files = _fs.readdirSync(path || ".").sort();
-                    var directories = [];
-                    for (var _i = 0, files_2 = files; _i < files_2.length; _i++) {
-                        var current = files_2[_i];
-                        // This is necessary because on some file system node fails to exclude
-                        // "." and "..". See https://github.com/nodejs/node/issues/4002
-                        if (current === "." || current === "..") {
-                            continue;
-                        }
-                        var name_3 = ts.combinePaths(path, current);
-                        if (!ts.contains(exclude, getCanonicalPath(name_3))) {
-                            var stat = _fs.statSync(name_3);
-                            if (stat.isFile()) {
-                                if (!extension || ts.fileExtensionIs(name_3, extension)) {
-                                    result.push(name_3);
-                                }
-                            }
-                            else if (stat.isDirectory()) {
-                                directories.push(name_3);
-                            }
-                        }
-                    }
-                    for (var _a = 0, directories_1 = directories; _a < directories_1.length; _a++) {
-                        var current = directories_1[_a];
-                        visitDirectory(current);
-                    }
-                }
             }
             return {
                 args: process.argv.slice(2),
@@ -2236,7 +2557,10 @@ var ts;
                 getExecutingFilePath: function () { return ChakraHost.executingFile; },
                 getCurrentDirectory: function () { return ChakraHost.currentDirectory; },
                 getDirectories: ChakraHost.getDirectories,
-                readDirectory: ChakraHost.readDirectory,
+                readDirectory: function (path, extensions, excludes, includes) {
+                    var pattern = ts.getFileMatcherPatterns(path, extensions, excludes, includes, !!ChakraHost.useCaseSensitiveFileNames, ChakraHost.currentDirectory);
+                    return ChakraHost.readDirectory(path, extensions, pattern.basePaths, pattern.excludePattern, pattern.includeFilePattern, pattern.includeDirectoryPattern);
+                },
                 exit: ChakraHost.quit,
                 realpath: realpath
             };
@@ -4430,7 +4754,9 @@ var ts;
     ts.forEachExpectedEmitFile = forEachExpectedEmitFile;
     function getSourceFilePathInNewDir(sourceFile, host, newDirPath) {
         var sourceFilePath = ts.getNormalizedAbsolutePath(sourceFile.fileName, host.getCurrentDirectory());
-        sourceFilePath = sourceFilePath.replace(host.getCommonSourceDirectory(), "");
+        var commonSourceDirectory = host.getCommonSourceDirectory();
+        var isSourceFileInCommonSourceDirectory = host.getCanonicalFileName(sourceFilePath).indexOf(host.getCanonicalFileName(commonSourceDirectory)) === 0;
+        sourceFilePath = isSourceFileInCommonSourceDirectory ? sourceFilePath.substring(commonSourceDirectory.length) : sourceFilePath;
         return ts.combinePaths(newDirPath, sourceFilePath);
     }
     ts.getSourceFilePathInNewDir = getSourceFilePathInNewDir;
@@ -5727,6 +6053,8 @@ var ts;
         Conflicting_library_definitions_for_0_found_at_1_and_2_Copy_the_correct_file_to_the_typings_folder_to_resolve_this_conflict: { code: 4090, category: ts.DiagnosticCategory.Message, key: "Conflicting_library_definitions_for_0_found_at_1_and_2_Copy_the_correct_file_to_the_typings_folder_t_4090", message: "Conflicting library definitions for '{0}' found at '{1}' and '{2}'. Copy the correct file to the 'typings' folder to resolve this conflict." },
         The_current_host_does_not_support_the_0_option: { code: 5001, category: ts.DiagnosticCategory.Error, key: "The_current_host_does_not_support_the_0_option_5001", message: "The current host does not support the '{0}' option." },
         Cannot_find_the_common_subdirectory_path_for_the_input_files: { code: 5009, category: ts.DiagnosticCategory.Error, key: "Cannot_find_the_common_subdirectory_path_for_the_input_files_5009", message: "Cannot find the common subdirectory path for the input files." },
+        File_specification_cannot_end_in_a_recursive_directory_wildcard_Asterisk_Asterisk_Colon_0: { code: 5010, category: ts.DiagnosticCategory.Error, key: "File_specification_cannot_end_in_a_recursive_directory_wildcard_Asterisk_Asterisk_Colon_0_5010", message: "File specification cannot end in a recursive directory wildcard ('**'): '{0}'." },
+        File_specification_cannot_contain_multiple_recursive_directory_wildcards_Asterisk_Asterisk_Colon_0: { code: 5011, category: ts.DiagnosticCategory.Error, key: "File_specification_cannot_contain_multiple_recursive_directory_wildcards_Asterisk_Asterisk_Colon_0_5011", message: "File specification cannot contain multiple recursive directory wildcards ('**'): '{0}'." },
         Cannot_read_file_0_Colon_1: { code: 5012, category: ts.DiagnosticCategory.Error, key: "Cannot_read_file_0_Colon_1_5012", message: "Cannot read file '{0}': {1}" },
         Unsupported_file_encoding: { code: 5013, category: ts.DiagnosticCategory.Error, key: "Unsupported_file_encoding_5013", message: "Unsupported file encoding." },
         Failed_to_parse_file_0_Colon_1: { code: 5014, category: ts.DiagnosticCategory.Error, key: "Failed_to_parse_file_0_Colon_1_5014", message: "Failed to parse file '{0}': {1}." },
@@ -13363,8 +13691,8 @@ var ts;
                 array._children = undefined;
                 array.pos += delta;
                 array.end += delta;
-                for (var _i = 0, array_7 = array; _i < array_7.length; _i++) {
-                    var node = array_7[_i];
+                for (var _i = 0, array_8 = array; _i < array_8.length; _i++) {
+                    var node = array_8[_i];
                     visitNode(node);
                 }
             }
@@ -13501,8 +13829,8 @@ var ts;
                     array._children = undefined;
                     // Adjust the pos or end (or both) of the intersecting array accordingly.
                     adjustIntersectingElement(array, changeStart, changeRangeOldEnd, changeRangeNewEnd, delta);
-                    for (var _i = 0, array_8 = array; _i < array_8.length; _i++) {
-                        var node = array_8[_i];
+                    for (var _i = 0, array_9 = array; _i < array_9.length; _i++) {
+                        var node = array_9[_i];
                         visitNode(node);
                     }
                     return;
@@ -33662,7 +33990,7 @@ var ts;
     }
     // Skip over any minified JavaScript files (ending in ".min.js")
     // Skip over dotted files and folders as well
-    var IgnoreFileNamePattern = /(\.min\.js$)|([\\/]\.[\w.])/;
+    var ignoreFileNamePattern = /(\.min\.js$)|([\\/]\.[\w.])/;
     /**
       * Parse the contents of a config file (tsconfig.json).
       * @param json The contents of the config file to parse
@@ -33677,74 +34005,59 @@ var ts;
         var options = ts.extend(existingOptions, compilerOptions);
         var typingOptions = convertTypingOptionsFromJsonWorker(json["typingOptions"], basePath, errors, configFileName);
         options.configFilePath = configFileName;
-        var fileNames = getFileNames(errors);
+        var _a = getFileNames(errors), fileNames = _a.fileNames, wildcardDirectories = _a.wildcardDirectories;
         return {
             options: options,
             fileNames: fileNames,
             typingOptions: typingOptions,
             raw: json,
-            errors: errors
+            errors: errors,
+            wildcardDirectories: wildcardDirectories
         };
         function getFileNames(errors) {
-            var fileNames = [];
+            var fileNames;
             if (ts.hasProperty(json, "files")) {
                 if (ts.isArray(json["files"])) {
-                    fileNames = ts.map(json["files"], function (s) { return ts.combinePaths(basePath, s); });
+                    fileNames = json["files"];
                 }
                 else {
                     errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, "files", "Array"));
                 }
             }
-            else {
-                var filesSeen = {};
-                var exclude = [];
-                if (ts.isArray(json["exclude"])) {
-                    exclude = json["exclude"];
+            var includeSpecs;
+            if (ts.hasProperty(json, "include")) {
+                if (ts.isArray(json["include"])) {
+                    includeSpecs = json["include"];
                 }
                 else {
-                    // by default exclude node_modules, and any specificied output directory
-                    exclude = ["node_modules", "bower_components", "jspm_packages"];
-                }
-                var outDir = json["compilerOptions"] && json["compilerOptions"]["outDir"];
-                if (outDir) {
-                    exclude.push(outDir);
-                }
-                exclude = ts.map(exclude, function (e) { return ts.getNormalizedAbsolutePath(e, basePath); });
-                var supportedExtensions = ts.getSupportedExtensions(options);
-                ts.Debug.assert(ts.indexOf(supportedExtensions, ".ts") < ts.indexOf(supportedExtensions, ".d.ts"), "Changed priority of extensions to pick");
-                // Get files of supported extensions in their order of resolution
-                for (var _i = 0, supportedExtensions_1 = supportedExtensions; _i < supportedExtensions_1.length; _i++) {
-                    var extension = supportedExtensions_1[_i];
-                    var filesInDirWithExtension = host.readDirectory(basePath, extension, exclude);
-                    for (var _a = 0, filesInDirWithExtension_1 = filesInDirWithExtension; _a < filesInDirWithExtension_1.length; _a++) {
-                        var fileName = filesInDirWithExtension_1[_a];
-                        // .ts extension would read the .d.ts extension files too but since .d.ts is lower priority extension,
-                        // lets pick them when its turn comes up
-                        if (extension === ".ts" && ts.fileExtensionIs(fileName, ".d.ts")) {
-                            continue;
-                        }
-                        if (IgnoreFileNamePattern.test(fileName)) {
-                            continue;
-                        }
-                        // If this is one of the output extension (which would be .d.ts and .js if we are allowing compilation of js files)
-                        // do not include this file if we included .ts or .tsx file with same base name as it could be output of the earlier compilation
-                        if (extension === ".d.ts" || (options.allowJs && ts.contains(ts.supportedJavascriptExtensions, extension))) {
-                            var baseName = fileName.substr(0, fileName.length - extension.length);
-                            if (ts.hasProperty(filesSeen, baseName + ".ts") || ts.hasProperty(filesSeen, baseName + ".tsx")) {
-                                continue;
-                            }
-                        }
-                        if (!filesSeen[fileName]) {
-                            filesSeen[fileName] = true;
-                            fileNames.push(fileName);
-                        }
-                    }
+                    errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, "include", "Array"));
                 }
             }
-            if (ts.hasProperty(json, "excludes") && !ts.hasProperty(json, "exclude")) {
+            var excludeSpecs;
+            if (ts.hasProperty(json, "exclude")) {
+                if (ts.isArray(json["exclude"])) {
+                    excludeSpecs = json["exclude"];
+                }
+                else {
+                    errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Compiler_option_0_requires_a_value_of_type_1, "exclude", "Array"));
+                }
+            }
+            else if (ts.hasProperty(json, "excludes")) {
                 errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.Unknown_option_excludes_Did_you_mean_exclude));
             }
-            return fileNames;
+            else {
+                // By default, exclude common package folders
+                excludeSpecs = ["node_modules", "bower_components", "jspm_packages"];
+            }
+            // Always exclude the output directory unless explicitly included
+            var outDir = json["compilerOptions"] && json["compilerOptions"]["outDir"];
+            if (outDir) {
+                excludeSpecs.push(outDir);
+            }
+            if (fileNames === undefined && includeSpecs === undefined) {
+                includeSpecs = ["**/*"];
+            }
+            return matchFileNames(fileNames, includeSpecs, excludeSpecs, basePath, options, host, errors);
         }
     }
     ts.parseJsonConfigFileContent = parseJsonConfigFileContent;
@@ -33825,6 +34138,273 @@ var ts;
     }
     function trimString(s) {
         return typeof s.trim === "function" ? s.trim() : s.replace(/^[\s]+|[\s]+$/g, "");
+    }
+    /**
+     * Tests for a path that ends in a recursive directory wildcard.
+     * Matches **, \**, **\, and \**\, but not a**b.
+     *
+     * NOTE: used \ in place of / above to avoid issues with multiline comments.
+     *
+     * Breakdown:
+     *  (^|\/)      # matches either the beginning of the string or a directory separator.
+     *  \*\*        # matches the recursive directory wildcard "**".
+     *  \/?$        # matches an optional trailing directory separator at the end of the string.
+     */
+    var invalidTrailingRecursionPattern = /(^|\/)\*\*\/?$/;
+    /**
+     * Tests for a path with multiple recursive directory wildcards.
+     * Matches **\** and **\a\**, but not **\a**b.
+     *
+     * NOTE: used \ in place of / above to avoid issues with multiline comments.
+     *
+     * Breakdown:
+     *  (^|\/)      # matches either the beginning of the string or a directory separator.
+     *  \*\*\/      # matches a recursive directory wildcard "**" followed by a directory separator.
+     *  (.*\/)?     # optionally matches any number of characters followed by a directory separator.
+     *  \*\*        # matches a recursive directory wildcard "**"
+     *  ($|\/)      # matches either the end of the string or a directory separator.
+     */
+    var invalidMultipleRecursionPatterns = /(^|\/)\*\*\/(.*\/)?\*\*($|\/)/;
+    /**
+     * Tests for a path containing a wildcard character in a directory component of the path.
+     * Matches \*\, \?\, and \a*b\, but not \a\ or \a\*.
+     *
+     * NOTE: used \ in place of / above to avoid issues with multiline comments.
+     *
+     * Breakdown:
+     *  \/          # matches a directory separator.
+     *  [^/]*?      # matches any number of characters excluding directory separators (non-greedy).
+     *  [*?]        # matches either a wildcard character (* or ?)
+     *  [^/]*       # matches any number of characters excluding directory separators (greedy).
+     *  \/          # matches a directory separator.
+     */
+    var watchRecursivePattern = /\/[^/]*?[*?][^/]*\//;
+    /**
+     * Matches the portion of a wildcard path that does not contain wildcards.
+     * Matches \a of \a\*, or \a\b\c of \a\b\c\?\d.
+     *
+     * NOTE: used \ in place of / above to avoid issues with multiline comments.
+     *
+     * Breakdown:
+     *  ^                   # matches the beginning of the string
+     *  [^*?]*              # matches any number of non-wildcard characters
+     *  (?=\/[^/]*[*?])     # lookahead that matches a directory separator followed by
+     *                      # a path component that contains at least one wildcard character (* or ?).
+     */
+    var wildcardDirectoryPattern = /^[^*?]*(?=\/[^/]*[*?])/;
+    /**
+     * Expands an array of file specifications.
+     *
+     * @param fileNames The literal file names to include.
+     * @param include The wildcard file specifications to include.
+     * @param exclude The wildcard file specifications to exclude.
+     * @param basePath The base path for any relative file specifications.
+     * @param options Compiler options.
+     * @param host The host used to resolve files and directories.
+     * @param errors An array for diagnostic reporting.
+     */
+    function matchFileNames(fileNames, include, exclude, basePath, options, host, errors) {
+        basePath = ts.normalizePath(basePath);
+        // The exclude spec list is converted into a regular expression, which allows us to quickly
+        // test whether a file or directory should be excluded before recursively traversing the
+        // file system.
+        var keyMapper = host.useCaseSensitiveFileNames ? caseSensitiveKeyMapper : caseInsensitiveKeyMapper;
+        // Literal file names (provided via the "files" array in tsconfig.json) are stored in a
+        // file map with a possibly case insensitive key. We use this map later when when including
+        // wildcard paths.
+        var literalFileMap = {};
+        // Wildcard paths (provided via the "includes" array in tsconfig.json) are stored in a
+        // file map with a possibly case insensitive key. We use this map to store paths matched
+        // via wildcard, and to handle extension priority.
+        var wildcardFileMap = {};
+        if (include) {
+            include = validateSpecs(include, errors, /*allowTrailingRecursion*/ false);
+        }
+        if (exclude) {
+            exclude = validateSpecs(exclude, errors, /*allowTrailingRecursion*/ true);
+        }
+        // Wildcard directories (provided as part of a wildcard path) are stored in a
+        // file map that marks whether it was a regular wildcard match (with a `*` or `?` token),
+        // or a recursive directory. This information is used by filesystem watchers to monitor for
+        // new entries in these paths.
+        var wildcardDirectories = getWildcardDirectories(include, exclude, basePath, host.useCaseSensitiveFileNames);
+        // Rather than requery this for each file and filespec, we query the supported extensions
+        // once and store it on the expansion context.
+        var supportedExtensions = ts.getSupportedExtensions(options);
+        // Literal files are always included verbatim. An "include" or "exclude" specification cannot
+        // remove a literal file.
+        if (fileNames) {
+            for (var _i = 0, fileNames_1 = fileNames; _i < fileNames_1.length; _i++) {
+                var fileName = fileNames_1[_i];
+                var file = ts.combinePaths(basePath, fileName);
+                literalFileMap[keyMapper(file)] = file;
+            }
+        }
+        if (include && include.length > 0) {
+            for (var _a = 0, _b = host.readDirectory(basePath, supportedExtensions, exclude, include); _a < _b.length; _a++) {
+                var file = _b[_a];
+                // If we have already included a literal or wildcard path with a
+                // higher priority extension, we should skip this file.
+                //
+                // This handles cases where we may encounter both <file>.ts and
+                // <file>.d.ts (or <file>.js if "allowJs" is enabled) in the same
+                // directory when they are compilation outputs.
+                if (hasFileWithHigherPriorityExtension(file, literalFileMap, wildcardFileMap, supportedExtensions, keyMapper)) {
+                    continue;
+                }
+                if (ignoreFileNamePattern.test(file)) {
+                    continue;
+                }
+                // We may have included a wildcard path with a lower priority
+                // extension due to the user-defined order of entries in the
+                // "include" array. If there is a lower priority extension in the
+                // same directory, we should remove it.
+                removeWildcardFilesWithLowerPriorityExtension(file, wildcardFileMap, supportedExtensions, keyMapper);
+                var key = keyMapper(file);
+                if (!ts.hasProperty(literalFileMap, key) && !ts.hasProperty(wildcardFileMap, key)) {
+                    wildcardFileMap[key] = file;
+                }
+            }
+        }
+        var literalFiles = ts.reduceProperties(literalFileMap, addFileToOutput, []);
+        var wildcardFiles = ts.reduceProperties(wildcardFileMap, addFileToOutput, []);
+        wildcardFiles.sort(host.useCaseSensitiveFileNames ? ts.compareStrings : ts.compareStringsCaseInsensitive);
+        return {
+            fileNames: literalFiles.concat(wildcardFiles),
+            wildcardDirectories: wildcardDirectories
+        };
+    }
+    function validateSpecs(specs, errors, allowTrailingRecursion) {
+        var validSpecs = [];
+        for (var _i = 0, specs_2 = specs; _i < specs_2.length; _i++) {
+            var spec = specs_2[_i];
+            if (!allowTrailingRecursion && invalidTrailingRecursionPattern.test(spec)) {
+                errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.File_specification_cannot_end_in_a_recursive_directory_wildcard_Asterisk_Asterisk_Colon_0, spec));
+            }
+            else if (invalidMultipleRecursionPatterns.test(spec)) {
+                errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.File_specification_cannot_contain_multiple_recursive_directory_wildcards_Asterisk_Asterisk_Colon_0, spec));
+            }
+            else {
+                validSpecs.push(spec);
+            }
+        }
+        return validSpecs;
+    }
+    /**
+     * Gets directories in a set of include patterns that should be watched for changes.
+     */
+    function getWildcardDirectories(include, exclude, path, useCaseSensitiveFileNames) {
+        // We watch a directory recursively if it contains a wildcard anywhere in a directory segment
+        // of the pattern:
+        //
+        //  /a/b/**/d   - Watch /a/b recursively to catch changes to any d in any subfolder recursively
+        //  /a/b/*/d    - Watch /a/b recursively to catch any d in any immediate subfolder, even if a new subfolder is added
+        //
+        // We watch a directory without recursion if it contains a wildcard in the file segment of
+        // the pattern:
+        //
+        //  /a/b/*      - Watch /a/b directly to catch any new file
+        //  /a/b/a?z    - Watch /a/b directly to catch any new file matching a?z
+        var rawExcludeRegex = ts.getRegularExpressionForWildcard(exclude, path, "exclude");
+        var excludeRegex = rawExcludeRegex && new RegExp(rawExcludeRegex, useCaseSensitiveFileNames ? "" : "i");
+        var wildcardDirectories = {};
+        if (include !== undefined) {
+            var recursiveKeys = [];
+            for (var _i = 0, include_1 = include; _i < include_1.length; _i++) {
+                var file = include_1[_i];
+                var name_23 = ts.combinePaths(path, file);
+                if (excludeRegex && excludeRegex.test(name_23)) {
+                    continue;
+                }
+                var match = wildcardDirectoryPattern.exec(name_23);
+                if (match) {
+                    var key = useCaseSensitiveFileNames ? match[0] : match[0].toLowerCase();
+                    var flags = watchRecursivePattern.test(name_23) ? 1 /* Recursive */ : 0 /* None */;
+                    var existingFlags = ts.getProperty(wildcardDirectories, key);
+                    if (existingFlags === undefined || existingFlags < flags) {
+                        wildcardDirectories[key] = flags;
+                        if (flags === 1 /* Recursive */) {
+                            recursiveKeys.push(key);
+                        }
+                    }
+                }
+            }
+            // Remove any subpaths under an existing recursively watched directory.
+            for (var key in wildcardDirectories) {
+                if (ts.hasProperty(wildcardDirectories, key)) {
+                    for (var _a = 0, recursiveKeys_1 = recursiveKeys; _a < recursiveKeys_1.length; _a++) {
+                        var recursiveKey = recursiveKeys_1[_a];
+                        if (key !== recursiveKey && ts.containsPath(recursiveKey, key, path, !useCaseSensitiveFileNames)) {
+                            delete wildcardDirectories[key];
+                        }
+                    }
+                }
+            }
+        }
+        return wildcardDirectories;
+    }
+    /**
+     * Determines whether a literal or wildcard file has already been included that has a higher
+     * extension priority.
+     *
+     * @param file The path to the file.
+     * @param extensionPriority The priority of the extension.
+     * @param context The expansion context.
+     */
+    function hasFileWithHigherPriorityExtension(file, literalFiles, wildcardFiles, extensions, keyMapper) {
+        var extensionPriority = ts.getExtensionPriority(file, extensions);
+        var adjustedExtensionPriority = ts.adjustExtensionPriority(extensionPriority);
+        for (var i = 0 /* Highest */; i < adjustedExtensionPriority; i++) {
+            var higherPriorityExtension = extensions[i];
+            var higherPriorityPath = keyMapper(ts.changeExtension(file, higherPriorityExtension));
+            if (ts.hasProperty(literalFiles, higherPriorityPath) || ts.hasProperty(wildcardFiles, higherPriorityPath)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    /**
+     * Removes files included via wildcard expansion with a lower extension priority that have
+     * already been included.
+     *
+     * @param file The path to the file.
+     * @param extensionPriority The priority of the extension.
+     * @param context The expansion context.
+     */
+    function removeWildcardFilesWithLowerPriorityExtension(file, wildcardFiles, extensions, keyMapper) {
+        var extensionPriority = ts.getExtensionPriority(file, extensions);
+        var nextExtensionPriority = ts.getNextLowestExtensionPriority(extensionPriority);
+        for (var i = nextExtensionPriority; i < extensions.length; i++) {
+            var lowerPriorityExtension = extensions[i];
+            var lowerPriorityPath = keyMapper(ts.changeExtension(file, lowerPriorityExtension));
+            delete wildcardFiles[lowerPriorityPath];
+        }
+    }
+    /**
+     * Adds a file to an array of files.
+     *
+     * @param output The output array.
+     * @param file The file path.
+     */
+    function addFileToOutput(output, file) {
+        output.push(file);
+        return output;
+    }
+    /**
+     * Gets a case sensitive key.
+     *
+     * @param key The original key.
+     */
+    function caseSensitiveKeyMapper(key) {
+        return key;
+    }
+    /**
+     * Gets a case insensitive key.
+     *
+     * @param key The original key.
+     */
+    function caseInsensitiveKeyMapper(key) {
+        return key.toLowerCase();
     }
 })(ts || (ts = {}));
 /// <reference path="checker.ts"/>
@@ -34285,9 +34865,9 @@ var ts;
             var count = 0;
             while (true) {
                 count++;
-                var name_23 = baseName + "_" + count;
-                if (!ts.hasProperty(currentIdentifiers, name_23)) {
-                    return name_23;
+                var name_24 = baseName + "_" + count;
+                if (!ts.hasProperty(currentIdentifiers, name_24)) {
+                    return name_24;
                 }
             }
         }
@@ -36232,10 +36812,10 @@ var ts;
             // Note that names generated by makeTempVariableName and makeUniqueName will never conflict.
             function makeTempVariableName(flags) {
                 if (flags && !(tempFlags & flags)) {
-                    var name_24 = flags === 268435456 /* _i */ ? "_i" : "_n";
-                    if (isUniqueName(name_24)) {
+                    var name_25 = flags === 268435456 /* _i */ ? "_i" : "_n";
+                    if (isUniqueName(name_25)) {
                         tempFlags |= flags;
-                        return name_24;
+                        return name_25;
                     }
                 }
                 while (true) {
@@ -36243,9 +36823,9 @@ var ts;
                     tempFlags++;
                     // Skip over 'i' and 'n'
                     if (count !== 8 && count !== 13) {
-                        var name_25 = count < 26 ? "_" + String.fromCharCode(97 /* a */ + count) : "_" + (count - 26);
-                        if (isUniqueName(name_25)) {
-                            return name_25;
+                        var name_26 = count < 26 ? "_" + String.fromCharCode(97 /* a */ + count) : "_" + (count - 26);
+                        if (isUniqueName(name_26)) {
+                            return name_26;
                         }
                     }
                 }
@@ -37062,8 +37642,8 @@ var ts;
                             else if (declaration.kind === 234 /* ImportSpecifier */) {
                                 // Identifier references named import
                                 write(getGeneratedNameForNode(declaration.parent.parent.parent));
-                                var name_26 = declaration.propertyName || declaration.name;
-                                var identifier = ts.getTextOfNodeFromSourceText(currentText, name_26);
+                                var name_27 = declaration.propertyName || declaration.name;
+                                var identifier = ts.getTextOfNodeFromSourceText(currentText, name_27);
                                 if (languageVersion === 0 /* ES3 */ && identifier === "default") {
                                     write('["default"]');
                                 }
@@ -37120,8 +37700,8 @@ var ts;
                 if (convertedLoopState) {
                     if (node.text == "arguments" && resolver.isArgumentsLocalBinding(node)) {
                         // in converted loop body arguments cannot be used directly.
-                        var name_27 = convertedLoopState.argumentsName || (convertedLoopState.argumentsName = makeUniqueName("arguments"));
-                        write(name_27);
+                        var name_28 = convertedLoopState.argumentsName || (convertedLoopState.argumentsName = makeUniqueName("arguments"));
+                        write(name_28);
                         return;
                     }
                 }
@@ -37628,9 +38208,9 @@ var ts;
                 if (languageVersion === 2 /* ES6 */ &&
                     node.expression.kind === 95 /* SuperKeyword */ &&
                     isInAsyncMethodWithSuperInES6(node)) {
-                    var name_28 = ts.createSynthesizedNode(9 /* StringLiteral */);
-                    name_28.text = node.name.text;
-                    emitSuperAccessInAsyncMethod(node.expression, name_28);
+                    var name_29 = ts.createSynthesizedNode(9 /* StringLiteral */);
+                    name_29.text = node.name.text;
+                    emitSuperAccessInAsyncMethod(node.expression, name_29);
                     return;
                 }
                 emit(node.expression);
@@ -39599,12 +40179,12 @@ var ts;
             function emitParameter(node) {
                 if (languageVersion < 2 /* ES6 */) {
                     if (ts.isBindingPattern(node.name)) {
-                        var name_29 = createTempVariable(0 /* Auto */);
+                        var name_30 = createTempVariable(0 /* Auto */);
                         if (!tempParameters) {
                             tempParameters = [];
                         }
-                        tempParameters.push(name_29);
-                        emit(name_29);
+                        tempParameters.push(name_30);
+                        emit(name_30);
                     }
                     else {
                         emit(node.name);
@@ -41717,8 +42297,8 @@ var ts;
                                 // export { x, y }
                                 for (var _c = 0, _d = node.exportClause.elements; _c < _d.length; _c++) {
                                     var specifier = _d[_c];
-                                    var name_30 = (specifier.propertyName || specifier.name).text;
-                                    (exportSpecifiers[name_30] || (exportSpecifiers[name_30] = [])).push(specifier);
+                                    var name_31 = (specifier.propertyName || specifier.name).text;
+                                    (exportSpecifiers[name_31] || (exportSpecifiers[name_31] = [])).push(specifier);
                                 }
                             }
                             break;
@@ -41757,9 +42337,9 @@ var ts;
             }
             function getExternalModuleNameText(importNode, emitRelativePathAsModuleName) {
                 if (emitRelativePathAsModuleName) {
-                    var name_31 = getExternalModuleNameFromDeclaration(host, resolver, importNode);
-                    if (name_31) {
-                        return "\"" + name_31 + "\"";
+                    var name_32 = getExternalModuleNameFromDeclaration(host, resolver, importNode);
+                    if (name_32) {
+                        return "\"" + name_32 + "\"";
                     }
                 }
                 var moduleName = ts.getExternalModuleName(importNode);
@@ -41931,12 +42511,12 @@ var ts;
                     var seen = {};
                     for (var i = 0; i < hoistedVars.length; i++) {
                         var local = hoistedVars[i];
-                        var name_32 = local.kind === 69 /* Identifier */
+                        var name_33 = local.kind === 69 /* Identifier */
                             ? local
                             : local.name;
-                        if (name_32) {
+                        if (name_33) {
                             // do not emit duplicate entries (in case of declaration merging) in the list of hoisted variables
-                            var text = ts.unescapeIdentifier(name_32.text);
+                            var text = ts.unescapeIdentifier(name_33.text);
                             if (ts.hasProperty(seen, text)) {
                                 continue;
                             }
@@ -42015,15 +42595,15 @@ var ts;
                     }
                     if (node.kind === 218 /* VariableDeclaration */ || node.kind === 169 /* BindingElement */) {
                         if (shouldHoistVariable(node, /*checkIfSourceFileLevelDecl*/ false)) {
-                            var name_33 = node.name;
-                            if (name_33.kind === 69 /* Identifier */) {
+                            var name_34 = node.name;
+                            if (name_34.kind === 69 /* Identifier */) {
                                 if (!hoistedVars) {
                                     hoistedVars = [];
                                 }
-                                hoistedVars.push(name_33);
+                                hoistedVars.push(name_34);
                             }
                             else {
-                                ts.forEachChild(name_33, visit);
+                                ts.forEachChild(name_34, visit);
                             }
                         }
                         return;
@@ -43965,14 +44545,14 @@ var ts;
         var resolutions = [];
         var cache = {};
         for (var _i = 0, names_1 = names; _i < names_1.length; _i++) {
-            var name_34 = names_1[_i];
+            var name_35 = names_1[_i];
             var result = void 0;
-            if (ts.hasProperty(cache, name_34)) {
-                result = cache[name_34];
+            if (ts.hasProperty(cache, name_35)) {
+                result = cache[name_35];
             }
             else {
-                result = loader(name_34, containingFile);
-                cache[name_34] = result;
+                result = loader(name_35, containingFile);
+                cache[name_35] = result;
             }
             resolutions.push(result);
         }
@@ -44127,8 +44707,8 @@ var ts;
                 // Initialize a checker so that all our files are bound.
                 getTypeChecker();
                 classifiableNames = {};
-                for (var _i = 0, files_3 = files; _i < files_3.length; _i++) {
-                    var sourceFile = files_3[_i];
+                for (var _i = 0, files_2 = files; _i < files_2.length; _i++) {
+                    var sourceFile = files_2[_i];
                     ts.copyMap(sourceFile.classifiableNames, classifiableNames);
                 }
             }
@@ -45066,8 +45646,8 @@ var ts;
             return;
         }
         var currentDir = ts.sys.getCurrentDirectory();
-        for (var _i = 0, files_4 = files; _i < files_4.length; _i++) {
-            var file = files_4[_i];
+        for (var _i = 0, files_3 = files; _i < files_3.length; _i++) {
+            var file = files_3[_i];
             var filepath = ts.getNormalizedAbsolutePath(file, currentDir);
             ts.sys.write("TSFILE: " + filepath + ts.sys.newLine);
         }
@@ -45716,12 +46296,12 @@ var ts;
         function serializeCompilerOptions(options) {
             var result = {};
             var optionsNameMap = ts.getOptionNameMap().optionNameMap;
-            for (var name_35 in options) {
-                if (ts.hasProperty(options, name_35)) {
+            for (var name_36 in options) {
+                if (ts.hasProperty(options, name_36)) {
                     // tsconfig only options cannot be specified via command line,
                     // so we can assume that only types that can appear here string | number | boolean
-                    var value = options[name_35];
-                    switch (name_35) {
+                    var value = options[name_36];
+                    switch (name_36) {
                         case "init":
                         case "watch":
                         case "version":
@@ -45729,11 +46309,11 @@ var ts;
                         case "project":
                             break;
                         default:
-                            var optionDefinition = optionsNameMap[name_35.toLowerCase()];
+                            var optionDefinition = optionsNameMap[name_36.toLowerCase()];
                             if (optionDefinition) {
                                 if (typeof optionDefinition.type === "string") {
                                     // string, number or boolean
-                                    result[name_35] = value;
+                                    result[name_36] = value;
                                 }
                                 else {
                                     // Enum
@@ -45741,7 +46321,7 @@ var ts;
                                     for (var key in typeMap) {
                                         if (ts.hasProperty(typeMap, key)) {
                                             if (typeMap[key] === value)
-                                                result[name_35] = key;
+                                                result[name_36] = key;
                                         }
                                     }
                                 }
@@ -45932,12 +46512,12 @@ var ts;
             ts.forEach(program.getSourceFiles(), function (sourceFile) {
                 cancellationToken.throwIfCancellationRequested();
                 var nameToDeclarations = sourceFile.getNamedDeclarations();
-                for (var name_36 in nameToDeclarations) {
-                    var declarations = ts.getProperty(nameToDeclarations, name_36);
+                for (var name_37 in nameToDeclarations) {
+                    var declarations = ts.getProperty(nameToDeclarations, name_37);
                     if (declarations) {
                         // First do a quick check to see if the name of the declaration matches the
                         // last portion of the (possibly) dotted name they're searching for.
-                        var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_36);
+                        var matches = patternMatcher.getMatchesForLastSegmentOfPattern(name_37);
                         if (!matches) {
                             continue;
                         }
@@ -45950,14 +46530,14 @@ var ts;
                                 if (!containers) {
                                     return undefined;
                                 }
-                                matches = patternMatcher.getMatches(containers, name_36);
+                                matches = patternMatcher.getMatches(containers, name_37);
                                 if (!matches) {
                                     continue;
                                 }
                             }
                             var fileName = sourceFile.fileName;
                             var matchKind = bestMatchKind(matches);
-                            rawItems.push({ name: name_36, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
+                            rawItems.push({ name: name_37, fileName: fileName, matchKind: matchKind, isCaseSensitive: allMatchesAreCaseSensitive(matches), declaration: declaration });
                         }
                     }
                 }
@@ -46103,693 +46683,586 @@ var ts;
 (function (ts) {
     var NavigationBar;
     (function (NavigationBar) {
-        function getNavigationBarItems(sourceFile, compilerOptions) {
-            // TODO: Handle JS files differently in 'navbar' calls for now, but ideally we should unify
-            // the 'navbar' and 'navto' logic for TypeScript and JavaScript.
-            if (ts.isSourceFileJavaScript(sourceFile)) {
-                return getJsNavigationBarItems(sourceFile, compilerOptions);
+        function getNavigationBarItems(sourceFile) {
+            curSourceFile = sourceFile;
+            var result = ts.map(topLevelItems(rootNavigationBarNode(sourceFile)), convertToTopLevelItem);
+            curSourceFile = undefined;
+            return result;
+        }
+        NavigationBar.getNavigationBarItems = getNavigationBarItems;
+        // Keep sourceFile handy so we don't have to search for it every time we need to call `getText`.
+        var curSourceFile;
+        function nodeText(node) {
+            return node.getText(curSourceFile);
+        }
+        function navigationBarNodeKind(n) {
+            return n.node.kind;
+        }
+        function pushChild(parent, child) {
+            if (parent.children) {
+                parent.children.push(child);
             }
-            return getItemsWorker(getTopLevelNodes(sourceFile), createTopLevelItem);
-            function getIndent(node) {
-                var indent = 1; // Global node is the only one with indent 0.
-                var current = node.parent;
-                while (current) {
-                    switch (current.kind) {
-                        case 225 /* ModuleDeclaration */:
-                            // If we have a module declared as A.B.C, it is more "intuitive"
-                            // to say it only has a single layer of depth
-                            do {
-                                current = current.parent;
-                            } while (current.kind === 225 /* ModuleDeclaration */);
-                        // fall through
-                        case 221 /* ClassDeclaration */:
-                        case 224 /* EnumDeclaration */:
-                        case 222 /* InterfaceDeclaration */:
-                        case 220 /* FunctionDeclaration */:
-                            indent++;
+            else {
+                parent.children = [child];
+            }
+        }
+        /*
+        For performance, we keep navigation bar parents on a stack rather than passing them through each recursion.
+        `parent` is the current parent and is *not* stored in parentsStack.
+        `startNode` sets a new parent and `endNode` returns to the previous parent.
+        */
+        var parentsStack = [];
+        var parent;
+        function rootNavigationBarNode(sourceFile) {
+            ts.Debug.assert(!parentsStack.length);
+            var root = { node: sourceFile, additionalNodes: undefined, parent: undefined, children: undefined, indent: 0 };
+            parent = root;
+            for (var _i = 0, _a = sourceFile.statements; _i < _a.length; _i++) {
+                var statement = _a[_i];
+                addChildrenRecursively(statement);
+            }
+            endNode();
+            ts.Debug.assert(!parent && !parentsStack.length);
+            return root;
+        }
+        function addLeafNode(node) {
+            pushChild(parent, emptyNavigationBarNode(node));
+        }
+        function emptyNavigationBarNode(node) {
+            return {
+                node: node,
+                additionalNodes: undefined,
+                parent: parent,
+                children: undefined,
+                indent: parent.indent + 1
+            };
+        }
+        /**
+         * Add a new level of NavigationBarNodes.
+         * This pushes to the stack, so you must call `endNode` when you are done adding to this node.
+         */
+        function startNode(node) {
+            var navNode = emptyNavigationBarNode(node);
+            pushChild(parent, navNode);
+            // Save the old parent
+            parentsStack.push(parent);
+            parent = navNode;
+        }
+        /** Call after calling `startNode` and adding children to it. */
+        function endNode() {
+            if (parent.children) {
+                mergeChildren(parent.children);
+                sortChildren(parent.children);
+            }
+            parent = parentsStack.pop();
+        }
+        function addNodeWithRecursiveChild(node, child) {
+            startNode(node);
+            addChildrenRecursively(child);
+            endNode();
+        }
+        /** Look for navigation bar items in node's subtree, adding them to the current `parent`. */
+        function addChildrenRecursively(node) {
+            if (!node || ts.isToken(node)) {
+                return;
+            }
+            switch (node.kind) {
+                case 148 /* Constructor */:
+                    // Get parameter properties, and treat them as being on the *same* level as the constructor, not under it.
+                    var ctr = node;
+                    addNodeWithRecursiveChild(ctr, ctr.body);
+                    // Parameter properties are children of the class, not the constructor.
+                    for (var _i = 0, _a = ctr.parameters; _i < _a.length; _i++) {
+                        var param = _a[_i];
+                        if (ts.isParameterPropertyDeclaration(param)) {
+                            addLeafNode(param);
+                        }
                     }
-                    current = current.parent;
-                }
-                return indent;
-            }
-            function getChildNodes(nodes) {
-                var childNodes = [];
-                function visit(node) {
-                    switch (node.kind) {
-                        case 200 /* VariableStatement */:
-                            ts.forEach(node.declarationList.declarations, visit);
-                            break;
-                        case 167 /* ObjectBindingPattern */:
-                        case 168 /* ArrayBindingPattern */:
-                            ts.forEach(node.elements, visit);
-                            break;
-                        case 236 /* ExportDeclaration */:
-                            // Handle named exports case e.g.:
-                            //    export {a, b as B} from "mod";
-                            if (node.exportClause) {
-                                ts.forEach(node.exportClause.elements, visit);
+                    break;
+                case 147 /* MethodDeclaration */:
+                case 149 /* GetAccessor */:
+                case 150 /* SetAccessor */:
+                case 146 /* MethodSignature */:
+                    if (!ts.hasDynamicName(node)) {
+                        addNodeWithRecursiveChild(node, node.body);
+                    }
+                    break;
+                case 145 /* PropertyDeclaration */:
+                case 144 /* PropertySignature */:
+                    if (!ts.hasDynamicName(node)) {
+                        addLeafNode(node);
+                    }
+                    break;
+                case 231 /* ImportClause */:
+                    var importClause = node;
+                    // Handle default import case e.g.:
+                    //    import d from "mod";
+                    if (importClause.name) {
+                        addLeafNode(importClause);
+                    }
+                    // Handle named bindings in imports e.g.:
+                    //    import * as NS from "mod";
+                    //    import {a, b as B} from "mod";
+                    var namedBindings = importClause.namedBindings;
+                    if (namedBindings) {
+                        if (namedBindings.kind === 232 /* NamespaceImport */) {
+                            addLeafNode(namedBindings);
+                        }
+                        else {
+                            for (var _b = 0, _c = namedBindings.elements; _b < _c.length; _b++) {
+                                var element = _c[_b];
+                                addLeafNode(element);
                             }
-                            break;
-                        case 230 /* ImportDeclaration */:
-                            var importClause = node.importClause;
-                            if (importClause) {
-                                // Handle default import case e.g.:
-                                //    import d from "mod";
-                                if (importClause.name) {
-                                    childNodes.push(importClause);
-                                }
-                                // Handle named bindings in imports e.g.:
-                                //    import * as NS from "mod";
-                                //    import {a, b as B} from "mod";
-                                if (importClause.namedBindings) {
-                                    if (importClause.namedBindings.kind === 232 /* NamespaceImport */) {
-                                        childNodes.push(importClause.namedBindings);
-                                    }
-                                    else {
-                                        ts.forEach(importClause.namedBindings.elements, visit);
-                                    }
-                                }
-                            }
-                            break;
-                        case 169 /* BindingElement */:
-                        case 218 /* VariableDeclaration */:
-                            if (ts.isBindingPattern(node.name)) {
-                                visit(node.name);
-                                break;
-                            }
-                        // Fall through
-                        case 221 /* ClassDeclaration */:
-                        case 224 /* EnumDeclaration */:
-                        case 222 /* InterfaceDeclaration */:
-                        case 225 /* ModuleDeclaration */:
-                        case 220 /* FunctionDeclaration */:
-                        case 229 /* ImportEqualsDeclaration */:
-                        case 234 /* ImportSpecifier */:
-                        case 238 /* ExportSpecifier */:
-                        case 223 /* TypeAliasDeclaration */:
-                            childNodes.push(node);
-                            break;
+                        }
                     }
-                }
-                // for (let i = 0, n = nodes.length; i < n; i++) {
-                //    let node = nodes[i];
-                //    if (node.kind === SyntaxKind.ClassDeclaration ||
-                //        node.kind === SyntaxKind.EnumDeclaration ||
-                //        node.kind === SyntaxKind.InterfaceDeclaration ||
-                //        node.kind === SyntaxKind.ModuleDeclaration ||
-                //        node.kind === SyntaxKind.FunctionDeclaration) {
-                //        childNodes.push(node);
-                //    }
-                //    else if (node.kind === SyntaxKind.VariableStatement) {
-                //        childNodes.push.apply(childNodes, (<VariableStatement>node).declarations);
-                //    }
-                // }
-                ts.forEach(nodes, visit);
-                return sortNodes(childNodes);
-            }
-            function getTopLevelNodes(node) {
-                var topLevelNodes = [];
-                topLevelNodes.push(node);
-                addTopLevelNodes(node.statements, topLevelNodes);
-                return topLevelNodes;
-            }
-            function sortNodes(nodes) {
-                return nodes.slice(0).sort(function (n1, n2) {
-                    if (n1.name && n2.name) {
-                        return localeCompareFix(ts.getPropertyNameForPropertyNameNode(n1.name), ts.getPropertyNameForPropertyNameNode(n2.name));
+                    break;
+                case 169 /* BindingElement */:
+                case 218 /* VariableDeclaration */:
+                    var decl = node;
+                    var name_38 = decl.name;
+                    if (ts.isBindingPattern(name_38)) {
+                        addChildrenRecursively(name_38);
                     }
-                    else if (n1.name) {
-                        return 1;
-                    }
-                    else if (n2.name) {
-                        return -1;
+                    else if (decl.initializer && isFunctionOrClassExpression(decl.initializer)) {
+                        // For `const x = function() {}`, just use the function node, not the const.
+                        addChildrenRecursively(decl.initializer);
                     }
                     else {
-                        return n1.kind - n2.kind;
+                        addNodeWithRecursiveChild(decl, decl.initializer);
                     }
-                });
-                // node 0.10 treats "a" as greater than "B".
-                // For consistency, sort alphabetically, falling back to which is lower-case.
-                function localeCompareFix(a, b) {
-                    var cmp = a.toLowerCase().localeCompare(b.toLowerCase());
-                    if (cmp !== 0)
-                        return cmp;
-                    // Return the *opposite* of the `<` operator, which works the same in node 0.10 and 6.0.
-                    return a < b ? 1 : a > b ? -1 : 0;
-                }
-            }
-            function addTopLevelNodes(nodes, topLevelNodes) {
-                nodes = sortNodes(nodes);
-                for (var _i = 0, nodes_4 = nodes; _i < nodes_4.length; _i++) {
-                    var node = nodes_4[_i];
-                    switch (node.kind) {
-                        case 221 /* ClassDeclaration */:
-                            topLevelNodes.push(node);
-                            for (var _a = 0, _b = node.members; _a < _b.length; _a++) {
-                                var member = _b[_a];
-                                if (member.kind === 147 /* MethodDeclaration */ || member.kind === 148 /* Constructor */) {
-                                    if (member.body) {
-                                        // We do not include methods that does not have child functions in it, because of duplications.
-                                        if (hasNamedFunctionDeclarations(member.body.statements)) {
-                                            topLevelNodes.push(member);
-                                        }
-                                        addTopLevelNodes(member.body.statements, topLevelNodes);
-                                    }
+                    break;
+                case 180 /* ArrowFunction */:
+                case 220 /* FunctionDeclaration */:
+                case 179 /* FunctionExpression */:
+                    addNodeWithRecursiveChild(node, node.body);
+                    break;
+                case 224 /* EnumDeclaration */:
+                    startNode(node);
+                    for (var _d = 0, _e = node.members; _d < _e.length; _d++) {
+                        var member = _e[_d];
+                        if (!isComputedProperty(member)) {
+                            addLeafNode(member);
+                        }
+                    }
+                    endNode();
+                    break;
+                case 221 /* ClassDeclaration */:
+                case 192 /* ClassExpression */:
+                case 222 /* InterfaceDeclaration */:
+                    startNode(node);
+                    for (var _f = 0, _g = node.members; _f < _g.length; _f++) {
+                        var member = _g[_f];
+                        addChildrenRecursively(member);
+                    }
+                    endNode();
+                    break;
+                case 225 /* ModuleDeclaration */:
+                    addNodeWithRecursiveChild(node, getInteriorModule(node).body);
+                    break;
+                case 238 /* ExportSpecifier */:
+                case 229 /* ImportEqualsDeclaration */:
+                case 153 /* IndexSignature */:
+                case 151 /* CallSignature */:
+                case 152 /* ConstructSignature */:
+                case 223 /* TypeAliasDeclaration */:
+                    addLeafNode(node);
+                    break;
+                default:
+                    if (node.jsDocComments) {
+                        for (var _h = 0, _j = node.jsDocComments; _h < _j.length; _h++) {
+                            var jsDocComment = _j[_h];
+                            for (var _k = 0, _l = jsDocComment.tags; _k < _l.length; _k++) {
+                                var tag = _l[_k];
+                                if (tag.kind === 279 /* JSDocTypedefTag */) {
+                                    addLeafNode(tag);
                                 }
                             }
-                            break;
-                        case 224 /* EnumDeclaration */:
-                        case 222 /* InterfaceDeclaration */:
-                        case 223 /* TypeAliasDeclaration */:
-                            topLevelNodes.push(node);
-                            break;
-                        case 225 /* ModuleDeclaration */:
-                            var moduleDeclaration = node;
-                            topLevelNodes.push(node);
-                            var inner = getInnermostModule(moduleDeclaration);
-                            if (inner.body) {
-                                addTopLevelNodes(inner.body.statements, topLevelNodes);
-                            }
-                            break;
-                        case 220 /* FunctionDeclaration */:
-                            var functionDeclaration = node;
-                            if (isTopLevelFunctionDeclaration(functionDeclaration)) {
-                                topLevelNodes.push(node);
-                                addTopLevelNodes(functionDeclaration.body.statements, topLevelNodes);
-                            }
-                            break;
+                        }
                     }
-                }
+                    ts.forEachChild(node, addChildrenRecursively);
             }
-            function hasNamedFunctionDeclarations(nodes) {
-                for (var _i = 0, nodes_5 = nodes; _i < nodes_5.length; _i++) {
-                    var s = nodes_5[_i];
-                    if (s.kind === 220 /* FunctionDeclaration */ && !isEmpty(s.name.text)) {
+        }
+        /** Merge declarations of the same kind. */
+        function mergeChildren(children) {
+            var nameToItems = {};
+            ts.filterMutate(children, function (child) {
+                var decl = child.node;
+                var name = decl.name && nodeText(decl.name);
+                if (!name) {
+                    // Anonymous items are never merged.
+                    return true;
+                }
+                var itemsWithSameName = ts.getProperty(nameToItems, name);
+                if (!itemsWithSameName) {
+                    nameToItems[name] = child;
+                    return true;
+                }
+                if (itemsWithSameName instanceof Array) {
+                    for (var _i = 0, itemsWithSameName_1 = itemsWithSameName; _i < itemsWithSameName_1.length; _i++) {
+                        var itemWithSameName = itemsWithSameName_1[_i];
+                        if (tryMerge(itemWithSameName, child)) {
+                            return false;
+                        }
+                    }
+                    itemsWithSameName.push(child);
+                    return true;
+                }
+                else {
+                    var itemWithSameName = itemsWithSameName;
+                    if (tryMerge(itemWithSameName, child)) {
+                        return false;
+                    }
+                    nameToItems[name] = [itemWithSameName, child];
+                    return true;
+                }
+                function tryMerge(a, b) {
+                    if (shouldReallyMerge(a.node, b.node)) {
+                        merge(a, b);
                         return true;
                     }
+                    return false;
                 }
-                return false;
-            }
-            function isTopLevelFunctionDeclaration(functionDeclaration) {
-                if (functionDeclaration.kind === 220 /* FunctionDeclaration */) {
-                    // A function declaration is 'top level' if it contains any function declarations
-                    // within it.
-                    if (functionDeclaration.body && functionDeclaration.body.kind === 199 /* Block */) {
-                        // Proper function declarations can only have identifier names
-                        if (hasNamedFunctionDeclarations(functionDeclaration.body.statements)) {
-                            return true;
-                        }
-                        // Or if it is not parented by another function. I.e all functions at module scope are 'top level'.
-                        if (!ts.isFunctionBlock(functionDeclaration.parent)) {
-                            return true;
-                        }
-                        else {
-                            // We have made sure that a grand parent node exists with 'isFunctionBlock()' above.
-                            var grandParentKind = functionDeclaration.parent.parent.kind;
-                            if (grandParentKind === 147 /* MethodDeclaration */ ||
-                                grandParentKind === 148 /* Constructor */) {
-                                return true;
-                            }
-                        }
+            });
+            /** a and b have the same name, but they may not be mergeable. */
+            function shouldReallyMerge(a, b) {
+                return a.kind === b.kind && (a.kind !== 225 /* ModuleDeclaration */ || areSameModule(a, b));
+                // We use 1 NavNode to represent 'A.B.C', but there are multiple source nodes.
+                // Only merge module nodes that have the same chain. Don't merge 'A.B.C' with 'A'!
+                function areSameModule(a, b) {
+                    if (a.body.kind !== b.body.kind) {
+                        return false;
                     }
-                }
-                return false;
-            }
-            function getItemsWorker(nodes, createItem) {
-                var items = [];
-                var keyToItem = {};
-                for (var _i = 0, nodes_6 = nodes; _i < nodes_6.length; _i++) {
-                    var child = nodes_6[_i];
-                    var item = createItem(child);
-                    if (item !== undefined) {
-                        if (item.text.length > 0) {
-                            var key = item.text + "-" + item.kind + "-" + item.indent;
-                            var itemWithSameName = keyToItem[key];
-                            if (itemWithSameName) {
-                                // We had an item with the same name.  Merge these items together.
-                                merge(itemWithSameName, item);
-                            }
-                            else {
-                                keyToItem[key] = item;
-                                items.push(item);
-                            }
-                        }
+                    if (a.body.kind !== 225 /* ModuleDeclaration */) {
+                        return true;
                     }
+                    return areSameModule(a.body, b.body);
                 }
-                return items;
             }
+            /** Merge source into target. Source should be thrown away after this is called. */
             function merge(target, source) {
-                // First, add any spans in the source to the target.
-                ts.addRange(target.spans, source.spans);
-                if (source.childItems) {
-                    if (!target.childItems) {
-                        target.childItems = [];
-                    }
-                    // Next, recursively merge or add any children in the source as appropriate.
-                    outer: for (var _i = 0, _a = source.childItems; _i < _a.length; _i++) {
-                        var sourceChild = _a[_i];
-                        for (var _b = 0, _c = target.childItems; _b < _c.length; _b++) {
-                            var targetChild = _c[_b];
-                            if (targetChild.text === sourceChild.text && targetChild.kind === sourceChild.kind) {
-                                // Found a match.  merge them.
-                                merge(targetChild, sourceChild);
-                                continue outer;
-                            }
-                        }
-                        // Didn't find a match, just add this child to the list.
-                        target.childItems.push(sourceChild);
-                    }
+                target.additionalNodes = target.additionalNodes || [];
+                target.additionalNodes.push(source.node);
+                if (source.additionalNodes) {
+                    (_a = target.additionalNodes).push.apply(_a, source.additionalNodes);
+                }
+                target.children = ts.concatenate(target.children, source.children);
+                if (target.children) {
+                    mergeChildren(target.children);
+                    sortChildren(target.children);
+                }
+                var _a;
+            }
+        }
+        /** Recursively ensure that each NavNode's children are in sorted order. */
+        function sortChildren(children) {
+            children.sort(compareChildren);
+        }
+        function compareChildren(child1, child2) {
+            var name1 = tryGetName(child1.node), name2 = tryGetName(child2.node);
+            if (name1 && name2) {
+                var cmp = localeCompareFix(name1, name2);
+                return cmp !== 0 ? cmp : navigationBarNodeKind(child1) - navigationBarNodeKind(child2);
+            }
+            else {
+                return name1 ? 1 : name2 ? -1 : navigationBarNodeKind(child1) - navigationBarNodeKind(child2);
+            }
+        }
+        // More efficient to create a collator once and use its `compare` than to call `a.localeCompare(b)` many times.
+        var collator = typeof Intl === "undefined" ? undefined : new Intl.Collator();
+        // Intl is missing in Safari, and node 0.10 treats "a" as greater than "B".
+        var localeCompareIsCorrect = collator && collator.compare("a", "B") < 0;
+        var localeCompareFix = localeCompareIsCorrect ? collator.compare : function (a, b) {
+            // This isn't perfect, but it passes all of our tests.
+            for (var i = 0; i < Math.min(a.length, b.length); i++) {
+                var chA = a.charAt(i), chB = b.charAt(i);
+                if (chA === "\"" && chB === "'") {
+                    return 1;
+                }
+                if (chA === "'" && chB === "\"") {
+                    return -1;
+                }
+                var cmp = chA.toLocaleLowerCase().localeCompare(chB.toLocaleLowerCase());
+                if (cmp !== 0) {
+                    return cmp;
                 }
             }
-            function createChildItem(node) {
-                switch (node.kind) {
-                    case 142 /* Parameter */:
-                        if (ts.isBindingPattern(node.name)) {
-                            break;
-                        }
-                        if ((node.flags & 1023 /* Modifier */) === 0) {
-                            return undefined;
-                        }
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberVariableElement);
-                    case 147 /* MethodDeclaration */:
-                    case 146 /* MethodSignature */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberFunctionElement);
-                    case 149 /* GetAccessor */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberGetAccessorElement);
-                    case 150 /* SetAccessor */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberSetAccessorElement);
-                    case 153 /* IndexSignature */:
-                        return createItem(node, "[]", ts.ScriptElementKind.indexSignatureElement);
-                    case 224 /* EnumDeclaration */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.enumElement);
-                    case 255 /* EnumMember */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberVariableElement);
-                    case 225 /* ModuleDeclaration */:
-                        return createItem(node, getModuleName(node), ts.ScriptElementKind.moduleElement);
-                    case 222 /* InterfaceDeclaration */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.interfaceElement);
-                    case 223 /* TypeAliasDeclaration */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.typeElement);
-                    case 151 /* CallSignature */:
-                        return createItem(node, "()", ts.ScriptElementKind.callSignatureElement);
-                    case 152 /* ConstructSignature */:
-                        return createItem(node, "new()", ts.ScriptElementKind.constructSignatureElement);
-                    case 145 /* PropertyDeclaration */:
-                    case 144 /* PropertySignature */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.memberVariableElement);
-                    case 221 /* ClassDeclaration */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.classElement);
-                    case 220 /* FunctionDeclaration */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.functionElement);
-                    case 218 /* VariableDeclaration */:
-                    case 169 /* BindingElement */:
-                        var variableDeclarationNode = void 0;
-                        var name_37;
-                        if (node.kind === 169 /* BindingElement */) {
-                            name_37 = node.name;
-                            variableDeclarationNode = node;
-                            // binding elements are added only for variable declarations
-                            // bubble up to the containing variable declaration
-                            while (variableDeclarationNode && variableDeclarationNode.kind !== 218 /* VariableDeclaration */) {
-                                variableDeclarationNode = variableDeclarationNode.parent;
-                            }
-                            ts.Debug.assert(variableDeclarationNode !== undefined);
-                        }
-                        else {
-                            ts.Debug.assert(!ts.isBindingPattern(node.name));
-                            variableDeclarationNode = node;
-                            name_37 = node.name;
-                        }
-                        if (ts.isConst(variableDeclarationNode)) {
-                            return createItem(node, getTextOfNode(name_37), ts.ScriptElementKind.constElement);
-                        }
-                        else if (ts.isLet(variableDeclarationNode)) {
-                            return createItem(node, getTextOfNode(name_37), ts.ScriptElementKind.letElement);
-                        }
-                        else {
-                            return createItem(node, getTextOfNode(name_37), ts.ScriptElementKind.variableElement);
-                        }
-                    case 148 /* Constructor */:
-                        return createItem(node, "constructor", ts.ScriptElementKind.constructorImplementationElement);
-                    case 238 /* ExportSpecifier */:
-                    case 234 /* ImportSpecifier */:
-                    case 229 /* ImportEqualsDeclaration */:
-                    case 231 /* ImportClause */:
-                    case 232 /* NamespaceImport */:
-                        return createItem(node, getTextOfNode(node.name), ts.ScriptElementKind.alias);
-                }
-                return undefined;
-                function createItem(node, name, scriptElementKind) {
-                    return getNavigationBarItem(name, scriptElementKind, ts.getNodeModifiers(node), [getNodeSpan(node)]);
-                }
+            return a.length - b.length;
+        };
+        /**
+         * This differs from getItemName because this is just used for sorting.
+         * We only sort nodes by name that have a more-or-less "direct" name, as opposed to `new()` and the like.
+         * So `new()` can still come before an `aardvark` method.
+         */
+        function tryGetName(node) {
+            if (node.kind === 225 /* ModuleDeclaration */) {
+                return getModuleName(node);
             }
-            function isEmpty(text) {
-                return !text || text.trim() === "";
+            var decl = node;
+            if (decl.name) {
+                return ts.getPropertyNameForPropertyNameNode(decl.name);
             }
-            function getNavigationBarItem(text, kind, kindModifiers, spans, childItems, indent) {
-                if (childItems === void 0) { childItems = []; }
-                if (indent === void 0) { indent = 0; }
-                if (isEmpty(text)) {
+            switch (node.kind) {
+                case 179 /* FunctionExpression */:
+                case 180 /* ArrowFunction */:
+                case 192 /* ClassExpression */:
+                    return getFunctionOrClassName(node);
+                case 279 /* JSDocTypedefTag */:
+                    return getJSDocTypedefTagName(node);
+                default:
                     return undefined;
+            }
+        }
+        function getItemName(node) {
+            if (node.kind === 225 /* ModuleDeclaration */) {
+                return getModuleName(node);
+            }
+            var name = node.name;
+            if (name) {
+                var text = nodeText(name);
+                if (text.length > 0) {
+                    return text;
                 }
+            }
+            switch (node.kind) {
+                case 256 /* SourceFile */:
+                    var sourceFile = node;
+                    return ts.isExternalModule(sourceFile)
+                        ? "\"" + ts.escapeString(ts.getBaseFileName(ts.removeFileExtension(ts.normalizePath(sourceFile.fileName)))) + "\""
+                        : "<global>";
+                case 180 /* ArrowFunction */:
+                case 220 /* FunctionDeclaration */:
+                case 179 /* FunctionExpression */:
+                case 221 /* ClassDeclaration */:
+                case 192 /* ClassExpression */:
+                    if (node.flags & 512 /* Default */) {
+                        return "default";
+                    }
+                    return getFunctionOrClassName(node);
+                case 148 /* Constructor */:
+                    return "constructor";
+                case 152 /* ConstructSignature */:
+                    return "new()";
+                case 151 /* CallSignature */:
+                    return "()";
+                case 153 /* IndexSignature */:
+                    return "[]";
+                case 279 /* JSDocTypedefTag */:
+                    return getJSDocTypedefTagName(node);
+                default:
+                    ts.Debug.fail();
+                    return "";
+            }
+        }
+        function getJSDocTypedefTagName(node) {
+            if (node.name) {
+                return node.name.text;
+            }
+            else {
+                var parentNode = node.parent && node.parent.parent;
+                if (parentNode && parentNode.kind === 200 /* VariableStatement */) {
+                    if (parentNode.declarationList.declarations.length > 0) {
+                        var nameIdentifier = parentNode.declarationList.declarations[0].name;
+                        if (nameIdentifier.kind === 69 /* Identifier */) {
+                            return nameIdentifier.text;
+                        }
+                    }
+                }
+                return "<typedef>";
+            }
+        }
+        /** Flattens the NavNode tree to a list, keeping only the top-level items. */
+        function topLevelItems(root) {
+            var topLevel = [];
+            function recur(item) {
+                if (isTopLevel(item)) {
+                    topLevel.push(item);
+                    if (item.children) {
+                        for (var _i = 0, _a = item.children; _i < _a.length; _i++) {
+                            var child = _a[_i];
+                            recur(child);
+                        }
+                    }
+                }
+            }
+            recur(root);
+            return topLevel;
+            function isTopLevel(item) {
+                switch (navigationBarNodeKind(item)) {
+                    case 221 /* ClassDeclaration */:
+                    case 192 /* ClassExpression */:
+                    case 224 /* EnumDeclaration */:
+                    case 222 /* InterfaceDeclaration */:
+                    case 225 /* ModuleDeclaration */:
+                    case 256 /* SourceFile */:
+                    case 223 /* TypeAliasDeclaration */:
+                    case 279 /* JSDocTypedefTag */:
+                        return true;
+                    case 148 /* Constructor */:
+                    case 147 /* MethodDeclaration */:
+                    case 149 /* GetAccessor */:
+                    case 150 /* SetAccessor */:
+                        return hasSomeImportantChild(item);
+                    case 180 /* ArrowFunction */:
+                    case 220 /* FunctionDeclaration */:
+                    case 179 /* FunctionExpression */:
+                        return isTopLevelFunctionDeclaration(item);
+                    default:
+                        return false;
+                }
+                function isTopLevelFunctionDeclaration(item) {
+                    if (!item.node.body) {
+                        return false;
+                    }
+                    switch (navigationBarNodeKind(item.parent)) {
+                        case 226 /* ModuleBlock */:
+                        case 256 /* SourceFile */:
+                        case 147 /* MethodDeclaration */:
+                        case 148 /* Constructor */:
+                            return true;
+                        default:
+                            return hasSomeImportantChild(item);
+                    }
+                }
+                function hasSomeImportantChild(item) {
+                    return ts.forEach(item.children, function (child) {
+                        var childKind = navigationBarNodeKind(child);
+                        return childKind !== 218 /* VariableDeclaration */ && childKind !== 169 /* BindingElement */;
+                    });
+                }
+            }
+        }
+        // NavigationBarItem requires an array, but will not mutate it, so just give it this for performance.
+        var emptyChildItemArray = [];
+        function convertToTopLevelItem(n) {
+            return {
+                text: getItemName(n.node),
+                kind: nodeKind(n.node),
+                kindModifiers: ts.getNodeModifiers(n.node),
+                spans: getSpans(n),
+                childItems: ts.map(n.children, convertToChildItem) || emptyChildItemArray,
+                indent: n.indent,
+                bolded: false,
+                grayed: false
+            };
+            function convertToChildItem(n) {
                 return {
-                    text: text,
-                    kind: kind,
-                    kindModifiers: kindModifiers,
-                    spans: spans,
-                    childItems: childItems,
-                    indent: indent,
+                    text: getItemName(n.node),
+                    kind: nodeKind(n.node),
+                    kindModifiers: ts.getNodeModifiers(n.node),
+                    spans: getSpans(n),
+                    childItems: emptyChildItemArray,
+                    indent: 0,
                     bolded: false,
                     grayed: false
                 };
             }
-            function createTopLevelItem(node) {
-                switch (node.kind) {
-                    case 256 /* SourceFile */:
-                        return createSourceFileItem(node);
-                    case 221 /* ClassDeclaration */:
-                        return createClassItem(node);
-                    case 147 /* MethodDeclaration */:
-                    case 148 /* Constructor */:
-                        return createMemberFunctionLikeItem(node);
-                    case 224 /* EnumDeclaration */:
-                        return createEnumItem(node);
-                    case 222 /* InterfaceDeclaration */:
-                        return createInterfaceItem(node);
-                    case 225 /* ModuleDeclaration */:
-                        return createModuleItem(node);
-                    case 220 /* FunctionDeclaration */:
-                        return createFunctionItem(node);
-                    case 223 /* TypeAliasDeclaration */:
-                        return createTypeAliasItem(node);
-                }
-                return undefined;
-                function createModuleItem(node) {
-                    var moduleName = getModuleName(node);
-                    var body = getInnermostModule(node).body;
-                    var childItems = body ? getItemsWorker(getChildNodes(body.statements), createChildItem) : [];
-                    return getNavigationBarItem(moduleName, ts.ScriptElementKind.moduleElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
-                }
-                function createFunctionItem(node) {
-                    if (node.body && node.body.kind === 199 /* Block */) {
-                        var childItems = getItemsWorker(sortNodes(node.body.statements), createChildItem);
-                        return getNavigationBarItem(!node.name ? "default" : node.name.text, ts.ScriptElementKind.functionElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
+            function getSpans(n) {
+                var spans = [getNodeSpan(n.node)];
+                if (n.additionalNodes) {
+                    for (var _i = 0, _a = n.additionalNodes; _i < _a.length; _i++) {
+                        var node = _a[_i];
+                        spans.push(getNodeSpan(node));
                     }
-                    return undefined;
                 }
-                function createTypeAliasItem(node) {
-                    return getNavigationBarItem(node.name.text, ts.ScriptElementKind.typeElement, ts.getNodeModifiers(node), [getNodeSpan(node)], [], getIndent(node));
-                }
-                function createMemberFunctionLikeItem(node) {
-                    if (node.body && node.body.kind === 199 /* Block */) {
-                        var childItems = getItemsWorker(sortNodes(node.body.statements), createChildItem);
-                        var scriptElementKind = void 0;
-                        var memberFunctionName = void 0;
-                        if (node.kind === 147 /* MethodDeclaration */) {
-                            memberFunctionName = ts.getPropertyNameForPropertyNameNode(node.name);
-                            scriptElementKind = ts.ScriptElementKind.memberFunctionElement;
-                        }
-                        else {
-                            memberFunctionName = "constructor";
-                            scriptElementKind = ts.ScriptElementKind.constructorImplementationElement;
-                        }
-                        return getNavigationBarItem(memberFunctionName, scriptElementKind, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
-                    }
-                    return undefined;
-                }
-                function createSourceFileItem(node) {
-                    var childItems = getItemsWorker(getChildNodes(node.statements), createChildItem);
-                    var rootName = ts.isExternalModule(node)
-                        ? "\"" + ts.escapeString(ts.getBaseFileName(ts.removeFileExtension(ts.normalizePath(node.fileName)))) + "\""
-                        : "<global>";
-                    return getNavigationBarItem(rootName, ts.ScriptElementKind.moduleElement, ts.ScriptElementKindModifier.none, [getNodeSpan(node)], childItems);
-                }
-                function createClassItem(node) {
-                    var childItems;
-                    if (node.members) {
-                        var constructor = ts.forEach(node.members, function (member) {
-                            return member.kind === 148 /* Constructor */ && member;
-                        });
-                        // Add the constructor parameters in as children of the class (for property parameters).
-                        // Note that *all non-binding pattern named* parameters will be added to the nodes array, but parameters that
-                        // are not properties will be filtered out later by createChildItem.
-                        var nodes = removeDynamicallyNamedProperties(node);
-                        if (constructor) {
-                            ts.addRange(nodes, ts.filter(constructor.parameters, function (p) { return !ts.isBindingPattern(p.name); }));
-                        }
-                        childItems = getItemsWorker(sortNodes(nodes), createChildItem);
-                    }
-                    var nodeName = !node.name ? "default" : node.name.text;
-                    return getNavigationBarItem(nodeName, ts.ScriptElementKind.classElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
-                }
-                function createEnumItem(node) {
-                    var childItems = getItemsWorker(sortNodes(removeComputedProperties(node)), createChildItem);
-                    return getNavigationBarItem(node.name.text, ts.ScriptElementKind.enumElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
-                }
-                function createInterfaceItem(node) {
-                    var childItems = getItemsWorker(sortNodes(removeDynamicallyNamedProperties(node)), createChildItem);
-                    return getNavigationBarItem(node.name.text, ts.ScriptElementKind.interfaceElement, ts.getNodeModifiers(node), [getNodeSpan(node)], childItems, getIndent(node));
-                }
-            }
-            function getModuleName(moduleDeclaration) {
-                // We want to maintain quotation marks.
-                if (ts.isAmbientModule(moduleDeclaration)) {
-                    return getTextOfNode(moduleDeclaration.name);
-                }
-                // Otherwise, we need to aggregate each identifier to build up the qualified name.
-                var result = [];
-                result.push(moduleDeclaration.name.text);
-                while (moduleDeclaration.body && moduleDeclaration.body.kind === 225 /* ModuleDeclaration */) {
-                    moduleDeclaration = moduleDeclaration.body;
-                    result.push(moduleDeclaration.name.text);
-                }
-                return result.join(".");
-            }
-            function removeComputedProperties(node) {
-                return ts.filter(node.members, function (member) { return member.name === undefined || member.name.kind !== 140 /* ComputedPropertyName */; });
-            }
-            /**
-             * Like removeComputedProperties, but retains the properties with well known symbol names
-             */
-            function removeDynamicallyNamedProperties(node) {
-                return ts.filter(node.members, function (member) { return !ts.hasDynamicName(member); });
-            }
-            function getInnermostModule(node) {
-                while (node.body && node.body.kind === 225 /* ModuleDeclaration */) {
-                    node = node.body;
-                }
-                return node;
-            }
-            function getNodeSpan(node) {
-                return node.kind === 256 /* SourceFile */
-                    ? ts.createTextSpanFromBounds(node.getFullStart(), node.getEnd())
-                    : ts.createTextSpanFromBounds(node.getStart(), node.getEnd());
-            }
-            function getTextOfNode(node) {
-                return ts.getTextOfNodeFromSourceText(sourceFile.text, node);
+                return spans;
             }
         }
-        NavigationBar.getNavigationBarItems = getNavigationBarItems;
-        function getJsNavigationBarItems(sourceFile, compilerOptions) {
-            var anonFnText = "<function>";
-            var anonClassText = "<class>";
-            var indent = 0;
-            var rootName = ts.isExternalModule(sourceFile) ?
-                "\"" + ts.escapeString(ts.getBaseFileName(ts.removeFileExtension(ts.normalizePath(sourceFile.fileName)))) + "\""
-                : "<global>";
-            var sourceFileItem = getNavBarItem(rootName, ts.ScriptElementKind.moduleElement, [getNodeSpan(sourceFile)]);
-            var topItem = sourceFileItem;
-            // Walk the whole file, because we want to also find function expressions - which may be in variable initializer,
-            // call arguments, expressions, etc...
-            ts.forEachChild(sourceFile, visitNode);
-            function visitNode(node) {
-                var newItem = createNavBarItem(node);
-                if (newItem) {
-                    topItem.childItems.push(newItem);
-                }
-                if (node.jsDocComments && node.jsDocComments.length > 0) {
-                    for (var _i = 0, _a = node.jsDocComments; _i < _a.length; _i++) {
-                        var jsDocComment = _a[_i];
-                        visitNode(jsDocComment);
-                    }
-                }
-                // Add a level if traversing into a container
-                if (newItem && (ts.isFunctionLike(node) || ts.isClassLike(node))) {
-                    var lastTop = topItem;
-                    indent++;
-                    topItem = newItem;
-                    ts.forEachChild(node, visitNode);
-                    topItem = lastTop;
-                    indent--;
-                    // If the last item added was an anonymous function expression, and it had no children, discard it.
-                    if (newItem && newItem.text === anonFnText && newItem.childItems.length === 0) {
-                        topItem.childItems.pop();
-                    }
-                }
-                else {
-                    ts.forEachChild(node, visitNode);
-                }
-            }
-            function createNavBarItem(node) {
-                switch (node.kind) {
-                    case 218 /* VariableDeclaration */:
-                        // Only add to the navbar if at the top-level of the file
-                        // Note: "const" and "let" are also SyntaxKind.VariableDeclarations
-                        if (node.parent /*VariableDeclarationList*/.parent /*VariableStatement*/
-                            .parent /*SourceFile*/.kind !== 256 /* SourceFile */) {
-                            return undefined;
+        // TODO: GH#9145: We should just use getNodeKind. No reason why navigationBar and navigateTo should have different behaviors.
+        function nodeKind(node) {
+            switch (node.kind) {
+                case 256 /* SourceFile */:
+                    return ts.ScriptElementKind.moduleElement;
+                case 255 /* EnumMember */:
+                    return ts.ScriptElementKind.memberVariableElement;
+                case 218 /* VariableDeclaration */:
+                case 169 /* BindingElement */:
+                    var variableDeclarationNode = void 0;
+                    var name_39;
+                    if (node.kind === 169 /* BindingElement */) {
+                        name_39 = node.name;
+                        variableDeclarationNode = node;
+                        // binding elements are added only for variable declarations
+                        // bubble up to the containing variable declaration
+                        while (variableDeclarationNode && variableDeclarationNode.kind !== 218 /* VariableDeclaration */) {
+                            variableDeclarationNode = variableDeclarationNode.parent;
                         }
-                        // If it is initialized with a function expression, handle it when we reach the function expression node
-                        var varDecl = node;
-                        if (varDecl.initializer && (varDecl.initializer.kind === 179 /* FunctionExpression */ ||
-                            varDecl.initializer.kind === 180 /* ArrowFunction */ ||
-                            varDecl.initializer.kind === 192 /* ClassExpression */)) {
-                            return undefined;
-                        }
-                    // Fall through
-                    case 220 /* FunctionDeclaration */:
-                    case 221 /* ClassDeclaration */:
-                    case 148 /* Constructor */:
-                    case 149 /* GetAccessor */:
-                    case 150 /* SetAccessor */:
-                        // "export default function().." looks just like a regular function/class declaration, except with the 'default' flag
-                        var name_38 = node.flags && (node.flags & 512 /* Default */) && !node.name ? "default" :
-                            node.kind === 148 /* Constructor */ ? "constructor" :
-                                ts.declarationNameToString(node.name);
-                        return getNavBarItem(name_38, getScriptKindForElementKind(node.kind), [getNodeSpan(node)]);
-                    case 179 /* FunctionExpression */:
-                    case 180 /* ArrowFunction */:
-                    case 192 /* ClassExpression */:
-                        return getDefineModuleItem(node) || getFunctionOrClassExpressionItem(node);
-                    case 147 /* MethodDeclaration */:
-                        var methodDecl = node;
-                        return getNavBarItem(ts.declarationNameToString(methodDecl.name), ts.ScriptElementKind.memberFunctionElement, [getNodeSpan(node)]);
-                    case 235 /* ExportAssignment */:
-                        // e.g. "export default <expr>"
-                        return getNavBarItem("default", ts.ScriptElementKind.variableElement, [getNodeSpan(node)]);
-                    case 231 /* ImportClause */:
-                        if (!node.name) {
-                            // No default import (this node is still a parent of named & namespace imports, which are handled below)
-                            return undefined;
-                        }
-                    // fall through
-                    case 234 /* ImportSpecifier */: // e.g. 'id' in: import {id} from 'mod' (in NamedImports, in ImportClause)
-                    case 232 /* NamespaceImport */: // e.g. '* as ns' in: import * as ns from 'mod' (in ImportClause)
-                    case 238 /* ExportSpecifier */:
-                        // Export specifiers are only interesting if they are reexports from another module, or renamed, else they are already globals
-                        if (node.kind === 238 /* ExportSpecifier */) {
-                            if (!node.parent.parent.moduleSpecifier && !node.propertyName) {
-                                return undefined;
-                            }
-                        }
-                        var decl = node;
-                        if (!decl.name) {
-                            return undefined;
-                        }
-                        var declName = ts.declarationNameToString(decl.name);
-                        return getNavBarItem(declName, ts.ScriptElementKind.constElement, [getNodeSpan(node)]);
-                    case 279 /* JSDocTypedefTag */:
-                        if (node.name) {
-                            return getNavBarItem(node.name.text, ts.ScriptElementKind.typeElement, [getNodeSpan(node)]);
-                        }
-                        else {
-                            var parentNode = node.parent && node.parent.parent;
-                            if (parentNode && parentNode.kind === 200 /* VariableStatement */) {
-                                if (parentNode.declarationList.declarations.length > 0) {
-                                    var nameIdentifier = parentNode.declarationList.declarations[0].name;
-                                    if (nameIdentifier.kind === 69 /* Identifier */) {
-                                        return getNavBarItem(nameIdentifier.text, ts.ScriptElementKind.typeElement, [getNodeSpan(node)]);
-                                    }
-                                }
-                            }
-                        }
-                    default:
-                        return undefined;
-                }
-            }
-            function getNavBarItem(text, kind, spans, kindModifiers) {
-                if (kindModifiers === void 0) { kindModifiers = ts.ScriptElementKindModifier.none; }
-                return {
-                    text: text, kind: kind, kindModifiers: kindModifiers, spans: spans, childItems: [], indent: indent, bolded: false, grayed: false
-                };
-            }
-            function getDefineModuleItem(node) {
-                if (node.kind !== 179 /* FunctionExpression */ && node.kind !== 180 /* ArrowFunction */) {
-                    return undefined;
-                }
-                // No match if this is not a call expression to an identifier named 'define'
-                if (node.parent.kind !== 174 /* CallExpression */) {
-                    return undefined;
-                }
-                var callExpr = node.parent;
-                if (callExpr.expression.kind !== 69 /* Identifier */ || callExpr.expression.getText() !== "define") {
-                    return undefined;
-                }
-                // Return a module of either the given text in the first argument, or of the source file path
-                var defaultName = node.getSourceFile().fileName;
-                if (callExpr.arguments[0].kind === 9 /* StringLiteral */) {
-                    defaultName = (callExpr.arguments[0]).text;
-                }
-                return getNavBarItem(defaultName, ts.ScriptElementKind.moduleElement, [getNodeSpan(node.parent)]);
-            }
-            function getFunctionOrClassExpressionItem(node) {
-                if (node.kind !== 179 /* FunctionExpression */ &&
-                    node.kind !== 180 /* ArrowFunction */ &&
-                    node.kind !== 192 /* ClassExpression */) {
-                    return undefined;
-                }
-                var fnExpr = node;
-                var fnName;
-                if (fnExpr.name && ts.getFullWidth(fnExpr.name) > 0) {
-                    // The expression has an identifier, so use that as the name
-                    fnName = ts.declarationNameToString(fnExpr.name);
-                }
-                else {
-                    // See if it is a var initializer. If so, use the var name.
-                    if (fnExpr.parent.kind === 218 /* VariableDeclaration */) {
-                        fnName = ts.declarationNameToString(fnExpr.parent.name);
-                    }
-                    else if (fnExpr.parent.kind === 187 /* BinaryExpression */ &&
-                        fnExpr.parent.operatorToken.kind === 56 /* EqualsToken */) {
-                        fnName = fnExpr.parent.left.getText();
-                    }
-                    else if (fnExpr.parent.kind === 253 /* PropertyAssignment */ &&
-                        fnExpr.parent.name) {
-                        fnName = fnExpr.parent.name.getText();
+                        ts.Debug.assert(!!variableDeclarationNode);
                     }
                     else {
-                        fnName = node.kind === 192 /* ClassExpression */ ? anonClassText : anonFnText;
+                        ts.Debug.assert(!ts.isBindingPattern(node.name));
+                        variableDeclarationNode = node;
+                        name_39 = node.name;
                     }
-                }
-                var scriptKind = node.kind === 192 /* ClassExpression */ ? ts.ScriptElementKind.classElement : ts.ScriptElementKind.functionElement;
-                return getNavBarItem(fnName, scriptKind, [getNodeSpan(node)]);
-            }
-            function getNodeSpan(node) {
-                return node.kind === 256 /* SourceFile */
-                    ? ts.createTextSpanFromBounds(node.getFullStart(), node.getEnd())
-                    : ts.createTextSpanFromBounds(node.getStart(), node.getEnd());
-            }
-            function getScriptKindForElementKind(kind) {
-                switch (kind) {
-                    case 218 /* VariableDeclaration */:
+                    if (ts.isConst(variableDeclarationNode)) {
+                        return ts.ScriptElementKind.constElement;
+                    }
+                    else if (ts.isLet(variableDeclarationNode)) {
+                        return ts.ScriptElementKind.letElement;
+                    }
+                    else {
                         return ts.ScriptElementKind.variableElement;
-                    case 220 /* FunctionDeclaration */:
-                        return ts.ScriptElementKind.functionElement;
-                    case 221 /* ClassDeclaration */:
-                        return ts.ScriptElementKind.classElement;
-                    case 148 /* Constructor */:
-                        return ts.ScriptElementKind.constructorImplementationElement;
-                    case 149 /* GetAccessor */:
-                        return ts.ScriptElementKind.memberGetAccessorElement;
-                    case 150 /* SetAccessor */:
-                        return ts.ScriptElementKind.memberSetAccessorElement;
-                    default:
-                        return "unknown";
-                }
+                    }
+                case 180 /* ArrowFunction */:
+                    return ts.ScriptElementKind.functionElement;
+                case 279 /* JSDocTypedefTag */:
+                    return ts.ScriptElementKind.typeElement;
+                default:
+                    return ts.getNodeKind(node);
             }
-            return sourceFileItem.childItems;
         }
-        NavigationBar.getJsNavigationBarItems = getJsNavigationBarItems;
+        function getModuleName(moduleDeclaration) {
+            // We want to maintain quotation marks.
+            if (ts.isAmbientModule(moduleDeclaration)) {
+                return ts.getTextOfNode(moduleDeclaration.name);
+            }
+            // Otherwise, we need to aggregate each identifier to build up the qualified name.
+            var result = [];
+            result.push(moduleDeclaration.name.text);
+            while (moduleDeclaration.body && moduleDeclaration.body.kind === 225 /* ModuleDeclaration */) {
+                moduleDeclaration = moduleDeclaration.body;
+                result.push(moduleDeclaration.name.text);
+            }
+            return result.join(".");
+        }
+        /**
+         * For 'module A.B.C', we want to get the node for 'C'.
+         * We store 'A' as associated with a NavNode, and use getModuleName to traverse down again.
+         */
+        function getInteriorModule(decl) {
+            return decl.body.kind === 225 /* ModuleDeclaration */ ? getInteriorModule(decl.body) : decl;
+        }
+        function isComputedProperty(member) {
+            return !member.name || member.name.kind === 140 /* ComputedPropertyName */;
+        }
+        function getNodeSpan(node) {
+            return node.kind === 256 /* SourceFile */
+                ? ts.createTextSpanFromBounds(node.getFullStart(), node.getEnd())
+                : ts.createTextSpanFromBounds(node.getStart(curSourceFile), node.getEnd());
+        }
+        function getFunctionOrClassName(node) {
+            if (node.name && ts.getFullWidth(node.name) > 0) {
+                return ts.declarationNameToString(node.name);
+            }
+            else if (node.parent.kind === 218 /* VariableDeclaration */) {
+                return ts.declarationNameToString(node.parent.name);
+            }
+            else if (node.parent.kind === 187 /* BinaryExpression */ &&
+                node.parent.operatorToken.kind === 56 /* EqualsToken */) {
+                return nodeText(node.parent.left);
+            }
+            else if (node.parent.kind === 253 /* PropertyAssignment */ && node.parent.name) {
+                return nodeText(node.parent.name);
+            }
+            else if (node.flags & 512 /* Default */) {
+                return "default";
+            }
+            else {
+                return ts.isClassLike(node) ? "<class>" : "<function>";
+            }
+        }
+        function isFunctionOrClassExpression(node) {
+            return node.kind === 179 /* FunctionExpression */ || node.kind === 180 /* ArrowFunction */ || node.kind === 192 /* ClassExpression */;
+        }
     })(NavigationBar = ts.NavigationBar || (ts.NavigationBar = {}));
 })(ts || (ts = {}));
 /* @internal */
@@ -48855,9 +49328,9 @@ var ts;
             }
             getTypingNamesFromSourceFileNames(fileNames);
             // Add the cached typing locations for inferred typings that are already installed
-            for (var name_39 in packageNameToTypingLocation) {
-                if (ts.hasProperty(inferredTypings, name_39) && !inferredTypings[name_39]) {
-                    inferredTypings[name_39] = packageNameToTypingLocation[name_39];
+            for (var name_40 in packageNameToTypingLocation) {
+                if (ts.hasProperty(inferredTypings, name_40) && !inferredTypings[name_40]) {
+                    inferredTypings[name_40] = packageNameToTypingLocation[name_40];
                 }
             }
             // Remove typings that the user has added to the exclude list
@@ -48943,9 +49416,9 @@ var ts;
                     return;
                 }
                 var typingNames = [];
-                var fileNames = host.readDirectory(nodeModulesPath, "*.json", /*exclude*/ undefined, /*depth*/ 2);
-                for (var _i = 0, fileNames_1 = fileNames; _i < fileNames_1.length; _i++) {
-                    var fileName = fileNames_1[_i];
+                var fileNames = host.readDirectory(nodeModulesPath, ["*.json"], /*excludes*/ undefined, /*includes*/ undefined, /*depth*/ 2);
+                for (var _i = 0, fileNames_2 = fileNames; _i < fileNames_2.length; _i++) {
+                    var fileName = fileNames_2[_i];
                     var normalizedFileName = ts.normalizePath(fileName);
                     if (ts.getBaseFileName(normalizedFileName) !== "package.json") {
                         continue;
@@ -49686,9 +50159,9 @@ var ts;
             }
             Rules.prototype.getRuleName = function (rule) {
                 var o = this;
-                for (var name_40 in o) {
-                    if (o[name_40] === rule) {
-                        return name_40;
+                for (var name_41 in o) {
+                    if (o[name_41] === rule) {
+                        return name_41;
                     }
                 }
                 throw new Error("Unknown rule");
@@ -51833,8 +52306,8 @@ var ts;
             var list = createNode(282 /* SyntaxList */, nodes.pos, nodes.end, 0, this);
             list._children = [];
             var pos = nodes.pos;
-            for (var _i = 0, nodes_7 = nodes; _i < nodes_7.length; _i++) {
-                var node = nodes_7[_i];
+            for (var _i = 0, nodes_4 = nodes; _i < nodes_4.length; _i++) {
+                var node = nodes_4[_i];
                 if (pos < node.pos) {
                     pos = this.addSyntheticNodes(list._children, pos, node.pos);
                 }
@@ -52856,9 +53329,17 @@ var ts;
         // We are not returning a sourceFile for lib file when asked by the program,
         // so pass --noLib to avoid reporting a file not found error.
         options.noLib = true;
-        // Clear out the lib and types option as well
+        // Clear out other settings that would not be used in transpiling this module
         options.lib = undefined;
         options.types = undefined;
+        options.noEmit = undefined;
+        options.noEmitOnError = undefined;
+        options.paths = undefined;
+        options.rootDirs = undefined;
+        options.declaration = undefined;
+        options.declarationDir = undefined;
+        options.out = undefined;
+        options.outFile = undefined;
         // We are not doing a full typecheck, we are not resolving the whole context,
         // so pass --noResolve to avoid reporting missing file errors.
         options.noResolve = true;
@@ -54603,8 +55084,8 @@ var ts;
                     if (element.getStart() <= position && position <= element.getEnd()) {
                         continue;
                     }
-                    var name_41 = element.propertyName || element.name;
-                    existingImportsOrExports[name_41.text] = true;
+                    var name_42 = element.propertyName || element.name;
+                    existingImportsOrExports[name_42.text] = true;
                 }
                 if (ts.isEmpty(existingImportsOrExports)) {
                     return ts.filter(exportsOfModule, function (e) { return e.name !== "default"; });
@@ -54724,14 +55205,14 @@ var ts;
                 var entries = [];
                 var target = program.getCompilerOptions().target;
                 var nameTable = getNameTable(sourceFile);
-                for (var name_42 in nameTable) {
+                for (var name_43 in nameTable) {
                     // Skip identifiers produced only from the current location
-                    if (nameTable[name_42] === position) {
+                    if (nameTable[name_43] === position) {
                         continue;
                     }
-                    if (!uniqueNames[name_42]) {
-                        uniqueNames[name_42] = name_42;
-                        var displayName = getCompletionEntryDisplayName(ts.unescapeIdentifier(name_42), target, /*performCharacterChecks*/ true);
+                    if (!uniqueNames[name_43]) {
+                        uniqueNames[name_43] = name_43;
+                        var displayName = getCompletionEntryDisplayName(ts.unescapeIdentifier(name_43), target, /*performCharacterChecks*/ true);
                         if (displayName) {
                             var entry = {
                                 name: displayName,
@@ -54848,10 +55329,10 @@ var ts;
                 var typeChecker = program.getTypeChecker();
                 var type = typeChecker.getContextualType(node);
                 if (type) {
-                    var entries_1 = [];
-                    addStringLiteralCompletionsFromType(type, entries_1);
-                    if (entries_1.length) {
-                        return { isMemberCompletion: false, isNewIdentifierLocation: false, entries: entries_1 };
+                    var entries_2 = [];
+                    addStringLiteralCompletionsFromType(type, entries_2);
+                    if (entries_2.length) {
+                        return { isMemberCompletion: false, isNewIdentifierLocation: false, entries: entries_2 };
                     }
                 }
                 return undefined;
@@ -57224,7 +57705,7 @@ var ts;
         }
         function getNavigationBarItems(fileName) {
             var sourceFile = syntaxTreeCache.getCurrentSourceFile(fileName);
-            return ts.NavigationBar.getNavigationBarItems(sourceFile, host.getCompilationSettings());
+            return ts.NavigationBar.getNavigationBarItems(sourceFile);
         }
         function getSemanticClassifications(fileName, span) {
             return convertClassifications(getEncodedSemanticClassifications(fileName, span));
@@ -57657,7 +58138,8 @@ var ts;
                                 return;
                             case 142 /* Parameter */:
                                 if (token.parent.name === token) {
-                                    return 17 /* parameterName */;
+                                    var isThis = token.kind === 69 /* Identifier */ && token.originalKeywordKind === 97 /* ThisKeyword */;
+                                    return isThis ? 3 /* keyword */ : 17 /* parameterName */;
                                 }
                                 return;
                         }
@@ -59455,6 +59937,7 @@ var ts;
         function CoreServicesShimHostAdapter(shimHost) {
             var _this = this;
             this.shimHost = shimHost;
+            this.useCaseSensitiveFileNames = this.shimHost.useCaseSensitiveFileNames ? this.shimHost.useCaseSensitiveFileNames() : false;
             if ("directoryExists" in this.shimHost) {
                 this.directoryExists = function (directoryName) { return _this.shimHost.directoryExists(directoryName); };
             }
@@ -59462,23 +59945,35 @@ var ts;
                 this.realpath = function (path) { return _this.shimHost.realpath(path); };
             }
         }
-        CoreServicesShimHostAdapter.prototype.readDirectory = function (rootDir, extension, exclude, depth) {
+        CoreServicesShimHostAdapter.prototype.readDirectory = function (rootDir, extensions, exclude, include, depth) {
             // Wrap the API changes for 2.0 release. This try/catch
             // should be removed once TypeScript 2.0 has shipped.
-            var encoded;
             try {
-                encoded = this.shimHost.readDirectory(rootDir, extension, JSON.stringify(exclude), depth);
+                var pattern = ts.getFileMatcherPatterns(rootDir, extensions, exclude, include, this.shimHost.useCaseSensitiveFileNames(), this.shimHost.getCurrentDirectory());
+                return JSON.parse(this.shimHost.readDirectory(rootDir, JSON.stringify(extensions), JSON.stringify(pattern.basePaths), pattern.excludePattern, pattern.includeFilePattern, pattern.includeDirectoryPattern, depth));
             }
             catch (e) {
-                encoded = this.shimHost.readDirectory(rootDir, extension, JSON.stringify(exclude));
+                var results = [];
+                for (var _i = 0, extensions_2 = extensions; _i < extensions_2.length; _i++) {
+                    var extension = extensions_2[_i];
+                    for (var _a = 0, _b = this.readDirectoryFallback(rootDir, extension, exclude); _a < _b.length; _a++) {
+                        var file = _b[_a];
+                        if (!ts.contains(results, file)) {
+                            results.push(file);
+                        }
+                    }
+                }
+                return results;
             }
-            return JSON.parse(encoded);
         };
         CoreServicesShimHostAdapter.prototype.fileExists = function (fileName) {
             return this.shimHost.fileExists(fileName);
         };
         CoreServicesShimHostAdapter.prototype.readFile = function (fileName) {
             return this.shimHost.readFile(fileName);
+        };
+        CoreServicesShimHostAdapter.prototype.readDirectoryFallback = function (rootDir, extension, exclude) {
+            return JSON.parse(this.shimHost.readDirectory(rootDir, extension, JSON.stringify(exclude)));
         };
         return CoreServicesShimHostAdapter;
     }());
