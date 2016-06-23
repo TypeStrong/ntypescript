@@ -18603,6 +18603,9 @@ var ts;
         function isTypeAny(type) {
             return type && (type.flags & 1 /* Any */) !== 0;
         }
+        function isTypeNever(type) {
+            return type && (type.flags & 134217728 /* Never */) !== 0;
+        }
         // Return the type of a binding element parent. We check SymbolLinks first to see if a type has been
         // assigned by contextual typing.
         function getTypeForBindingElementParent(node) {
@@ -20097,7 +20100,7 @@ var ts;
             }
             return result;
         }
-        function isOptionalParameter(node) {
+        function isJSDocOptionalParameter(node) {
             if (node.flags & 134217728 /* JavaScriptFile */) {
                 if (node.type && node.type.kind === 268 /* JSDocOptionalType */) {
                     return true;
@@ -20112,7 +20115,9 @@ var ts;
                     }
                 }
             }
-            if (ts.hasQuestionToken(node)) {
+        }
+        function isOptionalParameter(node) {
+            if (ts.hasQuestionToken(node) || isJSDocOptionalParameter(node)) {
                 return true;
             }
             if (node.initializer) {
@@ -20171,7 +20176,7 @@ var ts;
                     if (param.type && param.type.kind === 166 /* StringLiteralType */) {
                         hasStringLiterals = true;
                     }
-                    if (param.initializer || param.questionToken || param.dotDotDotToken) {
+                    if (param.initializer || param.questionToken || param.dotDotDotToken || isJSDocOptionalParameter(param)) {
                         if (minArgumentCount < 0) {
                             minArgumentCount = i - (hasThisParameter ? 1 : 0);
                         }
@@ -26801,6 +26806,14 @@ var ts;
             }
             return emptyObjectType;
         }
+        function createPromiseReturnType(func, promisedType) {
+            var promiseType = createPromiseType(promisedType);
+            if (promiseType === emptyObjectType) {
+                error(func, ts.Diagnostics.An_async_function_or_method_must_have_a_valid_awaitable_return_type);
+                return unknownType;
+            }
+            return promiseType;
+        }
         function getReturnTypeFromBody(func, contextualMapper) {
             var contextualSignature = getContextualSignatureForFunctionLikeDeclaration(func);
             if (!func.body) {
@@ -26834,19 +26847,12 @@ var ts;
                 else {
                     types = checkAndAggregateReturnExpressionTypes(func, contextualMapper);
                     if (!types) {
-                        return neverType;
+                        // For an async function, the return type will not be never, but rather a Promise for never.
+                        return isAsync ? createPromiseReturnType(func, neverType) : neverType;
                     }
                     if (types.length === 0) {
-                        if (isAsync) {
-                            // For an async function, the return type will not be void, but rather a Promise for void.
-                            var promiseType = createPromiseType(voidType);
-                            if (promiseType === emptyObjectType) {
-                                error(func, ts.Diagnostics.An_async_function_or_method_must_have_a_valid_awaitable_return_type);
-                                return unknownType;
-                            }
-                            return promiseType;
-                        }
-                        return voidType;
+                        // For an async function, the return type will not be void, but rather a Promise for void.
+                        return isAsync ? createPromiseReturnType(func, voidType) : voidType;
                     }
                 }
                 // When yield/return statements are contextually typed we allow the return type to be a union type.
@@ -26860,7 +26866,7 @@ var ts;
                     else {
                         error(func, ts.Diagnostics.No_best_common_type_exists_among_return_expressions);
                         // Defer to unioning the return types so we get a) downstream errors earlier and b) better Salsa experience
-                        return getUnionType(types);
+                        return isAsync ? createPromiseReturnType(func, getUnionType(types)) : getUnionType(types);
                     }
                 }
                 if (funcIsGenerator) {
@@ -26871,20 +26877,10 @@ var ts;
                 reportErrorsFromWidening(func, type);
             }
             var widenedType = getWidenedType(type);
-            if (isAsync) {
-                // From within an async function you can return either a non-promise value or a promise. Any
-                // Promise/A+ compatible implementation will always assimilate any foreign promise, so the
-                // return type of the body is awaited type of the body, wrapped in a native Promise<T> type.
-                var promiseType = createPromiseType(widenedType);
-                if (promiseType === emptyObjectType) {
-                    error(func, ts.Diagnostics.An_async_function_or_method_must_have_a_valid_awaitable_return_type);
-                    return unknownType;
-                }
-                return promiseType;
-            }
-            else {
-                return widenedType;
-            }
+            // From within an async function you can return either a non-promise value or a promise. Any
+            // Promise/A+ compatible implementation will always assimilate any foreign promise, so the
+            // return type of the body is awaited type of the body, wrapped in a native Promise<T> type.
+            return isAsync ? createPromiseReturnType(func, widenedType) : widenedType;
         }
         function checkAndAggregateYieldOperandTypes(func, contextualMapper) {
             var aggregatedTypes = [];
@@ -28706,7 +28702,7 @@ var ts;
         }
         function checkNonThenableType(type, location, message) {
             type = getWidenedType(type);
-            if (!isTypeAny(type) && isTypeAssignableTo(type, getGlobalThenableType())) {
+            if (!isTypeAny(type) && !isTypeNever(type) && isTypeAssignableTo(type, getGlobalThenableType())) {
                 if (location) {
                     if (!message) {
                         message = ts.Diagnostics.Operand_for_await_does_not_have_a_valid_callable_then_member;
@@ -28732,37 +28728,39 @@ var ts;
             //      ): any;
             //  }
             //
-            if (promise.flags & 1 /* Any */) {
+            if (isTypeAny(promise)) {
                 return undefined;
             }
-            if ((promise.flags & 4096 /* Reference */) && promise.target === tryGetGlobalPromiseType()) {
-                return promise.typeArguments[0];
+            if (promise.flags & 4096 /* Reference */) {
+                if (promise.target === tryGetGlobalPromiseType()
+                    || promise.target === getGlobalPromiseLikeType()) {
+                    return promise.typeArguments[0];
+                }
             }
             var globalPromiseLikeType = getInstantiatedGlobalPromiseLikeType();
             if (globalPromiseLikeType === emptyObjectType || !isTypeAssignableTo(promise, globalPromiseLikeType)) {
                 return undefined;
             }
             var thenFunction = getTypeOfPropertyOfType(promise, "then");
-            if (thenFunction && (thenFunction.flags & 1 /* Any */)) {
+            if (!thenFunction || isTypeAny(thenFunction)) {
                 return undefined;
             }
-            var thenSignatures = thenFunction ? getSignaturesOfType(thenFunction, 0 /* Call */) : emptyArray;
+            var thenSignatures = getSignaturesOfType(thenFunction, 0 /* Call */);
             if (thenSignatures.length === 0) {
                 return undefined;
             }
             var onfulfilledParameterType = getTypeWithFacts(getUnionType(ts.map(thenSignatures, getTypeOfFirstParameterOfSignature)), 131072 /* NEUndefined */);
-            if (onfulfilledParameterType.flags & 1 /* Any */) {
+            if (isTypeAny(onfulfilledParameterType)) {
                 return undefined;
             }
             var onfulfilledParameterSignatures = getSignaturesOfType(onfulfilledParameterType, 0 /* Call */);
             if (onfulfilledParameterSignatures.length === 0) {
                 return undefined;
             }
-            var valueParameterType = getUnionType(ts.map(onfulfilledParameterSignatures, getTypeOfFirstParameterOfSignature));
-            return valueParameterType;
+            return getUnionType(ts.map(onfulfilledParameterSignatures, getTypeOfFirstParameterOfSignature));
         }
         function getTypeOfFirstParameterOfSignature(signature) {
-            return getTypeAtPosition(signature, 0);
+            return signature.parameters.length > 0 ? getTypeAtPosition(signature, 0) : neverType;
         }
         /**
           * Gets the "awaited type" of a type.
