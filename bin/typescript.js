@@ -5638,7 +5638,7 @@ var ts;
         Modifiers_cannot_appear_here: { code: 1184, category: ts.DiagnosticCategory.Error, key: "Modifiers_cannot_appear_here_1184", message: "Modifiers cannot appear here." },
         Merge_conflict_marker_encountered: { code: 1185, category: ts.DiagnosticCategory.Error, key: "Merge_conflict_marker_encountered_1185", message: "Merge conflict marker encountered." },
         A_rest_element_cannot_have_an_initializer: { code: 1186, category: ts.DiagnosticCategory.Error, key: "A_rest_element_cannot_have_an_initializer_1186", message: "A rest element cannot have an initializer." },
-        A_parameter_property_may_not_be_a_binding_pattern: { code: 1187, category: ts.DiagnosticCategory.Error, key: "A_parameter_property_may_not_be_a_binding_pattern_1187", message: "A parameter property may not be a binding pattern." },
+        A_parameter_property_may_not_be_declared_using_a_binding_pattern: { code: 1187, category: ts.DiagnosticCategory.Error, key: "A_parameter_property_may_not_be_declared_using_a_binding_pattern_1187", message: "A parameter property may not be declared using a binding pattern." },
         Only_a_single_variable_declaration_is_allowed_in_a_for_of_statement: { code: 1188, category: ts.DiagnosticCategory.Error, key: "Only_a_single_variable_declaration_is_allowed_in_a_for_of_statement_1188", message: "Only a single variable declaration is allowed in a 'for...of' statement." },
         The_variable_declaration_of_a_for_in_statement_cannot_have_an_initializer: { code: 1189, category: ts.DiagnosticCategory.Error, key: "The_variable_declaration_of_a_for_in_statement_cannot_have_an_initializer_1189", message: "The variable declaration of a 'for...in' statement cannot have an initializer." },
         The_variable_declaration_of_a_for_of_statement_cannot_have_an_initializer: { code: 1190, category: ts.DiagnosticCategory.Error, key: "The_variable_declaration_of_a_for_of_statement_cannot_have_an_initializer_1190", message: "The variable declaration of a 'for...of' statement cannot have an initializer." },
@@ -5708,6 +5708,7 @@ var ts;
         Global_module_exports_may_only_appear_in_module_files: { code: 1314, category: ts.DiagnosticCategory.Error, key: "Global_module_exports_may_only_appear_in_module_files_1314", message: "Global module exports may only appear in module files." },
         Global_module_exports_may_only_appear_in_declaration_files: { code: 1315, category: ts.DiagnosticCategory.Error, key: "Global_module_exports_may_only_appear_in_declaration_files_1315", message: "Global module exports may only appear in declaration files." },
         Global_module_exports_may_only_appear_at_top_level: { code: 1316, category: ts.DiagnosticCategory.Error, key: "Global_module_exports_may_only_appear_at_top_level_1316", message: "Global module exports may only appear at top level." },
+        A_parameter_property_cannot_be_declared_using_a_rest_parameter: { code: 1317, category: ts.DiagnosticCategory.Error, key: "A_parameter_property_cannot_be_declared_using_a_rest_parameter_1317", message: "A parameter property cannot be declared using a rest parameter." },
         Duplicate_identifier_0: { code: 2300, category: ts.DiagnosticCategory.Error, key: "Duplicate_identifier_0_2300", message: "Duplicate identifier '{0}'." },
         Initializer_of_instance_member_variable_0_cannot_reference_identifier_1_declared_in_the_constructor: { code: 2301, category: ts.DiagnosticCategory.Error, key: "Initializer_of_instance_member_variable_0_cannot_reference_identifier_1_declared_in_the_constructor_2301", message: "Initializer of instance member variable '{0}' cannot reference identifier '{1}' declared in the constructor." },
         Static_members_cannot_reference_class_type_parameters: { code: 2302, category: ts.DiagnosticCategory.Error, key: "Static_members_cannot_reference_class_type_parameters_2302", message: "Static members cannot reference class type parameters." },
@@ -8948,6 +8949,7 @@ var ts;
             return token === 19 /* OpenBracketToken */
                 || token === 15 /* OpenBraceToken */
                 || token === 37 /* AsteriskToken */
+                || token === 22 /* DotDotDotToken */
                 || isLiteralPropertyName();
         }
         function nextTokenIsClassOrFunction() {
@@ -18926,23 +18928,26 @@ var ts;
                 if (declaration.kind === 235 /* ExportAssignment */) {
                     return links.type = checkExpression(declaration.expression);
                 }
-                // Handle module.exports = expr
-                if (declaration.kind === 187 /* BinaryExpression */) {
-                    return links.type = getUnionType(ts.map(symbol.declarations, function (decl) { return checkExpressionCached(decl.right); }));
-                }
-                if (declaration.kind === 172 /* PropertyAccessExpression */) {
-                    // Declarations only exist for property access expressions for certain
-                    // special assignment kinds
-                    if (declaration.parent.kind === 187 /* BinaryExpression */) {
-                        // Handle exports.p = expr or this.p = expr or className.prototype.method = expr
-                        return links.type = checkExpressionCached(declaration.parent.right);
-                    }
-                }
                 // Handle variable, parameter or property
                 if (!pushTypeResolution(symbol, 0 /* Type */)) {
                     return unknownType;
                 }
-                var type = getWidenedTypeForVariableLikeDeclaration(declaration, /*reportErrors*/ true);
+                var type = undefined;
+                // Handle module.exports = expr or this.p = expr
+                if (declaration.kind === 187 /* BinaryExpression */) {
+                    type = getUnionType(ts.map(symbol.declarations, function (decl) { return checkExpressionCached(decl.right); }));
+                }
+                else if (declaration.kind === 172 /* PropertyAccessExpression */) {
+                    // Declarations only exist for property access expressions for certain
+                    // special assignment kinds
+                    if (declaration.parent.kind === 187 /* BinaryExpression */) {
+                        // Handle exports.p = expr  or className.prototype.method = expr
+                        type = checkExpressionCached(declaration.parent.right);
+                    }
+                }
+                if (type === undefined) {
+                    type = getWidenedTypeForVariableLikeDeclaration(declaration, /*reportErrors*/ true);
+                }
                 if (!popTypeResolution()) {
                     if (symbol.valueDeclaration.type) {
                         // Variable has type annotation that circularly references the variable itself
@@ -32550,7 +32555,10 @@ var ts;
                 return grammarErrorOnNode(lastDeclare, ts.Diagnostics.A_0_modifier_cannot_be_used_with_an_import_declaration, "declare");
             }
             else if (node.kind === 142 /* Parameter */ && (flags & 92 /* ParameterPropertyModifier */) && ts.isBindingPattern(node.name)) {
-                return grammarErrorOnNode(node, ts.Diagnostics.A_parameter_property_may_not_be_a_binding_pattern);
+                return grammarErrorOnNode(node, ts.Diagnostics.A_parameter_property_may_not_be_declared_using_a_binding_pattern);
+            }
+            else if (node.kind === 142 /* Parameter */ && (flags & 92 /* ParameterPropertyModifier */) && node.dotDotDotToken) {
+                return grammarErrorOnNode(node, ts.Diagnostics.A_parameter_property_cannot_be_declared_using_a_rest_parameter);
             }
             if (flags & 256 /* Async */) {
                 return checkGrammarAsyncModifier(node, lastAsync);

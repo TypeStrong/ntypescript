@@ -3579,7 +3579,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        A_parameter_property_may_not_be_a_binding_pattern: {
+        A_parameter_property_may_not_be_declared_using_a_binding_pattern: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -3994,6 +3994,12 @@ declare namespace ts {
             message: string;
         };
         Global_module_exports_may_only_appear_at_top_level: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        A_parameter_property_cannot_be_declared_using_a_rest_parameter: {
             code: number;
             category: DiagnosticCategory;
             key: string;
