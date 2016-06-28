@@ -33854,16 +33854,6 @@ var ts;
             }
         },
         {
-            name: "typesSearchPaths",
-            type: "list",
-            isTSConfigOnly: true,
-            element: {
-                name: "typesSearchPaths",
-                type: "string",
-                isFilePath: true
-            }
-        },
-        {
             name: "typeRoots",
             type: "list",
             element: {
@@ -33940,7 +33930,7 @@ var ts;
             description: ts.Diagnostics.Specify_library_files_to_be_included_in_the_compilation_Colon
         },
         {
-            name: "disableProjectSizeLimit",
+            name: "disableSizeLimit",
             type: "boolean"
         },
         {
@@ -43912,7 +43902,7 @@ var ts;
     /* @internal */ ts.ioReadTime = 0;
     /* @internal */ ts.ioWriteTime = 0;
     /** The version of the TypeScript compiler release */
-    ts.version = "1.9.0";
+    ts.version = "2.0.0";
     var emptyArray = [];
     var defaultTypeRoots = ["node_modules/@types"];
     function findConfigFile(searchPath, fileExists) {
@@ -48663,6 +48653,8 @@ var ts;
             case 199 /* Block */:
             case 226 /* ModuleBlock */:
             case 227 /* CaseBlock */:
+            case 233 /* NamedImports */:
+            case 237 /* NamedExports */:
                 return nodeEndsWith(n, 16 /* CloseBraceToken */, sourceFile);
             case 252 /* CatchClause */:
                 return isCompletedNode(n.block, sourceFile);
@@ -48750,6 +48742,9 @@ var ts;
                 return isCompletedNode(lastSpan, sourceFile);
             case 197 /* TemplateSpan */:
                 return ts.nodeIsPresent(n.literal);
+            case 236 /* ExportDeclaration */:
+            case 230 /* ImportDeclaration */:
+                return ts.nodeIsPresent(n.moduleSpecifier);
             case 185 /* PrefixUnaryExpression */:
                 return isCompletedNode(n.operand, sourceFile);
             case 187 /* BinaryExpression */:
@@ -50200,7 +50195,7 @@ var ts;
                 this.FunctionOpenBraceLeftTokenRange = formatting.Shared.TokenRange.AnyIncludingMultilineComments;
                 this.SpaceBeforeOpenBraceInFunction = new formatting.Rule(formatting.RuleDescriptor.create2(this.FunctionOpenBraceLeftTokenRange, 15 /* OpenBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext, Rules.IsBeforeBlockContext, Rules.IsNotFormatOnEnter, Rules.IsSameLineTokenOrBeforeMultilineBlockContext), 2 /* Space */), 1 /* CanDeleteNewLines */);
                 // Place a space before open brace in a TypeScript declaration that has braces as children (class, module, enum, etc)
-                this.TypeScriptOpenBraceLeftTokenRange = formatting.Shared.TokenRange.FromTokens([69 /* Identifier */, 3 /* MultiLineCommentTrivia */, 73 /* ClassKeyword */]);
+                this.TypeScriptOpenBraceLeftTokenRange = formatting.Shared.TokenRange.FromTokens([69 /* Identifier */, 3 /* MultiLineCommentTrivia */, 73 /* ClassKeyword */, 82 /* ExportKeyword */, 89 /* ImportKeyword */]);
                 this.SpaceBeforeOpenBraceInTypeScriptDeclWithBlock = new formatting.Rule(formatting.RuleDescriptor.create2(this.TypeScriptOpenBraceLeftTokenRange, 15 /* OpenBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsTypeScriptDeclWithBlockContext, Rules.IsNotFormatOnEnter, Rules.IsSameLineTokenOrBeforeMultilineBlockContext), 2 /* Space */), 1 /* CanDeleteNewLines */);
                 // Place a space before open brace in a control flow construct
                 this.ControlOpenBraceLeftTokenRange = formatting.Shared.TokenRange.FromTokens([18 /* CloseParenToken */, 3 /* MultiLineCommentTrivia */, 79 /* DoKeyword */, 100 /* TryKeyword */, 85 /* FinallyKeyword */, 80 /* ElseKeyword */]);
@@ -50257,8 +50252,8 @@ var ts;
                 // Use of module as a function call. e.g.: import m2 = module("m2");
                 this.NoSpaceAfterModuleImport = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.FromTokens([125 /* ModuleKeyword */, 129 /* RequireKeyword */]), 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 8 /* Delete */));
                 // Add a space around certain TypeScript keywords
-                this.SpaceAfterCertainTypeScriptKeywords = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([115 /* AbstractKeyword */, 73 /* ClassKeyword */, 122 /* DeclareKeyword */, 77 /* DefaultKeyword */, 81 /* EnumKeyword */, 82 /* ExportKeyword */, 83 /* ExtendsKeyword */, 123 /* GetKeyword */, 106 /* ImplementsKeyword */, 89 /* ImportKeyword */, 107 /* InterfaceKeyword */, 125 /* ModuleKeyword */, 126 /* NamespaceKeyword */, 110 /* PrivateKeyword */, 112 /* PublicKeyword */, 111 /* ProtectedKeyword */, 131 /* SetKeyword */, 113 /* StaticKeyword */, 134 /* TypeKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
-                this.SpaceBeforeCertainTypeScriptKeywords = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([83 /* ExtendsKeyword */, 106 /* ImplementsKeyword */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
+                this.SpaceAfterCertainTypeScriptKeywords = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([115 /* AbstractKeyword */, 73 /* ClassKeyword */, 122 /* DeclareKeyword */, 77 /* DefaultKeyword */, 81 /* EnumKeyword */, 82 /* ExportKeyword */, 83 /* ExtendsKeyword */, 123 /* GetKeyword */, 106 /* ImplementsKeyword */, 89 /* ImportKeyword */, 107 /* InterfaceKeyword */, 125 /* ModuleKeyword */, 126 /* NamespaceKeyword */, 110 /* PrivateKeyword */, 112 /* PublicKeyword */, 111 /* ProtectedKeyword */, 131 /* SetKeyword */, 113 /* StaticKeyword */, 134 /* TypeKeyword */, 136 /* FromKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
+                this.SpaceBeforeCertainTypeScriptKeywords = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([83 /* ExtendsKeyword */, 106 /* ImplementsKeyword */, 136 /* FromKeyword */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
                 // Treat string literals in module names as identifiers, and add a space between the literal and the opening Brace braces, e.g.: module "m2" {
                 this.SpaceAfterModuleName = new formatting.Rule(formatting.RuleDescriptor.create1(9 /* StringLiteral */, 15 /* OpenBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsModuleDeclContext), 2 /* Space */));
                 // Lambda expressions
@@ -50413,6 +50408,8 @@ var ts;
                     case 187 /* BinaryExpression */:
                     case 188 /* ConditionalExpression */:
                     case 195 /* AsExpression */:
+                    case 238 /* ExportSpecifier */:
+                    case 234 /* ImportSpecifier */:
                     case 154 /* TypePredicate */:
                     case 162 /* UnionType */:
                     case 163 /* IntersectionType */:
@@ -50531,6 +50528,10 @@ var ts;
                     case 224 /* EnumDeclaration */:
                     case 159 /* TypeLiteral */:
                     case 225 /* ModuleDeclaration */:
+                    case 236 /* ExportDeclaration */:
+                    case 237 /* NamedExports */:
+                    case 230 /* ImportDeclaration */:
+                    case 233 /* NamedImports */:
                         return true;
                 }
                 return false;
@@ -52365,7 +52366,10 @@ var ts;
                     case 164 /* ParenthesizedType */:
                     case 176 /* TaggedTemplateExpression */:
                     case 184 /* AwaitExpression */:
+                    case 237 /* NamedExports */:
                     case 233 /* NamedImports */:
+                    case 238 /* ExportSpecifier */:
+                    case 234 /* ImportSpecifier */:
                         return true;
                 }
                 return false;
@@ -52388,6 +52392,11 @@ var ts;
                     case 149 /* GetAccessor */:
                     case 150 /* SetAccessor */:
                         return childKind !== 199 /* Block */;
+                    case 236 /* ExportDeclaration */:
+                        return childKind !== 237 /* NamedExports */;
+                    case 230 /* ImportDeclaration */:
+                        return childKind !== 231 /* ImportClause */ ||
+                            child.namedBindings.kind !== 233 /* NamedImports */;
                     case 241 /* JsxElement */:
                         return childKind !== 245 /* JsxClosingElement */;
                 }

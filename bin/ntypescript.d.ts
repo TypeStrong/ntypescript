@@ -1850,7 +1850,6 @@ declare namespace ts {
         types?: string[];
         /** Paths used to used to compute primary types search locations */
         typeRoots?: string[];
-        typesSearchPaths?: string[];
         version?: boolean;
         watch?: boolean;
         [option: string]: CompilerOptionsValue | undefined;
