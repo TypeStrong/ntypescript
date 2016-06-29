@@ -4700,9 +4700,11 @@ var ts;
         }
         else {
             var sourceFiles = targetSourceFile === undefined ? host.getSourceFiles() : [targetSourceFile];
+            var nodeModulesFiles = host.getFilesFromNodeModules();
             for (var _i = 0, sourceFiles_1 = sourceFiles; _i < sourceFiles_1.length; _i++) {
                 var sourceFile = sourceFiles_1[_i];
-                if (!isDeclarationFile(sourceFile)) {
+                // Don't emit if source file is a declaration file, or was located under node_modules
+                if (!isDeclarationFile(sourceFile) && !ts.lookUp(nodeModulesFiles, sourceFile.path)) {
                     onSingleFileEmit(host, sourceFile);
                 }
             }
@@ -4732,11 +4734,13 @@ var ts;
             action(emitFileNames, [sourceFile], /*isBundledEmit*/ false);
         }
         function onBundledEmit(host) {
-            // Can emit only sources that are not declaration file and are either non module code or module with --module or --target es6 specified
-            var bundledSources = ts.filter(host.getSourceFiles(), function (sourceFile) {
-                return !isDeclarationFile(sourceFile) // Not a declaration file
-                    && (!ts.isExternalModule(sourceFile) || !!getEmitModuleKind(options));
-            }); // and not a module, unless module emit enabled
+            // Can emit only sources that are not declaration file and are either non module code or module with
+            // --module or --target es6 specified. Files included by searching under node_modules are also not emitted.
+            var nodeModulesFiles = host.getFilesFromNodeModules();
+            var bundledSources = ts.filter(host.getSourceFiles(), function (sourceFile) { return !isDeclarationFile(sourceFile) &&
+                !ts.lookUp(nodeModulesFiles, sourceFile.path) &&
+                (!ts.isExternalModule(sourceFile) ||
+                    !!getEmitModuleKind(options)); });
             if (bundledSources.length) {
                 var jsFilePath = options.outFile || options.out;
                 var emitFileNames = {
@@ -6196,6 +6200,8 @@ var ts;
         _0_is_declared_but_never_used: { code: 6133, category: ts.DiagnosticCategory.Error, key: "_0_is_declared_but_never_used_6133", message: "'{0}' is declared but never used." },
         Report_Errors_on_Unused_Locals: { code: 6134, category: ts.DiagnosticCategory.Message, key: "Report_Errors_on_Unused_Locals_6134", message: "Report Errors on Unused Locals." },
         Report_Errors_on_Unused_Parameters: { code: 6135, category: ts.DiagnosticCategory.Message, key: "Report_Errors_on_Unused_Parameters_6135", message: "Report Errors on Unused Parameters." },
+        The_maximum_dependency_depth_to_search_under_node_modules_and_load_JavaScript_files: { code: 6136, category: ts.DiagnosticCategory.Message, key: "The_maximum_dependency_depth_to_search_under_node_modules_and_load_JavaScript_files_6136", message: "The maximum dependency depth to search under node_modules and load JavaScript files" },
+        No_types_specified_in_package_json_but_allowJs_is_set_so_returning_main_value_of_0: { code: 6137, category: ts.DiagnosticCategory.Message, key: "No_types_specified_in_package_json_but_allowJs_is_set_so_returning_main_value_of_0_6137", message: "No types specified in 'package.json' but 'allowJs' is set, so returning 'main' value of '{0}'" },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter_0_implicitly_has_an_1_type_7006", message: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member_0_implicitly_has_an_1_type_7008", message: "Member '{0}' implicitly has an '{1}' type." },
@@ -33892,6 +33898,11 @@ var ts;
             description: ts.Diagnostics.Do_not_emit_use_strict_directives_in_module_output
         },
         {
+            name: "maxNodeModuleJsDepth",
+            type: "number",
+            description: ts.Diagnostics.The_maximum_dependency_depth_to_search_under_node_modules_and_load_JavaScript_files
+        },
+        {
             name: "listEmittedFiles",
             type: "boolean"
         },
@@ -40445,8 +40456,10 @@ var ts;
                                     emit(initializer);
                                 }
                                 write(";");
-                                tempIndex_1++;
                             }
+                            // Regardless of whether we will emit a var declaration for the binding pattern, we generate the temporary
+                            // variable for the parameter (see: emitParameter)
+                            tempIndex_1++;
                         }
                         else if (initializer) {
                             writeLine();
@@ -44041,12 +44054,32 @@ var ts;
             }
             return typesFilePath;
         }
+        // Use the main module for inferring types if no types package specified and the allowJs is set
+        if (state.compilerOptions.allowJs && jsonContent.main && typeof jsonContent.main === "string") {
+            if (state.traceEnabled) {
+                trace(state.host, ts.Diagnostics.No_types_specified_in_package_json_but_allowJs_is_set_so_returning_main_value_of_0, jsonContent.main);
+            }
+            var mainFilePath = ts.normalizePath(ts.combinePaths(baseDirectory, jsonContent.main));
+            return mainFilePath;
+        }
         return undefined;
     }
     var typeReferenceExtensions = [".d.ts"];
     function getEffectiveTypeRoots(options, host) {
-        return options.typeRoots ||
-            ts.map(defaultTypeRoots, function (d) { return ts.combinePaths(options.configFilePath ? ts.getDirectoryPath(options.configFilePath) : host.getCurrentDirectory(), d); });
+        if (options.typeRoots) {
+            return options.typeRoots;
+        }
+        var currentDirectory;
+        if (options.configFilePath) {
+            currentDirectory = ts.getDirectoryPath(options.configFilePath);
+        }
+        else if (host.getCurrentDirectory) {
+            currentDirectory = host.getCurrentDirectory();
+        }
+        if (!currentDirectory) {
+            return undefined;
+        }
+        return ts.map(defaultTypeRoots, function (d) { return ts.combinePaths(currentDirectory, d); });
     }
     /**
      * @param {string | undefined} containingFile - file that contains type reference directive, can be undefined if containing file is unknown.
@@ -44082,7 +44115,7 @@ var ts;
         }
         var failedLookupLocations = [];
         // Check primary library paths
-        if (typeRoots.length) {
+        if (typeRoots && typeRoots.length) {
             if (traceEnabled) {
                 trace(host, ts.Diagnostics.Resolving_with_primary_search_path_0, typeRoots.join(", "));
             }
@@ -44549,12 +44582,12 @@ var ts;
         var nodeModulesFolder = ts.combinePaths(directory, "node_modules");
         var nodeModulesFolderExists = directoryProbablyExists(nodeModulesFolder, state.host);
         var candidate = ts.normalizePath(ts.combinePaths(nodeModulesFolder, moduleName));
-        // Load only typescript files irrespective of allowJs option if loading from node modules
-        var result = loadModuleFromFile(candidate, ts.supportedTypeScriptExtensions, failedLookupLocations, !nodeModulesFolderExists, state);
+        var supportedExtensions = ts.getSupportedExtensions(state.compilerOptions);
+        var result = loadModuleFromFile(candidate, supportedExtensions, failedLookupLocations, !nodeModulesFolderExists, state);
         if (result) {
             return result;
         }
-        result = loadNodeModuleFromDirectory(ts.supportedTypeScriptExtensions, candidate, failedLookupLocations, !nodeModulesFolderExists, state);
+        result = loadNodeModuleFromDirectory(supportedExtensions, candidate, failedLookupLocations, !nodeModulesFolderExists, state);
         if (result) {
             return result;
         }
@@ -44801,10 +44834,12 @@ var ts;
         var result = [];
         if (host.directoryExists && host.getDirectories) {
             var typeRoots = getEffectiveTypeRoots(options, host);
-            for (var _i = 0, typeRoots_1 = typeRoots; _i < typeRoots_1.length; _i++) {
-                var root = typeRoots_1[_i];
-                if (host.directoryExists(root)) {
-                    result = result.concat(host.getDirectories(root));
+            if (typeRoots) {
+                for (var _i = 0, typeRoots_1 = typeRoots; _i < typeRoots_1.length; _i++) {
+                    var root = typeRoots_1[_i];
+                    if (host.directoryExists(root)) {
+                        result = result.concat(host.getDirectories(root));
+                    }
                 }
             }
         }
@@ -44820,6 +44855,20 @@ var ts;
         var classifiableNames;
         var resolvedTypeReferenceDirectives = {};
         var fileProcessingDiagnostics = ts.createDiagnosticCollection();
+        // The below settings are to track if a .js file should be add to the program if loaded via searching under node_modules.
+        // This works as imported modules are discovered recursively in a depth first manner, specifically:
+        // - For each root file, findSourceFile is called.
+        // - This calls processImportedModules for each module imported in the source file.
+        // - This calls resolveModuleNames, and then calls findSourceFile for each resolved module.
+        // As all these operations happen - and are nested - within the createProgram call, they close over the below variables.
+        // The current resolution depth is tracked by incrementing/decrementing as the depth first search progresses.
+        var maxNodeModulesJsDepth = typeof options.maxNodeModuleJsDepth === "number" ? options.maxNodeModuleJsDepth : 2;
+        var currentNodeModulesJsDepth = 0;
+        // If a module has some of its imports skipped due to being at the depth limit under node_modules, then track
+        // this, as it may be imported at a shallower depth later, and then it will need its skipped imports processed.
+        var modulesWithElidedImports = {};
+        // Track source files that are JavaScript files found by searching under node_modules, as these shouldn't be compiled.
+        var jsFilesFoundSearchingNodeModules = {};
         var start = new Date().getTime();
         host = host || createCompilerHost(options);
         var skipDefaultLib = options.noLib;
@@ -44954,6 +45003,7 @@ var ts;
                 (oldOptions.rootDir !== options.rootDir) ||
                 (oldOptions.configFilePath !== options.configFilePath) ||
                 (oldOptions.baseUrl !== options.baseUrl) ||
+                (oldOptions.maxNodeModuleJsDepth !== options.maxNodeModuleJsDepth) ||
                 !ts.arrayIsEqualTo(oldOptions.typeRoots, oldOptions.typeRoots) ||
                 !ts.arrayIsEqualTo(oldOptions.rootDirs, options.rootDirs) ||
                 !ts.mapIsEqualTo(oldOptions.paths, options.paths)) {
@@ -45062,6 +45112,7 @@ var ts;
                 getSourceFile: program.getSourceFile,
                 getSourceFileByPath: program.getSourceFileByPath,
                 getSourceFiles: program.getSourceFiles,
+                getFilesFromNodeModules: function () { return jsFilesFoundSearchingNodeModules; },
                 writeFile: writeFileCallback || (function (fileName, data, writeByteOrderMark, onError, sourceFiles) { return host.writeFile(fileName, data, writeByteOrderMark, onError, sourceFiles); }),
                 isEmitBlocked: isEmitBlocked,
             };
@@ -45526,6 +45577,13 @@ var ts;
                 if (file_1 && options.forceConsistentCasingInFileNames && ts.getNormalizedAbsolutePath(file_1.fileName, currentDirectory) !== ts.getNormalizedAbsolutePath(fileName, currentDirectory)) {
                     reportFileNamesDifferOnlyInCasingError(fileName, file_1.fileName, refFile, refPos, refEnd);
                 }
+                // See if we need to reprocess the imports due to prior skipped imports
+                if (file_1 && ts.lookUp(modulesWithElidedImports, file_1.path)) {
+                    if (currentNodeModulesJsDepth < maxNodeModulesJsDepth) {
+                        modulesWithElidedImports[file_1.path] = false;
+                        processImportedModules(file_1, ts.getDirectoryPath(fileName));
+                    }
+                }
                 return file_1;
             }
             // We haven't looked for this file, do so now and cache result
@@ -45644,15 +45702,29 @@ var ts;
                 for (var i = 0; i < moduleNames.length; i++) {
                     var resolution = resolutions[i];
                     ts.setResolvedModule(file, moduleNames[i], resolution);
+                    var resolvedPath = resolution ? ts.toPath(resolution.resolvedFileName, currentDirectory, getCanonicalFileName) : undefined;
                     // add file to program only if:
                     // - resolution was successful
                     // - noResolve is falsy
                     // - module name comes from the list of imports
-                    var shouldAddFile = resolution &&
-                        !options.noResolve &&
-                        i < file.imports.length;
-                    if (shouldAddFile) {
-                        findSourceFile(resolution.resolvedFileName, ts.toPath(resolution.resolvedFileName, currentDirectory, getCanonicalFileName), /*isDefaultLib*/ false, /*isReference*/ false, file, ts.skipTrivia(file.text, file.imports[i].pos), file.imports[i].end);
+                    // - it's not a top level JavaScript module that exceeded the search max
+                    var isJsFileUnderNodeModules = resolution && resolution.isExternalLibraryImport &&
+                        ts.hasJavaScriptFileExtension(resolution.resolvedFileName);
+                    if (isJsFileUnderNodeModules) {
+                        jsFilesFoundSearchingNodeModules[resolvedPath] = true;
+                        currentNodeModulesJsDepth++;
+                    }
+                    var elideImport = isJsFileUnderNodeModules && currentNodeModulesJsDepth > maxNodeModulesJsDepth;
+                    var shouldAddFile = resolution && !options.noResolve && i < file.imports.length && !elideImport;
+                    if (elideImport) {
+                        modulesWithElidedImports[file.path] = true;
+                    }
+                    else if (shouldAddFile) {
+                        findSourceFile(resolution.resolvedFileName, resolvedPath, 
+                        /*isDefaultLib*/ false, /*isReference*/ false, file, ts.skipTrivia(file.text, file.imports[i].pos), file.imports[i].end);
+                    }
+                    if (isJsFileUnderNodeModules) {
+                        currentNodeModulesJsDepth--;
                     }
                 }
             }
@@ -50237,7 +50309,7 @@ var ts;
                 this.NoSpaceBetweenReturnAndSemicolon = new formatting.Rule(formatting.RuleDescriptor.create1(94 /* ReturnKeyword */, 23 /* SemicolonToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 8 /* Delete */));
                 // Add a space between statements. All keywords except (do,else,case) has open/close parens after them.
                 // So, we have a rule to add a space for [),Any], [do,Any], [else,Any], and [case,Any]
-                this.SpaceBetweenStatements = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([18 /* CloseParenToken */, 79 /* DoKeyword */, 80 /* ElseKeyword */, 71 /* CaseKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsNotForContext), 2 /* Space */));
+                this.SpaceBetweenStatements = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([18 /* CloseParenToken */, 79 /* DoKeyword */, 80 /* ElseKeyword */, 71 /* CaseKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isNonJsxElementContext, Rules.IsNotForContext), 2 /* Space */));
                 // This low-pri rule takes care of "try {" and "finally {" in case the rule SpaceBeforeOpenBraceInControl didn't execute on FormatOnEnter.
                 this.SpaceAfterTryFinally = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.FromTokens([100 /* TryKeyword */, 85 /* FinallyKeyword */]), 15 /* OpenBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
                 //      get x() {}
@@ -50344,8 +50416,8 @@ var ts;
                 /// Rules controlled by user options
                 ///
                 // Insert space after comma delimiter
-                this.SpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsNextTokenNotCloseBracket), 2 /* Space */));
-                this.NoSpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 8 /* Delete */));
+                this.SpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isNonJsxElementContext, Rules.IsNextTokenNotCloseBracket), 2 /* Space */));
+                this.NoSpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isNonJsxElementContext), 8 /* Delete */));
                 // Insert space before and after binary operators
                 this.SpaceBeforeBinaryOperator = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.BinaryOperators), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsBinaryOpContext), 2 /* Space */));
                 this.SpaceAfterBinaryOperator = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.BinaryOperators, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsBinaryOpContext), 2 /* Space */));
@@ -50381,6 +50453,11 @@ var ts;
                 this.SpaceAfterTemplateHeadAndMiddle = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([12 /* TemplateHead */, 13 /* TemplateMiddle */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
                 this.NoSpaceBeforeTemplateMiddleAndTail = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([13 /* TemplateMiddle */, 14 /* TemplateTail */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 8 /* Delete */));
                 this.SpaceBeforeTemplateMiddleAndTail = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([13 /* TemplateMiddle */, 14 /* TemplateTail */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
+                // No space after { and before } in JSX expression
+                this.NoSpaceAfterOpenBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create3(15 /* OpenBraceToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isJsxExpressionContext), 8 /* Delete */));
+                this.SpaceAfterOpenBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create3(15 /* OpenBraceToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isJsxExpressionContext), 2 /* Space */));
+                this.NoSpaceBeforeCloseBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 16 /* CloseBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isJsxExpressionContext), 8 /* Delete */));
+                this.SpaceBeforeCloseBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 16 /* CloseBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isJsxExpressionContext), 2 /* Space */));
                 // Insert space after function keyword for anonymous functions
                 this.SpaceAfterAnonymousFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(87 /* FunctionKeyword */, 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext), 2 /* Space */));
                 this.NoSpaceAfterAnonymousFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(87 /* FunctionKeyword */, 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext), 8 /* Delete */));
@@ -50591,6 +50668,12 @@ var ts;
             };
             Rules.IsNonJsxSameLineTokenContext = function (context) {
                 return context.TokensAreOnSameLine() && context.contextNode.kind !== 244 /* JsxText */;
+            };
+            Rules.isNonJsxElementContext = function (context) {
+                return context.contextNode.kind !== 241 /* JsxElement */;
+            };
+            Rules.isJsxExpressionContext = function (context) {
+                return context.contextNode.kind === 248 /* JsxExpression */;
             };
             Rules.IsNotBeforeBlockInFunctionDeclarationContext = function (context) {
                 return !Rules.IsFunctionDeclContext(context) && !Rules.IsBeforeBlockContext(context);
@@ -51021,6 +51104,14 @@ var ts;
                 else {
                     rules.push(this.globalRules.NoSpaceAfterTemplateHeadAndMiddle);
                     rules.push(this.globalRules.NoSpaceBeforeTemplateMiddleAndTail);
+                }
+                if (options.InsertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces) {
+                    rules.push(this.globalRules.SpaceAfterOpenBraceInJsxExpression);
+                    rules.push(this.globalRules.SpaceBeforeCloseBraceInJsxExpression);
+                }
+                else {
+                    rules.push(this.globalRules.NoSpaceAfterOpenBraceInJsxExpression);
+                    rules.push(this.globalRules.NoSpaceBeforeCloseBraceInJsxExpression);
                 }
                 if (options.InsertSpaceAfterSemicolonInForStatements) {
                     rules.push(this.globalRules.SpaceAfterSemicolonInFor);

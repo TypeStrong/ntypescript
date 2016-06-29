@@ -1793,6 +1793,7 @@ declare namespace ts {
         declaration?: boolean;
         declarationDir?: string;
         diagnostics?: boolean;
+        disableSizeLimit?: boolean;
         emitBOM?: boolean;
         emitDecoratorMetadata?: boolean;
         experimentalDecorators?: boolean;
@@ -1808,6 +1809,7 @@ declare namespace ts {
         listFiles?: boolean;
         locale?: string;
         mapRoot?: string;
+        maxNodeModuleJsDepth?: number;
         module?: ModuleKind;
         moduleResolution?: ModuleResolutionKind;
         newLine?: NewLineKind;
@@ -1846,7 +1848,6 @@ declare namespace ts {
         suppressOutputPathCheck?: boolean;
         target?: ScriptTarget;
         traceResolution?: boolean;
-        disableSizeLimit?: boolean;
         types?: string[];
         /** Paths used to used to compute primary types search locations */
         typeRoots?: string[];
@@ -2399,6 +2400,7 @@ declare namespace ts {
     }
     interface EmitHost extends ScriptReferenceHost {
         getSourceFiles(): SourceFile[];
+        getFilesFromNodeModules(): Map<boolean>;
         getCommonSourceDirectory(): string;
         getCanonicalFileName(fileName: string): string;
         getNewLine(): string;
@@ -6931,6 +6933,18 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        The_maximum_dependency_depth_to_search_under_node_modules_and_load_JavaScript_files: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        No_types_specified_in_package_json_but_allowJs_is_set_so_returning_main_value_of_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Variable_0_implicitly_has_an_1_type: {
             code: number;
             category: DiagnosticCategory;
@@ -7828,6 +7842,10 @@ declare namespace ts.formatting {
         SpaceAfterTemplateHeadAndMiddle: Rule;
         NoSpaceBeforeTemplateMiddleAndTail: Rule;
         SpaceBeforeTemplateMiddleAndTail: Rule;
+        NoSpaceAfterOpenBraceInJsxExpression: Rule;
+        SpaceAfterOpenBraceInJsxExpression: Rule;
+        NoSpaceBeforeCloseBraceInJsxExpression: Rule;
+        SpaceBeforeCloseBraceInJsxExpression: Rule;
         constructor();
         static IsForContext(context: FormattingContext): boolean;
         static IsNotForContext(context: FormattingContext): boolean;
@@ -7855,6 +7873,8 @@ declare namespace ts.formatting {
         static IsNextTokenNotCloseBracket(context: FormattingContext): boolean;
         static IsArrowFunctionContext(context: FormattingContext): boolean;
         static IsNonJsxSameLineTokenContext(context: FormattingContext): boolean;
+        static isNonJsxElementContext(context: FormattingContext): boolean;
+        static isJsxExpressionContext(context: FormattingContext): boolean;
         static IsNotBeforeBlockInFunctionDeclarationContext(context: FormattingContext): boolean;
         static IsEndOfDecoratorContextOnSameLine(context: FormattingContext): boolean;
         static NodeIsInDecoratorContext(node: Node): boolean;
@@ -8252,6 +8272,7 @@ declare namespace ts {
         InsertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis: boolean;
         InsertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets: boolean;
         InsertSpaceAfterOpeningAndBeforeClosingTemplateStringBraces: boolean;
+        InsertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces?: boolean;
         PlaceOpenBraceOnNewLineForFunctions: boolean;
         PlaceOpenBraceOnNewLineForControlBlocks: boolean;
         [s: string]: boolean | number | string | undefined;
