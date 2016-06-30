@@ -20576,8 +20576,12 @@ interface VarDate { }
 
 interface DateConstructor {
     new (vd: VarDate): Date;
+}
+
+interface Date {
     getVarDate: () => VarDate;
-}/// <reference path="lib.dom.generated.d.ts" />
+}
+/// <reference path="lib.dom.generated.d.ts" />
 
 interface DOMTokenList {
     [Symbol.iterator](): IterableIterator<string>;
