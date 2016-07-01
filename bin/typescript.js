@@ -577,6 +577,7 @@ var ts;
         SymbolFlags[SymbolFlags["BlockScoped"] = 418] = "BlockScoped";
         SymbolFlags[SymbolFlags["PropertyOrAccessor"] = 98308] = "PropertyOrAccessor";
         SymbolFlags[SymbolFlags["Export"] = 7340032] = "Export";
+        SymbolFlags[SymbolFlags["ClassMember"] = 106500] = "ClassMember";
         /* @internal */
         // The set of things we consider semantically classifiable.  Used to speed up the LS during
         // classification.
@@ -8938,12 +8939,12 @@ var ts;
             if (token === 82 /* ExportKeyword */) {
                 nextToken();
                 if (token === 77 /* DefaultKeyword */) {
-                    return lookAhead(nextTokenIsClassOrFunction);
+                    return lookAhead(nextTokenIsClassOrFunctionOrAsync);
                 }
                 return token !== 37 /* AsteriskToken */ && token !== 116 /* AsKeyword */ && token !== 15 /* OpenBraceToken */ && canFollowModifier();
             }
             if (token === 77 /* DefaultKeyword */) {
-                return nextTokenIsClassOrFunction();
+                return nextTokenIsClassOrFunctionOrAsync();
             }
             if (token === 113 /* StaticKeyword */) {
                 nextToken();
@@ -8961,9 +8962,9 @@ var ts;
                 || token === 22 /* DotDotDotToken */
                 || isLiteralPropertyName();
         }
-        function nextTokenIsClassOrFunction() {
+        function nextTokenIsClassOrFunctionOrAsync() {
             nextToken();
-            return token === 73 /* ClassKeyword */ || token === 87 /* FunctionKeyword */;
+            return token === 73 /* ClassKeyword */ || token === 87 /* FunctionKeyword */ || token === 118 /* AsyncKeyword */;
         }
         // True if positioned at the start of a list element
         function isListElement(parsingContext, inErrorRecovery) {
@@ -16140,6 +16141,7 @@ var ts;
         var compilerOptions = host.getCompilerOptions();
         var languageVersion = compilerOptions.target || 0 /* ES3 */;
         var modulekind = ts.getEmitModuleKind(compilerOptions);
+        var noUnusedIdentifiers = !!compilerOptions.noUnusedLocals || !!compilerOptions.noUnusedParameters;
         var allowSyntheticDefaultImports = typeof compilerOptions.allowSyntheticDefaultImports !== "undefined" ? compilerOptions.allowSyntheticDefaultImports : modulekind === ts.ModuleKind.System;
         var strictNullChecks = compilerOptions.strictNullChecks;
         var emitResolver = createResolver();
@@ -16256,6 +16258,7 @@ var ts;
         var getGlobalThenableType;
         var jsxElementClassType;
         var deferredNodes;
+        var deferredUnusedIdentifierNodes;
         var flowLoopStart = 0;
         var flowLoopCount = 0;
         var visitedFlowCount = 0;
@@ -16877,6 +16880,9 @@ var ts;
                 }
                 lastLocation = location;
                 location = location.parent;
+            }
+            if (result && nameNotFoundMessage && noUnusedIdentifiers) {
+                result.isReferenced = true;
             }
             if (!result) {
                 result = getSymbol(globals, name, meaning);
@@ -23726,20 +23732,8 @@ var ts;
             }
             return container === declarationContainer;
         }
-        function updateReferencesForInterfaceHeritiageClauseTargets(node) {
-            var extendedTypeNode = ts.getClassExtendsHeritageClauseElement(node);
-            if (extendedTypeNode) {
-                var t = getTypeFromTypeNode(extendedTypeNode);
-                if (t !== unknownType && t.symbol && (compilerOptions.noUnusedLocals || compilerOptions.noUnusedParameters) && !ts.isInAmbientContext(node)) {
-                    t.symbol.hasReference = true;
-                }
-            }
-        }
         function checkIdentifier(node) {
             var symbol = getResolvedSymbol(node);
-            if (symbol && (compilerOptions.noUnusedLocals || compilerOptions.noUnusedParameters) && !ts.isInAmbientContext(node)) {
-                symbol.hasReference = true;
-            }
             // As noted in ECMAScript 6 language spec, arrow functions never have an arguments objects.
             // Although in down-level emit of arrow function, we emit it using function expression which means that
             // arguments objects will be bound to the inner object; emitting arrow function natively in ES6, arguments objects
@@ -25464,8 +25458,15 @@ var ts;
                 }
                 return unknownType;
             }
-            if ((compilerOptions.noUnusedLocals || compilerOptions.noUnusedParameters) && !ts.isInAmbientContext(node)) {
-                prop.hasReference = true;
+            if (noUnusedIdentifiers &&
+                (prop.flags & 106500 /* ClassMember */) &&
+                prop.valueDeclaration && (prop.valueDeclaration.flags & 8 /* Private */)) {
+                if (prop.flags & 16777216 /* Instantiated */) {
+                    getSymbolLinks(prop).target.isReferenced = true;
+                }
+                else {
+                    prop.isReferenced = true;
+                }
             }
             getNodeLinks(node).resolvedSymbol = prop;
             if (prop.parent && prop.parent.flags & 32 /* Class */) {
@@ -27194,8 +27195,7 @@ var ts;
                         }
                     }
                 }
-                checkUnusedIdentifiers(node);
-                checkUnusedTypeParameters(node);
+                registerForUnusedIdentifiersCheck(node);
             }
         }
         function checkArithmeticOperandType(operand, type, diagnostic) {
@@ -27516,6 +27516,12 @@ var ts;
             if (exprOrAssignment.kind === 254 /* ShorthandPropertyAssignment */) {
                 var prop = exprOrAssignment;
                 if (prop.objectAssignmentInitializer) {
+                    // In strict null checking mode, if a default value of a non-undefined type is specified, remove
+                    // undefined from the final type.
+                    if (strictNullChecks &&
+                        !(getCombinedTypeFlags(checkExpression(prop.objectAssignmentInitializer)) & 32 /* Undefined */)) {
+                        sourceType = getTypeWithFacts(sourceType, 131072 /* NEUndefined */);
+                    }
                     checkBinaryLikeExpression(prop.name, prop.equalsToken, prop.objectAssignmentInitializer, contextualMapper);
                 }
                 target = exprOrAssignment.name;
@@ -28303,8 +28309,7 @@ var ts;
             // Grammar check for checking only related to constructorDeclaration
             checkGrammarConstructorTypeParameters(node) || checkGrammarConstructorTypeAnnotation(node);
             checkSourceElement(node.body);
-            checkUnusedIdentifiers(node);
-            checkUnusedTypeParameters(node);
+            registerForUnusedIdentifiersCheck(node);
             var symbol = getSymbolOfNode(node);
             var firstDeclaration = ts.getDeclarationOfKind(symbol, node.kind);
             // Only type check the symbol once
@@ -28435,6 +28440,7 @@ var ts;
             }
             if (node.parent.kind !== 171 /* ObjectLiteralExpression */) {
                 checkSourceElement(node.body);
+                registerForUnusedIdentifiersCheck(node);
             }
             else {
                 checkNodeDeferred(node);
@@ -28449,6 +28455,7 @@ var ts;
         }
         function checkAccessorDeferred(node) {
             checkSourceElement(node.body);
+            registerForUnusedIdentifiersCheck(node);
         }
         function checkMissingDeclaration(node) {
             checkDecorators(node);
@@ -28474,9 +28481,6 @@ var ts;
             checkGrammarTypeArguments(node, node.typeArguments);
             var type = getTypeFromTypeReference(node);
             if (type !== unknownType) {
-                if (type.symbol && (compilerOptions.noUnusedLocals || compilerOptions.noUnusedParameters) && !ts.isInAmbientContext(node)) {
-                    type.symbol.hasReference = true;
-                }
                 if (node.typeArguments) {
                     // Do type argument local checks only if referenced type is successfully resolved
                     ts.forEach(node.typeArguments, checkSourceElement);
@@ -29219,8 +29223,6 @@ var ts;
                 }
             }
             checkSourceElement(node.body);
-            checkUnusedIdentifiers(node);
-            checkUnusedTypeParameters(node);
             if (!node.asteriskToken) {
                 var returnOrPromisedType = node.type && (isAsync ? checkAsyncFunctionReturnType(node) : getTypeFromTypeNode(node.type));
                 checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnOrPromisedType);
@@ -29238,40 +29240,98 @@ var ts;
                     getReturnTypeOfSignature(getSignatureFromDeclaration(node));
                 }
             }
+            registerForUnusedIdentifiersCheck(node);
         }
-        function checkUnusedIdentifiers(node) {
-            if (node.parent.kind !== 222 /* InterfaceDeclaration */ && (compilerOptions.noUnusedLocals || compilerOptions.noUnusedParameters) && !ts.isInAmbientContext(node)) {
-                for (var key in node.locals) {
-                    if (ts.hasProperty(node.locals, key)) {
-                        var local = node.locals[key];
-                        if (!local.hasReference && local.valueDeclaration) {
-                            if (local.valueDeclaration.kind !== 142 /* Parameter */ && compilerOptions.noUnusedLocals) {
-                                error(local.valueDeclaration.name, ts.Diagnostics._0_is_declared_but_never_used, local.name);
+        function registerForUnusedIdentifiersCheck(node) {
+            if (deferredUnusedIdentifierNodes) {
+                deferredUnusedIdentifierNodes.push(node);
+            }
+        }
+        function checkUnusedIdentifiers() {
+            if (deferredUnusedIdentifierNodes) {
+                for (var _i = 0, deferredUnusedIdentifierNodes_1 = deferredUnusedIdentifierNodes; _i < deferredUnusedIdentifierNodes_1.length; _i++) {
+                    var node = deferredUnusedIdentifierNodes_1[_i];
+                    switch (node.kind) {
+                        case 256 /* SourceFile */:
+                        case 225 /* ModuleDeclaration */:
+                            checkUnusedModuleMembers(node);
+                            break;
+                        case 221 /* ClassDeclaration */:
+                        case 192 /* ClassExpression */:
+                            checkUnusedClassMembers(node);
+                            checkUnusedTypeParameters(node);
+                            break;
+                        case 222 /* InterfaceDeclaration */:
+                            checkUnusedTypeParameters(node);
+                            break;
+                        case 199 /* Block */:
+                        case 227 /* CaseBlock */:
+                        case 206 /* ForStatement */:
+                        case 207 /* ForInStatement */:
+                        case 208 /* ForOfStatement */:
+                            checkUnusedLocalsAndParameters(node);
+                            break;
+                        case 148 /* Constructor */:
+                        case 179 /* FunctionExpression */:
+                        case 220 /* FunctionDeclaration */:
+                        case 180 /* ArrowFunction */:
+                        case 147 /* MethodDeclaration */:
+                        case 149 /* GetAccessor */:
+                        case 150 /* SetAccessor */:
+                            if (node.body) {
+                                checkUnusedLocalsAndParameters(node);
                             }
-                            else if (local.valueDeclaration.kind === 142 /* Parameter */ && compilerOptions.noUnusedParameters) {
-                                if (local.valueDeclaration.flags === 0) {
-                                    error(local.valueDeclaration.name, ts.Diagnostics._0_is_declared_but_never_used, local.name);
-                                }
-                            }
-                        }
+                            checkUnusedTypeParameters(node);
+                            break;
+                        case 146 /* MethodSignature */:
+                        case 151 /* CallSignature */:
+                        case 152 /* ConstructSignature */:
+                        case 153 /* IndexSignature */:
+                        case 156 /* FunctionType */:
+                        case 157 /* ConstructorType */:
+                            checkUnusedTypeParameters(node);
+                            break;
                     }
+                    ;
                 }
             }
         }
-        function checkUnusedClassLocals(node) {
+        function checkUnusedLocalsAndParameters(node) {
+            if (node.parent.kind !== 222 /* InterfaceDeclaration */ && noUnusedIdentifiers && !ts.isInAmbientContext(node)) {
+                var _loop_1 = function(key) {
+                    if (ts.hasProperty(node.locals, key)) {
+                        var local_1 = node.locals[key];
+                        if (!local_1.isReferenced) {
+                            if (local_1.valueDeclaration && local_1.valueDeclaration.kind === 142 /* Parameter */) {
+                                if (compilerOptions.noUnusedParameters && !ts.isParameterPropertyDeclaration(local_1.valueDeclaration)) {
+                                    error(local_1.valueDeclaration.name, ts.Diagnostics._0_is_declared_but_never_used, local_1.name);
+                                }
+                            }
+                            else if (compilerOptions.noUnusedLocals) {
+                                ts.forEach(local_1.declarations, function (d) { return error(d.name || d, ts.Diagnostics._0_is_declared_but_never_used, local_1.name); });
+                            }
+                        }
+                    }
+                };
+                for (var key in node.locals) {
+                    _loop_1(key);
+                }
+            }
+        }
+        function checkUnusedClassMembers(node) {
             if (compilerOptions.noUnusedLocals && !ts.isInAmbientContext(node)) {
                 if (node.members) {
                     for (var _i = 0, _a = node.members; _i < _a.length; _i++) {
                         var member = _a[_i];
                         if (member.kind === 147 /* MethodDeclaration */ || member.kind === 145 /* PropertyDeclaration */) {
-                            if (isPrivateNode(member) && !member.symbol.hasReference) {
+                            if (!member.symbol.isReferenced && member.flags & 8 /* Private */) {
                                 error(member.name, ts.Diagnostics._0_is_declared_but_never_used, member.symbol.name);
                             }
                         }
                         else if (member.kind === 148 /* Constructor */) {
                             for (var _b = 0, _c = member.parameters; _b < _c.length; _b++) {
                                 var parameter = _c[_b];
-                                if (isPrivateNode(parameter) && !parameter.symbol.hasReference) {
+                                if (!parameter.symbol.isReferenced && parameter.flags & 8 /* Private */) {
                                     error(parameter.name, ts.Diagnostics._0_is_declared_but_never_used, parameter.symbol.name);
                                 }
                             }
@@ -29285,28 +29345,27 @@ var ts;
                 if (node.typeParameters) {
                     for (var _i = 0, _a = node.typeParameters; _i < _a.length; _i++) {
                         var typeParameter = _a[_i];
-                        if (!typeParameter.symbol.hasReference) {
+                        if (!typeParameter.symbol.isReferenced) {
                             error(typeParameter.name, ts.Diagnostics._0_is_declared_but_never_used, typeParameter.symbol.name);
                         }
                     }
                 }
             }
         }
-        function isPrivateNode(node) {
-            return (node.flags & 8 /* Private */) !== 0;
-        }
-        function checkUnusedModuleLocals(node) {
+        function checkUnusedModuleMembers(node) {
             if (compilerOptions.noUnusedLocals && !ts.isInAmbientContext(node)) {
-                var _loop_1 = function(key) {
+                for (var key in node.locals) {
                     if (ts.hasProperty(node.locals, key)) {
-                        var local_1 = node.locals[key];
-                        if (!local_1.hasReference && !local_1.exportSymbol) {
-                            ts.forEach(local_1.declarations, function (d) { return error(d.name, ts.Diagnostics._0_is_declared_but_never_used, local_1.name); });
+                        var local = node.locals[key];
+                        if (!local.isReferenced && !local.exportSymbol) {
+                            for (var _i = 0, _a = local.declarations; _i < _a.length; _i++) {
+                                var declaration = _a[_i];
+                                if (!ts.isAmbientModule(declaration)) {
+                                    error(declaration.name, ts.Diagnostics._0_is_declared_but_never_used, local.name);
+                                }
+                            }
                         }
                     }
-                };
-                for (var key in node.locals) {
-                    _loop_1(key);
                 }
             }
         }
@@ -29316,7 +29375,9 @@ var ts;
                 checkGrammarStatementInAmbientContext(node);
             }
             ts.forEach(node.statements, checkSourceElement);
-            checkUnusedIdentifiers(node);
+            if (node.locals) {
+                registerForUnusedIdentifiersCheck(node);
+            }
         }
         function checkCollisionWithArgumentsInGeneratedCode(node) {
             // no rest parameters \ declaration context \ overload - no codegen impact
@@ -29723,6 +29784,9 @@ var ts;
             if (node.incrementor)
                 checkExpression(node.incrementor);
             checkSourceElement(node.statement);
+            if (node.locals) {
+                registerForUnusedIdentifiersCheck(node);
+            }
         }
         function checkForOfStatement(node) {
             checkGrammarForInOrForOfStatement(node);
@@ -29758,7 +29822,9 @@ var ts;
                 }
             }
             checkSourceElement(node.statement);
-            checkUnusedIdentifiers(node);
+            if (node.locals) {
+                registerForUnusedIdentifiersCheck(node);
+            }
         }
         function checkForInStatement(node) {
             // Grammar checking
@@ -29800,7 +29866,9 @@ var ts;
                 error(node.expression, ts.Diagnostics.The_right_hand_side_of_a_for_in_statement_must_be_of_type_any_an_object_type_or_a_type_parameter);
             }
             checkSourceElement(node.statement);
-            checkUnusedIdentifiers(node);
+            if (node.locals) {
+                registerForUnusedIdentifiersCheck(node);
+            }
         }
         function checkForInOrForOfVariableDeclaration(iterationStatement) {
             var variableDeclarationList = iterationStatement.initializer;
@@ -30034,7 +30102,7 @@ var ts;
         }
         function isUnwrappedReturnTypeVoidOrAny(func, returnType) {
             var unwrappedReturnType = ts.isAsyncFunctionLike(func) ? getPromisedType(returnType) : returnType;
-            return maybeTypeOfKind(unwrappedReturnType, 16 /* Void */ | 1 /* Any */);
+            return unwrappedReturnType && maybeTypeOfKind(unwrappedReturnType, 16 /* Void */ | 1 /* Any */);
         }
         function checkReturnStatement(node) {
             // Grammar checking
@@ -30132,6 +30200,9 @@ var ts;
                 }
                 ts.forEach(clause.statements, checkSourceElement);
             });
+            if (node.caseBlock.locals) {
+                registerForUnusedIdentifiersCheck(node.caseBlock);
+            }
         }
         function checkLabeledStatement(node) {
             // Grammar checking
@@ -30192,7 +30263,6 @@ var ts;
                     }
                 }
                 checkBlock(catchClause.block);
-                checkUnusedIdentifiers(catchClause);
             }
             if (node.finallyBlock) {
                 checkBlock(node.finallyBlock);
@@ -30322,6 +30392,7 @@ var ts;
         }
         function checkClassExpressionDeferred(node) {
             ts.forEach(node.members, checkSourceElement);
+            registerForUnusedIdentifiersCheck(node);
         }
         function checkClassDeclaration(node) {
             if (!node.name && !(node.flags & 512 /* Default */)) {
@@ -30329,8 +30400,7 @@ var ts;
             }
             checkClassLikeDeclaration(node);
             ts.forEach(node.members, checkSourceElement);
-            checkUnusedClassLocals(node);
-            checkUnusedTypeParameters(node);
+            registerForUnusedIdentifiersCheck(node);
         }
         function checkClassLikeDeclaration(node) {
             checkGrammarClassDeclarationHeritageClauses(node);
@@ -30608,7 +30678,6 @@ var ts;
             ts.forEach(node.members, checkSourceElement);
             if (produceDiagnostics) {
                 checkTypeForDuplicateIndexSignatures(node);
-                updateReferencesForInterfaceHeritiageClauseTargets(node);
                 checkUnusedTypeParameters(node);
             }
         }
@@ -30968,7 +31037,9 @@ var ts;
             }
             if (node.body) {
                 checkSourceElement(node.body);
-                checkUnusedModuleLocals(node);
+                if (!ts.isGlobalScopeAugmentation(node)) {
+                    registerForUnusedIdentifiersCheck(node);
+                }
             }
         }
         function checkModuleAugmentationElement(node, isGlobalAugmentation) {
@@ -31141,9 +31212,6 @@ var ts;
                         }
                         if (target.flags & 793056 /* Type */) {
                             checkTypeNameIsReserved(node.name, ts.Diagnostics.Import_name_cannot_be_0);
-                        }
-                        if ((compilerOptions.noUnusedLocals || compilerOptions.noUnusedParameters) && !ts.isInAmbientContext(node)) {
-                            target.hasReference = true;
                         }
                     }
                 }
@@ -31463,12 +31531,17 @@ var ts;
                 checkGrammarSourceFile(node);
                 potentialThisCollisions.length = 0;
                 deferredNodes = [];
+                deferredUnusedIdentifierNodes = produceDiagnostics && noUnusedIdentifiers ? [] : undefined;
                 ts.forEach(node.statements, checkSourceElement);
-                if (ts.isExternalModule(node)) {
-                    checkUnusedModuleLocals(node);
-                }
                 checkDeferredNodes();
+                if (ts.isExternalModule(node)) {
+                    registerForUnusedIdentifiersCheck(node);
+                }
+                if (!node.isDeclarationFile) {
+                    checkUnusedIdentifiers();
+                }
                 deferredNodes = undefined;
+                deferredUnusedIdentifierNodes = undefined;
                 if (ts.isExternalOrCommonJsModule(node)) {
                     checkExternalModuleExports(node);
                 }
@@ -47344,8 +47417,7 @@ var ts;
                 case 279 /* JSDocTypedefTag */:
                     return getJSDocTypedefTagName(node);
                 default:
-                    ts.Debug.fail();
-                    return "";
+                    return "<unknown>";
             }
         }
         function getJSDocTypedefTagName(node) {
@@ -52487,7 +52559,7 @@ var ts;
                         return childKind !== 237 /* NamedExports */;
                     case 230 /* ImportDeclaration */:
                         return childKind !== 231 /* ImportClause */ ||
-                            child.namedBindings.kind !== 233 /* NamedImports */;
+                            (child.namedBindings && child.namedBindings.kind !== 233 /* NamedImports */);
                     case 241 /* JsxElement */:
                         return childKind !== 245 /* JsxClosingElement */;
                 }

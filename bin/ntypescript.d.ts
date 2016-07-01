@@ -404,7 +404,7 @@ declare namespace ts {
         hasTrailingComma?: boolean;
     }
     interface ModifiersArray extends NodeArray<Modifier> {
-        flags: number;
+        flags: NodeFlags;
     }
     interface Modifier extends Node {
     }
@@ -1488,6 +1488,7 @@ declare namespace ts {
         BlockScoped = 418,
         PropertyOrAccessor = 98308,
         Export = 7340032,
+        ClassMember = 106500,
         Classifiable = 788448,
     }
     interface Symbol {
@@ -1504,7 +1505,7 @@ declare namespace ts {
         parent?: Symbol;
         exportSymbol?: Symbol;
         constEnumOnlyModule?: boolean;
-        hasReference?: boolean;
+        isReferenced?: boolean;
     }
     interface SymbolLinks {
         target?: Symbol;
