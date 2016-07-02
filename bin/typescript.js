@@ -1886,14 +1886,15 @@ var ts;
             var includeBasePaths = [];
             for (var _i = 0, includes_1 = includes; _i < includes_1.length; _i++) {
                 var include = includes_1[_i];
-                if (isRootedDiskPath(include)) {
-                    var wildcardOffset = indexOfAnyCharCode(include, wildcardCharCodes);
-                    var includeBasePath = wildcardOffset < 0
-                        ? removeTrailingDirectorySeparator(getDirectoryPath(include))
-                        : include.substring(0, include.lastIndexOf(ts.directorySeparator, wildcardOffset));
-                    // Append the literal and canonical candidate base paths.
-                    includeBasePaths.push(includeBasePath);
-                }
+                // We also need to check the relative paths by converting them to absolute and normalizing
+                // in case they escape the base path (e.g "..\somedirectory")
+                var absolute = isRootedDiskPath(include) ? include : normalizePath(combinePaths(path, include));
+                var wildcardOffset = indexOfAnyCharCode(absolute, wildcardCharCodes);
+                var includeBasePath = wildcardOffset < 0
+                    ? removeTrailingDirectorySeparator(getDirectoryPath(absolute))
+                    : absolute.substring(0, absolute.lastIndexOf(ts.directorySeparator, wildcardOffset));
+                // Append the literal and canonical candidate base paths.
+                includeBasePaths.push(includeBasePath);
             }
             // Sort the offsets array using either the literal or canonical path representations.
             includeBasePaths.sort(useCaseSensitiveFileNames ? compareStrings : compareStringsCaseInsensitive);
@@ -4701,11 +4702,10 @@ var ts;
         }
         else {
             var sourceFiles = targetSourceFile === undefined ? host.getSourceFiles() : [targetSourceFile];
-            var nodeModulesFiles = host.getFilesFromNodeModules();
             for (var _i = 0, sourceFiles_1 = sourceFiles; _i < sourceFiles_1.length; _i++) {
                 var sourceFile = sourceFiles_1[_i];
                 // Don't emit if source file is a declaration file, or was located under node_modules
-                if (!isDeclarationFile(sourceFile) && !ts.lookUp(nodeModulesFiles, sourceFile.path)) {
+                if (!isDeclarationFile(sourceFile) && !host.isSourceFileFromExternalLibrary(sourceFile)) {
                     onSingleFileEmit(host, sourceFile);
                 }
             }
@@ -4737,9 +4737,8 @@ var ts;
         function onBundledEmit(host) {
             // Can emit only sources that are not declaration file and are either non module code or module with
             // --module or --target es6 specified. Files included by searching under node_modules are also not emitted.
-            var nodeModulesFiles = host.getFilesFromNodeModules();
             var bundledSources = ts.filter(host.getSourceFiles(), function (sourceFile) { return !isDeclarationFile(sourceFile) &&
-                !ts.lookUp(nodeModulesFiles, sourceFile.path) &&
+                !host.isSourceFileFromExternalLibrary(sourceFile) &&
                 (!ts.isExternalModule(sourceFile) ||
                     !!getEmitModuleKind(options)); });
             if (bundledSources.length) {
@@ -6083,6 +6082,7 @@ var ts;
         Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character: { code: 5062, category: ts.DiagnosticCategory.Error, key: "Substitution_0_in_pattern_1_in_can_have_at_most_one_Asterisk_character_5062", message: "Substitution '{0}' in pattern '{1}' in can have at most one '*' character" },
         Substitutions_for_pattern_0_should_be_an_array: { code: 5063, category: ts.DiagnosticCategory.Error, key: "Substitutions_for_pattern_0_should_be_an_array_5063", message: "Substitutions for pattern '{0}' should be an array." },
         Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2: { code: 5064, category: ts.DiagnosticCategory.Error, key: "Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2_5064", message: "Substitution '{0}' for pattern '{1}' has incorrect type, expected 'string', got '{2}'." },
+        File_specification_cannot_contain_a_parent_directory_that_appears_after_a_recursive_directory_wildcard_Asterisk_Asterisk_Colon_0: { code: 5065, category: ts.DiagnosticCategory.Error, key: "File_specification_cannot_contain_a_parent_directory_that_appears_after_a_recursive_directory_wildca_5065", message: "File specification cannot contain a parent directory ('..') that appears after a recursive directory wildcard ('**'): '{0}'." },
         Concatenate_and_emit_output_to_single_file: { code: 6001, category: ts.DiagnosticCategory.Message, key: "Concatenate_and_emit_output_to_single_file_6001", message: "Concatenate and emit output to single file." },
         Generates_corresponding_d_ts_file: { code: 6002, category: ts.DiagnosticCategory.Message, key: "Generates_corresponding_d_ts_file_6002", message: "Generates corresponding '.d.ts' file." },
         Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations: { code: 6003, category: ts.DiagnosticCategory.Message, key: "Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations_6003", message: "Specify the location where debugger should locate map files instead of generated locations." },
@@ -28187,8 +28187,8 @@ var ts;
                     }
                 }
                 else {
-                    var static = ts.forEach(member.modifiers, function (m) { return m.kind === 113 /* StaticKeyword */; });
-                    var names = static ? staticNames : instanceNames;
+                    var isStatic = ts.forEach(member.modifiers, function (m) { return m.kind === 113 /* StaticKeyword */; });
+                    var names = isStatic ? staticNames : instanceNames;
                     var memberName = member.name && ts.getPropertyNameForPropertyNameNode(member.name);
                     if (memberName) {
                         switch (member.kind) {
@@ -29303,7 +29303,10 @@ var ts;
                         var local_1 = node.locals[key];
                         if (!local_1.isReferenced) {
                             if (local_1.valueDeclaration && local_1.valueDeclaration.kind === 142 /* Parameter */) {
-                                if (compilerOptions.noUnusedParameters && !ts.isParameterPropertyDeclaration(local_1.valueDeclaration)) {
+                                var parameter = local_1.valueDeclaration;
+                                if (compilerOptions.noUnusedParameters &&
+                                    !ts.isParameterPropertyDeclaration(parameter) &&
+                                    !parameterNameStartsWithUnderscore(parameter)) {
                                     error(local_1.valueDeclaration.name, ts.Diagnostics._0_is_declared_but_never_used, local_1.name);
                                 }
                             }
@@ -29317,6 +29320,9 @@ var ts;
                     _loop_1(key);
                 }
             }
+        }
+        function parameterNameStartsWithUnderscore(parameter) {
+            return parameter.name && parameter.name.kind === 69 /* Identifier */ && parameter.name.text.charCodeAt(0) === 95 /* _ */;
         }
         function checkUnusedClassMembers(node) {
             if (compilerOptions.noUnusedLocals && !ts.isInAmbientContext(node)) {
@@ -34446,6 +34452,20 @@ var ts;
      */
     var invalidMultipleRecursionPatterns = /(^|\/)\*\*\/(.*\/)?\*\*($|\/)/;
     /**
+     * Tests for a path where .. appears after a recursive directory wildcard.
+     * Matches **\..\*, **\a\..\*, and **\.., but not ..\**\*
+     *
+     * NOTE: used \ in place of / above to avoid issues with multiline comments.
+     *
+     * Breakdown:
+     *  (^|\/)      # matches either the beginning of the string or a directory separator.
+     *  \*\*\/      # matches a recursive directory wildcard "**" followed by a directory separator.
+     *  (.*\/)?     # optionally matches any number of characters followed by a directory separator.
+     *  \.\.        # matches a parent directory path component ".."
+     *  ($|\/)      # matches either the end of the string or a directory separator.
+     */
+    var invalidDotDotAfterRecursiveWildcardPattern = /(^|\/)\*\*\/(.*\/)?\.\.($|\/)/;
+    /**
      * Tests for a path containing a wildcard character in a directory component of the path.
      * Matches \*\, \?\, and \a*b\, but not \a\ or \a\*.
      *
@@ -34564,6 +34584,9 @@ var ts;
             else if (invalidMultipleRecursionPatterns.test(spec)) {
                 errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.File_specification_cannot_contain_multiple_recursive_directory_wildcards_Asterisk_Asterisk_Colon_0, spec));
             }
+            else if (invalidDotDotAfterRecursiveWildcardPattern.test(spec)) {
+                errors.push(ts.createCompilerDiagnostic(ts.Diagnostics.File_specification_cannot_contain_a_parent_directory_that_appears_after_a_recursive_directory_wildcard_Asterisk_Asterisk_Colon_0, spec));
+            }
             else {
                 validSpecs.push(spec);
             }
@@ -34592,7 +34615,7 @@ var ts;
             var recursiveKeys = [];
             for (var _i = 0, include_1 = include; _i < include_1.length; _i++) {
                 var file = include_1[_i];
-                var name_23 = ts.combinePaths(path, file);
+                var name_23 = ts.normalizePath(ts.combinePaths(path, file));
                 if (excludeRegex && excludeRegex.test(name_23)) {
                     continue;
                 }
@@ -44670,13 +44693,18 @@ var ts;
         while (true) {
             var baseName = ts.getBaseFileName(directory);
             if (baseName !== "node_modules") {
-                var result = 
-                // first: try to load module as-is
-                loadModuleFromNodeModulesFolder(moduleName, directory, failedLookupLocations, state) ||
-                    // second: try to load module from the scope '@types'
-                    loadModuleFromNodeModulesFolder(ts.combinePaths("@types", moduleName), directory, failedLookupLocations, state);
-                if (result) {
-                    return result;
+                // Try to load source from the package
+                var packageResult = loadModuleFromNodeModulesFolder(moduleName, directory, failedLookupLocations, state);
+                if (packageResult && ts.hasTypeScriptFileExtension(packageResult)) {
+                    // Always prefer a TypeScript (.ts, .tsx, .d.ts) file shipped with the package
+                    return packageResult;
+                }
+                else {
+                    // Else prefer a types package over non-TypeScript results (e.g. JavaScript files)
+                    var typesResult = loadModuleFromNodeModulesFolder(ts.combinePaths("@types", moduleName), directory, failedLookupLocations, state);
+                    if (typesResult || packageResult) {
+                        return typesResult || packageResult;
+                    }
                 }
             }
             var parentPath = ts.getDirectoryPath(directory);
@@ -44941,7 +44969,7 @@ var ts;
         // this, as it may be imported at a shallower depth later, and then it will need its skipped imports processed.
         var modulesWithElidedImports = {};
         // Track source files that are JavaScript files found by searching under node_modules, as these shouldn't be compiled.
-        var jsFilesFoundSearchingNodeModules = {};
+        var sourceFilesFoundSearchingNodeModules = {};
         var start = new Date().getTime();
         host = host || createCompilerHost(options);
         var skipDefaultLib = options.noLib;
@@ -45185,7 +45213,7 @@ var ts;
                 getSourceFile: program.getSourceFile,
                 getSourceFileByPath: program.getSourceFileByPath,
                 getSourceFiles: program.getSourceFiles,
-                getFilesFromNodeModules: function () { return jsFilesFoundSearchingNodeModules; },
+                isSourceFileFromExternalLibrary: function (file) { return !!ts.lookUp(sourceFilesFoundSearchingNodeModules, file.path); },
                 writeFile: writeFileCallback || (function (fileName, data, writeByteOrderMark, onError, sourceFiles) { return host.writeFile(fileName, data, writeByteOrderMark, onError, sourceFiles); }),
                 isEmitBlocked: isEmitBlocked,
             };
@@ -45781,13 +45809,15 @@ var ts;
                     // - noResolve is falsy
                     // - module name comes from the list of imports
                     // - it's not a top level JavaScript module that exceeded the search max
-                    var isJsFileUnderNodeModules = resolution && resolution.isExternalLibraryImport &&
-                        ts.hasJavaScriptFileExtension(resolution.resolvedFileName);
-                    if (isJsFileUnderNodeModules) {
-                        jsFilesFoundSearchingNodeModules[resolvedPath] = true;
+                    var isFromNodeModulesSearch = resolution && resolution.isExternalLibraryImport;
+                    var isJsFileFromNodeModules = isFromNodeModulesSearch && ts.hasJavaScriptFileExtension(resolution.resolvedFileName);
+                    if (isFromNodeModulesSearch) {
+                        sourceFilesFoundSearchingNodeModules[resolvedPath] = true;
+                    }
+                    if (isJsFileFromNodeModules) {
                         currentNodeModulesJsDepth++;
                     }
-                    var elideImport = isJsFileUnderNodeModules && currentNodeModulesJsDepth > maxNodeModulesJsDepth;
+                    var elideImport = isJsFileFromNodeModules && currentNodeModulesJsDepth > maxNodeModulesJsDepth;
                     var shouldAddFile = resolution && !options.noResolve && i < file.imports.length && !elideImport;
                     if (elideImport) {
                         modulesWithElidedImports[file.path] = true;
@@ -45796,7 +45826,7 @@ var ts;
                         findSourceFile(resolution.resolvedFileName, resolvedPath, 
                         /*isDefaultLib*/ false, /*isReference*/ false, file, ts.skipTrivia(file.text, file.imports[i].pos), file.imports[i].end);
                     }
-                    if (isJsFileUnderNodeModules) {
+                    if (isJsFileFromNodeModules) {
                         currentNodeModulesJsDepth--;
                     }
                 }

@@ -2401,7 +2401,7 @@ declare namespace ts {
     }
     interface EmitHost extends ScriptReferenceHost {
         getSourceFiles(): SourceFile[];
-        getFilesFromNodeModules(): Map<boolean>;
+        isSourceFileFromExternalLibrary(file: SourceFile): boolean;
         getCommonSourceDirectory(): string;
         getCanonicalFileName(fileName: string): string;
         getNewLine(): string;
@@ -6221,6 +6221,12 @@ declare namespace ts {
             message: string;
         };
         Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        File_specification_cannot_contain_a_parent_directory_that_appears_after_a_recursive_directory_wildcard_Asterisk_Asterisk_Colon_0: {
             code: number;
             category: DiagnosticCategory;
             key: string;
