@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+var ts = require('./ntypescript.js');
+ts.executeCommandLine(ts.sys.args);

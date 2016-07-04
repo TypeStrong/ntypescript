@@ -1,9 +1,6 @@
 #!/bin/sh
 set -e
 
-# Delete the last build
-rm -rf ./bin
-
 git submodule update --recursive --init
 
 # Official Microsoft/TypeScript clone
