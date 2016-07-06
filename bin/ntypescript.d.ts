@@ -7285,6 +7285,7 @@ declare namespace ts {
         scanJsxToken(): SyntaxKind;
         scanJSDocToken(): SyntaxKind;
         scan(): SyntaxKind;
+        getText(): string;
         setText(text: string, start?: number, length?: number): void;
         setOnError(onError: ErrorCallback): void;
         setScriptTarget(scriptTarget: ScriptTarget): void;
@@ -7310,6 +7311,8 @@ declare namespace ts {
     };
     function getLineAndCharacterOfPosition(sourceFile: SourceFile, position: number): LineAndCharacter;
     function isWhiteSpace(ch: number): boolean;
+    /** Does not include line breaks. For that, see isWhiteSpaceLike. */
+    function isWhiteSpaceSingleLine(ch: number): boolean;
     function isLineBreak(ch: number): boolean;
     function isOctalDigit(ch: number): boolean;
     function couldStartTrivia(text: string, pos: number): boolean;
@@ -7642,6 +7645,7 @@ declare namespace ts.formatting {
         readTokenInfo(n: Node): TokenInfo;
         getCurrentLeadingTrivia(): TextRangeWithKind[];
         lastTrailingTriviaWasNewLine(): boolean;
+        skipToEndOf(node: Node): void;
         close(): void;
     }
     function getFormattingScanner(sourceFile: SourceFile, startPos: number, endPos: number): FormattingScanner;
@@ -8860,6 +8864,7 @@ declare namespace ts {
          */
         isValidBraceCompletionAtPosition(fileName: string, position: number, openingBrace: number): string;
         getEmitOutput(fileName: string): string;
+        getEmitOutputObject(fileName: string): EmitOutput;
     }
     interface ClassifierShim extends Shim {
         getEncodedLexicalClassifications(text: string, lexState: EndOfLineState, syntacticClassifierAbsent?: boolean): string;
