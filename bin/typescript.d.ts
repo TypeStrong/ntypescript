@@ -8731,7 +8731,7 @@ declare namespace ts {
         getLocalizedDiagnosticMessages(): string;
         getCancellationToken(): HostCancellationToken;
         getCurrentDirectory(): string;
-        getDirectories(path: string): string[];
+        getDirectories(path: string): string;
         getDefaultLibFileName(options: string): string;
         getNewLine?(): string;
         getProjectVersion?(): string;
