@@ -2201,7 +2201,7 @@ var ts;
             function readDirectory(path, extensions, excludes, includes) {
                 return ts.matchFiles(path, extensions, excludes, includes, /*useCaseSensitiveFileNames*/ false, shell.CurrentDirectory, getAccessibleFileSystemEntries);
             }
-            return {
+            var wscriptSystem = {
                 args: args,
                 newLine: "\r\n",
                 useCaseSensitiveFileNames: false,
@@ -2220,7 +2220,7 @@ var ts;
                     return fso.FolderExists(path);
                 },
                 createDirectory: function (directoryName) {
-                    if (!this.directoryExists(directoryName)) {
+                    if (!wscriptSystem.directoryExists(directoryName)) {
                         fso.CreateFolder(directoryName);
                     }
                 },
@@ -2240,6 +2240,7 @@ var ts;
                     }
                 }
             };
+            return wscriptSystem;
         }
         function getNodeSystem() {
             var _fs = require("fs");
@@ -2429,7 +2430,7 @@ var ts;
             function getDirectories(path) {
                 return ts.filter(_fs.readdirSync(path), function (p) { return fileSystemEntryExists(ts.combinePaths(path, p), 1 /* Directory */); });
             }
-            return {
+            var nodeSystem = {
                 args: process.argv.slice(2),
                 newLine: _os.EOL,
                 useCaseSensitiveFileNames: useCaseSensitiveFileNames,
@@ -2485,7 +2486,7 @@ var ts;
                 fileExists: fileExists,
                 directoryExists: directoryExists,
                 createDirectory: function (directoryName) {
-                    if (!this.directoryExists(directoryName)) {
+                    if (!nodeSystem.directoryExists(directoryName)) {
                         _fs.mkdirSync(directoryName);
                     }
                 },
@@ -2533,6 +2534,7 @@ var ts;
                     return _fs.realpathSync(path);
                 }
             };
+            return nodeSystem;
         }
         function getChakraSystem() {
             var realpath = ChakraHost.realpath && (function (path) { return ChakraHost.realpath(path); });
@@ -18984,17 +18986,16 @@ var ts;
                     return unknownType;
                 }
                 var type = undefined;
-                // Handle module.exports = expr or this.p = expr
-                if (declaration.kind === 187 /* BinaryExpression */) {
-                    type = getUnionType(ts.map(symbol.declarations, function (decl) { return checkExpressionCached(decl.right); }));
-                }
-                else if (declaration.kind === 172 /* PropertyAccessExpression */) {
-                    // Declarations only exist for property access expressions for certain
-                    // special assignment kinds
-                    if (declaration.parent.kind === 187 /* BinaryExpression */) {
-                        // Handle exports.p = expr  or className.prototype.method = expr
-                        type = checkExpressionCached(declaration.parent.right);
-                    }
+                // Handle certain special assignment kinds, which happen to union across multiple declarations:
+                // * module.exports = expr
+                // * exports.p = expr
+                // * this.p = expr
+                // * className.prototype.method = expr
+                if (declaration.kind === 187 /* BinaryExpression */ ||
+                    declaration.kind === 172 /* PropertyAccessExpression */ && declaration.parent.kind === 187 /* BinaryExpression */) {
+                    type = getUnionType(ts.map(symbol.declarations, function (decl) { return decl.kind === 187 /* BinaryExpression */ ?
+                        checkExpressionCached(decl.right) :
+                        checkExpressionCached(decl.parent.right); }));
                 }
                 if (type === undefined) {
                     type = getWidenedTypeForVariableLikeDeclaration(declaration, /*reportErrors*/ true);
@@ -26749,7 +26750,7 @@ var ts;
         function getInferredClassType(symbol) {
             var links = getSymbolLinks(symbol);
             if (!links.inferredClassType) {
-                links.inferredClassType = createAnonymousType(undefined, symbol.members, emptyArray, emptyArray, /*stringIndexType*/ undefined, /*numberIndexType*/ undefined);
+                links.inferredClassType = createAnonymousType(symbol, symbol.members, emptyArray, emptyArray, /*stringIndexType*/ undefined, /*numberIndexType*/ undefined);
             }
             return links.inferredClassType;
         }
@@ -44991,11 +44992,11 @@ var ts;
         // As all these operations happen - and are nested - within the createProgram call, they close over the below variables.
         // The current resolution depth is tracked by incrementing/decrementing as the depth first search progresses.
         var maxNodeModulesJsDepth = typeof options.maxNodeModuleJsDepth === "number" ? options.maxNodeModuleJsDepth : 2;
-        var currentNodeModulesJsDepth = 0;
+        var currentNodeModulesDepth = 0;
         // If a module has some of its imports skipped due to being at the depth limit under node_modules, then track
         // this, as it may be imported at a shallower depth later, and then it will need its skipped imports processed.
         var modulesWithElidedImports = {};
-        // Track source files that are JavaScript files found by searching under node_modules, as these shouldn't be compiled.
+        // Track source files that are source files found by searching under node_modules, as these shouldn't be compiled.
         var sourceFilesFoundSearchingNodeModules = {};
         var start = new Date().getTime();
         host = host || createCompilerHost(options);
@@ -45252,8 +45253,7 @@ var ts;
             return noDiagnosticsTypeChecker || (noDiagnosticsTypeChecker = ts.createTypeChecker(program, /*produceDiagnostics:*/ false));
         }
         function emit(sourceFile, writeFileCallback, cancellationToken) {
-            var _this = this;
-            return runWithCancellationToken(function () { return emitWorker(_this, sourceFile, writeFileCallback, cancellationToken); });
+            return runWithCancellationToken(function () { return emitWorker(program, sourceFile, writeFileCallback, cancellationToken); });
         }
         function isEmitBlocked(emitFileName) {
             return hasEmitBlockingDiagnostics.contains(ts.toPath(emitFileName, currentDirectory, getCanonicalFileName));
@@ -45705,9 +45705,19 @@ var ts;
                 if (file_1 && options.forceConsistentCasingInFileNames && ts.getNormalizedAbsolutePath(file_1.fileName, currentDirectory) !== ts.getNormalizedAbsolutePath(fileName, currentDirectory)) {
                     reportFileNamesDifferOnlyInCasingError(fileName, file_1.fileName, refFile, refPos, refEnd);
                 }
-                // See if we need to reprocess the imports due to prior skipped imports
-                if (file_1 && ts.lookUp(modulesWithElidedImports, file_1.path)) {
-                    if (currentNodeModulesJsDepth < maxNodeModulesJsDepth) {
+                // If the file was previously found via a node_modules search, but is now being processed as a root file,
+                // then everything it sucks in may also be marked incorrectly, and needs to be checked again.
+                if (file_1 && ts.lookUp(sourceFilesFoundSearchingNodeModules, file_1.path) && currentNodeModulesDepth == 0) {
+                    sourceFilesFoundSearchingNodeModules[file_1.path] = false;
+                    if (!options.noResolve) {
+                        processReferencedFiles(file_1, ts.getDirectoryPath(fileName), isDefaultLib);
+                        processTypeReferenceDirectives(file_1);
+                    }
+                    modulesWithElidedImports[file_1.path] = false;
+                    processImportedModules(file_1, ts.getDirectoryPath(fileName));
+                }
+                else if (file_1 && ts.lookUp(modulesWithElidedImports, file_1.path)) {
+                    if (currentNodeModulesDepth < maxNodeModulesJsDepth) {
                         modulesWithElidedImports[file_1.path] = false;
                         processImportedModules(file_1, ts.getDirectoryPath(fileName));
                     }
@@ -45725,6 +45735,7 @@ var ts;
             });
             filesByName.set(path, file);
             if (file) {
+                sourceFilesFoundSearchingNodeModules[path] = (currentNodeModulesDepth > 0);
                 file.path = path;
                 if (host.useCaseSensitiveFileNames()) {
                     // for case-sensitive file systems check if we've already seen some file with similar filename ignoring case
@@ -45839,12 +45850,9 @@ var ts;
                     var isFromNodeModulesSearch = resolution && resolution.isExternalLibraryImport;
                     var isJsFileFromNodeModules = isFromNodeModulesSearch && ts.hasJavaScriptFileExtension(resolution.resolvedFileName);
                     if (isFromNodeModulesSearch) {
-                        sourceFilesFoundSearchingNodeModules[resolvedPath] = true;
+                        currentNodeModulesDepth++;
                     }
-                    if (isJsFileFromNodeModules) {
-                        currentNodeModulesJsDepth++;
-                    }
-                    var elideImport = isJsFileFromNodeModules && currentNodeModulesJsDepth > maxNodeModulesJsDepth;
+                    var elideImport = isJsFileFromNodeModules && currentNodeModulesDepth > maxNodeModulesJsDepth;
                     var shouldAddFile = resolution && !options.noResolve && i < file.imports.length && !elideImport;
                     if (elideImport) {
                         modulesWithElidedImports[file.path] = true;
@@ -45853,8 +45861,8 @@ var ts;
                         findSourceFile(resolution.resolvedFileName, resolvedPath, 
                         /*isDefaultLib*/ false, /*isReference*/ false, file, ts.skipTrivia(file.text, file.imports[i].pos), file.imports[i].end);
                     }
-                    if (isJsFileFromNodeModules) {
-                        currentNodeModulesJsDepth--;
+                    if (isFromNodeModulesSearch) {
+                        currentNodeModulesDepth--;
                     }
                 }
             }
@@ -60260,7 +60268,7 @@ var ts;
 //
 /// <reference path='services.ts' />
 /* @internal */
-var debugObjectHost = this;
+var debugObjectHost = new Function("return this")();
 // We need to use 'null' to interface with the managed side.
 /* tslint:disable:no-null-keyword */
 /* tslint:disable:no-in-operator */
