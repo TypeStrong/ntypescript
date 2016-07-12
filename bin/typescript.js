@@ -44039,7 +44039,7 @@ var ts;
     /* @internal */ ts.ioReadTime = 0;
     /* @internal */ ts.ioWriteTime = 0;
     /** The version of the TypeScript compiler release */
-    ts.version = "2.0.0";
+    ts.version = "2.1.0";
     var emptyArray = [];
     var defaultTypeRoots = ["node_modules/@types"];
     function findConfigFile(searchPath, fileExists) {
@@ -49911,6 +49911,7 @@ var ts;
             ScanAction[ScanAction["RescanSlashToken"] = 2] = "RescanSlashToken";
             ScanAction[ScanAction["RescanTemplateToken"] = 3] = "RescanTemplateToken";
             ScanAction[ScanAction["RescanJsxIdentifier"] = 4] = "RescanJsxIdentifier";
+            ScanAction[ScanAction["RescanJsxText"] = 5] = "RescanJsxText";
         })(ScanAction || (ScanAction = {}));
         function getFormattingScanner(sourceFile, startPos, endPos) {
             ts.Debug.assert(scanner === undefined);
@@ -50002,6 +50003,9 @@ var ts;
                 }
                 return false;
             }
+            function shouldRescanJsxText(node) {
+                return node && node.kind === 244 /* JsxText */;
+            }
             function shouldRescanSlashToken(container) {
                 return container.kind === 10 /* RegularExpressionLiteral */;
             }
@@ -50032,7 +50036,9 @@ var ts;
                             ? 3 /* RescanTemplateToken */
                             : shouldRescanJsxIdentifier(n)
                                 ? 4 /* RescanJsxIdentifier */
-                                : 0 /* Scan */;
+                                : shouldRescanJsxText(n)
+                                    ? 5 /* RescanJsxText */
+                                    : 0 /* Scan */;
                 if (lastTokenInfo && expectedScanAction === lastScanAction) {
                     // readTokenInfo was called before with the same expected scan action.
                     // No need to re-scan text, return existing 'lastTokenInfo'
@@ -50066,6 +50072,10 @@ var ts;
                 else if (expectedScanAction === 4 /* RescanJsxIdentifier */ && currentToken === 69 /* Identifier */) {
                     currentToken = scanner.scanJsxIdentifier();
                     lastScanAction = 4 /* RescanJsxIdentifier */;
+                }
+                else if (expectedScanAction === 5 /* RescanJsxText */) {
+                    currentToken = scanner.reScanJsxToken();
+                    lastScanAction = 5 /* RescanJsxText */;
                 }
                 else {
                     lastScanAction = 0 /* Scan */;
