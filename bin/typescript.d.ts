@@ -6933,13 +6933,13 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Report_Errors_on_Unused_Locals: {
+        Report_errors_on_unused_locals: {
             code: number;
             category: DiagnosticCategory;
             key: string;
             message: string;
         };
-        Report_Errors_on_Unused_Parameters: {
+        Report_errors_on_unused_parameters: {
             code: number;
             category: DiagnosticCategory;
             key: string;
@@ -7463,7 +7463,12 @@ declare namespace ts {
     const defaultInitCompilerOptions: CompilerOptions;
     function createCompilerHost(options: CompilerOptions, setParentNodes?: boolean): CompilerHost;
     function getPreEmitDiagnostics(program: Program, sourceFile?: SourceFile, cancellationToken?: CancellationToken): Diagnostic[];
-    function formatDiagnostics(diagnostics: Diagnostic[], host: CompilerHost): string;
+    interface FormatDiagnosticsHost {
+        getCurrentDirectory(): string;
+        getCanonicalFileName(fileName: string): string;
+        getNewLine(): string;
+    }
+    function formatDiagnostics(diagnostics: Diagnostic[], host: FormatDiagnosticsHost): string;
     function flattenDiagnosticMessageText(messageText: string | DiagnosticMessageChain, newLine: string): string;
     /**
       * Given a set of options and a set of root files, returns the set of type directive names

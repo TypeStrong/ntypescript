@@ -6203,8 +6203,8 @@ var ts;
         Cannot_compile_modules_using_option_0_unless_the_module_flag_is_amd_or_system: { code: 6131, category: ts.DiagnosticCategory.Error, key: "Cannot_compile_modules_using_option_0_unless_the_module_flag_is_amd_or_system_6131", message: "Cannot compile modules using option '{0}' unless the '--module' flag is 'amd' or 'system'." },
         File_name_0_has_a_1_extension_stripping_it: { code: 6132, category: ts.DiagnosticCategory.Message, key: "File_name_0_has_a_1_extension_stripping_it_6132", message: "File name '{0}' has a '{1}' extension - stripping it" },
         _0_is_declared_but_never_used: { code: 6133, category: ts.DiagnosticCategory.Error, key: "_0_is_declared_but_never_used_6133", message: "'{0}' is declared but never used." },
-        Report_Errors_on_Unused_Locals: { code: 6134, category: ts.DiagnosticCategory.Message, key: "Report_Errors_on_Unused_Locals_6134", message: "Report Errors on Unused Locals." },
-        Report_Errors_on_Unused_Parameters: { code: 6135, category: ts.DiagnosticCategory.Message, key: "Report_Errors_on_Unused_Parameters_6135", message: "Report Errors on Unused Parameters." },
+        Report_errors_on_unused_locals: { code: 6134, category: ts.DiagnosticCategory.Message, key: "Report_errors_on_unused_locals_6134", message: "Report errors on unused locals." },
+        Report_errors_on_unused_parameters: { code: 6135, category: ts.DiagnosticCategory.Message, key: "Report_errors_on_unused_parameters_6135", message: "Report errors on unused parameters." },
         The_maximum_dependency_depth_to_search_under_node_modules_and_load_JavaScript_files: { code: 6136, category: ts.DiagnosticCategory.Message, key: "The_maximum_dependency_depth_to_search_under_node_modules_and_load_JavaScript_files_6136", message: "The maximum dependency depth to search under node_modules and load JavaScript files" },
         No_types_specified_in_package_json_but_allowJs_is_set_so_returning_main_value_of_0: { code: 6137, category: ts.DiagnosticCategory.Message, key: "No_types_specified_in_package_json_but_allowJs_is_set_so_returning_main_value_of_0_6137", message: "No types specified in 'package.json' but 'allowJs' is set, so returning 'main' value of '{0}'" },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
@@ -33784,12 +33784,12 @@ var ts;
         {
             name: "noUnusedLocals",
             type: "boolean",
-            description: ts.Diagnostics.Report_Errors_on_Unused_Locals,
+            description: ts.Diagnostics.Report_errors_on_unused_locals,
         },
         {
             name: "noUnusedParameters",
             type: "boolean",
-            description: ts.Diagnostics.Report_Errors_on_Unused_Parameters
+            description: ts.Diagnostics.Report_errors_on_unused_parameters,
         },
         {
             name: "noLib",
@@ -46097,7 +46097,15 @@ var ts;
 /// <reference path="commandLineParser.ts"/>
 var ts;
 (function (ts) {
-    var reportDiagnostic = reportDiagnosticSimply;
+    var defaultFormatDiagnosticsHost = {
+        getCurrentDirectory: function () { return ts.sys.getCurrentDirectory(); },
+        getNewLine: function () { return ts.sys.newLine; },
+        getCanonicalFileName: ts.createGetCanonicalFileName(ts.sys.useCaseSensitiveFileNames)
+    };
+    var reportDiagnosticWorker = reportDiagnosticSimply;
+    function reportDiagnostic(diagnostic, host) {
+        reportDiagnosticWorker(diagnostic, host || defaultFormatDiagnosticsHost);
+    }
     function reportDiagnostics(diagnostics, host) {
         for (var _i = 0, diagnostics_2 = diagnostics; _i < diagnostics_2.length; _i++) {
             var diagnostic = diagnostics_2[_i];
@@ -46307,7 +46315,7 @@ var ts;
         var hostFileExists;
         if (commandLine.options.locale) {
             if (!isJSONSupported()) {
-                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--locale"), /* compilerHost */ undefined);
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--locale"), /* host */ undefined);
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
             validateLocaleAndSetLanguage(commandLine.options.locale, commandLine.errors);
@@ -46333,25 +46341,25 @@ var ts;
         }
         if (commandLine.options.project) {
             if (!isJSONSupported()) {
-                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--project"), /* compilerHost */ undefined);
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--project"), /* host */ undefined);
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
             if (commandLine.fileNames.length !== 0) {
-                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Option_project_cannot_be_mixed_with_source_files_on_a_command_line), /* compilerHost */ undefined);
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Option_project_cannot_be_mixed_with_source_files_on_a_command_line), /* host */ undefined);
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
             var fileOrDirectory = ts.normalizePath(commandLine.options.project);
             if (!fileOrDirectory /* current directory "." */ || ts.sys.directoryExists(fileOrDirectory)) {
                 configFileName = ts.combinePaths(fileOrDirectory, "tsconfig.json");
                 if (!ts.sys.fileExists(configFileName)) {
-                    reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_find_a_tsconfig_json_file_at_the_specified_directory_Colon_0, commandLine.options.project), /* compilerHost */ undefined);
+                    reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Cannot_find_a_tsconfig_json_file_at_the_specified_directory_Colon_0, commandLine.options.project), /* host */ undefined);
                     return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                 }
             }
             else {
                 configFileName = fileOrDirectory;
                 if (!ts.sys.fileExists(configFileName)) {
-                    reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_specified_path_does_not_exist_Colon_0, commandLine.options.project), /* compilerHost */ undefined);
+                    reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_specified_path_does_not_exist_Colon_0, commandLine.options.project), /* host */ undefined);
                     return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                 }
             }
@@ -46367,7 +46375,7 @@ var ts;
         }
         if (ts.isWatchSet(commandLine.options)) {
             if (!ts.sys.watchFile) {
-                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* compilerHost */ undefined);
+                reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* host */ undefined);
                 return ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
             if (configFileName) {
@@ -46416,7 +46424,7 @@ var ts;
             }
             if (ts.isWatchSet(configParseResult.options)) {
                 if (!ts.sys.watchFile) {
-                    reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* compilerHost */ undefined);
+                    reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* host */ undefined);
                     ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                 }
                 if (!directoryWatcher && ts.sys.watchDirectory && configFileName) {
@@ -46450,7 +46458,7 @@ var ts;
                 compilerHost.fileExists = cachedFileExists;
             }
             if (compilerOptions.pretty) {
-                reportDiagnostic = reportDiagnosticWithColorAndContext;
+                reportDiagnosticWorker = reportDiagnosticWithColorAndContext;
             }
             // reset the cache of existing files
             cachedExistingFiles = {};
@@ -46639,7 +46647,7 @@ var ts;
         // Build up the list of examples.
         var padding = makePadding(marginLength);
         output += getDiagnosticText(ts.Diagnostics.Examples_Colon_0, makePadding(marginLength - examplesLength) + "tsc hello.ts") + ts.sys.newLine;
-        output += padding + "tsc --out file.js file.ts" + ts.sys.newLine;
+        output += padding + "tsc --outFile file.js file.ts" + ts.sys.newLine;
         output += padding + "tsc @args.txt" + ts.sys.newLine;
         output += ts.sys.newLine;
         output += getDiagnosticText(ts.Diagnostics.Options_Colon) + ts.sys.newLine;
@@ -46724,7 +46732,7 @@ var ts;
         var currentDirectory = ts.sys.getCurrentDirectory();
         var file = ts.normalizePath(ts.combinePaths(currentDirectory, "tsconfig.json"));
         if (ts.sys.fileExists(file)) {
-            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.A_tsconfig_json_file_is_already_defined_at_Colon_0, file), /* compilerHost */ undefined);
+            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.A_tsconfig_json_file_is_already_defined_at_Colon_0, file), /* host */ undefined);
         }
         else {
             var compilerOptions = ts.extend(options, ts.defaultInitCompilerOptions);
@@ -46742,7 +46750,7 @@ var ts;
                 }
             }
             ts.sys.writeFile(file, JSON.stringify(configurations, undefined, 4));
-            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Successfully_created_a_tsconfig_json_file), /* compilerHost */ undefined);
+            reportDiagnostic(ts.createCompilerDiagnostic(ts.Diagnostics.Successfully_created_a_tsconfig_json_file), /* host */ undefined);
         }
         return;
         function serializeCompilerOptions(options) {
