@@ -28210,7 +28210,7 @@ var ts;
                         checkAsyncFunctionReturnType(node);
                     }
                 }
-                if (!node.body) {
+                if (noUnusedIdentifiers && !node.body) {
                     checkUnusedTypeParameters(node);
                 }
             }
@@ -29396,9 +29396,16 @@ var ts;
         function checkUnusedTypeParameters(node) {
             if (compilerOptions.noUnusedLocals && !ts.isInAmbientContext(node)) {
                 if (node.typeParameters) {
+                    // Only report errors on the last declaration for the type parameter container;
+                    // this ensures that all uses have been accounted for.
+                    var symbol = getSymbolOfNode(node);
+                    var lastDeclaration = symbol && symbol.declarations && ts.lastOrUndefined(symbol.declarations);
+                    if (lastDeclaration !== node) {
+                        return;
+                    }
                     for (var _i = 0, _a = node.typeParameters; _i < _a.length; _i++) {
                         var typeParameter = _a[_i];
-                        if (!typeParameter.symbol.isReferenced) {
+                        if (!getMergedSymbol(typeParameter.symbol).isReferenced) {
                             error(typeParameter.name, ts.Diagnostics._0_is_declared_but_never_used, typeParameter.symbol.name);
                         }
                     }
@@ -30731,7 +30738,7 @@ var ts;
             ts.forEach(node.members, checkSourceElement);
             if (produceDiagnostics) {
                 checkTypeForDuplicateIndexSignatures(node);
-                checkUnusedTypeParameters(node);
+                registerForUnusedIdentifiersCheck(node);
             }
         }
         function checkTypeAliasDeclaration(node) {
@@ -39002,7 +39009,7 @@ var ts;
              *   if we should also export the value after its it changed
              * - check if node is a source level declaration to emit it differently,
              *   i.e non-exported variable statement 'var x = 1' is hoisted so
-             *   we we emit variable statement 'var' should be dropped.
+             *   when we emit variable statement 'var' should be dropped.
              */
             function isSourceFileLevelDeclarationInSystemJsModule(node, isExported) {
                 if (!node || !isCurrentFileSystemExternalModule()) {
@@ -41469,13 +41476,13 @@ var ts;
                         if (isES6ExportedDeclaration(node) && !(node.flags & 512 /* Default */) && decoratedClassAlias === undefined) {
                             write("export ");
                         }
-                        if (!isHoistedDeclarationInSystemModule) {
-                            write("let ");
-                        }
                         if (decoratedClassAlias !== undefined) {
-                            write("" + decoratedClassAlias);
+                            write("let " + decoratedClassAlias);
                         }
                         else {
+                            if (!isHoistedDeclarationInSystemModule) {
+                                write("let ");
+                            }
                             emitDeclarationName(node);
                         }
                         write(" = ");
@@ -41494,7 +41501,9 @@ var ts;
                 //
                 // We'll emit:
                 //
-                //      (_temp = class C { ... }, _temp.a = 1, _temp.b = 2, _temp)
+                //      let C_1 = class C{};
+                //      C_1.a = 1;
+                //      C_1.b = 2; // so forth and so on
                 //
                 // This keeps the expression as an expression, while ensuring that the static parts
                 // of it have been initialized by the time it is used.
@@ -46416,7 +46425,8 @@ var ts;
                 ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
                 return;
             }
-            var configParseResult = ts.parseJsonConfigFileContent(configObject, ts.sys, ts.getNormalizedAbsolutePath(ts.getDirectoryPath(configFileName), ts.sys.getCurrentDirectory()), commandLine.options, configFileName);
+            var cwd = ts.sys.getCurrentDirectory();
+            var configParseResult = ts.parseJsonConfigFileContent(configObject, ts.sys, ts.getNormalizedAbsolutePath(ts.getDirectoryPath(configFileName), cwd), commandLine.options, ts.getNormalizedAbsolutePath(configFileName, cwd));
             if (configParseResult.errors.length > 0) {
                 reportDiagnostics(configParseResult.errors, /* compilerHost */ undefined);
                 ts.sys.exit(ts.ExitStatus.DiagnosticsPresent_OutputsSkipped);
