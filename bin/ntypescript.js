@@ -878,7 +878,114 @@ var ts;
     })(ts.CharacterCodes || (ts.CharacterCodes = {}));
     var CharacterCodes = ts.CharacterCodes;
 })(ts || (ts = {}));
+/*@internal*/
+var ts;
+(function (ts) {
+    /** Performance measurements for the compiler. */
+    var performance;
+    (function (performance_1) {
+        var profilerEvent;
+        var markInternal;
+        var counters;
+        var measures;
+        /**
+         * Emit a performance event if ts-profiler is connected. This is primarily used
+         * to generate heap snapshots.
+         *
+         * @param eventName A name for the event.
+         */
+        function emit(eventName) {
+            if (profilerEvent) {
+                profilerEvent(eventName);
+            }
+        }
+        performance_1.emit = emit;
+        /**
+         * Increments a counter with the specified name.
+         *
+         * @param counterName The name of the counter.
+         */
+        function increment(counterName) {
+            if (counters) {
+                counters[counterName] = (ts.getProperty(counters, counterName) || 0) + 1;
+            }
+        }
+        performance_1.increment = increment;
+        /**
+         * Gets the value of the counter with the specified name.
+         *
+         * @param counterName The name of the counter.
+         */
+        function getCount(counterName) {
+            return counters && ts.getProperty(counters, counterName) || 0;
+        }
+        performance_1.getCount = getCount;
+        /**
+         * Marks the start of a performance measurement.
+         */
+        function mark() {
+            return measures ? markInternal() : 0;
+        }
+        performance_1.mark = mark;
+        /**
+         * Adds a performance measurement with the specified name.
+         *
+         * @param measureName The name of the performance measurement.
+         * @param marker The timestamp of the starting mark.
+         */
+        function measure(measureName, marker) {
+            if (measures) {
+                measures[measureName] = (ts.getProperty(measures, measureName) || 0) + (Date.now() - marker);
+            }
+        }
+        performance_1.measure = measure;
+        /**
+         * Iterate over each measure, performing some action
+         *
+         * @param cb The action to perform for each measure
+         */
+        function forEachMeasure(cb) {
+            return ts.forEachKey(measures, function (key) { return cb(key, measures[key]); });
+        }
+        performance_1.forEachMeasure = forEachMeasure;
+        /**
+         * Gets the total duration of all measurements with the supplied name.
+         *
+         * @param measureName The name of the measure whose durations should be accumulated.
+         */
+        function getDuration(measureName) {
+            return measures && ts.getProperty(measures, measureName) || 0;
+        }
+        performance_1.getDuration = getDuration;
+        /** Enables (and resets) performance measurements for the compiler. */
+        function enable() {
+            counters = {};
+            measures = {
+                "I/O Read": 0,
+                "I/O Write": 0,
+                "Program": 0,
+                "Parse": 0,
+                "Bind": 0,
+                "Check": 0,
+                "Emit": 0,
+            };
+            profilerEvent = typeof onProfilerEvent === "function" && onProfilerEvent.profiler === true
+                ? onProfilerEvent
+                : undefined;
+            markInternal = performance && performance.now ? performance.now : Date.now ? Date.now : function () { return new Date().getTime(); };
+        }
+        performance_1.enable = enable;
+        /** Disables (and clears) performance measurements for the compiler. */
+        function disable() {
+            counters = undefined;
+            measures = undefined;
+            profilerEvent = undefined;
+        }
+        performance_1.disable = disable;
+    })(performance = ts.performance || (ts.performance = {}));
+})(ts || (ts = {}));
 /// <reference path="types.ts"/>
+/// <reference path="performance.ts" />
 /* @internal */
 var ts;
 (function (ts) {
@@ -7919,7 +8026,6 @@ var ts;
 /// <reference path="scanner.ts"/>
 var ts;
 (function (ts) {
-    /* @internal */ ts.parseTime = 0;
     var NodeConstructor;
     var TokenConstructor;
     var IdentifierConstructor;
@@ -8332,9 +8438,9 @@ var ts;
     ts.forEachChild = forEachChild;
     function createSourceFile(fileName, sourceText, languageVersion, setParentNodes, scriptKind) {
         if (setParentNodes === void 0) { setParentNodes = false; }
-        var start = new Date().getTime();
+        var start = ts.performance.mark();
         var result = Parser.parseSourceFile(fileName, sourceText, languageVersion, /*syntaxCursor*/ undefined, setParentNodes, scriptKind);
-        ts.parseTime += new Date().getTime() - start;
+        ts.performance.measure("Parse", start);
         return result;
     }
     ts.createSourceFile = createSourceFile;
@@ -14117,7 +14223,6 @@ var ts;
 /* @internal */
 var ts;
 (function (ts) {
-    ts.bindTime = 0;
     (function (ModuleInstanceState) {
         ModuleInstanceState[ModuleInstanceState["NonInstantiated"] = 0] = "NonInstantiated";
         ModuleInstanceState[ModuleInstanceState["Instantiated"] = 1] = "Instantiated";
@@ -14189,9 +14294,9 @@ var ts;
     })(ContainerFlags || (ContainerFlags = {}));
     var binder = createBinder();
     function bindSourceFile(file, options) {
-        var start = new Date().getTime();
+        var start = ts.performance.mark();
         binder(file, options);
-        ts.bindTime += new Date().getTime() - start;
+        ts.performance.measure("Bind", start);
     }
     ts.bindSourceFile = bindSourceFile;
     function createBinder() {
@@ -16152,7 +16257,6 @@ var ts;
         return node.id;
     }
     ts.getNodeId = getNodeId;
-    ts.checkTime = 0;
     function getSymbolId(symbol) {
         if (!symbol.id) {
             symbol.id = nextSymbolId;
@@ -17033,7 +17137,7 @@ var ts;
             // Block-scoped variables cannot be used before their definition
             var declaration = ts.forEach(result.declarations, function (d) { return ts.isBlockOrCatchScoped(d) ? d : undefined; });
             ts.Debug.assert(declaration !== undefined, "Block-scoped variable declaration is undefined");
-            if (!isBlockScopedNameDeclaredBeforeUse(ts.getAncestor(declaration, 218 /* VariableDeclaration */), errorLocation)) {
+            if (!ts.isInAmbientContext(declaration) && !isBlockScopedNameDeclaredBeforeUse(ts.getAncestor(declaration, 218 /* VariableDeclaration */), errorLocation)) {
                 error(errorLocation, ts.Diagnostics.Block_scoped_variable_0_used_before_its_declaration, ts.declarationNameToString(declaration.name));
             }
         }
@@ -31573,9 +31677,9 @@ var ts;
             }
         }
         function checkSourceFile(node) {
-            var start = new Date().getTime();
+            var start = ts.performance.mark();
             checkSourceFileWorker(node);
-            ts.checkTime += new Date().getTime() - start;
+            ts.performance.measure("Check", start);
         }
         // Fully type check a source file and collect the relevant diagnostics.
         function checkSourceFileWorker(node) {
@@ -33681,6 +33785,10 @@ var ts;
         },
         {
             name: "diagnostics",
+            type: "boolean",
+        },
+        {
+            name: "extendedDiagnostics",
             type: "boolean",
         },
         {
@@ -36550,6 +36658,7 @@ var ts;
             if (pos === -1) {
                 return;
             }
+            var start = ts.performance.mark();
             var sourceLinePos = ts.getLineAndCharacterOfPosition(currentSourceFile, pos);
             // Convert the location to be one-based.
             sourceLinePos.line++;
@@ -36582,6 +36691,7 @@ var ts;
                 lastRecordedSourceMapSpan.sourceIndex = sourceMapSourceIndex;
             }
             updateLastEncodedAndRecordedSpans();
+            ts.performance.measure("Source Map", start);
         }
         function getStartPos(range) {
             var rangeHasDecorators = !!range.decorators;
@@ -44062,10 +44172,6 @@ var ts;
 /// <reference path="core.ts" />
 var ts;
 (function (ts) {
-    /* @internal */ ts.programTime = 0;
-    /* @internal */ ts.emitTime = 0;
-    /* @internal */ ts.ioReadTime = 0;
-    /* @internal */ ts.ioWriteTime = 0;
     /** The version of the TypeScript compiler release */
     ts.version = "2.1.0";
     var emptyArray = [];
@@ -44819,9 +44925,9 @@ var ts;
         function getSourceFile(fileName, languageVersion, onError) {
             var text;
             try {
-                var start = new Date().getTime();
+                var start = ts.performance.mark();
                 text = ts.sys.readFile(fileName, options.charset);
-                ts.ioReadTime += new Date().getTime() - start;
+                ts.performance.measure("I/O Read", start);
             }
             catch (e) {
                 if (onError) {
@@ -44876,7 +44982,7 @@ var ts;
         }
         function writeFile(fileName, data, writeByteOrderMark, onError) {
             try {
-                var start = new Date().getTime();
+                var start = ts.performance.mark();
                 ensureDirectoriesExist(ts.getDirectoryPath(ts.normalizePath(fileName)));
                 if (ts.isWatchSet(options) && ts.sys.createHash && ts.sys.getModifiedTime) {
                     writeFileIfUpdated(fileName, data, writeByteOrderMark);
@@ -44884,7 +44990,7 @@ var ts;
                 else {
                     ts.sys.writeFile(fileName, data, writeByteOrderMark);
                 }
-                ts.ioWriteTime += new Date().getTime() - start;
+                ts.performance.measure("I/O Write", start);
             }
             catch (e) {
                 if (onError) {
@@ -45037,7 +45143,7 @@ var ts;
         var modulesWithElidedImports = {};
         // Track source files that are source files found by searching under node_modules, as these shouldn't be compiled.
         var sourceFilesFoundSearchingNodeModules = {};
-        var start = new Date().getTime();
+        var start = ts.performance.mark();
         host = host || createCompilerHost(options);
         var skipDefaultLib = options.noLib;
         var programDiagnostics = ts.createDiagnosticCollection();
@@ -45122,7 +45228,7 @@ var ts;
             getResolvedTypeReferenceDirectives: function () { return resolvedTypeReferenceDirectives; }
         };
         verifyCompilerOptions();
-        ts.programTime += new Date().getTime() - start;
+        ts.performance.measure("Program", start);
         return program;
         function getCommonSourceDirectory() {
             if (typeof commonSourceDirectory === "undefined") {
@@ -45328,9 +45434,9 @@ var ts;
             // files need to be type checked. And the way to specify that all files need to be type
             // checked is to not pass the file to getEmitResolver.
             var emitResolver = getDiagnosticsProducingTypeChecker().getEmitResolver((options.outFile || options.out) ? undefined : sourceFile);
-            var start = new Date().getTime();
+            var start = ts.performance.mark();
             var emitResult = ts.emitFiles(emitResolver, getEmitHost(writeFileCallback), sourceFile);
-            ts.emitTime += new Date().getTime() - start;
+            ts.performance.measure("Emit", start);
             return emitResult;
         }
         function getSourceFile(fileName) {
@@ -46574,12 +46680,9 @@ var ts;
     }
     ts.executeCommandLine = executeCommandLine;
     function compile(fileNames, compilerOptions, compilerHost) {
-        ts.ioReadTime = 0;
-        ts.ioWriteTime = 0;
-        ts.programTime = 0;
-        ts.bindTime = 0;
-        ts.checkTime = 0;
-        ts.emitTime = 0;
+        var hasDiagnostics = compilerOptions.diagnostics || compilerOptions.extendedDiagnostics;
+        if (hasDiagnostics)
+            ts.performance.enable();
         var program = ts.createProgram(fileNames, compilerOptions, compilerHost);
         var exitStatus = compileProgram();
         if (compilerOptions.listFiles) {
@@ -46587,7 +46690,7 @@ var ts;
                 ts.sys.write(file.fileName + ts.sys.newLine);
             });
         }
-        if (compilerOptions.diagnostics) {
+        if (hasDiagnostics) {
             var memoryUsed = ts.sys.getMemoryUsage ? ts.sys.getMemoryUsage() : -1;
             reportCountStatistic("Files", program.getSourceFiles().length);
             reportCountStatistic("Lines", countLines(program));
@@ -46598,17 +46701,27 @@ var ts;
             if (memoryUsed >= 0) {
                 reportStatisticalValue("Memory used", Math.round(memoryUsed / 1000) + "K");
             }
-            // Individual component times.
-            // Note: To match the behavior of previous versions of the compiler, the reported parse time includes
-            // I/O read time and processing time for triple-slash references and module imports, and the reported
-            // emit time includes I/O write time. We preserve this behavior so we can accurately compare times.
-            reportTimeStatistic("I/O read", ts.ioReadTime);
-            reportTimeStatistic("I/O write", ts.ioWriteTime);
-            reportTimeStatistic("Parse time", ts.programTime);
-            reportTimeStatistic("Bind time", ts.bindTime);
-            reportTimeStatistic("Check time", ts.checkTime);
-            reportTimeStatistic("Emit time", ts.emitTime);
-            reportTimeStatistic("Total time", ts.programTime + ts.bindTime + ts.checkTime + ts.emitTime);
+            var programTime = ts.performance.getDuration("Program");
+            var bindTime = ts.performance.getDuration("Bind");
+            var checkTime = ts.performance.getDuration("Check");
+            var emitTime = ts.performance.getDuration("Emit");
+            if (compilerOptions.extendedDiagnostics) {
+                ts.performance.forEachMeasure(function (name, duration) { return reportTimeStatistic(name + " time", duration); });
+            }
+            else {
+                // Individual component times.
+                // Note: To match the behavior of previous versions of the compiler, the reported parse time includes
+                // I/O read time and processing time for triple-slash references and module imports, and the reported
+                // emit time includes I/O write time. We preserve this behavior so we can accurately compare times.
+                reportTimeStatistic("I/O read", ts.performance.getDuration("I/O Read"));
+                reportTimeStatistic("I/O write", ts.performance.getDuration("I/O Write"));
+                reportTimeStatistic("Parse time", programTime);
+                reportTimeStatistic("Bind time", bindTime);
+                reportTimeStatistic("Check time", checkTime);
+                reportTimeStatistic("Emit time", emitTime);
+            }
+            reportTimeStatistic("Total time", programTime + bindTime + checkTime + emitTime);
+            ts.performance.disable();
         }
         return { program: program, exitStatus: exitStatus };
         function compileProgram() {

@@ -1797,6 +1797,7 @@ declare namespace ts {
         declaration?: boolean;
         declarationDir?: string;
         diagnostics?: boolean;
+        extendedDiagnostics?: boolean;
         disableSizeLimit?: boolean;
         emitBOM?: boolean;
         emitDecoratorMetadata?: boolean;
@@ -2142,6 +2143,57 @@ declare namespace ts {
     }
     interface SyntaxList extends Node {
         _children: Node[];
+    }
+}
+declare namespace ts {
+    /** Performance measurements for the compiler. */
+    namespace performance {
+        /**
+         * Emit a performance event if ts-profiler is connected. This is primarily used
+         * to generate heap snapshots.
+         *
+         * @param eventName A name for the event.
+         */
+        function emit(eventName: string): void;
+        /**
+         * Increments a counter with the specified name.
+         *
+         * @param counterName The name of the counter.
+         */
+        function increment(counterName: string): void;
+        /**
+         * Gets the value of the counter with the specified name.
+         *
+         * @param counterName The name of the counter.
+         */
+        function getCount(counterName: string): number;
+        /**
+         * Marks the start of a performance measurement.
+         */
+        function mark(): number;
+        /**
+         * Adds a performance measurement with the specified name.
+         *
+         * @param measureName The name of the performance measurement.
+         * @param marker The timestamp of the starting mark.
+         */
+        function measure(measureName: string, marker: number): void;
+        /**
+         * Iterate over each measure, performing some action
+         *
+         * @param cb The action to perform for each measure
+         */
+        function forEachMeasure(cb: (measureName: string, duration: number) => void): void;
+        /**
+         * Gets the total duration of all measurements with the supplied name.
+         *
+         * @param measureName The name of the measure whose durations should be accumulated.
+         */
+        function getDuration(measureName: string): number;
+        /** Enables (and resets) performance measurements for the compiler. */
+        function enable(): void;
+        /** Disables (and clears) performance measurements for the compiler. */
+        function disable(): void;
     }
 }
 declare namespace ts {
@@ -7331,7 +7383,6 @@ declare namespace ts {
     function createScanner(languageVersion: ScriptTarget, skipTrivia: boolean, languageVariant?: LanguageVariant, text?: string, onError?: ErrorCallback, start?: number, length?: number): Scanner;
 }
 declare namespace ts {
-    let parseTime: number;
     function createNode(kind: SyntaxKind, pos?: number, end?: number): Node;
     function forEachChild<T>(node: Node, cbNode: (node: Node) => T, cbNodeArray?: (nodes: Node[]) => T): T;
     function createSourceFile(fileName: string, sourceText: string, languageVersion: ScriptTarget, setParentNodes?: boolean, scriptKind?: ScriptKind): SourceFile;
@@ -7347,7 +7398,6 @@ declare namespace ts {
     };
 }
 declare namespace ts {
-    let bindTime: number;
     enum ModuleInstanceState {
         NonInstantiated = 0,
         Instantiated = 1,
@@ -7358,7 +7408,6 @@ declare namespace ts {
 }
 declare namespace ts {
     function getNodeId(node: Node): number;
-    let checkTime: number;
     function getSymbolId(symbol: Symbol): number;
     function createTypeChecker(host: TypeCheckerHost, produceDiagnostics: boolean): TypeChecker;
 }
@@ -7434,10 +7483,6 @@ declare namespace ts {
     function emitFiles(resolver: EmitResolver, host: EmitHost, targetSourceFile: SourceFile): EmitResult;
 }
 declare namespace ts {
-    let programTime: number;
-    let emitTime: number;
-    let ioReadTime: number;
-    let ioWriteTime: number;
     /** The version of the TypeScript compiler release */
     const version: string;
     function findConfigFile(searchPath: string, fileExists: (fileName: string) => boolean): string;
