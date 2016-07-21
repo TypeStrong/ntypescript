@@ -881,11 +881,15 @@ var ts;
 /*@internal*/
 var ts;
 (function (ts) {
-    /** Performance measurements for the compiler. */
+    /** Gets a timestamp with (at least) ms resolution */
+    ts.timestamp = typeof performance !== "undefined" && performance.now ? performance.now : Date.now ? Date.now : function () { return +(new Date()); };
+})(ts || (ts = {}));
+/*@internal*/
+var ts;
+(function (ts) {
     var performance;
-    (function (performance_1) {
+    (function (performance) {
         var profilerEvent;
-        var markInternal;
         var counters;
         var measures;
         /**
@@ -899,7 +903,7 @@ var ts;
                 profilerEvent(eventName);
             }
         }
-        performance_1.emit = emit;
+        performance.emit = emit;
         /**
          * Increments a counter with the specified name.
          *
@@ -910,7 +914,7 @@ var ts;
                 counters[counterName] = (ts.getProperty(counters, counterName) || 0) + 1;
             }
         }
-        performance_1.increment = increment;
+        performance.increment = increment;
         /**
          * Gets the value of the counter with the specified name.
          *
@@ -919,14 +923,14 @@ var ts;
         function getCount(counterName) {
             return counters && ts.getProperty(counters, counterName) || 0;
         }
-        performance_1.getCount = getCount;
+        performance.getCount = getCount;
         /**
          * Marks the start of a performance measurement.
          */
         function mark() {
-            return measures ? markInternal() : 0;
+            return measures ? ts.timestamp() : 0;
         }
-        performance_1.mark = mark;
+        performance.mark = mark;
         /**
          * Adds a performance measurement with the specified name.
          *
@@ -935,10 +939,10 @@ var ts;
          */
         function measure(measureName, marker) {
             if (measures) {
-                measures[measureName] = (ts.getProperty(measures, measureName) || 0) + (Date.now() - marker);
+                measures[measureName] = (ts.getProperty(measures, measureName) || 0) + (ts.timestamp() - marker);
             }
         }
-        performance_1.measure = measure;
+        performance.measure = measure;
         /**
          * Iterate over each measure, performing some action
          *
@@ -947,7 +951,7 @@ var ts;
         function forEachMeasure(cb) {
             return ts.forEachKey(measures, function (key) { return cb(key, measures[key]); });
         }
-        performance_1.forEachMeasure = forEachMeasure;
+        performance.forEachMeasure = forEachMeasure;
         /**
          * Gets the total duration of all measurements with the supplied name.
          *
@@ -956,7 +960,7 @@ var ts;
         function getDuration(measureName) {
             return measures && ts.getProperty(measures, measureName) || 0;
         }
-        performance_1.getDuration = getDuration;
+        performance.getDuration = getDuration;
         /** Enables (and resets) performance measurements for the compiler. */
         function enable() {
             counters = {};
@@ -972,16 +976,15 @@ var ts;
             profilerEvent = typeof onProfilerEvent === "function" && onProfilerEvent.profiler === true
                 ? onProfilerEvent
                 : undefined;
-            markInternal = performance && performance.now ? performance.now : Date.now ? Date.now : function () { return new Date().getTime(); };
         }
-        performance_1.enable = enable;
+        performance.enable = enable;
         /** Disables (and clears) performance measurements for the compiler. */
         function disable() {
             counters = undefined;
             measures = undefined;
             profilerEvent = undefined;
         }
-        performance_1.disable = disable;
+        performance.disable = disable;
     })(performance = ts.performance || (ts.performance = {}));
 })(ts || (ts = {}));
 /// <reference path="types.ts"/>
@@ -55145,13 +55148,13 @@ var ts;
             var sourceFile = getValidSourceFile(fileName);
             var isJavaScriptFile = ts.isSourceFileJavaScript(sourceFile);
             var isJsDocTagName = false;
-            var start = new Date().getTime();
+            var start = ts.timestamp();
             var currentToken = ts.getTokenAtPosition(sourceFile, position);
-            log("getCompletionData: Get current token: " + (new Date().getTime() - start));
-            start = new Date().getTime();
+            log("getCompletionData: Get current token: " + (ts.timestamp() - start));
+            start = ts.timestamp();
             // Completion not allowed inside comments, bail out if this is the case
             var insideComment = isInsideComment(sourceFile, currentToken, position);
-            log("getCompletionData: Is inside comment: " + (new Date().getTime() - start));
+            log("getCompletionData: Is inside comment: " + (ts.timestamp() - start));
             if (insideComment) {
                 // The current position is next to the '@' sign, when no tag name being provided yet.
                 // Provide a full list of tag names
@@ -55188,18 +55191,18 @@ var ts;
                     return undefined;
                 }
             }
-            start = new Date().getTime();
+            start = ts.timestamp();
             var previousToken = ts.findPrecedingToken(position, sourceFile);
-            log("getCompletionData: Get previous token 1: " + (new Date().getTime() - start));
+            log("getCompletionData: Get previous token 1: " + (ts.timestamp() - start));
             // The decision to provide completion depends on the contextToken, which is determined through the previousToken.
             // Note: 'previousToken' (and thus 'contextToken') can be undefined if we are the beginning of the file
             var contextToken = previousToken;
             // Check if the caret is at the end of an identifier; this is a partial identifier that we want to complete: e.g. a.toS|
             // Skip this partial identifier and adjust the contextToken to the token that precedes it.
             if (contextToken && position <= contextToken.end && ts.isWord(contextToken.kind)) {
-                var start_5 = new Date().getTime();
+                var start_5 = ts.timestamp();
                 contextToken = ts.findPrecedingToken(contextToken.getFullStart(), sourceFile);
-                log("getCompletionData: Get previous token 2: " + (new Date().getTime() - start_5));
+                log("getCompletionData: Get previous token 2: " + (ts.timestamp() - start_5));
             }
             // Find the node where completion is requested on.
             // Also determine whether we are trying to complete with members of that node
@@ -55242,7 +55245,7 @@ var ts;
                     }
                 }
             }
-            var semanticStart = new Date().getTime();
+            var semanticStart = ts.timestamp();
             var isMemberCompletion;
             var isNewIdentifierLocation;
             var symbols = [];
@@ -55277,7 +55280,7 @@ var ts;
                     return undefined;
                 }
             }
-            log("getCompletionData: Semantic work: " + (new Date().getTime() - semanticStart));
+            log("getCompletionData: Semantic work: " + (ts.timestamp() - semanticStart));
             return { symbols: symbols, isMemberCompletion: isMemberCompletion, isNewIdentifierLocation: isNewIdentifierLocation, location: location, isRightOfDot: (isRightOfDot || isRightOfOpenTag), isJsDocTagName: isJsDocTagName };
             function getTypeScriptMemberSymbols() {
                 // Right of dot member completion list
@@ -55402,12 +55405,12 @@ var ts;
                 return scope;
             }
             function isCompletionListBlocker(contextToken) {
-                var start = new Date().getTime();
+                var start = ts.timestamp();
                 var result = isInStringOrRegularExpressionOrTemplateLiteral(contextToken) ||
                     isSolelyIdentifierDefinitionLocation(contextToken) ||
                     isDotOfNumericLiteral(contextToken) ||
                     isInJsxText(contextToken);
-                log("getCompletionsAtPosition: isCompletionListBlocker: " + (new Date().getTime() - start));
+                log("getCompletionsAtPosition: isCompletionListBlocker: " + (ts.timestamp() - start));
                 return result;
             }
             function isInJsxText(contextToken) {
@@ -55968,7 +55971,7 @@ var ts;
                 };
             }
             function getCompletionEntriesFromSymbols(symbols, entries, location, performCharacterChecks) {
-                var start = new Date().getTime();
+                var start = ts.timestamp();
                 var uniqueNames = {};
                 if (symbols) {
                     for (var _i = 0, symbols_4 = symbols; _i < symbols_4.length; _i++) {
@@ -55983,7 +55986,7 @@ var ts;
                         }
                     }
                 }
-                log("getCompletionsAtPosition: getCompletionEntriesFromSymbols: " + (new Date().getTime() - start));
+                log("getCompletionsAtPosition: getCompletionEntriesFromSymbols: " + (ts.timestamp() - start));
                 return uniqueNames;
             }
             function getStringLiteralCompletionEntries(sourceFile, position) {
@@ -58937,12 +58940,12 @@ var ts;
             }
         }
         function getIndentationAtPosition(fileName, position, editorOptions) {
-            var start = new Date().getTime();
+            var start = ts.timestamp();
             var sourceFile = syntaxTreeCache.getCurrentSourceFile(fileName);
-            log("getIndentationAtPosition: getCurrentSourceFile: " + (new Date().getTime() - start));
-            start = new Date().getTime();
+            log("getIndentationAtPosition: getCurrentSourceFile: " + (ts.timestamp() - start));
+            start = ts.timestamp();
             var result = ts.formatting.SmartIndenter.getIndentation(position, sourceFile, editorOptions);
-            log("getIndentationAtPosition: computeIndentation  : " + (new Date().getTime() - start));
+            log("getIndentationAtPosition: computeIndentation  : " + (ts.timestamp() - start));
             return result;
         }
         function getFormattingEditsForRange(fileName, start, end, options) {
@@ -60648,7 +60651,7 @@ var ts;
             this.lastCancellationCheckTime = 0;
         }
         ThrottledCancellationToken.prototype.isCancellationRequested = function () {
-            var time = Date.now();
+            var time = ts.timestamp();
             var duration = Math.abs(time - this.lastCancellationCheckTime);
             if (duration > 10) {
                 // Check no more than once every 10 ms.
@@ -60708,11 +60711,11 @@ var ts;
         var start;
         if (logPerformance) {
             logger.log(actionDescription);
-            start = Date.now();
+            start = ts.timestamp();
         }
         var result = action();
         if (logPerformance) {
-            var end = Date.now();
+            var end = ts.timestamp();
             logger.log(actionDescription + " completed in " + (end - start) + " msec");
             if (typeof result === "string") {
                 var str = result;
