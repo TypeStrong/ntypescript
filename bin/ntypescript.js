@@ -1881,10 +1881,25 @@ var ts;
     // proof.
     var reservedCharacterPattern = /[^\w\s\/]/g;
     var wildcardCharCodes = [42 /* asterisk */, 63 /* question */];
+    /**
+     * Matches any single directory segment unless it is the last segment and a .min.js file
+     * Breakdown:
+     *  [^./]                   # matches everything up to the first . character (excluding directory seperators)
+     *  (\\.(?!min\\.js$))?     # matches . characters but not if they are part of the .min.js file extension
+     */
+    var singleAsteriskRegexFragmentFiles = "([^./]*(\\.(?!min\\.js$))?)*";
+    var singleAsteriskRegexFragmentOther = "[^/]*";
     function getRegularExpressionForWildcard(specs, basePath, usage) {
         if (specs === undefined || specs.length === 0) {
             return undefined;
         }
+        var replaceWildcardCharacter = usage === "files" ? replaceWildCardCharacterFiles : replaceWildCardCharacterOther;
+        var singleAsteriskRegexFragment = usage === "files" ? singleAsteriskRegexFragmentFiles : singleAsteriskRegexFragmentOther;
+        /**
+         * Regex for the ** wildcard. Matches any number of subdirectories. When used for including
+         * files or directories, does not match subdirectories that start with a . character
+         */
+        var doubleAsteriskRegexFragment = usage === "exclude" ? "(/.+?)?" : "(/[^/.][^/]*)*?";
         var pattern = "";
         var hasWrittenSubpattern = false;
         spec: for (var _i = 0, specs_1 = specs; _i < specs_1.length; _i++) {
@@ -1909,7 +1924,7 @@ var ts;
                     if (hasRecursiveDirectoryWildcard) {
                         continue spec;
                     }
-                    subpattern += "(/.+?)?";
+                    subpattern += doubleAsteriskRegexFragment;
                     hasRecursiveDirectoryWildcard = true;
                     hasWrittenComponent = true;
                 }
@@ -1920,6 +1935,19 @@ var ts;
                     }
                     if (hasWrittenComponent) {
                         subpattern += ts.directorySeparator;
+                    }
+                    if (usage !== "exclude") {
+                        // The * and ? wildcards should not match directories or files that start with . if they
+                        // appear first in a component. Dotted directories and files can be included explicitly
+                        // like so: **/.*/.*
+                        if (component.charCodeAt(0) === 42 /* asterisk */) {
+                            subpattern += "([^./]" + singleAsteriskRegexFragment + ")?";
+                            component = component.substr(1);
+                        }
+                        else if (component.charCodeAt(0) === 63 /* question */) {
+                            subpattern += "[^./]";
+                            component = component.substr(1);
+                        }
                     }
                     subpattern += component.replace(reservedCharacterPattern, replaceWildcardCharacter);
                     hasWrittenComponent = true;
@@ -1941,8 +1969,14 @@ var ts;
         return "^(" + pattern + (usage === "exclude" ? ")($|/)" : ")$");
     }
     ts.getRegularExpressionForWildcard = getRegularExpressionForWildcard;
-    function replaceWildcardCharacter(match) {
-        return match === "*" ? "[^/]*" : match === "?" ? "[^/]" : "\\" + match;
+    function replaceWildCardCharacterFiles(match) {
+        return replaceWildcardCharacter(match, singleAsteriskRegexFragmentFiles);
+    }
+    function replaceWildCardCharacterOther(match) {
+        return replaceWildcardCharacter(match, singleAsteriskRegexFragmentOther);
+    }
+    function replaceWildcardCharacter(match, singleAsteriskRegexFragment) {
+        return match === "*" ? singleAsteriskRegexFragment : match === "?" ? "[^/]" : "\\" + match;
     }
     function getFileMatcherPatterns(path, extensions, excludes, includes, useCaseSensitiveFileNames, currentDirectory) {
         path = normalizePath(path);
@@ -34439,9 +34473,6 @@ var ts;
         }
         return output;
     }
-    // Skip over any minified JavaScript files (ending in ".min.js")
-    // Skip over dotted files and folders as well
-    var ignoreFileNamePattern = /(\.min\.js$)|([\\/]\.[\w.])/;
     /**
       * Parse the contents of a config file (tsconfig.json).
       * @param json The contents of the config file to parse
@@ -34715,9 +34746,6 @@ var ts;
                 // <file>.d.ts (or <file>.js if "allowJs" is enabled) in the same
                 // directory when they are compilation outputs.
                 if (hasFileWithHigherPriorityExtension(file, literalFileMap, wildcardFileMap, supportedExtensions, keyMapper)) {
-                    continue;
-                }
-                if (ignoreFileNamePattern.test(file)) {
                     continue;
                 }
                 // We may have included a wildcard path with a lower priority
@@ -46130,7 +46158,7 @@ var ts;
             }
             var languageVersion = options.target || 0 /* ES3 */;
             var outFile = options.outFile || options.out;
-            var firstExternalModuleSourceFile = ts.forEach(files, function (f) { return ts.isExternalModule(f) ? f : undefined; });
+            var firstNonAmbientExternalModuleSourceFile = ts.forEach(files, function (f) { return ts.isExternalModule(f) && !ts.isDeclarationFile(f) ? f : undefined; });
             if (options.isolatedModules) {
                 if (options.module === ts.ModuleKind.None && languageVersion < 2 /* ES6 */) {
                     programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Option_isolatedModules_can_only_be_used_when_either_option_module_is_provided_or_option_target_is_ES2015_or_higher));
@@ -46141,19 +46169,19 @@ var ts;
                     programDiagnostics.add(ts.createFileDiagnostic(firstNonExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_namespaces_when_the_isolatedModules_flag_is_provided));
                 }
             }
-            else if (firstExternalModuleSourceFile && languageVersion < 2 /* ES6 */ && options.module === ts.ModuleKind.None) {
+            else if (firstNonAmbientExternalModuleSourceFile && languageVersion < 2 /* ES6 */ && options.module === ts.ModuleKind.None) {
                 // We cannot use createDiagnosticFromNode because nodes do not have parents yet
-                var span = ts.getErrorSpanForNode(firstExternalModuleSourceFile, firstExternalModuleSourceFile.externalModuleIndicator);
-                programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_use_imports_exports_or_module_augmentations_when_module_is_none));
+                var span = ts.getErrorSpanForNode(firstNonAmbientExternalModuleSourceFile, firstNonAmbientExternalModuleSourceFile.externalModuleIndicator);
+                programDiagnostics.add(ts.createFileDiagnostic(firstNonAmbientExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_use_imports_exports_or_module_augmentations_when_module_is_none));
             }
             // Cannot specify module gen that isn't amd or system with --out
             if (outFile) {
                 if (options.module && !(options.module === ts.ModuleKind.AMD || options.module === ts.ModuleKind.System)) {
                     programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Only_amd_and_system_modules_are_supported_alongside_0, options.out ? "out" : "outFile"));
                 }
-                else if (options.module === undefined && firstExternalModuleSourceFile) {
-                    var span = ts.getErrorSpanForNode(firstExternalModuleSourceFile, firstExternalModuleSourceFile.externalModuleIndicator);
-                    programDiagnostics.add(ts.createFileDiagnostic(firstExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_using_option_0_unless_the_module_flag_is_amd_or_system, options.out ? "out" : "outFile"));
+                else if (options.module === undefined && firstNonAmbientExternalModuleSourceFile) {
+                    var span = ts.getErrorSpanForNode(firstNonAmbientExternalModuleSourceFile, firstNonAmbientExternalModuleSourceFile.externalModuleIndicator);
+                    programDiagnostics.add(ts.createFileDiagnostic(firstNonAmbientExternalModuleSourceFile, span.start, span.length, ts.Diagnostics.Cannot_compile_modules_using_option_0_unless_the_module_flag_is_amd_or_system, options.out ? "out" : "outFile"));
                 }
             }
             // there has to be common source directory if user specified --outdir || --sourceRoot
@@ -55996,21 +56024,55 @@ var ts;
                 if (!node || node.kind !== 9 /* StringLiteral */) {
                     return undefined;
                 }
-                var argumentInfo = ts.SignatureHelp.getContainingArgumentInfo(node, position, sourceFile);
-                if (argumentInfo) {
-                    // Get string literal completions from specialized signatures of the target
-                    return getStringLiteralCompletionEntriesFromCallExpression(argumentInfo);
+                if (node.parent.kind === 253 /* PropertyAssignment */ && node.parent.parent.kind === 171 /* ObjectLiteralExpression */) {
+                    // Get quoted name of properties of the object literal expression
+                    // i.e. interface ConfigFiles {
+                    //          'jspm:dev': string
+                    //      }
+                    //      let files: ConfigFiles = {
+                    //          '/*completion position*/'
+                    //      }
+                    //
+                    //      function foo(c: ConfigFiles) {}
+                    //      foo({
+                    //          '/*completion position*/'
+                    //      });
+                    return getStringLiteralCompletionEntriesFromPropertyAssignment(node.parent);
                 }
                 else if (ts.isElementAccessExpression(node.parent) && node.parent.argumentExpression === node) {
                     // Get all names of properties on the expression
+                    // i.e. interface A {
+                    //      'prop1': string
+                    // }
+                    // let a: A;
+                    // a['/*completion position*/']
                     return getStringLiteralCompletionEntriesFromElementAccess(node.parent);
                 }
                 else {
-                    // Otherwise, get the completions from the contextual type if one exists
+                    var argumentInfo = ts.SignatureHelp.getContainingArgumentInfo(node, position, sourceFile);
+                    if (argumentInfo) {
+                        // Get string literal completions from specialized signatures of the target
+                        // i.e. declare function f(a: 'A');
+                        // f("/*completion position*/")
+                        return getStringLiteralCompletionEntriesFromCallExpression(argumentInfo, node);
+                    }
+                    // Get completion for string literal from string literal type
+                    // i.e. var x: "hi" | "hello" = "/*completion position*/"
                     return getStringLiteralCompletionEntriesFromContextualType(node);
                 }
             }
-            function getStringLiteralCompletionEntriesFromCallExpression(argumentInfo) {
+            function getStringLiteralCompletionEntriesFromPropertyAssignment(element) {
+                var typeChecker = program.getTypeChecker();
+                var type = typeChecker.getContextualType(element.parent);
+                var entries = [];
+                if (type) {
+                    getCompletionEntriesFromSymbols(type.getApparentProperties(), entries, element, /*performCharacterChecks*/ false);
+                    if (entries.length) {
+                        return { isMemberCompletion: true, isNewIdentifierLocation: true, entries: entries };
+                    }
+                }
+            }
+            function getStringLiteralCompletionEntriesFromCallExpression(argumentInfo, location) {
                 var typeChecker = program.getTypeChecker();
                 var candidates = [];
                 var entries = [];
