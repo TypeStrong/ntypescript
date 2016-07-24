@@ -583,6 +583,7 @@
   "Substitutions_for_pattern_0_should_be_an_array_5063" : "Substitutions for pattern '{0}' should be an array.",
   "Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2_5064" : "Substitution '{0}' for pattern '{1}' has incorrect type, expected 'string', got '{2}'.",
   "File_specification_cannot_contain_a_parent_directory_that_appears_after_a_recursive_directory_wildca_5065" : "File specification cannot contain a parent directory ('..') that appears after a recursive directory wildcard ('**'): '{0}'.",
+  "Substitutions_for_pattern_0_shouldn_t_be_an_empty_array_5066" : "Substitutions for pattern '{0}' shouldn't be an empty array.",
   "Concatenate_and_emit_output_to_single_file_6001" : "Concatenate and emit output to single file.",
   "Generates_corresponding_d_ts_file_6002" : "Generates corresponding '.d.ts' file.",
   "Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations_6003" : "Specify the location where debugger should locate map files instead of generated locations.",

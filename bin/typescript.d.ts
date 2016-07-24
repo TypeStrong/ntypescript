@@ -6289,6 +6289,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        Substitutions_for_pattern_0_shouldn_t_be_an_empty_array: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Concatenate_and_emit_output_to_single_file: {
             code: number;
             category: DiagnosticCategory;

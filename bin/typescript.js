@@ -6231,6 +6231,7 @@ var ts;
         Substitutions_for_pattern_0_should_be_an_array: { code: 5063, category: ts.DiagnosticCategory.Error, key: "Substitutions_for_pattern_0_should_be_an_array_5063", message: "Substitutions for pattern '{0}' should be an array." },
         Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2: { code: 5064, category: ts.DiagnosticCategory.Error, key: "Substitution_0_for_pattern_1_has_incorrect_type_expected_string_got_2_5064", message: "Substitution '{0}' for pattern '{1}' has incorrect type, expected 'string', got '{2}'." },
         File_specification_cannot_contain_a_parent_directory_that_appears_after_a_recursive_directory_wildcard_Asterisk_Asterisk_Colon_0: { code: 5065, category: ts.DiagnosticCategory.Error, key: "File_specification_cannot_contain_a_parent_directory_that_appears_after_a_recursive_directory_wildca_5065", message: "File specification cannot contain a parent directory ('..') that appears after a recursive directory wildcard ('**'): '{0}'." },
+        Substitutions_for_pattern_0_shouldn_t_be_an_empty_array: { code: 5066, category: ts.DiagnosticCategory.Error, key: "Substitutions_for_pattern_0_shouldn_t_be_an_empty_array_5066", message: "Substitutions for pattern '{0}' shouldn't be an empty array." },
         Concatenate_and_emit_output_to_single_file: { code: 6001, category: ts.DiagnosticCategory.Message, key: "Concatenate_and_emit_output_to_single_file_6001", message: "Concatenate and emit output to single file." },
         Generates_corresponding_d_ts_file: { code: 6002, category: ts.DiagnosticCategory.Message, key: "Generates_corresponding_d_ts_file_6002", message: "Generates corresponding '.d.ts' file." },
         Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations: { code: 6003, category: ts.DiagnosticCategory.Message, key: "Specify_the_location_where_debugger_should_locate_map_files_instead_of_generated_locations_6003", message: "Specify the location where debugger should locate map files instead of generated locations." },
@@ -46112,6 +46113,9 @@ var ts;
                         programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Pattern_0_can_have_at_most_one_Asterisk_character, key));
                     }
                     if (ts.isArray(options.paths[key])) {
+                        if (options.paths[key].length === 0) {
+                            programDiagnostics.add(ts.createCompilerDiagnostic(ts.Diagnostics.Substitutions_for_pattern_0_shouldn_t_be_an_empty_array, key));
+                        }
                         for (var _i = 0, _a = options.paths[key]; _i < _a.length; _i++) {
                             var subst = _a[_i];
                             var typeOfSubst = typeof subst;
