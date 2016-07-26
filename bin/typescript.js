@@ -1887,7 +1887,7 @@ var ts;
      *  [^./]                   # matches everything up to the first . character (excluding directory seperators)
      *  (\\.(?!min\\.js$))?     # matches . characters but not if they are part of the .min.js file extension
      */
-    var singleAsteriskRegexFragmentFiles = "([^./]*(\\.(?!min\\.js$))?)*";
+    var singleAsteriskRegexFragmentFiles = "([^./]|(\\.(?!min\\.js$))?)*";
     var singleAsteriskRegexFragmentOther = "[^/]*";
     function getRegularExpressionForWildcard(specs, basePath, usage) {
         if (specs === undefined || specs.length === 0) {
@@ -26800,8 +26800,20 @@ var ts;
             }
             var declaringClassDeclaration = getClassLikeDeclarationOfSymbol(declaration.parent.symbol);
             var declaringClass = getDeclaredTypeOfSymbol(declaration.parent.symbol);
-            // A private or protected constructor can only be instantiated within it's own class
+            // A private or protected constructor can only be instantiated within its own class (or a subclass, for protected)
             if (!isNodeWithinClass(node, declaringClassDeclaration)) {
+                var containingClass = ts.getContainingClass(node);
+                if (containingClass) {
+                    var containingType = getTypeOfNode(containingClass);
+                    var baseTypes = getBaseTypes(containingType);
+                    if (baseTypes.length) {
+                        var baseType = baseTypes[0];
+                        if (flags & 16 /* Protected */ &&
+                            baseType.symbol === declaration.parent.symbol) {
+                            return true;
+                        }
+                    }
+                }
                 if (flags & 8 /* Private */) {
                     error(node, ts.Diagnostics.Constructor_of_class_0_is_private_and_only_accessible_within_the_class_declaration, typeToString(declaringClass));
                 }
