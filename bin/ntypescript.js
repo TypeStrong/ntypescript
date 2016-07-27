@@ -882,7 +882,7 @@ var ts;
 var ts;
 (function (ts) {
     /** Gets a timestamp with (at least) ms resolution */
-    ts.timestamp = typeof performance !== "undefined" && performance.now ? performance.now : Date.now ? Date.now : function () { return +(new Date()); };
+    ts.timestamp = typeof performance !== "undefined" && performance.now ? function () { return performance.now(); } : Date.now ? Date.now : function () { return +(new Date()); };
 })(ts || (ts = {}));
 /*@internal*/
 var ts;
