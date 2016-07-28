@@ -41652,13 +41652,17 @@ var ts;
                 // If the class has static properties, and it's a class expression, then we'll need
                 // to specialize the emit a bit.  for a class expression of the form:
                 //
-                //      class C { static a = 1; static b = 2; ... }
+                //      (class C { static a = 1; static b = 2; ... })
                 //
                 // We'll emit:
                 //
-                //      let C_1 = class C{};
-                //      C_1.a = 1;
-                //      C_1.b = 2; // so forth and so on
+                //    ((C_1 = class C {
+                //            // Normal class body
+                //        },
+                //        C_1.a = 1,
+                //        C_1.b = 2,
+                //        C_1));
+                //    var C_1;
                 //
                 // This keeps the expression as an expression, while ensuring that the static parts
                 // of it have been initialized by the time it is used.
@@ -41666,7 +41670,7 @@ var ts;
                 var isClassExpressionWithStaticProperties = staticProperties.length > 0 && node.kind === 192 /* ClassExpression */;
                 var generatedName;
                 if (isClassExpressionWithStaticProperties) {
-                    generatedName = getGeneratedNameForNode(node.name);
+                    generatedName = node.name ? getGeneratedNameForNode(node.name) : makeUniqueName("classExpression");
                     var synthesizedNode = ts.createSynthesizedNode(69 /* Identifier */);
                     synthesizedNode.text = generatedName;
                     recordTempDeclaration(synthesizedNode);
