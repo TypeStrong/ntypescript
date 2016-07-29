@@ -438,6 +438,7 @@
   "Object_is_possibly_undefined_2532" : "Object is possibly 'undefined'.",
   "Object_is_possibly_null_or_undefined_2533" : "Object is possibly 'null' or 'undefined'.",
   "A_function_returning_never_cannot_have_a_reachable_end_point_2534" : "A function returning 'never' cannot have a reachable end point.",
+  "Enum_type_0_has_members_with_initializers_that_are_not_literals_2535" : "Enum type '{0}' has members with initializers that are not literals.",
   "JSX_element_attributes_type_0_may_not_be_a_union_type_2600" : "JSX element attributes type '{0}' may not be a union type.",
   "The_return_type_of_a_JSX_element_constructor_must_return_an_object_type_2601" : "The return type of a JSX element constructor must return an object type.",
   "JSX_element_implicitly_has_type_any_because_the_global_type_JSX_Element_does_not_exist_2602" : "JSX element implicitly has type 'any' because the global type 'JSX.Element' does not exist.",
