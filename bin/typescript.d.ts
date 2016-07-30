@@ -5726,6 +5726,12 @@ declare namespace ts {
             key: string;
             message: string;
         };
+        A_class_must_be_declared_after_its_base_class: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
         Import_declaration_0_is_using_private_name_1: {
             code: number;
             category: DiagnosticCategory;
@@ -8641,6 +8647,7 @@ declare namespace ts {
         const typeElement: string;
         /** enum E */
         const enumElement: string;
+        const enumMemberElement: string;
         /**
          * Inside module and script only
          * const v = ..

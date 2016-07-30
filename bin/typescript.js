@@ -6147,6 +6147,7 @@ var ts;
         All_declarations_of_0_must_have_identical_modifiers: { code: 2687, category: ts.DiagnosticCategory.Error, key: "All_declarations_of_0_must_have_identical_modifiers_2687", message: "All declarations of '{0}' must have identical modifiers." },
         Cannot_find_type_definition_file_for_0: { code: 2688, category: ts.DiagnosticCategory.Error, key: "Cannot_find_type_definition_file_for_0_2688", message: "Cannot find type definition file for '{0}'." },
         Cannot_extend_an_interface_0_Did_you_mean_implements: { code: 2689, category: ts.DiagnosticCategory.Error, key: "Cannot_extend_an_interface_0_Did_you_mean_implements_2689", message: "Cannot extend an interface '{0}'. Did you mean 'implements'?" },
+        A_class_must_be_declared_after_its_base_class: { code: 2690, category: ts.DiagnosticCategory.Error, key: "A_class_must_be_declared_after_its_base_class_2690", message: "A class must be declared after its base class." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -31031,6 +31032,11 @@ var ts;
                     }
                     checkTypeAssignableTo(typeWithThis, getTypeWithThisArgument(baseType_1, type.thisType), node.name || node, ts.Diagnostics.Class_0_incorrectly_extends_base_class_1);
                     checkTypeAssignableTo(staticType, getTypeWithoutSignatures(staticBaseType), node.name || node, ts.Diagnostics.Class_static_side_0_incorrectly_extends_base_class_static_side_1);
+                    if (baseType_1.symbol.valueDeclaration && !(baseType_1.symbol.valueDeclaration.flags & 2 /* Ambient */)) {
+                        if (!isBlockScopedNameDeclaredBeforeUse(baseType_1.symbol.valueDeclaration, node)) {
+                            error(baseTypeNode, ts.Diagnostics.A_class_must_be_declared_after_its_base_class);
+                        }
+                    }
                     if (!(staticBaseType.symbol && staticBaseType.symbol.flags & 32 /* Class */)) {
                         // When the static base type is a "class-like" constructor function (but not actually a class), we verify
                         // that all instantiated base constructor signatures return the same type. We can simply compare the type
@@ -48164,7 +48170,7 @@ var ts;
         function convertToTopLevelItem(n) {
             return {
                 text: getItemName(n.node),
-                kind: nodeKind(n.node),
+                kind: ts.getNodeKind(n.node),
                 kindModifiers: ts.getNodeModifiers(n.node),
                 spans: getSpans(n),
                 childItems: ts.map(n.children, convertToChildItem) || emptyChildItemArray,
@@ -48175,7 +48181,7 @@ var ts;
             function convertToChildItem(n) {
                 return {
                     text: getItemName(n.node),
-                    kind: nodeKind(n.node),
+                    kind: ts.getNodeKind(n.node),
                     kindModifiers: ts.getNodeModifiers(n.node),
                     spans: getSpans(n),
                     childItems: emptyChildItemArray,
@@ -48193,49 +48199,6 @@ var ts;
                     }
                 }
                 return spans;
-            }
-        }
-        // TODO: GH#9145: We should just use getNodeKind. No reason why navigationBar and navigateTo should have different behaviors.
-        function nodeKind(node) {
-            switch (node.kind) {
-                case 256 /* SourceFile */:
-                    return ts.ScriptElementKind.moduleElement;
-                case 255 /* EnumMember */:
-                    return ts.ScriptElementKind.memberVariableElement;
-                case 218 /* VariableDeclaration */:
-                case 169 /* BindingElement */:
-                    var variableDeclarationNode = void 0;
-                    var name_39;
-                    if (node.kind === 169 /* BindingElement */) {
-                        name_39 = node.name;
-                        variableDeclarationNode = node;
-                        // binding elements are added only for variable declarations
-                        // bubble up to the containing variable declaration
-                        while (variableDeclarationNode && variableDeclarationNode.kind !== 218 /* VariableDeclaration */) {
-                            variableDeclarationNode = variableDeclarationNode.parent;
-                        }
-                        ts.Debug.assert(!!variableDeclarationNode);
-                    }
-                    else {
-                        ts.Debug.assert(!ts.isBindingPattern(node.name));
-                        variableDeclarationNode = node;
-                        name_39 = node.name;
-                    }
-                    if (ts.isConst(variableDeclarationNode)) {
-                        return ts.ScriptElementKind.constElement;
-                    }
-                    else if (ts.isLet(variableDeclarationNode)) {
-                        return ts.ScriptElementKind.letElement;
-                    }
-                    else {
-                        return ts.ScriptElementKind.variableElement;
-                    }
-                case 180 /* ArrowFunction */:
-                    return ts.ScriptElementKind.functionElement;
-                case 279 /* JSDocTypedefTag */:
-                    return ts.ScriptElementKind.typeElement;
-                default:
-                    return ts.getNodeKind(node);
             }
         }
         function getModuleName(moduleDeclaration) {
@@ -50351,9 +50314,9 @@ var ts;
             }
             getTypingNamesFromSourceFileNames(fileNames);
             // Add the cached typing locations for inferred typings that are already installed
-            for (var name_40 in packageNameToTypingLocation) {
-                if (ts.hasProperty(inferredTypings, name_40) && !inferredTypings[name_40]) {
-                    inferredTypings[name_40] = packageNameToTypingLocation[name_40];
+            for (var name_39 in packageNameToTypingLocation) {
+                if (ts.hasProperty(inferredTypings, name_39) && !inferredTypings[name_39]) {
+                    inferredTypings[name_39] = packageNameToTypingLocation[name_39];
                 }
             }
             // Remove typings that the user has added to the exclude list
@@ -51207,9 +51170,9 @@ var ts;
             }
             Rules.prototype.getRuleName = function (rule) {
                 var o = this;
-                for (var name_41 in o) {
-                    if (o[name_41] === rule) {
-                        return name_41;
+                for (var name_40 in o) {
+                    if (o[name_40] === rule) {
+                        return name_40;
                     }
                 }
                 throw new Error("Unknown rule");
@@ -54178,6 +54141,8 @@ var ts;
         ScriptElementKind.typeElement = "type";
         /** enum E */
         ScriptElementKind.enumElement = "enum";
+        // TODO: GH#9983
+        ScriptElementKind.enumMemberElement = "const";
         /**
          * Inside module and script only
          * const v = ..
@@ -55243,7 +55208,10 @@ var ts;
     ts.getContainerNode = getContainerNode;
     /* @internal */ function getNodeKind(node) {
         switch (node.kind) {
-            case 225 /* ModuleDeclaration */: return ScriptElementKind.moduleElement;
+            case 256 /* SourceFile */:
+                return ts.isExternalModule(node) ? ScriptElementKind.moduleElement : ScriptElementKind.scriptElement;
+            case 225 /* ModuleDeclaration */:
+                return ScriptElementKind.moduleElement;
             case 221 /* ClassDeclaration */:
             case 192 /* ClassExpression */:
                 return ScriptElementKind.classElement;
@@ -55251,11 +55219,10 @@ var ts;
             case 223 /* TypeAliasDeclaration */: return ScriptElementKind.typeElement;
             case 224 /* EnumDeclaration */: return ScriptElementKind.enumElement;
             case 218 /* VariableDeclaration */:
-                return ts.isConst(node)
-                    ? ScriptElementKind.constElement
-                    : ts.isLet(node)
-                        ? ScriptElementKind.letElement
-                        : ScriptElementKind.variableElement;
+                return getKindOfVariableDeclaration(node);
+            case 169 /* BindingElement */:
+                return getKindOfVariableDeclaration(ts.getRootDeclaration(node));
+            case 180 /* ArrowFunction */:
             case 220 /* FunctionDeclaration */:
             case 179 /* FunctionExpression */:
                 return ScriptElementKind.functionElement;
@@ -55272,7 +55239,7 @@ var ts;
             case 151 /* CallSignature */: return ScriptElementKind.callSignatureElement;
             case 148 /* Constructor */: return ScriptElementKind.constructorImplementationElement;
             case 141 /* TypeParameter */: return ScriptElementKind.typeParameterElement;
-            case 255 /* EnumMember */: return ScriptElementKind.variableElement;
+            case 255 /* EnumMember */: return ScriptElementKind.enumMemberElement;
             case 142 /* Parameter */: return (node.flags & 92 /* ParameterPropertyModifier */) ? ScriptElementKind.memberVariableElement : ScriptElementKind.parameterElement;
             case 229 /* ImportEqualsDeclaration */:
             case 234 /* ImportSpecifier */:
@@ -55280,8 +55247,18 @@ var ts;
             case 238 /* ExportSpecifier */:
             case 232 /* NamespaceImport */:
                 return ScriptElementKind.alias;
+            case 279 /* JSDocTypedefTag */:
+                return ScriptElementKind.typeElement;
+            default:
+                return ScriptElementKind.unknown;
         }
-        return ScriptElementKind.unknown;
+        function getKindOfVariableDeclaration(v) {
+            return ts.isConst(v)
+                ? ScriptElementKind.constElement
+                : ts.isLet(v)
+                    ? ScriptElementKind.letElement
+                    : ScriptElementKind.variableElement;
+        }
     }
     ts.getNodeKind = getNodeKind;
     var CancellationTokenObject = (function () {
@@ -56236,8 +56213,8 @@ var ts;
                     if (element.getStart() <= position && position <= element.getEnd()) {
                         continue;
                     }
-                    var name_42 = element.propertyName || element.name;
-                    existingImportsOrExports[name_42.text] = true;
+                    var name_41 = element.propertyName || element.name;
+                    existingImportsOrExports[name_41.text] = true;
                 }
                 if (ts.isEmpty(existingImportsOrExports)) {
                     return ts.filter(exportsOfModule, function (e) { return e.name !== "default"; });
@@ -56357,14 +56334,14 @@ var ts;
                 var entries = [];
                 var target = program.getCompilerOptions().target;
                 var nameTable = getNameTable(sourceFile);
-                for (var name_43 in nameTable) {
+                for (var name_42 in nameTable) {
                     // Skip identifiers produced only from the current location
-                    if (nameTable[name_43] === position) {
+                    if (nameTable[name_42] === position) {
                         continue;
                     }
-                    if (!uniqueNames[name_43]) {
-                        uniqueNames[name_43] = name_43;
-                        var displayName = getCompletionEntryDisplayName(ts.unescapeIdentifier(name_43), target, /*performCharacterChecks*/ true);
+                    if (!uniqueNames[name_42]) {
+                        uniqueNames[name_42] = name_42;
+                        var displayName = getCompletionEntryDisplayName(ts.unescapeIdentifier(name_42), target, /*performCharacterChecks*/ true);
                         if (displayName) {
                             var entry = {
                                 name: displayName,
