@@ -23429,16 +23429,17 @@ var ts;
             return undefined;
         }
         function isMatchingReference(source, target) {
-            if (source.kind === target.kind) {
-                switch (source.kind) {
-                    case 69 /* Identifier */:
-                        return getResolvedSymbol(source) === getResolvedSymbol(target);
-                    case 97 /* ThisKeyword */:
-                        return true;
-                    case 172 /* PropertyAccessExpression */:
-                        return source.name.text === target.name.text &&
-                            isMatchingReference(source.expression, target.expression);
-                }
+            switch (source.kind) {
+                case 69 /* Identifier */:
+                    return target.kind === 69 /* Identifier */ && getResolvedSymbol(source) === getResolvedSymbol(target) ||
+                        (target.kind === 218 /* VariableDeclaration */ || target.kind === 169 /* BindingElement */) &&
+                            getExportSymbolOfValueSymbolIfExported(getResolvedSymbol(source)) === getSymbolOfNode(target);
+                case 97 /* ThisKeyword */:
+                    return target.kind === 97 /* ThisKeyword */;
+                case 172 /* PropertyAccessExpression */:
+                    return target.kind === 172 /* PropertyAccessExpression */ &&
+                        source.name.text === target.name.text &&
+                        isMatchingReference(source.expression, target.expression);
             }
             return false;
         }
@@ -23450,6 +23451,9 @@ var ts;
                 }
             }
             return false;
+        }
+        function rootContainsMatchingReference(source, target) {
+            return target.kind === 172 /* PropertyAccessExpression */ && containsMatchingReference(source, target.expression);
         }
         function isOrContainsMatchingReference(source, target) {
             return isMatchingReference(source, target) || containsMatchingReference(source, target);
@@ -23676,6 +23680,11 @@ var ts;
                 getInitialTypeOfVariableDeclaration(node) :
                 getInitialTypeOfBindingElement(node);
         }
+        function getInitialOrAssignedType(node) {
+            return node.kind === 218 /* VariableDeclaration */ || node.kind === 169 /* BindingElement */ ?
+                getInitialType(node) :
+                getAssignedType(node);
+        }
         function getReferenceCandidate(node) {
             switch (node.kind) {
                 case 178 /* ParenthesizedExpression */:
@@ -23791,19 +23800,9 @@ var ts;
                 var node = flow.node;
                 // Assignments only narrow the computed type if the declared type is a union type. Thus, we
                 // only need to evaluate the assigned type if the declared type is a union type.
-                if ((node.kind === 218 /* VariableDeclaration */ || node.kind === 169 /* BindingElement */) &&
-                    reference.kind === 69 /* Identifier */ &&
-                    getExportSymbolOfValueSymbolIfExported(getResolvedSymbol(reference)) === getSymbolOfNode(node)) {
-                    return declaredType.flags & 524288 /* Union */ ?
-                        getAssignmentReducedType(declaredType, getInitialType(node)) :
-                        declaredType;
-                }
-                // If the node is not a variable declaration or binding element, it is an identifier
-                // or a dotted name that is the target of an assignment. If we have a match, reduce
-                // the declared type by the assigned type.
                 if (isMatchingReference(reference, node)) {
                     return declaredType.flags & 524288 /* Union */ ?
-                        getAssignmentReducedType(declaredType, getAssignedType(node)) :
+                        getAssignmentReducedType(declaredType, getInitialOrAssignedType(node)) :
                         declaredType;
                 }
                 // We didn't have a direct match. However, if the reference is a dotted name, this
@@ -23930,6 +23929,9 @@ var ts;
                 if (isMatchingPropertyAccess(expr)) {
                     return narrowTypeByDiscriminant(type, expr, function (t) { return getTypeWithFacts(t, assumeTrue ? 1048576 /* Truthy */ : 2097152 /* Falsy */); });
                 }
+                if (rootContainsMatchingReference(reference, expr)) {
+                    return declaredType;
+                }
                 return type;
             }
             function narrowTypeByBinaryExpression(type, expr, assumeTrue) {
@@ -23960,6 +23962,9 @@ var ts;
                         }
                         if (isMatchingPropertyAccess(right_1)) {
                             return narrowTypeByDiscriminant(type, right_1, function (t) { return narrowTypeByEquality(t, operator_1, left_1, assumeTrue); });
+                        }
+                        if (rootContainsMatchingReference(reference, left_1) || rootContainsMatchingReference(reference, right_1)) {
+                            return declaredType;
                         }
                         break;
                     case 91 /* InstanceOfKeyword */:
@@ -28070,6 +28075,13 @@ var ts;
         function isTypeEqualityComparableTo(source, target) {
             return (target.flags & 6144 /* Nullable */) !== 0 || isTypeComparableTo(source, target);
         }
+        function getBestChoiceType(type1, type2) {
+            var firstAssignableToSecond = isTypeAssignableTo(type1, type2);
+            var secondAssignableToFirst = isTypeAssignableTo(type2, type1);
+            return secondAssignableToFirst && !firstAssignableToSecond ? type1 :
+                firstAssignableToSecond && !secondAssignableToFirst ? type2 :
+                    getUnionType([type1, type2], /*subtypeReduction*/ true);
+        }
         function checkBinaryExpression(node, contextualMapper) {
             return checkBinaryLikeExpression(node.left, node.operatorToken, node.right, contextualMapper, node);
         }
@@ -28207,7 +28219,7 @@ var ts;
                         leftType;
                 case 52 /* BarBarToken */:
                     return getTypeFacts(leftType) & 2097152 /* Falsy */ ?
-                        getUnionType([removeDefinitelyFalsyTypes(leftType), rightType], /*subtypeReduction*/ true) :
+                        getBestChoiceType(removeDefinitelyFalsyTypes(leftType), rightType) :
                         leftType;
                 case 56 /* EqualsToken */:
                     checkAssignmentOperator(rightType);
@@ -28318,7 +28330,7 @@ var ts;
             checkExpression(node.condition);
             var type1 = checkExpression(node.whenTrue, contextualMapper);
             var type2 = checkExpression(node.whenFalse, contextualMapper);
-            return getUnionType([type1, type2], /*subtypeReduction*/ true);
+            return getBestChoiceType(type1, type2);
         }
         function typeContainsLiteralFromEnum(type, enumType) {
             if (type.flags & 524288 /* Union */) {
@@ -31032,7 +31044,7 @@ var ts;
                     }
                     checkTypeAssignableTo(typeWithThis, getTypeWithThisArgument(baseType_1, type.thisType), node.name || node, ts.Diagnostics.Class_0_incorrectly_extends_base_class_1);
                     checkTypeAssignableTo(staticType, getTypeWithoutSignatures(staticBaseType), node.name || node, ts.Diagnostics.Class_static_side_0_incorrectly_extends_base_class_static_side_1);
-                    if (baseType_1.symbol.valueDeclaration && !(baseType_1.symbol.valueDeclaration.flags & 2 /* Ambient */)) {
+                    if (baseType_1.symbol.valueDeclaration && !ts.isInAmbientContext(baseType_1.symbol.valueDeclaration)) {
                         if (!isBlockScopedNameDeclaredBeforeUse(baseType_1.symbol.valueDeclaration, node)) {
                             error(baseTypeNode, ts.Diagnostics.A_class_must_be_declared_after_its_base_class);
                         }
@@ -39414,7 +39426,7 @@ var ts;
                             operand.kind === 196 /* NonNullExpression */) {
                             operand = operand.expression;
                         }
-                        // We have an expression of the form: (<Type>SubExpr)
+                        // We have an expression of the form: (<Type>SubExpr) or (SubExpr as Type)
                         // Emitting this as (SubExpr) is really not desirable. We would like to emit the subexpr as is.
                         // Omitting the parentheses, however, could cause change in the semantics of the generated
                         // code if the casted expression has a lower precedence than the rest of the expression, e.g.:
@@ -39428,6 +39440,7 @@ var ts;
                             operand.kind !== 181 /* DeleteExpression */ &&
                             operand.kind !== 186 /* PostfixUnaryExpression */ &&
                             operand.kind !== 175 /* NewExpression */ &&
+                            !(operand.kind === 187 /* BinaryExpression */ && node.expression.kind === 195 /* AsExpression */) &&
                             !(operand.kind === 174 /* CallExpression */ && node.parent.kind === 175 /* NewExpression */) &&
                             !(operand.kind === 179 /* FunctionExpression */ && node.parent.kind === 174 /* CallExpression */) &&
                             !(operand.kind === 8 /* NumericLiteral */ && node.parent.kind === 172 /* PropertyAccessExpression */)) {
@@ -51015,7 +51028,7 @@ var ts;
                 this.NoSpaceBetweenReturnAndSemicolon = new formatting.Rule(formatting.RuleDescriptor.create1(94 /* ReturnKeyword */, 23 /* SemicolonToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 8 /* Delete */));
                 // Add a space between statements. All keywords except (do,else,case) has open/close parens after them.
                 // So, we have a rule to add a space for [),Any], [do,Any], [else,Any], and [case,Any]
-                this.SpaceBetweenStatements = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([18 /* CloseParenToken */, 79 /* DoKeyword */, 80 /* ElseKeyword */, 71 /* CaseKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isNonJsxElementContext, Rules.IsNotForContext), 2 /* Space */));
+                this.SpaceBetweenStatements = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.FromTokens([18 /* CloseParenToken */, 79 /* DoKeyword */, 80 /* ElseKeyword */, 71 /* CaseKeyword */]), formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsNonJsxElementContext, Rules.IsNotForContext), 2 /* Space */));
                 // This low-pri rule takes care of "try {" and "finally {" in case the rule SpaceBeforeOpenBraceInControl didn't execute on FormatOnEnter.
                 this.SpaceAfterTryFinally = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.FromTokens([100 /* TryKeyword */, 85 /* FinallyKeyword */]), 15 /* OpenBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
                 //      get x() {}
@@ -51062,6 +51075,12 @@ var ts;
                 this.SpaceBetweenAsyncAndFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(118 /* AsyncKeyword */, 87 /* FunctionKeyword */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
                 // template string
                 this.NoSpaceBetweenTagAndTemplateString = new formatting.Rule(formatting.RuleDescriptor.create3(69 /* Identifier */, formatting.Shared.TokenRange.FromTokens([11 /* NoSubstitutionTemplateLiteral */, 12 /* TemplateHead */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 8 /* Delete */));
+                // jsx opening element
+                this.SpaceBeforeJsxAttribute = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 69 /* Identifier */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNextTokenParentJsxAttribute, Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
+                this.SpaceBeforeSlashInJsxOpeningElement = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 39 /* SlashToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsJsxSelfClosingElementContext, Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
+                this.NoSpaceBeforeGreaterThanTokenInJsxOpeningElement = new formatting.Rule(formatting.RuleDescriptor.create1(39 /* SlashToken */, 27 /* GreaterThanToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsJsxSelfClosingElementContext, Rules.IsNonJsxSameLineTokenContext), 8 /* Delete */));
+                this.NoSpaceBeforeEqualInJsxAttribute = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 56 /* EqualsToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsJsxAttributeContext, Rules.IsNonJsxSameLineTokenContext), 8 /* Delete */));
+                this.NoSpaceAfterEqualInJsxAttribute = new formatting.Rule(formatting.RuleDescriptor.create3(56 /* EqualsToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsJsxAttributeContext, Rules.IsNonJsxSameLineTokenContext), 8 /* Delete */));
                 // These rules are higher in priority than user-configurable rules.
                 this.HighPriorityCommonRules = [
                     this.IgnoreBeforeComment, this.IgnoreAfterLineComment,
@@ -51089,6 +51108,8 @@ var ts;
                     this.SpaceAfterVoidOperator,
                     this.SpaceBetweenAsyncAndOpenParen, this.SpaceBetweenAsyncAndFunctionKeyword,
                     this.NoSpaceBetweenTagAndTemplateString,
+                    this.SpaceBeforeJsxAttribute, this.SpaceBeforeSlashInJsxOpeningElement, this.NoSpaceBeforeGreaterThanTokenInJsxOpeningElement,
+                    this.NoSpaceBeforeEqualInJsxAttribute, this.NoSpaceAfterEqualInJsxAttribute,
                     // TypeScript-specific rules
                     this.NoSpaceAfterConstructor, this.NoSpaceAfterModuleImport,
                     this.SpaceAfterCertainTypeScriptKeywords, this.SpaceBeforeCertainTypeScriptKeywords,
@@ -51122,8 +51143,8 @@ var ts;
                 /// Rules controlled by user options
                 ///
                 // Insert space after comma delimiter
-                this.SpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isNonJsxElementContext, Rules.IsNextTokenNotCloseBracket), 2 /* Space */));
-                this.NoSpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isNonJsxElementContext), 8 /* Delete */));
+                this.SpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsNonJsxElementContext, Rules.IsNextTokenNotCloseBracket), 2 /* Space */));
+                this.NoSpaceAfterComma = new formatting.Rule(formatting.RuleDescriptor.create3(24 /* CommaToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsNonJsxElementContext), 8 /* Delete */));
                 // Insert space before and after binary operators
                 this.SpaceBeforeBinaryOperator = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.BinaryOperators), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsBinaryOpContext), 2 /* Space */));
                 this.SpaceAfterBinaryOperator = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.BinaryOperators, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsBinaryOpContext), 2 /* Space */));
@@ -51160,10 +51181,10 @@ var ts;
                 this.NoSpaceBeforeTemplateMiddleAndTail = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([13 /* TemplateMiddle */, 14 /* TemplateTail */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 8 /* Delete */));
                 this.SpaceBeforeTemplateMiddleAndTail = new formatting.Rule(formatting.RuleDescriptor.create4(formatting.Shared.TokenRange.Any, formatting.Shared.TokenRange.FromTokens([13 /* TemplateMiddle */, 14 /* TemplateTail */])), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext), 2 /* Space */));
                 // No space after { and before } in JSX expression
-                this.NoSpaceAfterOpenBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create3(15 /* OpenBraceToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isJsxExpressionContext), 8 /* Delete */));
-                this.SpaceAfterOpenBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create3(15 /* OpenBraceToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isJsxExpressionContext), 2 /* Space */));
-                this.NoSpaceBeforeCloseBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 16 /* CloseBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isJsxExpressionContext), 8 /* Delete */));
-                this.SpaceBeforeCloseBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 16 /* CloseBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.isJsxExpressionContext), 2 /* Space */));
+                this.NoSpaceAfterOpenBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create3(15 /* OpenBraceToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsJsxExpressionContext), 8 /* Delete */));
+                this.SpaceAfterOpenBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create3(15 /* OpenBraceToken */, formatting.Shared.TokenRange.Any), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsJsxExpressionContext), 2 /* Space */));
+                this.NoSpaceBeforeCloseBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 16 /* CloseBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsJsxExpressionContext), 8 /* Delete */));
+                this.SpaceBeforeCloseBraceInJsxExpression = new formatting.Rule(formatting.RuleDescriptor.create2(formatting.Shared.TokenRange.Any, 16 /* CloseBraceToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsNonJsxSameLineTokenContext, Rules.IsJsxExpressionContext), 2 /* Space */));
                 // Insert space after function keyword for anonymous functions
                 this.SpaceAfterAnonymousFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(87 /* FunctionKeyword */, 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext), 2 /* Space */));
                 this.NoSpaceAfterAnonymousFunctionKeyword = new formatting.Rule(formatting.RuleDescriptor.create1(87 /* FunctionKeyword */, 17 /* OpenParenToken */), formatting.RuleOperation.create2(new formatting.RuleOperationContext(Rules.IsFunctionDeclContext), 8 /* Delete */));
@@ -51375,11 +51396,20 @@ var ts;
             Rules.IsNonJsxSameLineTokenContext = function (context) {
                 return context.TokensAreOnSameLine() && context.contextNode.kind !== 244 /* JsxText */;
             };
-            Rules.isNonJsxElementContext = function (context) {
+            Rules.IsNonJsxElementContext = function (context) {
                 return context.contextNode.kind !== 241 /* JsxElement */;
             };
-            Rules.isJsxExpressionContext = function (context) {
+            Rules.IsJsxExpressionContext = function (context) {
                 return context.contextNode.kind === 248 /* JsxExpression */;
+            };
+            Rules.IsNextTokenParentJsxAttribute = function (context) {
+                return context.nextTokenParent.kind === 246 /* JsxAttribute */;
+            };
+            Rules.IsJsxAttributeContext = function (context) {
+                return context.contextNode.kind === 246 /* JsxAttribute */;
+            };
+            Rules.IsJsxSelfClosingElementContext = function (context) {
+                return context.contextNode.kind === 242 /* JsxSelfClosingElement */;
             };
             Rules.IsNotBeforeBlockInFunctionDeclarationContext = function (context) {
                 return !Rules.IsFunctionDeclContext(context) && !Rules.IsBeforeBlockContext(context);
@@ -52183,8 +52213,9 @@ var ts;
                     case 147 /* MethodDeclaration */:
                         if (node.asteriskToken) {
                             return 37 /* AsteriskToken */;
-                        }
-                    // fall-through
+                        } /*
+                    fall-through
+                    */
                     case 145 /* PropertyDeclaration */:
                     case 142 /* Parameter */:
                         return node.name.kind;
