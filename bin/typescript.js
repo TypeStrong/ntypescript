@@ -17355,6 +17355,10 @@ var ts;
                     else {
                         symbolFromVariable = getPropertyOfVariable(targetSymbol, name_10.text);
                     }
+                    // If the export member we're looking for is default, and there is no real default but allowSyntheticDefaultImports is on, return the entire module as the default
+                    if (!symbolFromVariable && allowSyntheticDefaultImports && name_10.text === "default") {
+                        symbolFromVariable = resolveExternalModuleSymbol(moduleSymbol) || resolveSymbol(moduleSymbol);
+                    }
                     // if symbolFromVariable is export - get its final target
                     symbolFromVariable = resolveSymbol(symbolFromVariable);
                     var symbolFromModule = getExportOfModule(targetSymbol, name_10.text);
@@ -55364,14 +55368,16 @@ var ts;
             // incremental parsing.
             var oldSettings = program && program.getCompilerOptions();
             var newSettings = hostCache.compilationSettings();
-            var changesInCompilationSettingsAffectSyntax = oldSettings &&
+            var shouldCreateNewSourceFiles = oldSettings &&
                 (oldSettings.target !== newSettings.target ||
                     oldSettings.module !== newSettings.module ||
                     oldSettings.moduleResolution !== newSettings.moduleResolution ||
                     oldSettings.noResolve !== newSettings.noResolve ||
                     oldSettings.jsx !== newSettings.jsx ||
                     oldSettings.allowJs !== newSettings.allowJs ||
-                    oldSettings.disableSizeLimit !== oldSettings.disableSizeLimit);
+                    oldSettings.disableSizeLimit !== oldSettings.disableSizeLimit ||
+                    oldSettings.baseUrl !== newSettings.baseUrl ||
+                    !ts.mapIsEqualTo(oldSettings.paths, newSettings.paths));
             // Now create a new compiler
             var compilerHost = {
                 getSourceFile: getOrCreateSourceFile,
@@ -55420,7 +55426,7 @@ var ts;
                 var oldSettingsKey = documentRegistry.getKeyForCompilationSettings(oldSettings);
                 for (var _i = 0, oldSourceFiles_1 = oldSourceFiles; _i < oldSourceFiles_1.length; _i++) {
                     var oldSourceFile = oldSourceFiles_1[_i];
-                    if (!newProgram.getSourceFile(oldSourceFile.fileName) || changesInCompilationSettingsAffectSyntax) {
+                    if (!newProgram.getSourceFile(oldSourceFile.fileName) || shouldCreateNewSourceFiles) {
                         documentRegistry.releaseDocumentWithKey(oldSourceFile.path, oldSettingsKey);
                     }
                 }
@@ -55448,7 +55454,7 @@ var ts;
                 // Check if the language version has changed since we last created a program; if they are the same,
                 // it is safe to reuse the sourceFiles; if not, then the shape of the AST can change, and the oldSourceFile
                 // can not be reused. we have to dump all syntax trees and create new ones.
-                if (!changesInCompilationSettingsAffectSyntax) {
+                if (!shouldCreateNewSourceFiles) {
                     // Check if the old program had this file already
                     var oldSourceFile = program && program.getSourceFileByPath(path);
                     if (oldSourceFile) {
