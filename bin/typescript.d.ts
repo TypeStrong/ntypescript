@@ -1110,6 +1110,11 @@ declare namespace ts {
         clauseEnd: number;
         antecedent: FlowNode;
     }
+    type FlowType = Type | IncompleteType;
+    interface IncompleteType {
+        flags: TypeFlags;
+        type: Type;
+    }
     interface AmdDependency {
         path: string;
         name: string;
