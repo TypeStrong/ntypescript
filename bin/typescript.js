@@ -1315,9 +1315,13 @@ var ts;
     }
     ts.getKeys = getKeys;
     function getProperty(map, key) {
-        return hasOwnProperty.call(map, key) ? map[key] : undefined;
+        return hasProperty(map, key) ? map[key] : undefined;
     }
     ts.getProperty = getProperty;
+    function getOrUpdateProperty(map, key, makeValue) {
+        return hasProperty(map, key) ? map[key] : map[key] = makeValue();
+    }
+    ts.getOrUpdateProperty = getOrUpdateProperty;
     function isEmpty(map) {
         for (var id in map) {
             if (hasProperty(map, id)) {
@@ -43277,7 +43281,7 @@ var ts;
                                 for (var _c = 0, _d = node.exportClause.elements; _c < _d.length; _c++) {
                                     var specifier = _d[_c];
                                     var name_31 = (specifier.propertyName || specifier.name).text;
-                                    (exportSpecifiers[name_31] || (exportSpecifiers[name_31] = [])).push(specifier);
+                                    ts.getOrUpdateProperty(exportSpecifiers, name_31, function () { return []; }).push(specifier);
                                 }
                             }
                             break;
@@ -45569,18 +45573,15 @@ var ts;
         }
         return resolutions;
     }
-    function getInferredTypesRoot(options, rootFiles, host) {
-        return computeCommonSourceDirectoryOfFilenames(rootFiles, host.getCurrentDirectory(), function (f) { return host.getCanonicalFileName(f); });
-    }
     /**
-      * Given a set of options and a set of root files, returns the set of type directive names
+      * Given a set of options, returns the set of type directive names
       *   that should be included for this program automatically.
       * This list could either come from the config file,
       *   or from enumerating the types root + initial secondary types lookup location.
       * More type directives might appear in the program later as a result of loading actual source files;
       *   this list is only the set of defaults that are implicitly included.
       */
-    function getAutomaticTypeDirectiveNames(options, rootFiles, host) {
+    function getAutomaticTypeDirectiveNames(options, host) {
         // Use explicit type list from tsconfig.json
         if (options.types) {
             return options.types;
@@ -45593,7 +45594,11 @@ var ts;
                 for (var _i = 0, typeRoots_1 = typeRoots; _i < typeRoots_1.length; _i++) {
                     var root = typeRoots_1[_i];
                     if (host.directoryExists(root)) {
-                        result = result.concat(host.getDirectories(root));
+                        for (var _a = 0, _b = host.getDirectories(root); _a < _b.length; _a++) {
+                            var typeDirectivePath = _b[_a];
+                            // Return just the type directive names
+                            result = result.concat(ts.getBaseFileName(ts.normalizePath(typeDirectivePath)));
+                        }
                     }
                 }
             }
@@ -45655,10 +45660,10 @@ var ts;
         if (!tryReuseStructureFromOldProgram()) {
             ts.forEach(rootNames, function (name) { return processRootFile(name, /*isDefaultLib*/ false); });
             // load type declarations specified via 'types' argument or implicitly from types/ and node_modules/@types folders
-            var typeReferences = getAutomaticTypeDirectiveNames(options, rootNames, host);
+            var typeReferences = getAutomaticTypeDirectiveNames(options, host);
             if (typeReferences) {
-                var inferredRoot = getInferredTypesRoot(options, rootNames, host);
-                var containingFilename = ts.combinePaths(inferredRoot, "__inferred type names__.ts");
+                // This containingFilename needs to match with the one used in managed-side
+                var containingFilename = ts.combinePaths(host.getCurrentDirectory(), "__inferred type names__.ts");
                 var resolutions = resolveTypeReferenceDirectiveNamesWorker(typeReferences, containingFilename);
                 for (var i = 0; i < typeReferences.length; i++) {
                     processTypeReferenceDirective(typeReferences[i], resolutions[i]);
@@ -54339,7 +54344,7 @@ var ts;
         };
     }
     ts.getDefaultCompilerOptions = getDefaultCompilerOptions;
-    // Cache host information about scrip Should be refreshed
+    // Cache host information about script should be refreshed
     // at each language service public entry point, since we don't know when
     // set of scripts handled by the host changes.
     var HostCache = (function () {
@@ -61205,6 +61210,9 @@ var ts;
         CoreServicesShimHostAdapter.prototype.readDirectoryFallback = function (rootDir, extension, exclude) {
             return JSON.parse(this.shimHost.readDirectory(rootDir, extension, JSON.stringify(exclude)));
         };
+        CoreServicesShimHostAdapter.prototype.getDirectories = function (path) {
+            return JSON.parse(this.shimHost.getDirectories(path));
+        };
         return CoreServicesShimHostAdapter;
     }());
     ts.CoreServicesShimHostAdapter = CoreServicesShimHostAdapter;
@@ -61600,6 +61608,13 @@ var ts;
                     isLibFile: result.isLibFile,
                     typeReferenceDirectives: _this.convertFileReferences(result.typeReferenceDirectives)
                 };
+            });
+        };
+        CoreServicesShimObject.prototype.getAutomaticTypeDirectiveNames = function (compilerOptionsJson) {
+            var _this = this;
+            return this.forwardJSONCall("getAutomaticTypeDirectiveNames('" + compilerOptionsJson + "')", function () {
+                var compilerOptions = JSON.parse(compilerOptionsJson);
+                return ts.getAutomaticTypeDirectiveNames(compilerOptions, _this.host);
             });
         };
         CoreServicesShimObject.prototype.convertFileReferences = function (refs) {
