@@ -4234,6 +4234,7 @@ var ts;
             case 146 /* MethodSignature */:
             case 225 /* ModuleDeclaration */:
             case 232 /* NamespaceImport */:
+            case 228 /* NamespaceExportDeclaration */:
             case 142 /* Parameter */:
             case 253 /* PropertyAssignment */:
             case 145 /* PropertyDeclaration */:
@@ -25539,7 +25540,7 @@ var ts;
                 var prop = props_2[_i];
                 // Is there a corresponding property in the element attributes type? Skip checking of properties
                 // that have already been assigned to, as these are not actually pushed into the resulting type
-                if (!nameTable[prop.name]) {
+                if (!ts.hasProperty(nameTable, prop.name)) {
                     var targetPropSym = getPropertyOfType(elementAttributesType, prop.name);
                     if (targetPropSym) {
                         var msg = ts.chainDiagnosticMessages(undefined, ts.Diagnostics.Property_0_of_JSX_spread_attribute_is_not_assignable_to_target_property, prop.name);
@@ -25851,7 +25852,7 @@ var ts;
                 var targetProperties = getPropertiesOfType(targetAttributesType);
                 for (var i = 0; i < targetProperties.length; i++) {
                     if (!(targetProperties[i].flags & 536870912 /* Optional */) &&
-                        nameTable[targetProperties[i].name] === undefined) {
+                        !ts.hasProperty(nameTable, targetProperties[i].name)) {
                         error(node, ts.Diagnostics.Property_0_is_missing_in_type_1, targetProperties[i].name, typeToString(targetAttributesType));
                     }
                 }
@@ -34160,7 +34161,7 @@ var ts;
             }
         }
         function checkGrammarTopLevelElementForRequiredDeclareModifier(node) {
-            // A declare modifier is required for any top level .d.ts declaration except export=, export default,
+            // A declare modifier is required for any top level .d.ts declaration except export=, export default, export as namespace
             // interfaces and imports categories:
             //
             //  DeclarationElement:
@@ -34178,6 +34179,7 @@ var ts;
                 node.kind === 229 /* ImportEqualsDeclaration */ ||
                 node.kind === 236 /* ExportDeclaration */ ||
                 node.kind === 235 /* ExportAssignment */ ||
+                node.kind === 228 /* NamespaceExportDeclaration */ ||
                 (node.flags & 2 /* Ambient */) ||
                 (node.flags & (1 /* Export */ | 512 /* Default */))) {
                 return false;
@@ -56932,7 +56934,14 @@ var ts;
             }
             if (symbolFlags & 8388608 /* Alias */) {
                 addNewLineIfDisplayPartsExist();
-                displayParts.push(ts.keywordPart(89 /* ImportKeyword */));
+                if (symbol.declarations[0].kind === 228 /* NamespaceExportDeclaration */) {
+                    displayParts.push(ts.keywordPart(82 /* ExportKeyword */));
+                    displayParts.push(ts.spacePart());
+                    displayParts.push(ts.keywordPart(126 /* NamespaceKeyword */));
+                }
+                else {
+                    displayParts.push(ts.keywordPart(89 /* ImportKeyword */));
+                }
                 displayParts.push(ts.spacePart());
                 addFullSymbolName(symbol);
                 ts.forEach(symbol.declarations, function (declaration) {
