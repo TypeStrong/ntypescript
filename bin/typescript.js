@@ -20367,10 +20367,19 @@ var ts;
             }
             var propTypes = [];
             var declarations = [];
+            var commonType = undefined;
+            var hasCommonType = true;
             for (var _a = 0, props_1 = props; _a < props_1.length; _a++) {
                 var prop = props_1[_a];
                 if (prop.declarations) {
                     ts.addRange(declarations, prop.declarations);
+                }
+                var type = getTypeOfSymbol(prop);
+                if (!commonType) {
+                    commonType = type;
+                }
+                else if (type !== commonType) {
+                    hasCommonType = false;
                 }
                 propTypes.push(getTypeOfSymbol(prop));
             }
@@ -20379,6 +20388,7 @@ var ts;
                 268435456 /* SyntheticProperty */ |
                 commonFlags, name);
             result.containingType = containingType;
+            result.hasCommonType = hasCommonType;
             result.declarations = declarations;
             result.isReadonly = isReadonly;
             result.type = containingType.flags & 524288 /* Union */ ? getUnionType(propTypes) : getIntersectionType(propTypes);
@@ -20395,9 +20405,14 @@ var ts;
             }
             return property;
         }
-        // Return the symbol for the property with the given name in the given type. Creates synthetic union properties when
-        // necessary, maps primitive types and type parameters are to their apparent types, and augments with properties from
-        // Object and Function as appropriate.
+        /**
+         * Return the symbol for the property with the given name in the given type. Creates synthetic union properties when
+         * necessary, maps primitive types and type parameters are to their apparent types, and augments with properties from
+         * Object and Function as appropriate.
+         *
+         * @param type a type to look up property from
+         * @param name a name of property to look up in a given type
+         */
         function getPropertyOfType(type, name) {
             type = getApparentType(type);
             if (type.flags & 2588672 /* ObjectType */) {
@@ -23461,8 +23476,37 @@ var ts;
             }
             return false;
         }
-        function rootContainsMatchingReference(source, target) {
-            return target.kind === 172 /* PropertyAccessExpression */ && containsMatchingReference(source, target.expression);
+        // Return true if target is a property access xxx.yyy, source is a property access xxx.zzz, the declared
+        // type of xxx is a union type, and yyy is a property that is possibly a discriminant. We consider a property
+        // a possible discriminant if its type differs in the constituents of containing union type, and if every
+        // choice is a unit type or a union of unit types.
+        function containsMatchingReferenceDiscriminant(source, target) {
+            return target.kind === 172 /* PropertyAccessExpression */ &&
+                containsMatchingReference(source, target.expression) &&
+                isDiscriminantProperty(getDeclaredTypeOfReference(target.expression), target.name.text);
+        }
+        function getDeclaredTypeOfReference(expr) {
+            if (expr.kind === 69 /* Identifier */) {
+                return getTypeOfSymbol(getResolvedSymbol(expr));
+            }
+            if (expr.kind === 172 /* PropertyAccessExpression */) {
+                var type = getDeclaredTypeOfReference(expr.expression);
+                return type && getTypeOfPropertyOfType(type, expr.name.text);
+            }
+            return undefined;
+        }
+        function isDiscriminantProperty(type, name) {
+            if (type && type.flags & 524288 /* Union */) {
+                var prop = getPropertyOfType(type, name);
+                if (prop && prop.flags & 268435456 /* SyntheticProperty */) {
+                    if (prop.isDiscriminantProperty === undefined) {
+                        prop.isDiscriminantProperty = !prop.hasCommonType &&
+                            isUnitUnionType(getTypeOfSymbol(prop));
+                    }
+                    return prop.isDiscriminantProperty;
+                }
+            }
+            return false;
         }
         function isOrContainsMatchingReference(source, target) {
             return isMatchingReference(source, target) || containsMatchingReference(source, target);
@@ -23565,7 +23609,7 @@ var ts;
             }
             if (flags & 16384 /* TypeParameter */) {
                 var constraint = getConstraintOfTypeParameter(type);
-                return constraint ? getTypeFacts(constraint) : 4194303 /* All */;
+                return getTypeFacts(constraint || emptyObjectType);
             }
             if (flags & 1572864 /* UnionOrIntersection */) {
                 return getTypeFactsOfTypes(type.types);
@@ -23592,7 +23636,8 @@ var ts;
                     }
                 }
             }
-            return firstType ? types ? getUnionType(types) : firstType : neverType;
+            return types ? getUnionType(types) :
+                firstType ? firstType : neverType;
         }
         function getTypeWithDefault(type, defaultExpression) {
             if (defaultExpression) {
@@ -23728,6 +23773,24 @@ var ts;
         function eachTypeContainedIn(source, types) {
             return source.flags & 524288 /* Union */ ? !ts.forEach(source.types, function (t) { return !ts.contains(types, t); }) : ts.contains(types, source);
         }
+        function isTypeSubsetOf(source, target) {
+            return source === target || target.flags & 524288 /* Union */ && isTypeSubsetOfUnion(source, target);
+        }
+        function isTypeSubsetOfUnion(source, target) {
+            if (source.flags & 524288 /* Union */) {
+                for (var _i = 0, _a = source.types; _i < _a.length; _i++) {
+                    var t = _a[_i];
+                    if (!containsType(target.types, t)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            if (source.flags & 256 /* EnumLiteral */ && target.flags & 16 /* Enum */ && source.baseType === target) {
+                return true;
+            }
+            return containsType(target.types, source);
+        }
         function filterType(type, f) {
             return type.flags & 524288 /* Union */ ?
                 getUnionType(ts.filter(type.types, f)) :
@@ -23858,13 +23921,14 @@ var ts;
                 if (isMatchingReference(reference, expr)) {
                     type = narrowTypeBySwitchOnDiscriminant(type, flow.switchStatement, flow.clauseStart, flow.clauseEnd);
                 }
-                else if (isMatchingPropertyAccess(expr)) {
+                else if (isMatchingReferenceDiscriminant(expr)) {
                     type = narrowTypeByDiscriminant(type, expr, function (t) { return narrowTypeBySwitchOnDiscriminant(t, flow.switchStatement, flow.clauseStart, flow.clauseEnd); });
                 }
                 return createFlowType(type, isIncomplete(flowType));
             }
             function getTypeAtFlowBranchLabel(flow) {
                 var antecedentTypes = [];
+                var subtypeReduction = false;
                 var seenIncomplete = false;
                 for (var _i = 0, _a = flow.antecedents; _i < _a.length; _i++) {
                     var antecedent = _a[_i];
@@ -23880,11 +23944,17 @@ var ts;
                     if (!ts.contains(antecedentTypes, type)) {
                         antecedentTypes.push(type);
                     }
+                    // If an antecedent type is not a subset of the declared type, we need to perform
+                    // subtype reduction. This happens when a "foreign" type is injected into the control
+                    // flow using the instanceof operator or a user defined type predicate.
+                    if (!isTypeSubsetOf(type, declaredType)) {
+                        subtypeReduction = true;
+                    }
                     if (isIncomplete(flowType)) {
                         seenIncomplete = true;
                     }
                 }
-                return createFlowType(getUnionType(antecedentTypes), seenIncomplete);
+                return createFlowType(getUnionType(antecedentTypes, subtypeReduction), seenIncomplete);
             }
             function getTypeAtFlowLoopLabel(flow) {
                 // If we have previously computed the control flow type for the reference at
@@ -23909,6 +23979,7 @@ var ts;
                 // Add the flow loop junction and reference to the in-process stack and analyze
                 // each antecedent code path.
                 var antecedentTypes = [];
+                var subtypeReduction = false;
                 flowLoopNodes[flowLoopCount] = flow;
                 flowLoopKeys[flowLoopCount] = key;
                 flowLoopTypes[flowLoopCount] = antecedentTypes;
@@ -23926,6 +23997,12 @@ var ts;
                     if (!ts.contains(antecedentTypes, type)) {
                         antecedentTypes.push(type);
                     }
+                    // If an antecedent type is not a subset of the declared type, we need to perform
+                    // subtype reduction. This happens when a "foreign" type is injected into the control
+                    // flow using the instanceof operator or a user defined type predicate.
+                    if (!isTypeSubsetOf(type, declaredType)) {
+                        subtypeReduction = true;
+                    }
                     // If the type at a particular antecedent path is the declared type there is no
                     // reason to process more antecedents since the only possible outcome is subtypes
                     // that will be removed in the final union type anyway.
@@ -23933,12 +24010,13 @@ var ts;
                         break;
                     }
                 }
-                return cache[key] = getUnionType(antecedentTypes);
+                return cache[key] = getUnionType(antecedentTypes, subtypeReduction);
             }
-            function isMatchingPropertyAccess(expr) {
+            function isMatchingReferenceDiscriminant(expr) {
                 return expr.kind === 172 /* PropertyAccessExpression */ &&
+                    declaredType.flags & 524288 /* Union */ &&
                     isMatchingReference(reference, expr.expression) &&
-                    (declaredType.flags & 524288 /* Union */) !== 0;
+                    isDiscriminantProperty(declaredType, expr.name.text);
             }
             function narrowTypeByDiscriminant(type, propAccess, narrowType) {
                 var propName = propAccess.name.text;
@@ -23950,10 +24028,10 @@ var ts;
                 if (isMatchingReference(reference, expr)) {
                     return getTypeWithFacts(type, assumeTrue ? 1048576 /* Truthy */ : 2097152 /* Falsy */);
                 }
-                if (isMatchingPropertyAccess(expr)) {
+                if (isMatchingReferenceDiscriminant(expr)) {
                     return narrowTypeByDiscriminant(type, expr, function (t) { return getTypeWithFacts(t, assumeTrue ? 1048576 /* Truthy */ : 2097152 /* Falsy */); });
                 }
-                if (rootContainsMatchingReference(reference, expr)) {
+                if (containsMatchingReferenceDiscriminant(reference, expr)) {
                     return declaredType;
                 }
                 return type;
@@ -23981,13 +24059,13 @@ var ts;
                         if (isMatchingReference(reference, right_1)) {
                             return narrowTypeByEquality(type, operator_1, left_1, assumeTrue);
                         }
-                        if (isMatchingPropertyAccess(left_1)) {
+                        if (isMatchingReferenceDiscriminant(left_1)) {
                             return narrowTypeByDiscriminant(type, left_1, function (t) { return narrowTypeByEquality(t, operator_1, right_1, assumeTrue); });
                         }
-                        if (isMatchingPropertyAccess(right_1)) {
+                        if (isMatchingReferenceDiscriminant(right_1)) {
                             return narrowTypeByDiscriminant(type, right_1, function (t) { return narrowTypeByEquality(t, operator_1, left_1, assumeTrue); });
                         }
-                        if (rootContainsMatchingReference(reference, left_1) || rootContainsMatchingReference(reference, right_1)) {
+                        if (containsMatchingReferenceDiscriminant(reference, left_1) || containsMatchingReferenceDiscriminant(reference, right_1)) {
                             return declaredType;
                         }
                         break;
@@ -24116,9 +24194,7 @@ var ts;
             }
             function getNarrowedType(type, candidate, assumeTrue) {
                 if (!assumeTrue) {
-                    return type.flags & 524288 /* Union */ ?
-                        getUnionType(ts.filter(type.types, function (t) { return !isTypeSubtypeOf(t, candidate); })) :
-                        type;
+                    return filterType(type, function (t) { return !isTypeSubtypeOf(t, candidate); });
                 }
                 // If the current type is a union type, remove all constituents that aren't assignable to
                 // the candidate type. If one or more constituents remain, return a union of those.
@@ -24128,13 +24204,16 @@ var ts;
                         return getUnionType(assignableConstituents);
                     }
                 }
-                // If the candidate type is assignable to the target type, narrow to the candidate type.
-                // Otherwise, if the current type is assignable to the candidate, keep the current type.
-                // Otherwise, the types are completely unrelated, so narrow to the empty type.
+                // If the candidate type is a subtype of the target type, narrow to the candidate type.
+                // Otherwise, if the target type is assignable to the candidate type, keep the target type.
+                // Otherwise, if the candidate type is assignable to the target type, narrow to the candidate
+                // type. Otherwise, the types are completely unrelated, so narrow to an intersection of the
+                // two types.
                 var targetType = type.flags & 16384 /* TypeParameter */ ? getApparentType(type) : type;
-                return isTypeAssignableTo(candidate, targetType) ? candidate :
+                return isTypeSubtypeOf(candidate, targetType) ? candidate :
                     isTypeAssignableTo(type, candidate) ? type :
-                        getIntersectionType([type, candidate]);
+                        isTypeAssignableTo(candidate, targetType) ? candidate :
+                            getIntersectionType([type, candidate]);
             }
             function narrowTypeByTypePredicate(type, callExpression, assumeTrue) {
                 if (type.flags & 1 /* Any */ || !hasMatchingArgument(callExpression, reference)) {
@@ -28034,6 +28113,9 @@ var ts;
                         return checkDestructuringAssignment(element, type, contextualMapper);
                     }
                     else {
+                        // We still need to check element expression here because we may need to set appropriate flag on the expression
+                        // such as NodeCheckFlags.LexicalThis on "this"expression.
+                        checkExpression(element);
                         if (isTupleType(sourceType)) {
                             error(element, ts.Diagnostics.Tuple_type_0_with_length_1_cannot_be_assigned_to_tuple_with_length_2, typeToString(sourceType), sourceType.elementTypes.length, elements.length);
                         }

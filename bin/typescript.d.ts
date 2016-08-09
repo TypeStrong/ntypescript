@@ -1527,6 +1527,8 @@ declare namespace ts {
         mapper?: TypeMapper;
         referenced?: boolean;
         containingType?: UnionOrIntersectionType;
+        hasCommonType?: boolean;
+        isDiscriminantProperty?: boolean;
         resolvedExports?: SymbolTable;
         exportsChecked?: boolean;
         isDeclarationWithCollidingName?: boolean;
