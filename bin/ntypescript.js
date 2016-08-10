@@ -21731,6 +21731,12 @@ var ts;
         function isTypeAssignableTo(source, target) {
             return isTypeRelatedTo(source, target, assignableRelation);
         }
+        // A type S is considered to be an instance of a type T if S and T are the same type or if S is a
+        // subtype of T but not structurally identical to T. This specifically means that two distinct but
+        // structurally identical types (such as two classes) are not considered instances of each other.
+        function isTypeInstanceOf(source, target) {
+            return source === target || isTypeSubtypeOf(source, target) && !isTypeIdenticalTo(source, target);
+        }
         /**
          * This is *not* a bi-directional relationship.
          * If one needs to check both directions for comparability, use a second call to this function or 'checkTypeComparableTo'.
@@ -24194,12 +24200,12 @@ var ts;
             }
             function getNarrowedType(type, candidate, assumeTrue) {
                 if (!assumeTrue) {
-                    return filterType(type, function (t) { return !isTypeSubtypeOf(t, candidate); });
+                    return filterType(type, function (t) { return !isTypeInstanceOf(t, candidate); });
                 }
-                // If the current type is a union type, remove all constituents that aren't assignable to
+                // If the current type is a union type, remove all constituents that couldn't be instances of
                 // the candidate type. If one or more constituents remain, return a union of those.
                 if (type.flags & 524288 /* Union */) {
-                    var assignableConstituents = ts.filter(type.types, function (t) { return isTypeAssignableTo(t, candidate); });
+                    var assignableConstituents = ts.filter(type.types, function (t) { return isTypeInstanceOf(t, candidate); });
                     if (assignableConstituents.length) {
                         return getUnionType(assignableConstituents);
                     }
