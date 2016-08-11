@@ -23502,14 +23502,17 @@ var ts;
             return undefined;
         }
         function isDiscriminantProperty(type, name) {
-            if (type && type.flags & 524288 /* Union */) {
-                var prop = getPropertyOfType(type, name);
-                if (prop && prop.flags & 268435456 /* SyntheticProperty */) {
-                    if (prop.isDiscriminantProperty === undefined) {
-                        prop.isDiscriminantProperty = !prop.hasCommonType &&
-                            isUnitUnionType(getTypeOfSymbol(prop));
+            if (type) {
+                var nonNullType = getNonNullableType(type);
+                if (nonNullType.flags & 524288 /* Union */) {
+                    var prop = getPropertyOfType(nonNullType, name);
+                    if (prop && prop.flags & 268435456 /* SyntheticProperty */) {
+                        if (prop.isDiscriminantProperty === undefined) {
+                            prop.isDiscriminantProperty = !prop.hasCommonType &&
+                                isUnitUnionType(getTypeOfSymbol(prop));
+                        }
+                        return prop.isDiscriminantProperty;
                     }
-                    return prop.isDiscriminantProperty;
                 }
             }
             return false;
