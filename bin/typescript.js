@@ -1083,6 +1083,17 @@ var ts;
         return undefined;
     }
     ts.forEach = forEach;
+    /** Like `forEach`, but assumes existence of array and fails if no truthy value is found. */
+    function find(array, callback) {
+        for (var i = 0, len = array.length; i < len; i++) {
+            var result = callback(array[i], i);
+            if (result) {
+                return result;
+            }
+        }
+        Debug.fail();
+    }
+    ts.find = find;
     function contains(array, value) {
         if (array) {
             for (var _i = 0, array_1 = array; _i < array_1.length; _i++) {
@@ -3722,6 +3733,7 @@ var ts;
                 case 155 /* TypeReference */:
                     return node.typeName;
                 case 194 /* ExpressionWithTypeArguments */:
+                    ts.Debug.assert(isEntityNameExpression(node.expression));
                     return node.expression;
                 case 69 /* Identifier */:
                 case 139 /* QualifiedName */:
@@ -4356,8 +4368,8 @@ var ts;
     // import * as <symbol> from ...
     // import { x as <symbol> } from ...
     // export { x as <symbol> } from ...
-    // export = ...
-    // export default ...
+    // export = <EntityNameExpression>
+    // export default <EntityNameExpression>
     function isAliasSymbolDeclaration(node) {
         return node.kind === 229 /* ImportEqualsDeclaration */ ||
             node.kind === 228 /* NamespaceExportDeclaration */ ||
@@ -4365,9 +4377,13 @@ var ts;
             node.kind === 232 /* NamespaceImport */ ||
             node.kind === 234 /* ImportSpecifier */ ||
             node.kind === 238 /* ExportSpecifier */ ||
-            node.kind === 235 /* ExportAssignment */ && node.expression.kind === 69 /* Identifier */;
+            node.kind === 235 /* ExportAssignment */ && exportAssignmentIsAlias(node);
     }
     ts.isAliasSymbolDeclaration = isAliasSymbolDeclaration;
+    function exportAssignmentIsAlias(node) {
+        return isEntityNameExpression(node.expression);
+    }
+    ts.exportAssignmentIsAlias = exportAssignmentIsAlias;
     function getClassExtendsHeritageClauseElement(node) {
         var heritageClause = getHeritageClause(node.heritageClauses, 83 /* ExtendsKeyword */);
         return heritageClause && heritageClause.types.length > 0 ? heritageClause.types[0] : undefined;
@@ -5254,23 +5270,11 @@ var ts;
             isClassLike(node.parent.parent);
     }
     ts.isExpressionWithTypeArgumentsInClassExtendsClause = isExpressionWithTypeArgumentsInClassExtendsClause;
-    // Returns false if this heritage clause element's expression contains something unsupported
-    // (i.e. not a name or dotted name).
-    function isSupportedExpressionWithTypeArguments(node) {
-        return isSupportedExpressionWithTypeArgumentsRest(node.expression);
+    function isEntityNameExpression(node) {
+        return node.kind === 69 /* Identifier */ ||
+            node.kind === 172 /* PropertyAccessExpression */ && isEntityNameExpression(node.expression);
     }
-    ts.isSupportedExpressionWithTypeArguments = isSupportedExpressionWithTypeArguments;
-    function isSupportedExpressionWithTypeArgumentsRest(node) {
-        if (node.kind === 69 /* Identifier */) {
-            return true;
-        }
-        else if (isPropertyAccessExpression(node)) {
-            return isSupportedExpressionWithTypeArgumentsRest(node.expression);
-        }
-        else {
-            return false;
-        }
-    }
+    ts.isEntityNameExpression = isEntityNameExpression;
     function isRightSideOfQualifiedNameOrPropertyAccess(node) {
         return (node.parent.kind === 139 /* QualifiedName */ && node.parent.right === node) ||
             (node.parent.kind === 172 /* PropertyAccessExpression */ && node.parent.name === node);
@@ -16020,18 +16024,15 @@ var ts;
             bindAnonymousDeclaration(file, 512 /* ValueModule */, "\"" + ts.removeFileExtension(file.fileName) + "\"");
         }
         function bindExportAssignment(node) {
-            var boundExpression = node.kind === 235 /* ExportAssignment */ ? node.expression : node.right;
             if (!container.symbol || !container.symbol.exports) {
                 // Export assignment in some sort of block construct
                 bindAnonymousDeclaration(node, 8388608 /* Alias */, getDeclarationName(node));
             }
-            else if (boundExpression.kind === 69 /* Identifier */ && node.kind === 235 /* ExportAssignment */) {
-                // An export default clause with an identifier exports all meanings of that identifier
-                declareSymbol(container.symbol.exports, container.symbol, node, 8388608 /* Alias */, 0 /* PropertyExcludes */ | 8388608 /* AliasExcludes */);
-            }
             else {
-                // An export default clause with an expression exports a value
-                declareSymbol(container.symbol.exports, container.symbol, node, 4 /* Property */, 0 /* PropertyExcludes */ | 8388608 /* AliasExcludes */);
+                var flags = node.kind === 235 /* ExportAssignment */ && ts.exportAssignmentIsAlias(node)
+                    ? 8388608 /* Alias */
+                    : 4 /* Property */;
+                declareSymbol(container.symbol.exports, container.symbol, node, flags, 0 /* PropertyExcludes */ | 8388608 /* AliasExcludes */);
             }
         }
         function bindNamespaceExportDeclaration(node) {
@@ -17131,8 +17132,9 @@ var ts;
             }
             if (!result) {
                 if (nameNotFoundMessage) {
-                    if (!checkAndReportErrorForMissingPrefix(errorLocation, name, nameArg) &&
-                        !checkAndReportErrorForExtendingInterface(errorLocation)) {
+                    if (!errorLocation ||
+                        !checkAndReportErrorForMissingPrefix(errorLocation, name, nameArg) &&
+                            !checkAndReportErrorForExtendingInterface(errorLocation)) {
                         error(errorLocation, nameNotFoundMessage, typeof nameArg === "string" ? nameArg : ts.declarationNameToString(nameArg));
                     }
                 }
@@ -17175,7 +17177,7 @@ var ts;
             return result;
         }
         function checkAndReportErrorForMissingPrefix(errorLocation, name, nameArg) {
-            if (!errorLocation || (errorLocation.kind === 69 /* Identifier */ && (isTypeReferenceIdentifier(errorLocation)) || isInTypeQuery(errorLocation))) {
+            if ((errorLocation.kind === 69 /* Identifier */ && (isTypeReferenceIdentifier(errorLocation)) || isInTypeQuery(errorLocation))) {
                 return false;
             }
             var container = ts.getThisContainer(errorLocation, /* includeArrowFunctions */ true);
@@ -17207,27 +17209,28 @@ var ts;
             return false;
         }
         function checkAndReportErrorForExtendingInterface(errorLocation) {
-            var parentClassExpression = errorLocation;
-            while (parentClassExpression) {
-                var kind = parentClassExpression.kind;
-                if (kind === 69 /* Identifier */ || kind === 172 /* PropertyAccessExpression */) {
-                    parentClassExpression = parentClassExpression.parent;
-                    continue;
-                }
-                if (kind === 194 /* ExpressionWithTypeArguments */) {
-                    break;
-                }
-                return false;
-            }
-            if (!parentClassExpression) {
-                return false;
-            }
-            var expression = parentClassExpression.expression;
-            if (resolveEntityName(expression, 64 /* Interface */, /*ignoreErrors*/ true)) {
+            var expression = getEntityNameForExtendingInterface(errorLocation);
+            var isError = !!(expression && resolveEntityName(expression, 64 /* Interface */, /*ignoreErrors*/ true));
+            if (isError) {
                 error(errorLocation, ts.Diagnostics.Cannot_extend_an_interface_0_Did_you_mean_implements, ts.getTextOfNode(expression));
-                return true;
             }
-            return false;
+            return isError;
+        }
+        /**
+         * Climbs up parents to an ExpressionWithTypeArguments, and returns its expression,
+         * but returns undefined if that expression is not an EntityNameExpression.
+         */
+        function getEntityNameForExtendingInterface(node) {
+            switch (node.kind) {
+                case 69 /* Identifier */:
+                case 172 /* PropertyAccessExpression */:
+                    return node.parent ? getEntityNameForExtendingInterface(node.parent) : undefined;
+                case 194 /* ExpressionWithTypeArguments */:
+                    ts.Debug.assert(ts.isEntityNameExpression(node.expression));
+                    return node.expression;
+                default:
+                    return undefined;
+            }
         }
         function checkResolvedBlockScopedVariable(result, errorLocation) {
             ts.Debug.assert((result.flags & 2 /* BlockScopedVariable */) !== 0);
@@ -17265,7 +17268,7 @@ var ts;
             }
         }
         function getDeclarationOfAliasSymbol(symbol) {
-            return ts.forEach(symbol.declarations, function (d) { return ts.isAliasSymbolDeclaration(d) ? d : undefined; });
+            return ts.find(symbol.declarations, function (d) { return ts.isAliasSymbolDeclaration(d) ? d : undefined; });
         }
         function getTargetOfImportEqualsDeclaration(node) {
             if (node.moduleReference.kind === 240 /* ExternalModuleReference */) {
@@ -17706,8 +17709,8 @@ var ts;
         }
         function createType(flags) {
             var result = new Type(checker, flags);
-            result.id = typeCount;
             typeCount++;
+            result.id = typeCount;
             return result;
         }
         function createIntrinsicType(kind, intrinsicName) {
@@ -19662,7 +19665,7 @@ var ts;
                     if (baseTypeNodes) {
                         for (var _b = 0, baseTypeNodes_1 = baseTypeNodes; _b < baseTypeNodes_1.length; _b++) {
                             var node = baseTypeNodes_1[_b];
-                            if (ts.isSupportedExpressionWithTypeArguments(node)) {
+                            if (ts.isEntityNameExpression(node.expression)) {
                                 var baseSymbol = resolveEntityName(node.expression, 793064 /* Type */, /*ignoreErrors*/ true);
                                 if (!baseSymbol || !(baseSymbol.flags & 64 /* Interface */) || getDeclaredTypeOfClassOrInterface(baseSymbol).thisType) {
                                     return false;
@@ -19970,6 +19973,9 @@ var ts;
             if (type.flags & 131072 /* Reference */) {
                 return createTypeReference(type.target, ts.concatenate(type.typeArguments, [thisArgument || type.target.thisType]));
             }
+            if (type.flags & 262144 /* Tuple */) {
+                return createTupleType(type.elementTypes, thisArgument);
+            }
             return type;
         }
         function resolveObjectTypeMembers(type, source, typeParameters, typeArguments) {
@@ -20065,7 +20071,8 @@ var ts;
         function resolveTupleTypeMembers(type) {
             var arrayElementType = getUnionType(type.elementTypes);
             // Make the tuple type itself the 'this' type by including an extra type argument
-            var arrayType = resolveStructuredTypeMembers(createTypeFromGenericGlobalType(globalArrayType, [arrayElementType, type]));
+            // (Unless it's provided in the case that the tuple is a type parameter constraint)
+            var arrayType = resolveStructuredTypeMembers(createTypeFromGenericGlobalType(globalArrayType, [arrayElementType, type.thisType || type]));
             var members = createTupleTypeMemberSymbols(type.elementTypes);
             addInheritedMembers(members, arrayType.properties);
             setObjectTypeMembers(type, members, arrayType.callSignatures, arrayType.constructSignatures, arrayType.stringIndexInfo, arrayType.numberIndexInfo);
@@ -20841,24 +20848,27 @@ var ts;
             return getSymbolOfNode(ts.getDeclarationOfKind(typeParameter.symbol, 141 /* TypeParameter */).parent);
         }
         function getTypeListId(types) {
+            var result = "";
             if (types) {
-                switch (types.length) {
-                    case 1:
-                        return "" + types[0].id;
-                    case 2:
-                        return types[0].id + "," + types[1].id;
-                    default:
-                        var result = "";
-                        for (var i = 0; i < types.length; i++) {
-                            if (i > 0) {
-                                result += ",";
-                            }
-                            result += types[i].id;
-                        }
-                        return result;
+                var length_3 = types.length;
+                var i = 0;
+                while (i < length_3) {
+                    var startId = types[i].id;
+                    var count = 1;
+                    while (i + count < length_3 && types[i + count].id === startId + count) {
+                        count++;
+                    }
+                    if (result.length) {
+                        result += ",";
+                    }
+                    result += startId;
+                    if (count > 1) {
+                        result += ":" + count;
+                    }
+                    i += count;
                 }
             }
-            return "";
+            return result;
         }
         // This function is used to propagate certain flags when creating new object type references and union types.
         // It is only necessary to do so if a constituent type might be the undefined type, the null type, the type
@@ -20945,8 +20955,9 @@ var ts;
                 case 194 /* ExpressionWithTypeArguments */:
                     // We only support expressions that are simple qualified names. For other
                     // expressions this produces undefined.
-                    if (ts.isSupportedExpressionWithTypeArguments(node)) {
-                        return node.expression;
+                    var expr = node.expression;
+                    if (ts.isEntityNameExpression(expr)) {
+                        return expr;
                     }
             }
             return undefined;
@@ -20984,14 +20995,14 @@ var ts;
                     var typeReferenceName = getTypeReferenceName(node);
                     symbol = resolveTypeReferenceName(node, typeReferenceName);
                     type = getTypeReferenceType(node, symbol);
-                    links.resolvedSymbol = symbol;
-                    links.resolvedType = type;
                 }
                 else {
                     // We only support expressions that are simple qualified names. For other expressions this produces undefined.
-                    var typeNameOrExpression = node.kind === 155 /* TypeReference */ ? node.typeName :
-                        ts.isSupportedExpressionWithTypeArguments(node) ? node.expression :
-                            undefined;
+                    var typeNameOrExpression = node.kind === 155 /* TypeReference */
+                        ? node.typeName
+                        : ts.isEntityNameExpression(node.expression)
+                            ? node.expression
+                            : undefined;
                     symbol = typeNameOrExpression && resolveEntityName(typeNameOrExpression, 793064 /* Type */) || unknownSymbol;
                     type = symbol === unknownSymbol ? unknownType :
                         symbol.flags & (32 /* Class */ | 64 /* Interface */) ? getTypeFromClassOrInterfaceReference(node, symbol) :
@@ -21096,14 +21107,15 @@ var ts;
             }
             return links.resolvedType;
         }
-        function createTupleType(elementTypes) {
-            var id = getTypeListId(elementTypes);
-            return tupleTypes[id] || (tupleTypes[id] = createNewTupleType(elementTypes));
+        function createTupleType(elementTypes, thisType) {
+            var id = getTypeListId(elementTypes) + "," + (thisType ? thisType.id : 0);
+            return tupleTypes[id] || (tupleTypes[id] = createNewTupleType(elementTypes, thisType));
         }
-        function createNewTupleType(elementTypes) {
+        function createNewTupleType(elementTypes, thisType) {
             var propagatedFlags = getPropagatingFlagsOfTypes(elementTypes, /*excludeKinds*/ 0);
             var type = createObjectType(262144 /* Tuple */ | propagatedFlags);
             type.elementTypes = elementTypes;
+            type.thisType = thisType;
             return type;
         }
         function getTypeFromTupleTypeNode(node) {
@@ -31181,7 +31193,7 @@ var ts;
             if (implementedTypeNodes) {
                 for (var _b = 0, implementedTypeNodes_1 = implementedTypeNodes; _b < implementedTypeNodes_1.length; _b++) {
                     var typeRefNode = implementedTypeNodes_1[_b];
-                    if (!ts.isSupportedExpressionWithTypeArguments(typeRefNode)) {
+                    if (!ts.isEntityNameExpression(typeRefNode.expression)) {
                         error(typeRefNode.expression, ts.Diagnostics.A_class_can_only_implement_an_identifier_Slashqualified_name_with_optional_type_arguments);
                     }
                     checkTypeReferenceNode(typeRefNode);
@@ -31396,7 +31408,7 @@ var ts;
                 checkObjectTypeForDuplicateDeclarations(node);
             }
             ts.forEach(ts.getInterfaceBaseTypeNodes(node), function (heritageElement) {
-                if (!ts.isSupportedExpressionWithTypeArguments(heritageElement)) {
+                if (!ts.isEntityNameExpression(heritageElement.expression)) {
                     error(heritageElement.expression, ts.Diagnostics.An_interface_can_only_extend_an_identifier_Slashqualified_name_with_optional_type_arguments);
                 }
                 checkTypeReferenceNode(heritageElement);
@@ -31822,19 +31834,20 @@ var ts;
             }
         }
         function getFirstIdentifier(node) {
-            while (true) {
-                if (node.kind === 139 /* QualifiedName */) {
-                    node = node.left;
-                }
-                else if (node.kind === 172 /* PropertyAccessExpression */) {
-                    node = node.expression;
-                }
-                else {
-                    break;
-                }
+            switch (node.kind) {
+                case 69 /* Identifier */:
+                    return node;
+                case 139 /* QualifiedName */:
+                    do {
+                        node = node.left;
+                    } while (node.kind !== 69 /* Identifier */);
+                    return node;
+                case 172 /* PropertyAccessExpression */:
+                    do {
+                        node = node.expression;
+                    } while (node.kind !== 69 /* Identifier */);
+                    return node;
             }
-            ts.Debug.assert(node.kind === 69 /* Identifier */);
-            return node;
         }
         function checkExternalImportOrExportDeclaration(node) {
             var moduleName = ts.getExternalModuleName(node);
@@ -32479,17 +32492,15 @@ var ts;
                     default:
                 }
             }
-            if (entityName.parent.kind === 235 /* ExportAssignment */) {
+            if (entityName.parent.kind === 235 /* ExportAssignment */ && ts.isEntityNameExpression(entityName)) {
                 return resolveEntityName(entityName, 
                 /*all meanings*/ 107455 /* Value */ | 793064 /* Type */ | 1920 /* Namespace */ | 8388608 /* Alias */);
             }
-            if (entityName.kind !== 172 /* PropertyAccessExpression */) {
-                if (isInRightSideOfImportOrExportAssignment(entityName)) {
-                    // Since we already checked for ExportAssignment, this really could only be an Import
-                    var importEqualsDeclaration = ts.getAncestor(entityName, 229 /* ImportEqualsDeclaration */);
-                    ts.Debug.assert(importEqualsDeclaration !== undefined);
-                    return getSymbolOfPartOfRightHandSideOfImportEquals(entityName, importEqualsDeclaration, /*dontResolveAlias*/ true);
-                }
+            if (entityName.kind !== 172 /* PropertyAccessExpression */ && isInRightSideOfImportOrExportAssignment(entityName)) {
+                // Since we already checked for ExportAssignment, this really could only be an Import
+                var importEqualsDeclaration = ts.getAncestor(entityName, 229 /* ImportEqualsDeclaration */);
+                ts.Debug.assert(importEqualsDeclaration !== undefined);
+                return getSymbolOfPartOfRightHandSideOfImportEquals(entityName, importEqualsDeclaration, /*dontResolveAlias*/ true);
             }
             if (ts.isRightSideOfQualifiedNameOrPropertyAccess(entityName)) {
                 entityName = entityName.parent;
@@ -35821,7 +35832,7 @@ var ts;
                 writeEntityName(entityName);
             }
             function emitExpressionWithTypeArguments(node) {
-                if (ts.isSupportedExpressionWithTypeArguments(node)) {
+                if (ts.isEntityNameExpression(node.expression)) {
                     ts.Debug.assert(node.expression.kind === 69 /* Identifier */ || node.expression.kind === 172 /* PropertyAccessExpression */);
                     emitEntityName(node.expression);
                     if (node.typeArguments) {
@@ -36335,7 +36346,7 @@ var ts;
                 emitCommaList(typeReferences, emitTypeOfTypeReference);
             }
             function emitTypeOfTypeReference(node) {
-                if (ts.isSupportedExpressionWithTypeArguments(node)) {
+                if (ts.isEntityNameExpression(node.expression)) {
                     emitTypeWithNewGetSymbolAccessibilityDiagnostic(node, getHeritageClauseVisibilityError);
                 }
                 else if (!isImplementsList && node.expression.kind === 93 /* NullKeyword */) {
@@ -46905,9 +46916,9 @@ var ts;
     function reportDiagnosticWithColorAndContext(diagnostic, host) {
         var output = "";
         if (diagnostic.file) {
-            var start = diagnostic.start, length_3 = diagnostic.length, file = diagnostic.file;
+            var start = diagnostic.start, length_4 = diagnostic.length, file = diagnostic.file;
             var _a = ts.getLineAndCharacterOfPosition(file, start), firstLine = _a.line, firstLineChar = _a.character;
-            var _b = ts.getLineAndCharacterOfPosition(file, start + length_3), lastLine = _b.line, lastLineChar = _b.character;
+            var _b = ts.getLineAndCharacterOfPosition(file, start + length_4), lastLine = _b.line, lastLineChar = _b.character;
             var lastLineInFile = ts.getLineAndCharacterOfPosition(file, file.text.length).line;
             var relativeFileName = host ? ts.convertToRelativePath(file.fileName, host.getCurrentDirectory(), function (fileName) { return host.getCanonicalFileName(fileName); }) : file.fileName;
             var hasMoreThanFiveLines = (lastLine - firstLine) >= 4;
@@ -60104,7 +60115,7 @@ var ts;
             var lastEnd = 0;
             for (var i = 0, n = dense.length; i < n; i += 3) {
                 var start = dense[i];
-                var length_4 = dense[i + 1];
+                var length_5 = dense[i + 1];
                 var type = dense[i + 2];
                 // Make a whitespace entry between the last item and this one.
                 if (lastEnd >= 0) {
@@ -60113,8 +60124,8 @@ var ts;
                         entries.push({ length: whitespaceLength_1, classification: TokenClass.Whitespace });
                     }
                 }
-                entries.push({ length: length_4, classification: convertClassification(type) });
-                lastEnd = start + length_4;
+                entries.push({ length: length_5, classification: convertClassification(type) });
+                lastEnd = start + length_5;
             }
             var whitespaceLength = text.length - lastEnd;
             if (whitespaceLength > 0) {

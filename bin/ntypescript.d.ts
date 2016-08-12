@@ -715,11 +715,17 @@ declare namespace ts {
         properties: NodeArray<ObjectLiteralElement>;
         multiLine?: boolean;
     }
+    type EntityNameExpression = Identifier | PropertyAccessEntityNameExpression;
+    type EntityNameOrEntityNameExpression = EntityName | EntityNameExpression;
     interface PropertyAccessExpression extends MemberExpression, Declaration {
         expression: LeftHandSideExpression;
         name: Identifier;
     }
-    type IdentifierOrPropertyAccess = Identifier | PropertyAccessExpression;
+    /** Brand for a PropertyAccessExpression which, like a QualifiedName, consists of a sequence of identifiers separated by dots. */
+    interface PropertyAccessEntityNameExpression extends PropertyAccessExpression {
+        _propertyAccessExpressionLikeQualifiedNameBrand?: any;
+        expression: EntityNameExpression;
+    }
     interface ElementAccessExpression extends MemberExpression {
         expression: LeftHandSideExpression;
         argumentExpression?: Expression;
@@ -1422,7 +1428,7 @@ declare namespace ts {
         writeTypeOfExpression(expr: Expression, enclosingDeclaration: Node, flags: TypeFormatFlags, writer: SymbolWriter): void;
         writeBaseConstructorTypeOfClass(node: ClassLikeDeclaration, enclosingDeclaration: Node, flags: TypeFormatFlags, writer: SymbolWriter): void;
         isSymbolAccessible(symbol: Symbol, enclosingDeclaration: Node, meaning: SymbolFlags): SymbolAccessibilityResult;
-        isEntityNameVisible(entityName: EntityName | Expression, enclosingDeclaration: Node): SymbolVisibilityResult;
+        isEntityNameVisible(entityName: EntityNameOrEntityNameExpression, enclosingDeclaration: Node): SymbolVisibilityResult;
         getConstantValue(node: EnumMember | PropertyAccessExpression | ElementAccessExpression): number;
         getReferencedValueDeclaration(reference: Identifier): Declaration;
         getTypeReferenceSerializationKind(typeName: EntityName): TypeReferenceSerializationKind;
@@ -1430,7 +1436,7 @@ declare namespace ts {
         moduleExportsSomeValue(moduleReferenceExpression: Expression): boolean;
         isArgumentsLocalBinding(node: Identifier): boolean;
         getExternalModuleFileFromDeclaration(declaration: ImportEqualsDeclaration | ImportDeclaration | ExportDeclaration | ModuleDeclaration): SourceFile;
-        getTypeReferenceDirectivesForEntityName(name: EntityName | PropertyAccessExpression): string[];
+        getTypeReferenceDirectivesForEntityName(name: EntityNameOrEntityNameExpression): string[];
         getTypeReferenceDirectivesForSymbol(symbol: Symbol, meaning?: SymbolFlags): string[];
     }
     enum SymbolFlags {
@@ -1681,6 +1687,7 @@ declare namespace ts {
     }
     interface TupleType extends ObjectType {
         elementTypes: Type[];
+        thisType?: Type;
     }
     interface UnionOrIntersectionType extends Type {
         types: Type[];
@@ -2251,7 +2258,9 @@ declare namespace ts {
      * returns a truthy value, then returns that value.
      * If no such value is found, the callback is applied to each element of array and undefined is returned.
      */
-    function forEach<T, U>(array: T[], callback: (element: T, index: number) => U): U;
+    function forEach<T, U>(array: T[] | undefined, callback: (element: T, index: number) => U | undefined): U | undefined;
+    /** Like `forEach`, but assumes existence of array and fails if no truthy value is found. */
+    function find<T, U>(array: T[], callback: (element: T, index: number) => U | undefined): U;
     function contains<T>(array: T[], value: T): boolean;
     function indexOf<T>(array: T[], value: T): number;
     function indexOfAnyCharCode(text: string, charCodes: number[], start?: number): number;
@@ -2584,7 +2593,7 @@ declare namespace ts {
      * Determines whether a node is a property or element access expression for super.
      */
     function isSuperPropertyOrElementAccess(node: Node): boolean;
-    function getEntityNameFromTypeNode(node: TypeNode): EntityName | Expression;
+    function getEntityNameFromTypeNode(node: TypeNode): EntityNameOrEntityNameExpression;
     function getInvokedExpression(node: CallLikeExpression): Expression;
     function nodeCanBeDecorated(node: Node): boolean;
     function nodeIsDecorated(node: Node): boolean;
@@ -2637,6 +2646,7 @@ declare namespace ts {
     function isLiteralComputedPropertyDeclarationName(node: Node): boolean;
     function isIdentifierName(node: Identifier): boolean;
     function isAliasSymbolDeclaration(node: Node): boolean;
+    function exportAssignmentIsAlias(node: ExportAssignment): boolean;
     function getClassExtendsHeritageClauseElement(node: ClassLikeDeclaration | InterfaceDeclaration): ExpressionWithTypeArguments;
     function getClassImplementsHeritageClauseElements(node: ClassLikeDeclaration): NodeArray<ExpressionWithTypeArguments>;
     function getInterfaceBaseTypeNodes(node: InterfaceDeclaration): NodeArray<ExpressionWithTypeArguments>;
@@ -2761,7 +2771,7 @@ declare namespace ts {
     function isLeftHandSideExpression(expr: Expression): boolean;
     function isAssignmentOperator(token: SyntaxKind): boolean;
     function isExpressionWithTypeArgumentsInClassExtendsClause(node: Node): boolean;
-    function isSupportedExpressionWithTypeArguments(node: ExpressionWithTypeArguments): boolean;
+    function isEntityNameExpression(node: Expression): node is EntityNameExpression;
     function isRightSideOfQualifiedNameOrPropertyAccess(node: Node): boolean;
     function isEmptyObjectLiteralOrArrayLiteral(expression: Node): boolean;
     function getLocalSymbolForExportDefault(symbol: Symbol): Symbol;
