@@ -1139,24 +1139,36 @@ var ts;
         return count;
     }
     ts.countWhere = countWhere;
+    /**
+     * Filters an array by a predicate function. Returns the same array instance if the predicate is
+     * true for all elements, otherwise returns a new array instance containing the filtered subset.
+     */
     function filter(array, f) {
-        var result;
         if (array) {
-            result = [];
-            for (var _i = 0, array_3 = array; _i < array_3.length; _i++) {
-                var item = array_3[_i];
-                if (f(item)) {
-                    result.push(item);
+            var len = array.length;
+            var i = 0;
+            while (i < len && f(array[i]))
+                i++;
+            if (i < len) {
+                var result = array.slice(0, i);
+                i++;
+                while (i < len) {
+                    var item = array[i];
+                    if (f(item)) {
+                        result.push(item);
+                    }
+                    i++;
                 }
+                return result;
             }
         }
-        return result;
+        return array;
     }
     ts.filter = filter;
     function filterMutate(array, f) {
         var outIndex = 0;
-        for (var _i = 0, array_4 = array; _i < array_4.length; _i++) {
-            var item = array_4[_i];
+        for (var _i = 0, array_3 = array; _i < array_3.length; _i++) {
+            var item = array_3[_i];
             if (f(item)) {
                 array[outIndex] = item;
                 outIndex++;
@@ -1169,8 +1181,8 @@ var ts;
         var result;
         if (array) {
             result = [];
-            for (var _i = 0, array_5 = array; _i < array_5.length; _i++) {
-                var v = array_5[_i];
+            for (var _i = 0, array_4 = array; _i < array_4.length; _i++) {
+                var v = array_4[_i];
                 result.push(f(v));
             }
         }
@@ -1189,8 +1201,8 @@ var ts;
         var result;
         if (array) {
             result = [];
-            loop: for (var _i = 0, array_6 = array; _i < array_6.length; _i++) {
-                var item = array_6[_i];
+            loop: for (var _i = 0, array_5 = array; _i < array_5.length; _i++) {
+                var item = array_5[_i];
                 for (var _a = 0, result_1 = result; _a < result_1.length; _a++) {
                     var res = result_1[_a];
                     if (areEqual ? areEqual(res, item) : res === item) {
@@ -1205,8 +1217,8 @@ var ts;
     ts.deduplicate = deduplicate;
     function sum(array, prop) {
         var result = 0;
-        for (var _i = 0, array_7 = array; _i < array_7.length; _i++) {
-            var v = array_7[_i];
+        for (var _i = 0, array_6 = array; _i < array_6.length; _i++) {
+            var v = array_6[_i];
             result += v[prop];
         }
         return result;
@@ -13940,8 +13952,8 @@ var ts;
                 array._children = undefined;
                 array.pos += delta;
                 array.end += delta;
-                for (var _i = 0, array_8 = array; _i < array_8.length; _i++) {
-                    var node = array_8[_i];
+                for (var _i = 0, array_7 = array; _i < array_7.length; _i++) {
+                    var node = array_7[_i];
                     visitNode(node);
                 }
             }
@@ -14078,8 +14090,8 @@ var ts;
                     array._children = undefined;
                     // Adjust the pos or end (or both) of the intersecting array accordingly.
                     adjustIntersectingElement(array, changeStart, changeRangeOldEnd, changeRangeNewEnd, delta);
-                    for (var _i = 0, array_9 = array; _i < array_9.length; _i++) {
-                        var node = array_9[_i];
+                    for (var _i = 0, array_8 = array; _i < array_8.length; _i++) {
+                        var node = array_8[_i];
                         visitNode(node);
                     }
                     return;
@@ -16531,7 +16543,8 @@ var ts;
             TypeFacts[TypeFacts["NEUndefinedOrNull"] = 524288] = "NEUndefinedOrNull";
             TypeFacts[TypeFacts["Truthy"] = 1048576] = "Truthy";
             TypeFacts[TypeFacts["Falsy"] = 2097152] = "Falsy";
-            TypeFacts[TypeFacts["All"] = 4194303] = "All";
+            TypeFacts[TypeFacts["Discriminatable"] = 4194304] = "Discriminatable";
+            TypeFacts[TypeFacts["All"] = 8388607] = "All";
             // The following members encode facts about particular kinds of types for use in the getTypeFacts function.
             // The presence of a particular fact means that the given test is true for some (and possibly all) values
             // of that kind of type.
@@ -16561,10 +16574,10 @@ var ts;
             TypeFacts[TypeFacts["TrueFacts"] = 4193668] = "TrueFacts";
             TypeFacts[TypeFacts["SymbolStrictFacts"] = 1981320] = "SymbolStrictFacts";
             TypeFacts[TypeFacts["SymbolFacts"] = 4193160] = "SymbolFacts";
-            TypeFacts[TypeFacts["ObjectStrictFacts"] = 1972176] = "ObjectStrictFacts";
-            TypeFacts[TypeFacts["ObjectFacts"] = 4184016] = "ObjectFacts";
-            TypeFacts[TypeFacts["FunctionStrictFacts"] = 1970144] = "FunctionStrictFacts";
-            TypeFacts[TypeFacts["FunctionFacts"] = 4181984] = "FunctionFacts";
+            TypeFacts[TypeFacts["ObjectStrictFacts"] = 6166480] = "ObjectStrictFacts";
+            TypeFacts[TypeFacts["ObjectFacts"] = 8378320] = "ObjectFacts";
+            TypeFacts[TypeFacts["FunctionStrictFacts"] = 6164448] = "FunctionStrictFacts";
+            TypeFacts[TypeFacts["FunctionFacts"] = 8376288] = "FunctionFacts";
             TypeFacts[TypeFacts["UndefinedFacts"] = 2457472] = "UndefinedFacts";
             TypeFacts[TypeFacts["NullFacts"] = 2340752] = "NullFacts";
         })(TypeFacts || (TypeFacts = {}));
@@ -21206,12 +21219,12 @@ var ts;
                 }
             }
         }
-        // We deduplicate the constituent types based on object identity. If the subtypeReduction flag is
-        // specified we also reduce the constituent type set to only include types that aren't subtypes of
-        // other types. Subtype reduction is expensive for large union types and is possible only when union
+        // We sort and deduplicate the constituent types based on object identity. If the subtypeReduction
+        // flag is specified we also reduce the constituent type set to only include types that aren't subtypes
+        // of other types. Subtype reduction is expensive for large union types and is possible only when union
         // types are known not to circularly reference themselves (as is the case with union types created by
         // expression constructs such as array literals and the || and ?: operators). Named types can
-        // circularly reference themselves and therefore cannot be deduplicated during their declaration.
+        // circularly reference themselves and therefore cannot be subtype reduced during their declaration.
         // For example, "type Item = string | (() => Item" is a named type that circularly references itself.
         function getUnionType(types, subtypeReduction, aliasSymbol, aliasTypeArguments) {
             if (types.length === 0) {
@@ -21233,15 +21246,22 @@ var ts;
                     typeSet.containsUndefined ? typeSet.containsNonWideningType ? undefinedType : undefinedWideningType :
                         neverType;
             }
-            else if (typeSet.length === 1) {
-                return typeSet[0];
+            return getUnionTypeFromSortedList(typeSet, aliasSymbol, aliasTypeArguments);
+        }
+        // This function assumes the constituent type list is sorted and deduplicated.
+        function getUnionTypeFromSortedList(types, aliasSymbol, aliasTypeArguments) {
+            if (types.length === 0) {
+                return neverType;
             }
-            var id = getTypeListId(typeSet);
+            if (types.length === 1) {
+                return types[0];
+            }
+            var id = getTypeListId(types);
             var type = unionTypes[id];
             if (!type) {
-                var propagatedFlags = getPropagatingFlagsOfTypes(typeSet, /*excludeKinds*/ 6144 /* Nullable */);
+                var propagatedFlags = getPropagatingFlagsOfTypes(types, /*excludeKinds*/ 6144 /* Nullable */);
                 type = unionTypes[id] = createObjectType(524288 /* Union */ | propagatedFlags);
-                type.types = typeSet;
+                type.types = types;
                 type.aliasSymbol = aliasSymbol;
                 type.aliasTypeArguments = aliasTypeArguments;
             }
@@ -23514,17 +23534,24 @@ var ts;
             return undefined;
         }
         function isDiscriminantProperty(type, name) {
-            if (type) {
-                var nonNullType = getNonNullableType(type);
-                if (nonNullType.flags & 524288 /* Union */) {
-                    var prop = getPropertyOfType(nonNullType, name);
-                    if (prop && prop.flags & 268435456 /* SyntheticProperty */) {
-                        if (prop.isDiscriminantProperty === undefined) {
-                            prop.isDiscriminantProperty = !prop.hasCommonType &&
-                                isUnitUnionType(getTypeOfSymbol(prop));
-                        }
-                        return prop.isDiscriminantProperty;
+            if (type && type.flags & 524288 /* Union */) {
+                var prop = getPropertyOfType(type, name);
+                if (!prop) {
+                    // The type may be a union that includes nullable or primitive types. If filtering
+                    // those out produces a different type, get the property from that type instead.
+                    // Effectively, we're checking if this *could* be a discriminant property once nullable
+                    // and primitive types are removed by other type guards.
+                    var filteredType = getTypeWithFacts(type, 4194304 /* Discriminatable */);
+                    if (filteredType !== type && filteredType.flags & 524288 /* Union */) {
+                        prop = getPropertyOfType(filteredType, name);
                     }
+                }
+                if (prop && prop.flags & 268435456 /* SyntheticProperty */) {
+                    if (prop.isDiscriminantProperty === undefined) {
+                        prop.isDiscriminantProperty = !prop.hasCommonType &&
+                            isUnitUnionType(getTypeOfSymbol(prop));
+                    }
+                    return prop.isDiscriminantProperty;
                 }
             }
             return false;
@@ -23570,10 +23597,10 @@ var ts;
         // For example, when a variable of type number | string | boolean is assigned a value of type number | boolean,
         // we remove type string.
         function getAssignmentReducedType(declaredType, assignedType) {
-            if (declaredType !== assignedType && declaredType.flags & 524288 /* Union */) {
-                var reducedTypes = ts.filter(declaredType.types, function (t) { return typeMaybeAssignableTo(assignedType, t); });
-                if (reducedTypes.length) {
-                    return reducedTypes.length === 1 ? reducedTypes[0] : getUnionType(reducedTypes);
+            if (declaredType !== assignedType) {
+                var reducedType = filterType(declaredType, function (t) { return typeMaybeAssignableTo(assignedType, t); });
+                if (reducedType !== neverType) {
+                    return reducedType;
                 }
             }
             return declaredType;
@@ -23585,6 +23612,13 @@ var ts;
                 result |= getTypeFacts(t);
             }
             return result;
+        }
+        function isFunctionObjectType(type) {
+            // We do a quick check for a "bind" property before performing the more expensive subtype
+            // check. This gives us a quicker out in the common case where an object type is not a function.
+            var resolved = resolveStructuredTypeMembers(type);
+            return !!(resolved.callSignatures.length || resolved.constructSignatures.length ||
+                ts.hasProperty(resolved.members, "bind") && isTypeSubtypeOf(type, globalFunctionType));
         }
         function getTypeFacts(type) {
             var flags = type.flags;
@@ -23614,10 +23648,9 @@ var ts;
                     type === falseType ? 3145092 /* FalseFacts */ : 4193668 /* TrueFacts */;
             }
             if (flags & 2588672 /* ObjectType */) {
-                var resolved = resolveStructuredTypeMembers(type);
-                return resolved.callSignatures.length || resolved.constructSignatures.length || isTypeSubtypeOf(type, globalFunctionType) ?
-                    strictNullChecks ? 1970144 /* FunctionStrictFacts */ : 4181984 /* FunctionFacts */ :
-                    strictNullChecks ? 1972176 /* ObjectStrictFacts */ : 4184016 /* ObjectFacts */;
+                return isFunctionObjectType(type) ?
+                    strictNullChecks ? 6164448 /* FunctionStrictFacts */ : 8376288 /* FunctionFacts */ :
+                    strictNullChecks ? 6166480 /* ObjectStrictFacts */ : 8378320 /* ObjectFacts */;
             }
             if (flags & (1024 /* Void */ | 2048 /* Undefined */)) {
                 return 2457472 /* UndefinedFacts */;
@@ -23635,30 +23668,10 @@ var ts;
             if (flags & 1572864 /* UnionOrIntersection */) {
                 return getTypeFactsOfTypes(type.types);
             }
-            return 4194303 /* All */;
+            return 8388607 /* All */;
         }
         function getTypeWithFacts(type, include) {
-            if (!(type.flags & 524288 /* Union */)) {
-                return getTypeFacts(type) & include ? type : neverType;
-            }
-            var firstType;
-            var types;
-            for (var _i = 0, _a = type.types; _i < _a.length; _i++) {
-                var t = _a[_i];
-                if (getTypeFacts(t) & include) {
-                    if (!firstType) {
-                        firstType = t;
-                    }
-                    else {
-                        if (!types) {
-                            types = [firstType];
-                        }
-                        types.push(t);
-                    }
-                }
-            }
-            return types ? getUnionType(types) :
-                firstType ? firstType : neverType;
+            return filterType(type, function (t) { return (getTypeFacts(t) & include) !== 0; });
         }
         function getTypeWithDefault(type, defaultExpression) {
             if (defaultExpression) {
@@ -23813,9 +23826,12 @@ var ts;
             return containsType(target.types, source);
         }
         function filterType(type, f) {
-            return type.flags & 524288 /* Union */ ?
-                getUnionType(ts.filter(type.types, f)) :
-                f(type) ? type : neverType;
+            if (type.flags & 524288 /* Union */) {
+                var types = type.types;
+                var filtered = ts.filter(types, f);
+                return filtered === types ? type : getUnionTypeFromSortedList(filtered);
+            }
+            return f(type) ? type : neverType;
         }
         function isIncomplete(flowType) {
             return flowType.flags === 0;
@@ -24139,7 +24155,7 @@ var ts;
                 }
                 if (assumeTrue && !(type.flags & 524288 /* Union */)) {
                     // We narrow a non-union type to an exact primitive type if the non-union type
-                    // is a supertype of that primtive type. For example, type 'any' can be narrowed
+                    // is a supertype of that primitive type. For example, type 'any' can be narrowed
                     // to one of the primitive types.
                     var targetType = ts.getProperty(typeofTypesByName, literal.text);
                     if (targetType && isTypeSubtypeOf(targetType, type)) {
@@ -24220,9 +24236,9 @@ var ts;
                 // If the current type is a union type, remove all constituents that couldn't be instances of
                 // the candidate type. If one or more constituents remain, return a union of those.
                 if (type.flags & 524288 /* Union */) {
-                    var assignableConstituents = ts.filter(type.types, function (t) { return isTypeInstanceOf(t, candidate); });
-                    if (assignableConstituents.length) {
-                        return getUnionType(assignableConstituents);
+                    var assignableType = filterType(type, function (t) { return isTypeInstanceOf(t, candidate); });
+                    if (assignableType !== neverType) {
+                        return assignableType;
                     }
                 }
                 // If the candidate type is a subtype of the target type, narrow to the candidate type.
@@ -44854,46 +44870,26 @@ var ts;
         return !(ts.isRootedDiskPath(moduleName) || ts.isExternalModuleNameRelative(moduleName));
     }
     function tryReadTypesSection(packageJsonPath, baseDirectory, state) {
-        var jsonContent;
-        try {
-            var jsonText = state.host.readFile(packageJsonPath);
-            jsonContent = jsonText ? JSON.parse(jsonText) : {};
-        }
-        catch (e) {
-            // gracefully handle if readFile fails or returns not JSON
-            jsonContent = {};
-        }
-        var typesFile;
-        var fieldName;
-        // first try to read content of 'typings' section (backward compatibility)
-        if (jsonContent.typings) {
-            if (typeof jsonContent.typings === "string") {
-                fieldName = "typings";
-                typesFile = jsonContent.typings;
-            }
-            else {
-                if (state.traceEnabled) {
-                    trace(state.host, ts.Diagnostics.Expected_type_of_0_field_in_package_json_to_be_string_got_1, "typings", typeof jsonContent.typings);
+        var jsonContent = readJson(packageJsonPath, state.host);
+        function tryReadFromField(fieldName) {
+            if (ts.hasProperty(jsonContent, fieldName)) {
+                var typesFile = jsonContent[fieldName];
+                if (typeof typesFile === "string") {
+                    var typesFilePath_1 = ts.normalizePath(ts.combinePaths(baseDirectory, typesFile));
+                    if (state.traceEnabled) {
+                        trace(state.host, ts.Diagnostics.package_json_has_0_field_1_that_references_2, fieldName, typesFile, typesFilePath_1);
+                    }
+                    return typesFilePath_1;
+                }
+                else {
+                    if (state.traceEnabled) {
+                        trace(state.host, ts.Diagnostics.Expected_type_of_0_field_in_package_json_to_be_string_got_1, fieldName, typeof typesFile);
+                    }
                 }
             }
         }
-        // then read 'types'
-        if (!typesFile && jsonContent.types) {
-            if (typeof jsonContent.types === "string") {
-                fieldName = "types";
-                typesFile = jsonContent.types;
-            }
-            else {
-                if (state.traceEnabled) {
-                    trace(state.host, ts.Diagnostics.Expected_type_of_0_field_in_package_json_to_be_string_got_1, "types", typeof jsonContent.types);
-                }
-            }
-        }
-        if (typesFile) {
-            var typesFilePath = ts.normalizePath(ts.combinePaths(baseDirectory, typesFile));
-            if (state.traceEnabled) {
-                trace(state.host, ts.Diagnostics.package_json_has_0_field_1_that_references_2, fieldName, typesFile, typesFilePath);
-            }
+        var typesFilePath = tryReadFromField("typings") || tryReadFromField("types");
+        if (typesFilePath) {
             return typesFilePath;
         }
         // Use the main module for inferring types if no types package specified and the allowJs is set
@@ -44905,6 +44901,16 @@ var ts;
             return mainFilePath;
         }
         return undefined;
+    }
+    function readJson(path, host) {
+        try {
+            var jsonText = host.readFile(path);
+            return jsonText ? JSON.parse(jsonText) : {};
+        }
+        catch (e) {
+            // gracefully handle if readFile fails or returns not JSON
+            return {};
+        }
     }
     var typeReferenceExtensions = [".d.ts"];
     function getEffectiveTypeRoots(options, host) {
@@ -45392,7 +45398,7 @@ var ts;
         }
     }
     function loadNodeModuleFromDirectory(extensions, candidate, failedLookupLocation, onlyRecordFailures, state) {
-        var packageJsonPath = ts.combinePaths(candidate, "package.json");
+        var packageJsonPath = pathToPackageJson(candidate);
         var directoryExists = !onlyRecordFailures && directoryProbablyExists(candidate, state.host);
         if (directoryExists && state.host.fileExists(packageJsonPath)) {
             if (state.traceEnabled) {
@@ -45419,6 +45425,9 @@ var ts;
             failedLookupLocation.push(packageJsonPath);
         }
         return loadModuleFromFile(ts.combinePaths(candidate, "index"), extensions, failedLookupLocation, !directoryExists, state);
+    }
+    function pathToPackageJson(directory) {
+        return ts.combinePaths(directory, "package.json");
     }
     function loadModuleFromNodeModulesFolder(moduleName, directory, failedLookupLocations, state) {
         var nodeModulesFolder = ts.combinePaths(directory, "node_modules");
@@ -45700,8 +45709,14 @@ var ts;
                     if (host.directoryExists(root)) {
                         for (var _a = 0, _b = host.getDirectories(root); _a < _b.length; _a++) {
                             var typeDirectivePath = _b[_a];
-                            // Return just the type directive names
-                            result = result.concat(ts.getBaseFileName(ts.normalizePath(typeDirectivePath)));
+                            var normalized = ts.normalizePath(typeDirectivePath);
+                            var packageJsonPath = pathToPackageJson(ts.combinePaths(root, normalized));
+                            // tslint:disable-next-line:no-null-keyword
+                            var isNotNeededPackage = host.fileExists(packageJsonPath) && readJson(packageJsonPath, host).typings === null;
+                            if (!isNotNeededPackage) {
+                                // Return just the type directive names
+                                result.push(ts.getBaseFileName(normalized));
+                            }
                         }
                     }
                 }
