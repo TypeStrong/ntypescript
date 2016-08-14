@@ -1,6 +1,9 @@
 declare namespace ts {
-    interface Map<T> {
+    interface MapLike<T> {
         [index: string]: T;
+    }
+    interface Map<T> extends MapLike<T> {
+        __mapBrand: any;
     }
     type Path = string & {
         __pathBrand: any;
@@ -1137,7 +1140,7 @@ declare namespace ts {
         typeReferenceDirectives: FileReference[];
         languageVariant: LanguageVariant;
         isDeclarationFile: boolean;
-        renamedDependencies?: Map<string>;
+        renamedDependencies?: MapLike<string>;
         /**
          * lib.d.ts should have a reference comment like
          *
@@ -1543,9 +1546,7 @@ declare namespace ts {
     }
     interface TransientSymbol extends Symbol, SymbolLinks {
     }
-    interface SymbolTable {
-        [index: string]: Symbol;
-    }
+    type SymbolTable = Map<Symbol>;
     /** Represents a "prefix*suffix" pattern. */
     interface Pattern {
         prefix: string;
@@ -1815,7 +1816,7 @@ declare namespace ts {
         NodeJs = 2,
     }
     type RootPaths = string[];
-    type PathSubstitutions = Map<string[]>;
+    type PathSubstitutions = MapLike<string[]>;
     type TsConfigOnlyOptions = RootPaths | PathSubstitutions;
     type CompilerOptionsValue = string | number | boolean | (string | number)[] | TsConfigOnlyOptions;
     interface CompilerOptions {
@@ -1957,7 +1958,7 @@ declare namespace ts {
         fileNames: string[];
         raw?: any;
         errors: Diagnostic[];
-        wildcardDirectories?: Map<WatchDirectoryFlags>;
+        wildcardDirectories?: MapLike<WatchDirectoryFlags>;
     }
     const enum WatchDirectoryFlags {
         None = 0,
@@ -1965,11 +1966,11 @@ declare namespace ts {
     }
     interface ExpandResult {
         fileNames: string[];
-        wildcardDirectories: Map<WatchDirectoryFlags>;
+        wildcardDirectories: MapLike<WatchDirectoryFlags>;
     }
     interface CommandLineOptionBase {
         name: string;
-        type: "string" | "number" | "boolean" | "object" | "list" | Map<number | string>;
+        type: "string" | "number" | "boolean" | "object" | "list" | MapLike<number | string>;
         isFilePath?: boolean;
         shortName?: string;
         description?: DiagnosticMessage;
@@ -1981,7 +1982,7 @@ declare namespace ts {
         type: "string" | "number" | "boolean";
     }
     interface CommandLineOptionOfCustomType extends CommandLineOptionBase {
-        type: Map<number | string>;
+        type: MapLike<number | string>;
     }
     interface TsConfigOnlyOption extends CommandLineOptionBase {
         type: "object";
@@ -2246,6 +2247,7 @@ declare namespace ts {
         Maybe = 1,
         True = -1,
     }
+    function createMap<T>(): Map<T>;
     function createFileMap<T>(keyMapper?: (key: string) => string): FileMap<T>;
     function toPath(fileName: string, basePath: string, getCanonicalFileName: (path: string) => string): Path;
     const enum Comparison {
@@ -2293,17 +2295,17 @@ declare namespace ts {
     function reduceLeft<T, U>(array: T[], f: (a: U, x: T) => U, initial: U): U;
     function reduceRight<T>(array: T[], f: (a: T, x: T) => T): T;
     function reduceRight<T, U>(array: T[], f: (a: U, x: T) => U, initial: U): U;
-    function hasProperty<T>(map: Map<T>, key: string): boolean;
-    function getKeys<T>(map: Map<T>): string[];
-    function getProperty<T>(map: Map<T>, key: string): T | undefined;
-    function getOrUpdateProperty<T>(map: Map<T>, key: string, makeValue: () => T): T;
-    function isEmpty<T>(map: Map<T>): boolean;
+    function hasProperty<T>(map: MapLike<T>, key: string): boolean;
+    function getKeys<T>(map: MapLike<T>): string[];
+    function getProperty<T>(map: MapLike<T>, key: string): T | undefined;
+    function getOrUpdateProperty<T>(map: MapLike<T>, key: string, makeValue: () => T): T;
+    function isEmpty<T>(map: MapLike<T>): boolean;
     function clone<T>(object: T): T;
-    function extend<T1 extends Map<{}>, T2 extends Map<{}>>(first: T1, second: T2): T1 & T2;
-    function forEachValue<T, U>(map: Map<T>, callback: (value: T) => U): U;
-    function forEachKey<T, U>(map: Map<T>, callback: (key: string) => U): U;
-    function lookUp<T>(map: Map<T>, key: string): T;
-    function copyMap<T>(source: Map<T>, target: Map<T>): void;
+    function extend<T1 extends MapLike<{}>, T2 extends MapLike<{}>>(first: T1, second: T2): T1 & T2;
+    function forEachValue<T, U>(map: MapLike<T>, callback: (value: T) => U): U;
+    function forEachKey<T, U>(map: MapLike<T>, callback: (key: string) => U): U;
+    function lookUp<T>(map: MapLike<T>, key: string): T;
+    function copyMap<T>(source: MapLike<T>, target: MapLike<T>): void;
     /**
      * Creates a map from the elements of an array.
      *
@@ -2322,7 +2324,7 @@ declare namespace ts {
      * @param callback An aggregation function that is called for each entry in the map
      * @param initial The initial value for the reduction.
      */
-    function reduceProperties<T, U>(map: Map<T>, callback: (aggregate: U, value: T, key: string) => U, initial: U): U;
+    function reduceProperties<T, U>(map: MapLike<T>, callback: (aggregate: U, value: T, key: string) => U, initial: U): U;
     /**
      * Tests whether a value is an array.
      */
@@ -2511,7 +2513,7 @@ declare namespace ts {
     function getSingleLineStringWriter(): StringSymbolWriter;
     function releaseStringWriter(writer: StringSymbolWriter): void;
     function getFullWidth(node: Node): number;
-    function mapIsEqualTo<T>(map1: Map<T>, map2: Map<T>): boolean;
+    function mapIsEqualTo<T>(map1: MapLike<T>, map2: MapLike<T>): boolean;
     function arrayIsEqualTo<T>(array1: T[], array2: T[], equaler?: (a: T, b: T) => boolean): boolean;
     function hasResolvedModule(sourceFile: SourceFile, moduleNameText: string): boolean;
     function getResolvedModule(sourceFile: SourceFile, moduleNameText: string): ResolvedModule;
@@ -8791,7 +8793,7 @@ declare namespace ts {
         fileName?: string;
         reportDiagnostics?: boolean;
         moduleName?: string;
-        renamedDependencies?: Map<string>;
+        renamedDependencies?: MapLike<string>;
     }
     interface TranspileOutput {
         outputText: string;
