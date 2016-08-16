@@ -894,104 +894,90 @@ var ts;
     ts.timestamp = typeof performance !== "undefined" && performance.now ? function () { return performance.now(); } : Date.now ? Date.now : function () { return +(new Date()); };
 })(ts || (ts = {}));
 /*@internal*/
+/** Performance measurements for the compiler. */
 var ts;
 (function (ts) {
     var performance;
     (function (performance) {
-        var profilerEvent;
-        var counters;
+        var profilerEvent = typeof onProfilerEvent === "function" && onProfilerEvent.profiler === true
+            ? onProfilerEvent
+            : function (markName) { };
+        var enabled = false;
+        var profilerStart = 0;
+        var counts;
+        var marks;
         var measures;
         /**
-         * Emit a performance event if ts-profiler is connected. This is primarily used
-         * to generate heap snapshots.
+         * Marks a performance event.
          *
-         * @param eventName A name for the event.
+         * @param markName The name of the mark.
          */
-        function emit(eventName) {
-            if (profilerEvent) {
-                profilerEvent(eventName);
+        function mark(markName) {
+            if (enabled) {
+                marks[markName] = ts.timestamp();
+                counts[markName] = (counts[markName] || 0) + 1;
+                profilerEvent(markName);
             }
-        }
-        performance.emit = emit;
-        /**
-         * Increments a counter with the specified name.
-         *
-         * @param counterName The name of the counter.
-         */
-        function increment(counterName) {
-            if (counters) {
-                counters[counterName] = (ts.getProperty(counters, counterName) || 0) + 1;
-            }
-        }
-        performance.increment = increment;
-        /**
-         * Gets the value of the counter with the specified name.
-         *
-         * @param counterName The name of the counter.
-         */
-        function getCount(counterName) {
-            return counters && ts.getProperty(counters, counterName) || 0;
-        }
-        performance.getCount = getCount;
-        /**
-         * Marks the start of a performance measurement.
-         */
-        function mark() {
-            return measures ? ts.timestamp() : 0;
         }
         performance.mark = mark;
         /**
          * Adds a performance measurement with the specified name.
          *
          * @param measureName The name of the performance measurement.
-         * @param marker The timestamp of the starting mark.
+         * @param startMarkName The name of the starting mark. If not supplied, the point at which the
+         *      profiler was enabled is used.
+         * @param endMarkName The name of the ending mark. If not supplied, the current timestamp is
+         *      used.
          */
-        function measure(measureName, marker) {
-            if (measures) {
-                measures[measureName] = (ts.getProperty(measures, measureName) || 0) + (ts.timestamp() - marker);
+        function measure(measureName, startMarkName, endMarkName) {
+            if (enabled) {
+                var end = endMarkName && marks[endMarkName] || ts.timestamp();
+                var start = startMarkName && marks[startMarkName] || profilerStart;
+                measures[measureName] = (measures[measureName] || 0) + (end - start);
             }
         }
         performance.measure = measure;
         /**
-         * Iterate over each measure, performing some action
+         * Gets the number of times a marker was encountered.
          *
-         * @param cb The action to perform for each measure
+         * @param markName The name of the mark.
          */
-        function forEachMeasure(cb) {
-            return ts.forEachKey(measures, function (key) { return cb(key, measures[key]); });
+        function getCount(markName) {
+            return counts && counts[markName] || 0;
         }
-        performance.forEachMeasure = forEachMeasure;
+        performance.getCount = getCount;
         /**
          * Gets the total duration of all measurements with the supplied name.
          *
          * @param measureName The name of the measure whose durations should be accumulated.
          */
         function getDuration(measureName) {
-            return measures && ts.getProperty(measures, measureName) || 0;
+            return measures && measures[measureName] || 0;
         }
         performance.getDuration = getDuration;
+        /**
+         * Iterate over each measure, performing some action
+         *
+         * @param cb The action to perform for each measure
+         */
+        function forEachMeasure(cb) {
+            for (var key in measures) {
+                cb(key, measures[key]);
+            }
+        }
+        performance.forEachMeasure = forEachMeasure;
         /** Enables (and resets) performance measurements for the compiler. */
         function enable() {
-            counters = {};
-            measures = {
-                "I/O Read": 0,
-                "I/O Write": 0,
-                "Program": 0,
-                "Parse": 0,
-                "Bind": 0,
-                "Check": 0,
-                "Emit": 0,
-            };
-            profilerEvent = typeof onProfilerEvent === "function" && onProfilerEvent.profiler === true
-                ? onProfilerEvent
-                : undefined;
+            counts = ts.createMap();
+            marks = ts.createMap();
+            measures = ts.createMap();
+            enabled = true;
+            profilerStart = ts.timestamp();
         }
         performance.enable = enable;
-        /** Disables (and clears) performance measurements for the compiler. */
+        /** Disables performance measurements for the compiler. */
         function disable() {
-            counters = undefined;
-            measures = undefined;
-            profilerEvent = undefined;
+            enabled = false;
         }
         performance.disable = disable;
     })(performance = ts.performance || (ts.performance = {}));
@@ -6391,6 +6377,7 @@ var ts;
         Report_errors_on_unused_parameters: { code: 6135, category: ts.DiagnosticCategory.Message, key: "Report_errors_on_unused_parameters_6135", message: "Report errors on unused parameters." },
         The_maximum_dependency_depth_to_search_under_node_modules_and_load_JavaScript_files: { code: 6136, category: ts.DiagnosticCategory.Message, key: "The_maximum_dependency_depth_to_search_under_node_modules_and_load_JavaScript_files_6136", message: "The maximum dependency depth to search under node_modules and load JavaScript files" },
         No_types_specified_in_package_json_but_allowJs_is_set_so_returning_main_value_of_0: { code: 6137, category: ts.DiagnosticCategory.Message, key: "No_types_specified_in_package_json_but_allowJs_is_set_so_returning_main_value_of_0_6137", message: "No types specified in 'package.json' but 'allowJs' is set, so returning 'main' value of '{0}'" },
+        Property_0_is_declared_but_never_used: { code: 6138, category: ts.DiagnosticCategory.Error, key: "Property_0_is_declared_but_never_used_6138", message: "Property '{0}' is declared but never used." },
         Variable_0_implicitly_has_an_1_type: { code: 7005, category: ts.DiagnosticCategory.Error, key: "Variable_0_implicitly_has_an_1_type_7005", message: "Variable '{0}' implicitly has an '{1}' type." },
         Parameter_0_implicitly_has_an_1_type: { code: 7006, category: ts.DiagnosticCategory.Error, key: "Parameter_0_implicitly_has_an_1_type_7006", message: "Parameter '{0}' implicitly has an '{1}' type." },
         Member_0_implicitly_has_an_1_type: { code: 7008, category: ts.DiagnosticCategory.Error, key: "Member_0_implicitly_has_an_1_type_7008", message: "Member '{0}' implicitly has an '{1}' type." },
@@ -8517,9 +8504,10 @@ var ts;
     ts.forEachChild = forEachChild;
     function createSourceFile(fileName, sourceText, languageVersion, setParentNodes, scriptKind) {
         if (setParentNodes === void 0) { setParentNodes = false; }
-        var start = ts.performance.mark();
+        ts.performance.mark("beforeParse");
         var result = Parser.parseSourceFile(fileName, sourceText, languageVersion, /*syntaxCursor*/ undefined, setParentNodes, scriptKind);
-        ts.performance.measure("Parse", start);
+        ts.performance.mark("afterParse");
+        ts.performance.measure("Parse", "beforeParse", "afterParse");
         return result;
     }
     ts.createSourceFile = createSourceFile;
@@ -14398,9 +14386,10 @@ var ts;
     })(ContainerFlags || (ContainerFlags = {}));
     var binder = createBinder();
     function bindSourceFile(file, options) {
-        var start = ts.performance.mark();
+        ts.performance.mark("beforeBind");
         binder(file, options);
-        ts.performance.measure("Bind", start);
+        ts.performance.mark("afterBind");
+        ts.performance.measure("Bind", "beforeBind", "afterBind");
     }
     ts.bindSourceFile = bindSourceFile;
     function createBinder() {
@@ -16109,7 +16098,18 @@ var ts;
                 assignee = container;
             }
             else if (container.kind === 148 /* Constructor */) {
-                assignee = container.parent;
+                if (ts.isInJavaScriptFile(node)) {
+                    // this.foo assignment in a JavaScript class
+                    // Bind this property to the containing class
+                    var saveContainer = container;
+                    container = container.parent;
+                    bindPropertyOrMethodOrAccessor(node, 4 /* Property */, 0 /* None */);
+                    container = saveContainer;
+                    return;
+                }
+                else {
+                    assignee = container.parent;
+                }
             }
             else {
                 return;
@@ -19275,6 +19275,13 @@ var ts;
                 // * className.prototype.method = expr
                 if (declaration.kind === 187 /* BinaryExpression */ ||
                     declaration.kind === 172 /* PropertyAccessExpression */ && declaration.parent.kind === 187 /* BinaryExpression */) {
+                    // Use JS Doc type if present on parent expression statement
+                    if (declaration.flags & 134217728 /* JavaScriptFile */) {
+                        var typeTag = ts.getJSDocTypeTag(declaration.parent);
+                        if (typeTag && typeTag.typeExpression) {
+                            return links.type = getTypeFromTypeNode(typeTag.typeExpression.type);
+                        }
+                    }
                     var declaredTypes = ts.map(symbol.declarations, function (decl) { return decl.kind === 187 /* BinaryExpression */ ?
                         checkExpressionCached(decl.right) :
                         checkExpressionCached(decl.parent.right); });
@@ -24182,10 +24189,6 @@ var ts;
                     }
                     return type;
                 }
-                // We never narrow type any in an instanceof guard
-                if (isTypeAny(type)) {
-                    return type;
-                }
                 // Check that right operand is a function type with a prototype property
                 var rightType = checkExpression(expr.right);
                 if (!isTypeSubtypeOf(rightType, globalFunctionType)) {
@@ -24199,6 +24202,10 @@ var ts;
                     if (!isTypeAny(prototypePropertyType)) {
                         targetType = prototypePropertyType;
                     }
+                }
+                // Don't narrow from 'any' if the target type is exactly 'Object' or 'Function'
+                if (isTypeAny(type) && (targetType === globalObjectType || targetType === globalFunctionType)) {
+                    return type;
                 }
                 if (!targetType) {
                     // Target type is type of construct signature
@@ -24242,12 +24249,16 @@ var ts;
                             getIntersectionType([type, candidate]);
             }
             function narrowTypeByTypePredicate(type, callExpression, assumeTrue) {
-                if (type.flags & 1 /* Any */ || !hasMatchingArgument(callExpression, reference)) {
+                if (!hasMatchingArgument(callExpression, reference)) {
                     return type;
                 }
                 var signature = getResolvedSignature(callExpression);
                 var predicate = signature.typePredicate;
                 if (!predicate) {
+                    return type;
+                }
+                // Don't narrow from 'any' if the predicate type is exactly 'Object' or 'Function'
+                if (isTypeAny(type) && (predicate.type === globalObjectType || predicate.type === globalFunctionType)) {
                     return type;
                 }
                 if (ts.isIdentifierTypePredicate(predicate)) {
@@ -24987,6 +24998,10 @@ var ts;
             var binaryExpression = node.parent;
             var operator = binaryExpression.operatorToken.kind;
             if (operator >= 56 /* FirstAssignment */ && operator <= 68 /* LastAssignment */) {
+                // Don't do this for special property assignments to avoid circularity
+                if (ts.getSpecialPropertyAssignmentKind(binaryExpression) !== 0 /* None */) {
+                    return undefined;
+                }
                 // In an assignment expression, the right operand is contextually typed by the type of the left operand.
                 if (node === binaryExpression.right) {
                     return checkExpression(binaryExpression.left);
@@ -28891,7 +28906,12 @@ var ts;
             }
         }
         function checkClassForDuplicateDeclarations(node) {
-            var getter = 1, setter = 2, property = getter | setter;
+            var Accessor;
+            (function (Accessor) {
+                Accessor[Accessor["Getter"] = 1] = "Getter";
+                Accessor[Accessor["Setter"] = 2] = "Setter";
+                Accessor[Accessor["Property"] = 3] = "Property";
+            })(Accessor || (Accessor = {}));
             var instanceNames = ts.createMap();
             var staticNames = ts.createMap();
             for (var _i = 0, _a = node.members; _i < _a.length; _i++) {
@@ -28900,7 +28920,7 @@ var ts;
                     for (var _b = 0, _c = member.parameters; _b < _c.length; _b++) {
                         var param = _c[_b];
                         if (ts.isParameterPropertyDeclaration(param)) {
-                            addName(instanceNames, param.name, param.name.text, property);
+                            addName(instanceNames, param.name, param.name.text, 3 /* Property */);
                         }
                     }
                 }
@@ -28911,13 +28931,13 @@ var ts;
                     if (memberName) {
                         switch (member.kind) {
                             case 149 /* GetAccessor */:
-                                addName(names, member.name, memberName, getter);
+                                addName(names, member.name, memberName, 1 /* Getter */);
                                 break;
                             case 150 /* SetAccessor */:
-                                addName(names, member.name, memberName, setter);
+                                addName(names, member.name, memberName, 2 /* Setter */);
                                 break;
                             case 145 /* PropertyDeclaration */:
-                                addName(names, member.name, memberName, property);
+                                addName(names, member.name, memberName, 3 /* Property */);
                                 break;
                         }
                     }
@@ -30061,7 +30081,7 @@ var ts;
                             for (var _b = 0, _c = member.parameters; _b < _c.length; _b++) {
                                 var parameter = _c[_b];
                                 if (!parameter.symbol.isReferenced && parameter.flags & 8 /* Private */) {
-                                    error(parameter.name, ts.Diagnostics._0_is_declared_but_never_used, parameter.symbol.name);
+                                    error(parameter.name, ts.Diagnostics.Property_0_is_declared_but_never_used, parameter.symbol.name);
                                 }
                             }
                         }
@@ -32253,9 +32273,10 @@ var ts;
             }
         }
         function checkSourceFile(node) {
-            var start = ts.performance.mark();
+            ts.performance.mark("beforeCheck");
             checkSourceFileWorker(node);
-            ts.performance.measure("Check", start);
+            ts.performance.mark("afterCheck");
+            ts.performance.measure("Check", "beforeCheck", "afterCheck");
         }
         // Fully type check a source file and collect the relevant diagnostics.
         function checkSourceFileWorker(node) {
@@ -37074,6 +37095,7 @@ var ts;
     ts.getNullSourceMapWriter = getNullSourceMapWriter;
     function createSourceMapWriter(host, writer) {
         var compilerOptions = host.getCompilerOptions();
+        var extendedDiagnostics = compilerOptions.extendedDiagnostics;
         var currentSourceFile;
         var sourceMapDir; // The directory in which sourcemap will be
         var stopOverridingSpan = false;
@@ -37237,7 +37259,9 @@ var ts;
             if (pos === -1) {
                 return;
             }
-            var start = ts.performance.mark();
+            if (extendedDiagnostics) {
+                ts.performance.mark("beforeSourcemap");
+            }
             var sourceLinePos = ts.getLineAndCharacterOfPosition(currentSourceFile, pos);
             // Convert the location to be one-based.
             sourceLinePos.line++;
@@ -37270,7 +37294,10 @@ var ts;
                 lastRecordedSourceMapSpan.sourceIndex = sourceMapSourceIndex;
             }
             updateLastEncodedAndRecordedSpans();
-            ts.performance.measure("Source Map", start);
+            if (extendedDiagnostics) {
+                ts.performance.mark("afterSourcemap");
+                ts.performance.measure("Source Map", "beforeSourcemap", "afterSourcemap");
+            }
         }
         function getStartPos(range) {
             var rangeHasDecorators = !!range.decorators;
@@ -45504,9 +45531,10 @@ var ts;
         function getSourceFile(fileName, languageVersion, onError) {
             var text;
             try {
-                var start = ts.performance.mark();
+                ts.performance.mark("beforeIORead");
                 text = ts.sys.readFile(fileName, options.charset);
-                ts.performance.measure("I/O Read", start);
+                ts.performance.mark("afterIORead");
+                ts.performance.measure("I/O Read", "beforeIORead", "afterIORead");
             }
             catch (e) {
                 if (onError) {
@@ -45561,7 +45589,7 @@ var ts;
         }
         function writeFile(fileName, data, writeByteOrderMark, onError) {
             try {
-                var start = ts.performance.mark();
+                ts.performance.mark("beforeIOWrite");
                 ensureDirectoriesExist(ts.getDirectoryPath(ts.normalizePath(fileName)));
                 if (ts.isWatchSet(options) && ts.sys.createHash && ts.sys.getModifiedTime) {
                     writeFileIfUpdated(fileName, data, writeByteOrderMark);
@@ -45569,7 +45597,8 @@ var ts;
                 else {
                     ts.sys.writeFile(fileName, data, writeByteOrderMark);
                 }
-                ts.performance.measure("I/O Write", start);
+                ts.performance.mark("afterIOWrite");
+                ts.performance.measure("I/O Write", "beforeIOWrite", "afterIOWrite");
             }
             catch (e) {
                 if (onError) {
@@ -45729,7 +45758,7 @@ var ts;
         var modulesWithElidedImports = ts.createMap();
         // Track source files that are source files found by searching under node_modules, as these shouldn't be compiled.
         var sourceFilesFoundSearchingNodeModules = ts.createMap();
-        var start = ts.performance.mark();
+        ts.performance.mark("beforeProgram");
         host = host || createCompilerHost(options);
         var skipDefaultLib = options.noLib;
         var programDiagnostics = ts.createDiagnosticCollection();
@@ -45814,7 +45843,8 @@ var ts;
             getResolvedTypeReferenceDirectives: function () { return resolvedTypeReferenceDirectives; }
         };
         verifyCompilerOptions();
-        ts.performance.measure("Program", start);
+        ts.performance.mark("afterProgram");
+        ts.performance.measure("Program", "beforeProgram", "afterProgram");
         return program;
         function getCommonSourceDirectory() {
             if (typeof commonSourceDirectory === "undefined") {
@@ -46020,9 +46050,10 @@ var ts;
             // files need to be type checked. And the way to specify that all files need to be type
             // checked is to not pass the file to getEmitResolver.
             var emitResolver = getDiagnosticsProducingTypeChecker().getEmitResolver((options.outFile || options.out) ? undefined : sourceFile);
-            var start = ts.performance.mark();
+            ts.performance.mark("beforeEmit");
             var emitResult = ts.emitFiles(emitResolver, getEmitHost(writeFileCallback), sourceFile);
-            ts.performance.measure("Emit", start);
+            ts.performance.mark("afterEmit");
+            ts.performance.measure("Emit", "beforeEmit", "afterEmit");
             return emitResult;
         }
         function getSourceFile(fileName) {
@@ -46174,16 +46205,16 @@ var ts;
                         case 175 /* NewExpression */:
                             var expression = node;
                             if (expression.typeArguments && expression.typeArguments.length > 0) {
-                                var start_2 = expression.typeArguments.pos;
-                                diagnostics.push(ts.createFileDiagnostic(sourceFile, start_2, expression.typeArguments.end - start_2, ts.Diagnostics.type_arguments_can_only_be_used_in_a_ts_file));
+                                var start = expression.typeArguments.pos;
+                                diagnostics.push(ts.createFileDiagnostic(sourceFile, start, expression.typeArguments.end - start, ts.Diagnostics.type_arguments_can_only_be_used_in_a_ts_file));
                                 return true;
                             }
                             break;
                         case 142 /* Parameter */:
                             var parameter = node;
                             if (parameter.modifiers) {
-                                var start_3 = parameter.modifiers.pos;
-                                diagnostics.push(ts.createFileDiagnostic(sourceFile, start_3, parameter.modifiers.end - start_3, ts.Diagnostics.parameter_modifiers_can_only_be_used_in_a_ts_file));
+                                var start = parameter.modifiers.pos;
+                                diagnostics.push(ts.createFileDiagnostic(sourceFile, start, parameter.modifiers.end - start, ts.Diagnostics.parameter_modifiers_can_only_be_used_in_a_ts_file));
                                 return true;
                             }
                             if (parameter.questionToken) {
@@ -46227,8 +46258,8 @@ var ts;
                 }
                 function checkTypeParameters(typeParameters) {
                     if (typeParameters) {
-                        var start_4 = typeParameters.pos;
-                        diagnostics.push(ts.createFileDiagnostic(sourceFile, start_4, typeParameters.end - start_4, ts.Diagnostics.type_parameter_declarations_can_only_be_used_in_a_ts_file));
+                        var start = typeParameters.pos;
+                        diagnostics.push(ts.createFileDiagnostic(sourceFile, start, typeParameters.end - start, ts.Diagnostics.type_parameter_declarations_can_only_be_used_in_a_ts_file));
                         return true;
                     }
                     return false;
@@ -55775,9 +55806,9 @@ var ts;
             // Check if the caret is at the end of an identifier; this is a partial identifier that we want to complete: e.g. a.toS|
             // Skip this partial identifier and adjust the contextToken to the token that precedes it.
             if (contextToken && position <= contextToken.end && ts.isWord(contextToken.kind)) {
-                var start_5 = ts.timestamp();
+                var start_2 = ts.timestamp();
                 contextToken = ts.findPrecedingToken(contextToken.getFullStart(), sourceFile);
-                log("getCompletionData: Get previous token 2: " + (ts.timestamp() - start_5));
+                log("getCompletionData: Get previous token 2: " + (ts.timestamp() - start_2));
             }
             // Find the node where completion is requested on.
             // Also determine whether we are trying to complete with members of that node
@@ -56056,13 +56087,13 @@ var ts;
                 if (contextToken.kind === 9 /* StringLiteral */
                     || contextToken.kind === 10 /* RegularExpressionLiteral */
                     || ts.isTemplateLiteralKind(contextToken.kind)) {
-                    var start_6 = contextToken.getStart();
+                    var start_3 = contextToken.getStart();
                     var end = contextToken.getEnd();
                     // To be "in" one of these literals, the position has to be:
                     //   1. entirely within the token text.
                     //   2. at the end position of an unterminated token.
                     //   3. at the end of a regular expression (due to trailing flags like '/foo/g').
-                    if (start_6 < position && position < end) {
+                    if (start_3 < position && position < end) {
                         return true;
                     }
                     if (position === end) {

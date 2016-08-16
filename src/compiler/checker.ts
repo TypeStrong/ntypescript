@@ -3248,6 +3248,13 @@ namespace ts {
                 // * className.prototype.method = expr
                 if (declaration.kind === SyntaxKind.BinaryExpression ||
                     declaration.kind === SyntaxKind.PropertyAccessExpression && declaration.parent.kind === SyntaxKind.BinaryExpression) {
+                    // Use JS Doc type if present on parent expression statement
+                    if (declaration.flags & NodeFlags.JavaScriptFile) {
+                        const typeTag = getJSDocTypeTag(declaration.parent);
+                        if (typeTag && typeTag.typeExpression) {
+                            return links.type = getTypeFromTypeNode(typeTag.typeExpression.type);
+                        }
+                    }
                     const declaredTypes = map(symbol.declarations,
                         decl => decl.kind === SyntaxKind.BinaryExpression ?
                             checkExpressionCached((<BinaryExpression>decl).right) :
@@ -8548,10 +8555,6 @@ namespace ts {
                     }
                     return type;
                 }
-                // We never narrow type any in an instanceof guard
-                if (isTypeAny(type)) {
-                    return type;
-                }
 
                 // Check that right operand is a function type with a prototype property
                 const rightType = checkExpression(expr.right);
@@ -8567,6 +8570,11 @@ namespace ts {
                     if (!isTypeAny(prototypePropertyType)) {
                         targetType = prototypePropertyType;
                     }
+                }
+
+                // Don't narrow from 'any' if the target type is exactly 'Object' or 'Function'
+                if (isTypeAny(type) && (targetType === globalObjectType || targetType === globalFunctionType)) {
+                    return type;
                 }
 
                 if (!targetType) {
@@ -8615,7 +8623,7 @@ namespace ts {
             }
 
             function narrowTypeByTypePredicate(type: Type, callExpression: CallExpression, assumeTrue: boolean): Type {
-                if (type.flags & TypeFlags.Any || !hasMatchingArgument(callExpression, reference)) {
+                if (!hasMatchingArgument(callExpression, reference)) {
                     return type;
                 }
                 const signature = getResolvedSignature(callExpression);
@@ -8623,6 +8631,12 @@ namespace ts {
                 if (!predicate) {
                     return type;
                 }
+
+                // Don't narrow from 'any' if the predicate type is exactly 'Object' or 'Function'
+                if (isTypeAny(type) && (predicate.type === globalObjectType || predicate.type === globalFunctionType)) {
+                    return type;
+                }
+
                 if (isIdentifierTypePredicate(predicate)) {
                     const predicateArgument = callExpression.arguments[predicate.parameterIndex];
                     if (predicateArgument) {
@@ -9449,6 +9463,11 @@ namespace ts {
             const binaryExpression = <BinaryExpression>node.parent;
             const operator = binaryExpression.operatorToken.kind;
             if (operator >= SyntaxKind.FirstAssignment && operator <= SyntaxKind.LastAssignment) {
+                // Don't do this for special property assignments to avoid circularity
+                if (getSpecialPropertyAssignmentKind(binaryExpression) !== SpecialPropertyAssignmentKind.None) {
+                    return undefined;
+                }
+
                 // In an assignment expression, the right operand is contextually typed by the type of the left operand.
                 if (node === binaryExpression.right) {
                     return checkExpression(binaryExpression.left);
@@ -13787,15 +13806,19 @@ namespace ts {
         }
 
         function checkClassForDuplicateDeclarations(node: ClassLikeDeclaration) {
-            const getter = 1, setter = 2, property = getter | setter;
+            const enum Accessor {
+                Getter = 1,
+                Setter = 2,
+                Property = Getter | Setter
+            }
 
-            const instanceNames = createMap<number>();
-            const staticNames = createMap<number>();
+            const instanceNames = createMap<Accessor>();
+            const staticNames = createMap<Accessor>();
             for (const member of node.members) {
                 if (member.kind === SyntaxKind.Constructor) {
                     for (const param of (member as ConstructorDeclaration).parameters) {
                         if (isParameterPropertyDeclaration(param)) {
-                            addName(instanceNames, param.name, (param.name as Identifier).text, property);
+                            addName(instanceNames, param.name, (param.name as Identifier).text, Accessor.Property);
                         }
                     }
                 }
@@ -13807,22 +13830,22 @@ namespace ts {
                     if (memberName) {
                         switch (member.kind) {
                             case SyntaxKind.GetAccessor:
-                                addName(names, member.name, memberName, getter);
+                                addName(names, member.name, memberName, Accessor.Getter);
                                 break;
 
                             case SyntaxKind.SetAccessor:
-                                addName(names, member.name, memberName, setter);
+                                addName(names, member.name, memberName, Accessor.Setter);
                                 break;
 
                             case SyntaxKind.PropertyDeclaration:
-                                addName(names, member.name, memberName, property);
+                                addName(names, member.name, memberName, Accessor.Property);
                                 break;
                         }
                     }
                 }
             }
 
-            function addName(names: Map<number>, location: Node, name: string, meaning: number) {
+            function addName(names: Map<Accessor>, location: Node, name: string, meaning: Accessor) {
                 const prev = names[name];
                 if (prev) {
                     if (prev & meaning) {
@@ -15104,7 +15127,7 @@ namespace ts {
                         else if (member.kind === SyntaxKind.Constructor) {
                             for (const parameter of (<ConstructorDeclaration>member).parameters) {
                                 if (!parameter.symbol.isReferenced && parameter.flags & NodeFlags.Private) {
-                                    error(parameter.name, Diagnostics._0_is_declared_but_never_used, parameter.symbol.name);
+                                    error(parameter.name, Diagnostics.Property_0_is_declared_but_never_used, parameter.symbol.name);
                                 }
                             }
                         }
@@ -17535,11 +17558,10 @@ namespace ts {
         }
 
         function checkSourceFile(node: SourceFile) {
-            const start = performance.mark();
-
+            performance.mark("beforeCheck");
             checkSourceFileWorker(node);
-
-            performance.measure("Check", start);
+            performance.mark("afterCheck");
+            performance.measure("Check", "beforeCheck", "afterCheck");
         }
 
         // Fully type check a source file and collect the relevant diagnostics.

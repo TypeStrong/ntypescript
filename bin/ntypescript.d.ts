@@ -2184,52 +2184,45 @@ declare namespace ts {
     /** Gets a timestamp with (at least) ms resolution */
     const timestamp: () => number;
 }
+/** Performance measurements for the compiler. */
 declare namespace ts.performance {
     /**
-     * Emit a performance event if ts-profiler is connected. This is primarily used
-     * to generate heap snapshots.
+     * Marks a performance event.
      *
-     * @param eventName A name for the event.
+     * @param markName The name of the mark.
      */
-    function emit(eventName: string): void;
-    /**
-     * Increments a counter with the specified name.
-     *
-     * @param counterName The name of the counter.
-     */
-    function increment(counterName: string): void;
-    /**
-     * Gets the value of the counter with the specified name.
-     *
-     * @param counterName The name of the counter.
-     */
-    function getCount(counterName: string): number;
-    /**
-     * Marks the start of a performance measurement.
-     */
-    function mark(): number;
+    function mark(markName: string): void;
     /**
      * Adds a performance measurement with the specified name.
      *
      * @param measureName The name of the performance measurement.
-     * @param marker The timestamp of the starting mark.
+     * @param startMarkName The name of the starting mark. If not supplied, the point at which the
+     *      profiler was enabled is used.
+     * @param endMarkName The name of the ending mark. If not supplied, the current timestamp is
+     *      used.
      */
-    function measure(measureName: string, marker: number): void;
+    function measure(measureName: string, startMarkName?: string, endMarkName?: string): void;
     /**
-     * Iterate over each measure, performing some action
+     * Gets the number of times a marker was encountered.
      *
-     * @param cb The action to perform for each measure
+     * @param markName The name of the mark.
      */
-    function forEachMeasure(cb: (measureName: string, duration: number) => void): void;
+    function getCount(markName: string): number;
     /**
      * Gets the total duration of all measurements with the supplied name.
      *
      * @param measureName The name of the measure whose durations should be accumulated.
      */
     function getDuration(measureName: string): number;
+    /**
+     * Iterate over each measure, performing some action
+     *
+     * @param cb The action to perform for each measure
+     */
+    function forEachMeasure(cb: (measureName: string, duration: number) => void): void;
     /** Enables (and resets) performance measurements for the compiler. */
     function enable(): void;
-    /** Disables (and clears) performance measurements for the compiler. */
+    /** Disables performance measurements for the compiler. */
     function disable(): void;
 }
 declare namespace ts {
@@ -7066,6 +7059,12 @@ declare namespace ts {
             message: string;
         };
         No_types_specified_in_package_json_but_allowJs_is_set_so_returning_main_value_of_0: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Property_0_is_declared_but_never_used: {
             code: number;
             category: DiagnosticCategory;
             key: string;

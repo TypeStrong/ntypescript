@@ -706,6 +706,7 @@
   "Report_errors_on_unused_parameters_6135" : "Report errors on unused parameters.",
   "The_maximum_dependency_depth_to_search_under_node_modules_and_load_JavaScript_files_6136" : "The maximum dependency depth to search under node_modules and load JavaScript files",
   "No_types_specified_in_package_json_but_allowJs_is_set_so_returning_main_value_of_0_6137" : "No types specified in 'package.json' but 'allowJs' is set, so returning 'main' value of '{0}'",
+  "Property_0_is_declared_but_never_used_6138" : "Property '{0}' is declared but never used.",
   "Variable_0_implicitly_has_an_1_type_7005" : "Variable '{0}' implicitly has an '{1}' type.",
   "Parameter_0_implicitly_has_an_1_type_7006" : "Parameter '{0}' implicitly has an '{1}' type.",
   "Member_0_implicitly_has_an_1_type_7008" : "Member '{0}' implicitly has an '{1}' type.",
