@@ -1525,6 +1525,7 @@ declare namespace ts {
         exportSymbol?: Symbol;
         constEnumOnlyModule?: boolean;
         isReferenced?: boolean;
+        isAssigned?: boolean;
     }
     interface SymbolLinks {
         target?: Symbol;
@@ -1575,13 +1576,14 @@ declare namespace ts {
         ClassWithBodyScopedClassBinding = 524288,
         BodyScopedClassBinding = 1048576,
         NeedsLoopOutParameter = 2097152,
+        AssignmentsMarked = 4194304,
     }
     interface NodeLinks {
+        flags?: NodeCheckFlags;
         resolvedType?: Type;
         resolvedSignature?: Signature;
         resolvedSymbol?: Symbol;
         resolvedIndexInfo?: IndexInfo;
-        flags?: NodeCheckFlags;
         enumMemberValue?: number;
         isVisible?: boolean;
         hasReportedStatementInAmbientContext?: boolean;
@@ -6170,7 +6172,7 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Conflicting_library_definitions_for_0_found_at_1_and_2_Copy_the_correct_file_to_the_typings_folder_to_resolve_this_conflict: {
+        Conflicting_definitions_for_0_found_at_1_and_2_Consider_installing_a_specific_version_of_this_library_to_resolve_the_conflict: {
             code: number;
             category: DiagnosticCategory;
             key: string;

@@ -604,6 +604,7 @@ var ts;
         NodeCheckFlags[NodeCheckFlags["ClassWithBodyScopedClassBinding"] = 524288] = "ClassWithBodyScopedClassBinding";
         NodeCheckFlags[NodeCheckFlags["BodyScopedClassBinding"] = 1048576] = "BodyScopedClassBinding";
         NodeCheckFlags[NodeCheckFlags["NeedsLoopOutParameter"] = 2097152] = "NeedsLoopOutParameter";
+        NodeCheckFlags[NodeCheckFlags["AssignmentsMarked"] = 4194304] = "AssignmentsMarked";
     })(ts.NodeCheckFlags || (ts.NodeCheckFlags = {}));
     var NodeCheckFlags = ts.NodeCheckFlags;
     (function (TypeFlags) {
@@ -6228,7 +6229,7 @@ var ts;
         Parameter_0_of_exported_function_has_or_is_using_private_name_1: { code: 4078, category: ts.DiagnosticCategory.Error, key: "Parameter_0_of_exported_function_has_or_is_using_private_name_1_4078", message: "Parameter '{0}' of exported function has or is using private name '{1}'." },
         Exported_type_alias_0_has_or_is_using_private_name_1: { code: 4081, category: ts.DiagnosticCategory.Error, key: "Exported_type_alias_0_has_or_is_using_private_name_1_4081", message: "Exported type alias '{0}' has or is using private name '{1}'." },
         Default_export_of_the_module_has_or_is_using_private_name_0: { code: 4082, category: ts.DiagnosticCategory.Error, key: "Default_export_of_the_module_has_or_is_using_private_name_0_4082", message: "Default export of the module has or is using private name '{0}'." },
-        Conflicting_library_definitions_for_0_found_at_1_and_2_Copy_the_correct_file_to_the_typings_folder_to_resolve_this_conflict: { code: 4090, category: ts.DiagnosticCategory.Message, key: "Conflicting_library_definitions_for_0_found_at_1_and_2_Copy_the_correct_file_to_the_typings_folder_t_4090", message: "Conflicting library definitions for '{0}' found at '{1}' and '{2}'. Copy the correct file to the 'typings' folder to resolve this conflict." },
+        Conflicting_definitions_for_0_found_at_1_and_2_Consider_installing_a_specific_version_of_this_library_to_resolve_the_conflict: { code: 4090, category: ts.DiagnosticCategory.Message, key: "Conflicting_definitions_for_0_found_at_1_and_2_Consider_installing_a_specific_version_of_this_librar_4090", message: "Conflicting definitions for '{0}' found at '{1}' and '{2}'. Consider installing a specific version of this library to resolve the conflict." },
         The_current_host_does_not_support_the_0_option: { code: 5001, category: ts.DiagnosticCategory.Error, key: "The_current_host_does_not_support_the_0_option_5001", message: "The current host does not support the '{0}' option." },
         Cannot_find_the_common_subdirectory_path_for_the_input_files: { code: 5009, category: ts.DiagnosticCategory.Error, key: "Cannot_find_the_common_subdirectory_path_for_the_input_files_5009", message: "Cannot find the common subdirectory path for the input files." },
         File_specification_cannot_end_in_a_recursive_directory_wildcard_Asterisk_Asterisk_Colon_0: { code: 5010, category: ts.DiagnosticCategory.Error, key: "File_specification_cannot_end_in_a_recursive_directory_wildcard_Asterisk_Asterisk_Colon_0_5010", message: "File specification cannot end in a recursive directory wildcard ('**'): '{0}'." },
@@ -16827,7 +16828,7 @@ var ts;
         }
         function getNodeLinks(node) {
             var nodeId = getNodeId(node);
-            return nodeLinks[nodeId] || (nodeLinks[nodeId] = {});
+            return nodeLinks[nodeId] || (nodeLinks[nodeId] = { flags: 0 });
         }
         function isGlobalSourceFile(node) {
             return node.kind === 256 /* SourceFile */ && !ts.isExternalOrCommonJsModule(node);
@@ -23838,7 +23839,7 @@ var ts;
         function createFlowType(type, incomplete) {
             return incomplete ? { flags: 0, type: type } : type;
         }
-        function getFlowTypeOfReference(reference, declaredType, assumeInitialized, includeOuterFunctions) {
+        function getFlowTypeOfReference(reference, declaredType, assumeInitialized, flowContainer) {
             var key;
             if (!reference.flowNode || assumeInitialized && !(declaredType.flags & 4178943 /* Narrowable */)) {
                 return declaredType;
@@ -23889,7 +23890,7 @@ var ts;
                     else if (flow.flags & 2 /* Start */) {
                         // Check if we should continue with the control flow of the containing function.
                         var container = flow.container;
-                        if (container && includeOuterFunctions) {
+                        if (container && container !== flowContainer && reference.kind !== 172 /* PropertyAccessExpression */) {
                             flow = container.flowNode;
                             continue;
                         }
@@ -24342,20 +24343,49 @@ var ts;
         function getControlFlowContainer(node) {
             while (true) {
                 node = node.parent;
-                if (ts.isFunctionLike(node) || node.kind === 226 /* ModuleBlock */ || node.kind === 256 /* SourceFile */ || node.kind === 145 /* PropertyDeclaration */) {
+                if (ts.isFunctionLike(node) && !ts.getImmediatelyInvokedFunctionExpression(node) ||
+                    node.kind === 226 /* ModuleBlock */ ||
+                    node.kind === 256 /* SourceFile */ ||
+                    node.kind === 145 /* PropertyDeclaration */) {
                     return node;
                 }
             }
         }
-        function isDeclarationIncludedInFlow(reference, declaration, includeOuterFunctions) {
-            var declarationContainer = getControlFlowContainer(declaration);
-            var container = getControlFlowContainer(reference);
-            while (container !== declarationContainer &&
-                (container.kind === 179 /* FunctionExpression */ || container.kind === 180 /* ArrowFunction */) &&
-                (includeOuterFunctions || ts.getImmediatelyInvokedFunctionExpression(container))) {
-                container = getControlFlowContainer(container);
+        // Check if a parameter is assigned anywhere within its declaring function.
+        function isParameterAssigned(symbol) {
+            var func = ts.getRootDeclaration(symbol.valueDeclaration).parent;
+            var links = getNodeLinks(func);
+            if (!(links.flags & 4194304 /* AssignmentsMarked */)) {
+                links.flags |= 4194304 /* AssignmentsMarked */;
+                if (!hasParentWithAssignmentsMarked(func)) {
+                    markParameterAssignments(func);
+                }
             }
-            return container === declarationContainer;
+            return symbol.isAssigned || false;
+        }
+        function hasParentWithAssignmentsMarked(node) {
+            while (true) {
+                node = node.parent;
+                if (!node) {
+                    return false;
+                }
+                if (ts.isFunctionLike(node) && getNodeLinks(node).flags & 4194304 /* AssignmentsMarked */) {
+                    return true;
+                }
+            }
+        }
+        function markParameterAssignments(node) {
+            if (node.kind === 69 /* Identifier */) {
+                if (ts.isAssignmentTarget(node)) {
+                    var symbol = getResolvedSymbol(node);
+                    if (symbol.valueDeclaration && ts.getRootDeclaration(symbol.valueDeclaration).kind === 142 /* Parameter */) {
+                        symbol.isAssigned = true;
+                    }
+                }
+            }
+            else {
+                ts.forEachChild(node, markParameterAssignments);
+            }
         }
         function checkIdentifier(node) {
             var symbol = getResolvedSymbol(node);
@@ -24401,15 +24431,35 @@ var ts;
             checkCollisionWithCapturedThisVariable(node, node);
             checkNestedBlockScopedBinding(node, symbol);
             var type = getTypeOfSymbol(localOrExportSymbol);
-            if (!(localOrExportSymbol.flags & 3 /* Variable */) || ts.isAssignmentTarget(node)) {
+            var declaration = localOrExportSymbol.valueDeclaration;
+            // We only narrow variables and parameters occurring in a non-assignment position. For all other
+            // entities we simply return the declared type.
+            if (!(localOrExportSymbol.flags & 3 /* Variable */) || ts.isAssignmentTarget(node) || !declaration) {
                 return type;
             }
-            var declaration = localOrExportSymbol.valueDeclaration;
-            var includeOuterFunctions = isReadonlySymbol(localOrExportSymbol);
-            var assumeInitialized = !strictNullChecks || (type.flags & 1 /* Any */) !== 0 || !declaration ||
-                ts.getRootDeclaration(declaration).kind === 142 /* Parameter */ || ts.isInAmbientContext(declaration) ||
-                !isDeclarationIncludedInFlow(node, declaration, includeOuterFunctions);
-            var flowType = getFlowTypeOfReference(node, type, assumeInitialized, includeOuterFunctions);
+            // The declaration container is the innermost function that encloses the declaration of the variable
+            // or parameter. The flow container is the innermost function starting with which we analyze the control
+            // flow graph to determine the control flow based type.
+            var isParameter = ts.getRootDeclaration(declaration).kind === 142 /* Parameter */;
+            var declarationContainer = getControlFlowContainer(declaration);
+            var flowContainer = getControlFlowContainer(node);
+            // When the control flow originates in a function expression or arrow function and we are referencing
+            // a const variable or parameter from an outer function, we extend the origin of the control flow
+            // analysis to include the immediately enclosing function.
+            while (flowContainer !== declarationContainer &&
+                (flowContainer.kind === 179 /* FunctionExpression */ || flowContainer.kind === 180 /* ArrowFunction */) &&
+                (isReadonlySymbol(localOrExportSymbol) || isParameter && !isParameterAssigned(localOrExportSymbol))) {
+                flowContainer = getControlFlowContainer(flowContainer);
+            }
+            // We only look for uninitialized variables in strict null checking mode, and only when we can analyze
+            // the entire control flow graph from the variable's declaration (i.e. when the flow container and
+            // declaration container are the same).
+            var assumeInitialized = !strictNullChecks || (type.flags & 1 /* Any */) !== 0 || isParameter ||
+                flowContainer !== declarationContainer || ts.isInAmbientContext(declaration);
+            var flowType = getFlowTypeOfReference(node, type, assumeInitialized, flowContainer);
+            // A variable is considered uninitialized when it is possible to analyze the entire control flow graph
+            // from declaration to use, and when the variable's declared type doesn't include undefined but the
+            // control flow based type does include undefined.
             if (!assumeInitialized && !(getFalsyFlags(type) & 2048 /* Undefined */) && getFalsyFlags(flowType) & 2048 /* Undefined */) {
                 error(node, ts.Diagnostics.Variable_0_is_used_before_being_assigned, symbolToString(symbol));
                 // Return the declared type to reduce follow-on errors
@@ -24630,7 +24680,7 @@ var ts;
             if (ts.isClassLike(container.parent)) {
                 var symbol = getSymbolOfNode(container.parent);
                 var type = container.flags & 32 /* Static */ ? getTypeOfSymbol(symbol) : getDeclaredTypeOfSymbol(symbol).thisType;
-                return getFlowTypeOfReference(node, type, /*assumeInitialized*/ true, /*includeOuterFunctions*/ true);
+                return getFlowTypeOfReference(node, type, /*assumeInitialized*/ true, /*flowContainer*/ undefined);
             }
             if (ts.isInJavaScriptFile(node)) {
                 var type = getTypeForThisExpressionFromJSDoc(container);
@@ -25625,10 +25675,9 @@ var ts;
                 var correspondingPropSymbol = getPropertyOfType(elementAttributesType, node.name.text);
                 correspondingPropType = correspondingPropSymbol && getTypeOfSymbol(correspondingPropSymbol);
                 if (isUnhyphenatedJsxName(node.name.text)) {
-                    // Maybe there's a string indexer?
-                    var indexerType = getIndexTypeOfType(elementAttributesType, 0 /* String */);
-                    if (indexerType) {
-                        correspondingPropType = indexerType;
+                    var attributeType = getTypeOfPropertyOfType(elementAttributesType, getTextOfPropertyName(node.name)) || getIndexTypeOfType(elementAttributesType, 0 /* String */);
+                    if (attributeType) {
+                        correspondingPropType = attributeType;
                     }
                     else {
                         // If there's no corresponding property with this name, error
@@ -26139,7 +26188,7 @@ var ts;
                     !(prop.flags & 8192 /* Method */ && propType.flags & 524288 /* Union */)) {
                 return propType;
             }
-            return getFlowTypeOfReference(node, propType, /*assumeInitialized*/ true, /*includeOuterFunctions*/ false);
+            return getFlowTypeOfReference(node, propType, /*assumeInitialized*/ true, /*flowContainer*/ undefined);
         }
         function isValidPropertyAccess(node, propertyName) {
             var left = node.kind === 172 /* PropertyAccessExpression */
@@ -26252,9 +26301,10 @@ var ts;
                 }
             }
             // Check for compatible indexer types.
-            if (isTypeAnyOrAllConstituentTypesHaveKind(indexType, 34 /* StringLike */ | 340 /* NumberLike */ | 512 /* ESSymbol */)) {
+            var allowedNullableFlags = strictNullChecks ? 0 : 6144 /* Nullable */;
+            if (isTypeAnyOrAllConstituentTypesHaveKind(indexType, 34 /* StringLike */ | 340 /* NumberLike */ | 512 /* ESSymbol */ | allowedNullableFlags)) {
                 // Try to use a number indexer.
-                if (isTypeAnyOrAllConstituentTypesHaveKind(indexType, 340 /* NumberLike */) || isForInVariableForNumericPropertyNames(node.argumentExpression)) {
+                if (isTypeAnyOrAllConstituentTypesHaveKind(indexType, 340 /* NumberLike */ | allowedNullableFlags) || isForInVariableForNumericPropertyNames(node.argumentExpression)) {
                     var numberIndexInfo = getIndexInfoOfType(objectType, 1 /* Number */);
                     if (numberIndexInfo) {
                         getNodeLinks(node).resolvedIndexInfo = numberIndexInfo;
@@ -42011,18 +42061,7 @@ var ts;
                         emitSignatureParameters(ctor);
                     }
                     else {
-                        // Based on EcmaScript6 section 14.5.14: Runtime Semantics: ClassDefinitionEvaluation.
-                        // If constructor is empty, then,
-                        //      If ClassHeritageopt is present, then
-                        //          Let constructor be the result of parsing the String "constructor(... args){ super (...args);}" using the syntactic grammar with the goal symbol MethodDefinition.
-                        //      Else,
-                        //          Let constructor be the result of parsing the String "constructor( ){ }" using the syntactic grammar with the goal symbol MethodDefinition
-                        if (baseTypeElement) {
-                            write("(...args)");
-                        }
-                        else {
-                            write("()");
-                        }
+                        write("()");
                     }
                 }
                 var startIndex = 0;
@@ -42056,7 +42095,7 @@ var ts;
                             write("_super.apply(this, arguments);");
                         }
                         else {
-                            write("super(...args);");
+                            write("super(...arguments);");
                         }
                         emitEnd(baseTypeElement);
                     }
@@ -46561,7 +46600,7 @@ var ts;
                     if (previousResolution) {
                         var otherFileText = host.readFile(resolvedTypeReferenceDirective.resolvedFileName);
                         if (otherFileText !== getSourceFile(previousResolution.resolvedFileName).text) {
-                            fileProcessingDiagnostics.add(createDiagnostic(refFile, refPos, refEnd, ts.Diagnostics.Conflicting_library_definitions_for_0_found_at_1_and_2_Copy_the_correct_file_to_the_typings_folder_to_resolve_this_conflict, typeReferenceDirective, resolvedTypeReferenceDirective.resolvedFileName, previousResolution.resolvedFileName));
+                            fileProcessingDiagnostics.add(createDiagnostic(refFile, refPos, refEnd, ts.Diagnostics.Conflicting_definitions_for_0_found_at_1_and_2_Consider_installing_a_specific_version_of_this_library_to_resolve_the_conflict, typeReferenceDirective, resolvedTypeReferenceDirective.resolvedFileName, previousResolution.resolvedFileName));
                         }
                         // don't overwrite previous resolution result
                         saveResolution = false;
