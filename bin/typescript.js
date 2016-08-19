@@ -19212,7 +19212,7 @@ var ts;
             }
             // If the declaration specifies a binding pattern, use the type implied by the binding pattern
             if (ts.isBindingPattern(declaration.name)) {
-                return getTypeFromBindingPattern(declaration.name, /*includePatternInType*/ false);
+                return getTypeFromBindingPattern(declaration.name, /*includePatternInType*/ false, /*reportErrors*/ true);
             }
             // No type specified and nothing can be inferred
             return undefined;
@@ -19220,22 +19220,20 @@ var ts;
         // Return the type implied by a binding pattern element. This is the type of the initializer of the element if
         // one is present. Otherwise, if the element is itself a binding pattern, it is the type implied by the binding
         // pattern. Otherwise, it is the type any.
-        function getTypeFromBindingElement(element, includePatternInType) {
+        function getTypeFromBindingElement(element, includePatternInType, reportErrors) {
             if (element.initializer) {
-                var type = checkExpressionCached(element.initializer);
-                reportErrorsFromWidening(element, type);
-                return getWidenedType(type);
+                return checkExpressionCached(element.initializer);
             }
             if (ts.isBindingPattern(element.name)) {
-                return getTypeFromBindingPattern(element.name, includePatternInType);
+                return getTypeFromBindingPattern(element.name, includePatternInType, reportErrors);
             }
-            if (compilerOptions.noImplicitAny && !declarationBelongsToPrivateAmbientMember(element)) {
+            if (reportErrors && compilerOptions.noImplicitAny && !declarationBelongsToPrivateAmbientMember(element)) {
                 reportImplicitAnyError(element, anyType);
             }
             return anyType;
         }
         // Return the type implied by an object binding pattern
-        function getTypeFromObjectBindingPattern(pattern, includePatternInType) {
+        function getTypeFromObjectBindingPattern(pattern, includePatternInType, reportErrors) {
             var members = ts.createMap();
             var hasComputedProperties = false;
             ts.forEach(pattern.elements, function (e) {
@@ -19248,7 +19246,7 @@ var ts;
                 var text = getTextOfPropertyName(name);
                 var flags = 4 /* Property */ | 67108864 /* Transient */ | (e.initializer ? 536870912 /* Optional */ : 0);
                 var symbol = createSymbol(flags, text);
-                symbol.type = getTypeFromBindingElement(e, includePatternInType);
+                symbol.type = getTypeFromBindingElement(e, includePatternInType, reportErrors);
                 symbol.bindingElement = e;
                 members[symbol.name] = symbol;
             });
@@ -19262,13 +19260,13 @@ var ts;
             return result;
         }
         // Return the type implied by an array binding pattern
-        function getTypeFromArrayBindingPattern(pattern, includePatternInType) {
+        function getTypeFromArrayBindingPattern(pattern, includePatternInType, reportErrors) {
             var elements = pattern.elements;
             if (elements.length === 0 || elements[elements.length - 1].dotDotDotToken) {
                 return languageVersion >= 2 /* ES6 */ ? createIterableType(anyType) : anyArrayType;
             }
             // If the pattern has at least one element, and no rest element, then it should imply a tuple type.
-            var elementTypes = ts.map(elements, function (e) { return e.kind === 193 /* OmittedExpression */ ? anyType : getTypeFromBindingElement(e, includePatternInType); });
+            var elementTypes = ts.map(elements, function (e) { return e.kind === 193 /* OmittedExpression */ ? anyType : getTypeFromBindingElement(e, includePatternInType, reportErrors); });
             if (includePatternInType) {
                 var result = createNewTupleType(elementTypes);
                 result.pattern = pattern;
@@ -19283,10 +19281,10 @@ var ts;
         // used as the contextual type of an initializer associated with the binding pattern. Also, for a destructuring
         // parameter with no type annotation or initializer, the type implied by the binding pattern becomes the type of
         // the parameter.
-        function getTypeFromBindingPattern(pattern, includePatternInType) {
+        function getTypeFromBindingPattern(pattern, includePatternInType, reportErrors) {
             return pattern.kind === 167 /* ObjectBindingPattern */
-                ? getTypeFromObjectBindingPattern(pattern, includePatternInType)
-                : getTypeFromArrayBindingPattern(pattern, includePatternInType);
+                ? getTypeFromObjectBindingPattern(pattern, includePatternInType, reportErrors)
+                : getTypeFromArrayBindingPattern(pattern, includePatternInType, reportErrors);
         }
         // Return the type associated with a variable, parameter, or property declaration. In the simple case this is the type
         // specified in a type annotation or inferred from an initializer. However, in the case of a destructuring declaration it
@@ -25054,7 +25052,7 @@ var ts;
                     }
                 }
                 if (ts.isBindingPattern(declaration.name)) {
-                    return getTypeFromBindingPattern(declaration.name, /*includePatternInType*/ true);
+                    return getTypeFromBindingPattern(declaration.name, /*includePatternInType*/ true, /*reportErrors*/ false);
                 }
                 if (ts.isBindingPattern(declaration.parent)) {
                     var parentDeclaration = declaration.parent.parent;
@@ -42242,6 +42240,21 @@ var ts;
                         emitSignatureParameters(ctor);
                     }
                     else {
+                        // The ES2015 spec specifies in 14.5.14. Runtime Semantics: ClassDefinitionEvaluation:
+                        // If constructor is empty, then
+                        //     If ClassHeritag_eopt is present and protoParent is not null, then
+                        //          Let constructor be the result of parsing the source text
+                        //              constructor(...args) { super (...args);}
+                        //          using the syntactic grammar with the goal symbol MethodDefinition[~Yield].
+                        //      Else,
+                        //           Let constructor be the result of parsing the source text
+                        //               constructor( ){ }
+                        //           using the syntactic grammar with the goal symbol MethodDefinition[~Yield].
+                        //
+                        // While we could emit the '...args' rest parameter, certain later tools in the pipeline might
+                        // downlevel the '...args' portion less efficiently by naively copying the contents of 'arguments' to an array.
+                        // Instead, we'll avoid using a rest parameter and spread into the super call as
+                        // 'super(...arguments)' instead of 'super(...args)', as you can see below.
                         write("()");
                     }
                 }
@@ -42276,6 +42289,7 @@ var ts;
                             write("_super.apply(this, arguments);");
                         }
                         else {
+                            // See comment above on using '...arguments' instead of '...args'.
                             write("super(...arguments);");
                         }
                         emitEnd(baseTypeElement);
@@ -56267,7 +56281,10 @@ var ts;
                     // We are completing on contextual types, but may also include properties
                     // other than those within the declared type.
                     isNewIdentifierLocation = true;
+                    // If the object literal is being assigned to something of type 'null | { hello: string }',
+                    // it clearly isn't trying to satisfy the 'null' type. So we grab the non-nullable type if possible.
                     typeForObject = typeChecker.getContextualType(objectLikeContainer);
+                    typeForObject = typeForObject && typeForObject.getNonNullableType();
                     existingMembers = objectLikeContainer.properties;
                 }
                 else if (objectLikeContainer.kind === 167 /* ObjectBindingPattern */) {
@@ -56278,7 +56295,7 @@ var ts;
                         // We don't want to complete using the type acquired by the shape
                         // of the binding pattern; we are only interested in types acquired
                         // through type declaration or inference.
-                        // Also proceed if rootDeclaration is parameter and if its containing function expression\arrow function is contextually typed -
+                        // Also proceed if rootDeclaration is a parameter and if its containing function expression/arrow function is contextually typed -
                         // type of parameter will flow in from the contextual type of the function
                         var canGetType = !!(rootDeclaration.initializer || rootDeclaration.type);
                         if (!canGetType && rootDeclaration.kind === 142 /* Parameter */) {
