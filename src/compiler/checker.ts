@@ -1024,7 +1024,7 @@ namespace ts {
         }
 
         function getDeclarationOfAliasSymbol(symbol: Symbol): Declaration {
-            return find(symbol.declarations, d => isAliasSymbolDeclaration(d) ? d : undefined);
+            return findMap(symbol.declarations, d => isAliasSymbolDeclaration(d) ? d : undefined);
         }
 
         function getTargetOfImportEqualsDeclaration(node: ImportEqualsDeclaration): Symbol {
@@ -1361,7 +1361,14 @@ namespace ts {
 
             if (moduleNotFoundError) {
                 // report errors only if it was requested
-                error(moduleReferenceLiteral, moduleNotFoundError, moduleName);
+                const tsExtension = tryExtractTypeScriptExtension(moduleName);
+                if (tsExtension) {
+                    const diag = Diagnostics.An_import_path_cannot_end_with_a_0_extension_Consider_importing_1_instead;
+                    error(moduleReferenceLiteral, diag, tsExtension, removeExtension(moduleName, tsExtension));
+                }
+                else {
+                    error(moduleReferenceLiteral, moduleNotFoundError, moduleName);
+                }
             }
             return undefined;
         }
@@ -14119,12 +14126,7 @@ namespace ts {
                 checkSignatureDeclaration(node);
                 if (node.kind === SyntaxKind.GetAccessor) {
                     if (!isInAmbientContext(node) && nodeIsPresent(node.body) && (node.flags & NodeFlags.HasImplicitReturn)) {
-                        if (node.flags & NodeFlags.HasExplicitReturn) {
-                            if (compilerOptions.noImplicitReturns) {
-                                error(node.name, Diagnostics.Not_all_code_paths_return_a_value);
-                            }
-                        }
-                        else {
+                        if (!(node.flags & NodeFlags.HasExplicitReturn)) {
                             error(node.name, Diagnostics.A_get_accessor_must_return_a_value);
                         }
                     }
@@ -14154,7 +14156,10 @@ namespace ts {
                         checkAccessorDeclarationTypesIdentical(node, otherAccessor, getThisTypeOfDeclaration, Diagnostics.get_and_set_accessor_must_have_the_same_this_type);
                     }
                 }
-                getTypeOfAccessors(getSymbolOfNode(node));
+                const returnType = getTypeOfAccessors(getSymbolOfNode(node));
+                if (node.kind === SyntaxKind.GetAccessor) {
+                    checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnType);
+                }
             }
             if (node.parent.kind !== SyntaxKind.ObjectLiteralExpression) {
                 checkSourceElement(node.body);

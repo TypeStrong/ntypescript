@@ -1088,8 +1088,22 @@ var ts;
         return undefined;
     }
     ts.forEach = forEach;
-    /** Like `forEach`, but assumes existence of array and fails if no truthy value is found. */
-    function find(array, callback) {
+    /** Works like Array.prototype.find, returning `undefined` if no element satisfying the predicate is found. */
+    function find(array, predicate) {
+        for (var i = 0, len = array.length; i < len; i++) {
+            var value = array[i];
+            if (predicate(value, i)) {
+                return value;
+            }
+        }
+        return undefined;
+    }
+    ts.find = find;
+    /**
+     * Returns the first truthy result of `callback`, or else fails.
+     * This is like `forEach`, but never returns undefined.
+     */
+    function findMap(array, callback) {
         for (var i = 0, len = array.length; i < len; i++) {
             var result = callback(array[i], i);
             if (result) {
@@ -1098,7 +1112,7 @@ var ts;
         }
         Debug.fail();
     }
-    ts.find = find;
+    ts.findMap = findMap;
     function contains(array, value) {
         if (array) {
             for (var _i = 0, array_1 = array; _i < array_1.length; _i++) {
@@ -2224,6 +2238,8 @@ var ts;
      *  List of supported extensions in order of file resolution precedence.
      */
     ts.supportedTypeScriptExtensions = [".ts", ".tsx", ".d.ts"];
+    /** Must have ".d.ts" first because if ".ts" goes first, that will be detected as the extension instead of ".d.ts". */
+    ts.supportedTypescriptExtensionsForExtractExtension = [".d.ts", ".ts", ".tsx"];
     ts.supportedJavascriptExtensions = [".js", ".jsx"];
     var allSupportedExtensions = ts.supportedTypeScriptExtensions.concat(ts.supportedJavascriptExtensions);
     function getSupportedExtensions(options) {
@@ -2307,9 +2323,13 @@ var ts;
     }
     ts.removeFileExtension = removeFileExtension;
     function tryRemoveExtension(path, extension) {
-        return fileExtensionIs(path, extension) ? path.substring(0, path.length - extension.length) : undefined;
+        return fileExtensionIs(path, extension) ? removeExtension(path, extension) : undefined;
     }
     ts.tryRemoveExtension = tryRemoveExtension;
+    function removeExtension(path, extension) {
+        return path.substring(0, path.length - extension.length);
+    }
+    ts.removeExtension = removeExtension;
     function isJsxOrTsxExtension(ext) {
         return ext === ".jsx" || ext === ".tsx";
     }
@@ -5378,6 +5398,11 @@ var ts;
         return ts.forEach(ts.supportedTypeScriptExtensions, function (extension) { return ts.fileExtensionIs(fileName, extension); });
     }
     ts.hasTypeScriptFileExtension = hasTypeScriptFileExtension;
+    /** Return ".ts", ".d.ts", or ".tsx", if that is the extension. */
+    function tryExtractTypeScriptExtension(fileName) {
+        return ts.find(ts.supportedTypescriptExtensionsForExtractExtension, function (extension) { return ts.fileExtensionIs(fileName, extension); });
+    }
+    ts.tryExtractTypeScriptExtension = tryExtractTypeScriptExtension;
     /**
      * Replace each instance of non-ascii characters by one, two, three, or four escape sequences
      * representing the UTF-8 encoding of the character, and return the expanded char code list.
@@ -6232,6 +6257,7 @@ var ts;
         Cannot_find_type_definition_file_for_0: { code: 2688, category: ts.DiagnosticCategory.Error, key: "Cannot_find_type_definition_file_for_0_2688", message: "Cannot find type definition file for '{0}'." },
         Cannot_extend_an_interface_0_Did_you_mean_implements: { code: 2689, category: ts.DiagnosticCategory.Error, key: "Cannot_extend_an_interface_0_Did_you_mean_implements_2689", message: "Cannot extend an interface '{0}'. Did you mean 'implements'?" },
         A_class_must_be_declared_after_its_base_class: { code: 2690, category: ts.DiagnosticCategory.Error, key: "A_class_must_be_declared_after_its_base_class_2690", message: "A class must be declared after its base class." },
+        An_import_path_cannot_end_with_a_0_extension_Consider_importing_1_instead: { code: 2691, category: ts.DiagnosticCategory.Error, key: "An_import_path_cannot_end_with_a_0_extension_Consider_importing_1_instead_2691", message: "An import path cannot end with a '{0}' extension. Consider importing '{1}' instead." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -11173,6 +11199,7 @@ var ts;
          *      6) - UnaryExpression[?yield]
          *      7) ~ UnaryExpression[?yield]
          *      8) ! UnaryExpression[?yield]
+         *      9) [+Await] await UnaryExpression[?yield]
          */
         function parseSimpleUnaryExpression() {
             switch (token()) {
@@ -11187,6 +11214,8 @@ var ts;
                     return parseTypeOfExpression();
                 case 103 /* VoidKeyword */:
                     return parseVoidExpression();
+                case 119 /* AwaitKeyword */:
+                    return parseAwaitExpression();
                 case 25 /* LessThanToken */:
                     // This is modified UnaryExpression grammar in TypeScript
                     //  UnaryExpression (modified):
@@ -17358,7 +17387,7 @@ var ts;
             }
         }
         function getDeclarationOfAliasSymbol(symbol) {
-            return ts.find(symbol.declarations, function (d) { return ts.isAliasSymbolDeclaration(d) ? d : undefined; });
+            return ts.findMap(symbol.declarations, function (d) { return ts.isAliasSymbolDeclaration(d) ? d : undefined; });
         }
         function getTargetOfImportEqualsDeclaration(node) {
             if (node.moduleReference.kind === 240 /* ExternalModuleReference */) {
@@ -17662,7 +17691,14 @@ var ts;
             }
             if (moduleNotFoundError) {
                 // report errors only if it was requested
-                error(moduleReferenceLiteral, moduleNotFoundError, moduleName);
+                var tsExtension = ts.tryExtractTypeScriptExtension(moduleName);
+                if (tsExtension) {
+                    var diag = ts.Diagnostics.An_import_path_cannot_end_with_a_0_extension_Consider_importing_1_instead;
+                    error(moduleReferenceLiteral, diag, tsExtension, ts.removeExtension(moduleName, tsExtension));
+                }
+                else {
+                    error(moduleReferenceLiteral, moduleNotFoundError, moduleName);
+                }
             }
             return undefined;
         }
@@ -29282,12 +29318,7 @@ var ts;
                 checkSignatureDeclaration(node);
                 if (node.kind === 149 /* GetAccessor */) {
                     if (!ts.isInAmbientContext(node) && ts.nodeIsPresent(node.body) && (node.flags & 32768 /* HasImplicitReturn */)) {
-                        if (node.flags & 65536 /* HasExplicitReturn */) {
-                            if (compilerOptions.noImplicitReturns) {
-                                error(node.name, ts.Diagnostics.Not_all_code_paths_return_a_value);
-                            }
-                        }
-                        else {
+                        if (!(node.flags & 65536 /* HasExplicitReturn */)) {
                             error(node.name, ts.Diagnostics.A_get_accessor_must_return_a_value);
                         }
                     }
@@ -29316,7 +29347,10 @@ var ts;
                         checkAccessorDeclarationTypesIdentical(node, otherAccessor, getThisTypeOfDeclaration, ts.Diagnostics.get_and_set_accessor_must_have_the_same_this_type);
                     }
                 }
-                getTypeOfAccessors(getSymbolOfNode(node));
+                var returnType = getTypeOfAccessors(getSymbolOfNode(node));
+                if (node.kind === 149 /* GetAccessor */) {
+                    checkAllCodePathsInNonVoidFunctionReturnOrThrow(node, returnType);
+                }
             }
             if (node.parent.kind !== 171 /* ObjectLiteralExpression */) {
                 checkSourceElement(node.body);
@@ -45595,22 +45629,24 @@ var ts;
      * in cases when we know upfront that all load attempts will fail (because containing folder does not exists) however we still need to record all failed lookup locations.
      */
     function loadModuleFromFile(candidate, extensions, failedLookupLocation, onlyRecordFailures, state) {
-        // First try to keep/add an extension: importing "./foo.ts" can be matched by a file "./foo.ts", and "./foo" by "./foo.d.ts"
-        var resolvedByAddingOrKeepingExtension = loadModuleFromFileWorker(candidate, extensions, failedLookupLocation, onlyRecordFailures, state);
-        if (resolvedByAddingOrKeepingExtension) {
-            return resolvedByAddingOrKeepingExtension;
+        // First, try adding an extension. An import of "foo" could be matched by a file "foo.ts", or "foo.js" by "foo.js.ts"
+        var resolvedByAddingExtension = tryAddingExtensions(candidate, extensions, failedLookupLocation, onlyRecordFailures, state);
+        if (resolvedByAddingExtension) {
+            return resolvedByAddingExtension;
         }
-        // Then try stripping a ".js" or ".jsx" extension and replacing it with a TypeScript one, e.g. "./foo.js" can be matched by "./foo.ts" or "./foo.d.ts"
+        // If that didn't work, try stripping a ".js" or ".jsx" extension and replacing it with a TypeScript one;
+        // e.g. "./foo.js" can be matched by "./foo.ts" or "./foo.d.ts"
         if (ts.hasJavaScriptFileExtension(candidate)) {
             var extensionless = ts.removeFileExtension(candidate);
             if (state.traceEnabled) {
                 var extension = candidate.substring(extensionless.length);
                 trace(state.host, ts.Diagnostics.File_name_0_has_a_1_extension_stripping_it, candidate, extension);
             }
-            return loadModuleFromFileWorker(extensionless, extensions, failedLookupLocation, onlyRecordFailures, state);
+            return tryAddingExtensions(extensionless, extensions, failedLookupLocation, onlyRecordFailures, state);
         }
     }
-    function loadModuleFromFileWorker(candidate, extensions, failedLookupLocation, onlyRecordFailures, state) {
+    /** Try to return an existing file that adds one of the `extensions` to `candidate`. */
+    function tryAddingExtensions(candidate, extensions, failedLookupLocation, onlyRecordFailures, state) {
         if (!onlyRecordFailures) {
             // check if containing folder exists - if it doesn't then just record failures for all supported extensions without disk probing
             var directory = ts.getDirectoryPath(candidate);
@@ -45618,25 +45654,24 @@ var ts;
                 onlyRecordFailures = !directoryProbablyExists(directory, state.host);
             }
         }
-        return ts.forEach(extensions, tryLoad);
-        function tryLoad(ext) {
-            if (state.skipTsx && ts.isJsxOrTsxExtension(ext)) {
-                return undefined;
+        return ts.forEach(extensions, function (ext) {
+            return !(state.skipTsx && ts.isJsxOrTsxExtension(ext)) && tryFile(candidate + ext, failedLookupLocation, onlyRecordFailures, state);
+        });
+    }
+    /** Return the file if it exists. */
+    function tryFile(fileName, failedLookupLocation, onlyRecordFailures, state) {
+        if (!onlyRecordFailures && state.host.fileExists(fileName)) {
+            if (state.traceEnabled) {
+                trace(state.host, ts.Diagnostics.File_0_exist_use_it_as_a_name_resolution_result, fileName);
             }
-            var fileName = ts.fileExtensionIs(candidate, ext) ? candidate : candidate + ext;
-            if (!onlyRecordFailures && state.host.fileExists(fileName)) {
-                if (state.traceEnabled) {
-                    trace(state.host, ts.Diagnostics.File_0_exist_use_it_as_a_name_resolution_result, fileName);
-                }
-                return fileName;
+            return fileName;
+        }
+        else {
+            if (state.traceEnabled) {
+                trace(state.host, ts.Diagnostics.File_0_does_not_exist, fileName);
             }
-            else {
-                if (state.traceEnabled) {
-                    trace(state.host, ts.Diagnostics.File_0_does_not_exist, fileName);
-                }
-                failedLookupLocation.push(fileName);
-                return undefined;
-            }
+            failedLookupLocation.push(fileName);
+            return undefined;
         }
     }
     function loadNodeModuleFromDirectory(extensions, candidate, failedLookupLocation, onlyRecordFailures, state) {
@@ -45648,7 +45683,9 @@ var ts;
             }
             var typesFile = tryReadTypesSection(packageJsonPath, candidate, state);
             if (typesFile) {
-                var result = loadModuleFromFile(typesFile, extensions, failedLookupLocation, !directoryProbablyExists(ts.getDirectoryPath(typesFile), state.host), state);
+                var onlyRecordFailures_1 = !directoryProbablyExists(ts.getDirectoryPath(typesFile), state.host);
+                // The package.json "typings" property must specify the file with extension, so just try that exact filename.
+                var result = tryFile(typesFile, failedLookupLocation, onlyRecordFailures_1, state);
                 if (result) {
                     return result;
                 }
@@ -62056,7 +62093,7 @@ var TypeScript;
 // 'toolsVersion' gets consumed by the managed side, so it's not unused.
 // TODO: it should be moved into a namespace though.
 /* @internal */
-var toolsVersion = "1.9";
+var toolsVersion = "2.1";
 /* tslint:enable:no-unused-variable */
 /**
  * Sample: add a new utility function

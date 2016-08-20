@@ -2261,8 +2261,13 @@ declare namespace ts {
      * If no such value is found, the callback is applied to each element of array and undefined is returned.
      */
     function forEach<T, U>(array: T[] | undefined, callback: (element: T, index: number) => U | undefined): U | undefined;
-    /** Like `forEach`, but assumes existence of array and fails if no truthy value is found. */
-    function find<T, U>(array: T[], callback: (element: T, index: number) => U | undefined): U;
+    /** Works like Array.prototype.find, returning `undefined` if no element satisfying the predicate is found. */
+    function find<T>(array: T[], predicate: (element: T, index: number) => boolean): T | undefined;
+    /**
+     * Returns the first truthy result of `callback`, or else fails.
+     * This is like `forEach`, but never returns undefined.
+     */
+    function findMap<T, U>(array: T[], callback: (element: T, index: number) => U | undefined): U;
     function contains<T>(array: T[], value: T): boolean;
     function indexOf<T>(array: T[], value: T): number;
     function indexOfAnyCharCode(text: string, charCodes: number[], start?: number): number;
@@ -2457,6 +2462,8 @@ declare namespace ts {
      *  List of supported extensions in order of file resolution precedence.
      */
     const supportedTypeScriptExtensions: string[];
+    /** Must have ".d.ts" first because if ".ts" goes first, that will be detected as the extension instead of ".d.ts". */
+    const supportedTypescriptExtensionsForExtractExtension: string[];
     const supportedJavascriptExtensions: string[];
     function getSupportedExtensions(options?: CompilerOptions): string[];
     function isSupportedSourceFileName(fileName: string, compilerOptions?: CompilerOptions): boolean;
@@ -2482,7 +2489,8 @@ declare namespace ts {
      */
     function getNextLowestExtensionPriority(extensionPriority: ExtensionPriority): ExtensionPriority;
     function removeFileExtension(path: string): string;
-    function tryRemoveExtension(path: string, extension: string): string;
+    function tryRemoveExtension(path: string, extension: string): string | undefined;
+    function removeExtension(path: string, extension: string): string;
     function isJsxOrTsxExtension(ext: string): boolean;
     function changeExtension<T extends string | Path>(path: T, newExtension: string): T;
     interface ObjectAllocator {
@@ -2847,6 +2855,8 @@ declare namespace ts {
     function getLocalSymbolForExportDefault(symbol: Symbol): Symbol;
     function hasJavaScriptFileExtension(fileName: string): boolean;
     function hasTypeScriptFileExtension(fileName: string): boolean;
+    /** Return ".ts", ".d.ts", or ".tsx", if that is the extension. */
+    function tryExtractTypeScriptExtension(fileName: string): string | undefined;
     /**
      * Serialize an object graph into a JSON string. This is intended only for use on an acyclic graph
      * as the fallback implementation does not check for circular references by default.
@@ -5816,6 +5826,12 @@ declare namespace ts {
             message: string;
         };
         A_class_must_be_declared_after_its_base_class: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        An_import_path_cannot_end_with_a_0_extension_Consider_importing_1_instead: {
             code: number;
             category: DiagnosticCategory;
             key: string;
