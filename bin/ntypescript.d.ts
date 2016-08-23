@@ -304,8 +304,11 @@ declare namespace ts {
         JSDocPropertyTag = 280,
         JSDocTypeLiteral = 281,
         JSDocLiteralType = 282,
-        SyntaxList = 283,
-        Count = 284,
+        JSDocNullKeyword = 283,
+        JSDocUndefinedKeyword = 284,
+        JSDocNeverKeyword = 285,
+        SyntaxList = 286,
+        Count = 287,
         FirstAssignment = 56,
         LastAssignment = 68,
         FirstReservedWord = 70,
@@ -332,7 +335,7 @@ declare namespace ts {
         FirstJSDocNode = 257,
         LastJSDocNode = 282,
         FirstJSDocTagNode = 273,
-        LastJSDocTagNode = 282,
+        LastJSDocTagNode = 285,
     }
     enum NodeFlags {
         None = 0,
@@ -1693,10 +1696,6 @@ declare namespace ts {
     interface GenericType extends InterfaceType, TypeReference {
         instantiations: Map<TypeReference>;
     }
-    interface TupleType extends ObjectType {
-        elementTypes: Type[];
-        thisType?: Type;
-    }
     interface UnionOrIntersectionType extends Type {
         types: Type[];
         resolvedProperties: SymbolTable;
@@ -2605,6 +2604,7 @@ declare namespace ts {
     function nodeIsPresent(node: Node): boolean;
     function getTokenPosOfNode(node: Node, sourceFile?: SourceFile, includeJsDocComment?: boolean): number;
     function isJSDocNode(node: Node): boolean;
+    function isJSDocTag(node: Node): boolean;
     function getNonDecoratorTokenPosOfNode(node: Node, sourceFile?: SourceFile): number;
     function getSourceTextOfNodeFromSourceFile(sourceFile: SourceFile, node: Node, includeTrivia?: boolean): string;
     function getTextOfNodeFromSourceText(sourceText: string, node: Node): string;
@@ -7827,6 +7827,10 @@ declare namespace ts {
     function stripQuotes(name: string): string;
     function scriptKindIs(fileName: string, host: LanguageServiceHost, ...scriptKinds: ScriptKind[]): boolean;
     function getScriptKind(fileName: string, host?: LanguageServiceHost): ScriptKind;
+    function parseAndReEmitConfigJSONFile(content: string): {
+        configJsonObject: any;
+        diagnostics: Diagnostic[];
+    };
 }
 declare namespace ts.JsTyping {
     interface TypingResolutionHost {
