@@ -6265,6 +6265,7 @@ var ts;
         Cannot_extend_an_interface_0_Did_you_mean_implements: { code: 2689, category: ts.DiagnosticCategory.Error, key: "Cannot_extend_an_interface_0_Did_you_mean_implements_2689", message: "Cannot extend an interface '{0}'. Did you mean 'implements'?" },
         A_class_must_be_declared_after_its_base_class: { code: 2690, category: ts.DiagnosticCategory.Error, key: "A_class_must_be_declared_after_its_base_class_2690", message: "A class must be declared after its base class." },
         An_import_path_cannot_end_with_a_0_extension_Consider_importing_1_instead: { code: 2691, category: ts.DiagnosticCategory.Error, key: "An_import_path_cannot_end_with_a_0_extension_Consider_importing_1_instead_2691", message: "An import path cannot end with a '{0}' extension. Consider importing '{1}' instead." },
+        _0_is_a_primitive_but_1_is_a_wrapper_object_Prefer_using_0_when_possible: { code: 2692, category: ts.DiagnosticCategory.Error, key: "_0_is_a_primitive_but_1_is_a_wrapper_object_Prefer_using_0_when_possible_2692", message: "'{0}' is a primitive, but '{1}' is a wrapper object. Prefer using '{0}' when possible." },
         Import_declaration_0_is_using_private_name_1: { code: 4000, category: ts.DiagnosticCategory.Error, key: "Import_declaration_0_is_using_private_name_1_4000", message: "Import declaration '{0}' is using private name '{1}'." },
         Type_parameter_0_of_exported_class_has_or_is_using_private_name_1: { code: 4002, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_class_has_or_is_using_private_name_1_4002", message: "Type parameter '{0}' of exported class has or is using private name '{1}'." },
         Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1: { code: 4004, category: ts.DiagnosticCategory.Error, key: "Type_parameter_0_of_exported_interface_has_or_is_using_private_name_1_4004", message: "Type parameter '{0}' of exported interface has or is using private name '{1}'." },
@@ -22222,6 +22223,16 @@ var ts;
                 }
                 reportError(message, sourceType, targetType);
             }
+            function tryElaborateErrorsForPrimitivesAndObjects(source, target) {
+                var sourceType = typeToString(source);
+                var targetType = typeToString(target);
+                if ((globalStringType === source && stringType === target) ||
+                    (globalNumberType === source && numberType === target) ||
+                    (globalBooleanType === source && booleanType === target) ||
+                    (getGlobalESSymbolType() === source && esSymbolType === target)) {
+                    reportError(ts.Diagnostics._0_is_a_primitive_but_1_is_a_wrapper_object_Prefer_using_0_when_possible, targetType, sourceType);
+                }
+            }
             // Compare two types and return
             // Ternary.True if they are related with no assumptions,
             // Ternary.Maybe if they are related with assumptions of other relationships, or
@@ -22335,6 +22346,9 @@ var ts;
                     }
                 }
                 if (reportErrors) {
+                    if (source.flags & 2588672 /* ObjectType */ && target.flags & 8190 /* Primitive */) {
+                        tryElaborateErrorsForPrimitivesAndObjects(source, target);
+                    }
                     reportRelationError(headMessage, source, target);
                 }
                 return 0 /* False */;
