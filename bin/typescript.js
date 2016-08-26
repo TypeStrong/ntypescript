@@ -17418,7 +17418,7 @@ var ts;
             }
         }
         function getDeclarationOfAliasSymbol(symbol) {
-            return ts.findMap(symbol.declarations, function (d) { return ts.isAliasSymbolDeclaration(d) ? d : undefined; });
+            return ts.forEach(symbol.declarations, function (d) { return ts.isAliasSymbolDeclaration(d) ? d : undefined; });
         }
         function getTargetOfImportEqualsDeclaration(node) {
             if (node.moduleReference.kind === 240 /* ExternalModuleReference */) {
@@ -17571,6 +17571,7 @@ var ts;
             if (!links.target) {
                 links.target = resolvingSymbol;
                 var node = getDeclarationOfAliasSymbol(symbol);
+                ts.Debug.assert(!!node);
                 var target = getTargetOfAliasDeclaration(node);
                 if (links.target === resolvingSymbol) {
                     links.target = target || unknownSymbol;
@@ -17603,6 +17604,7 @@ var ts;
             if (!links.referenced) {
                 links.referenced = true;
                 var node = getDeclarationOfAliasSymbol(symbol);
+                ts.Debug.assert(!!node);
                 if (node.kind === 235 /* ExportAssignment */) {
                     // export default <symbol>
                     checkExpressionCached(node.expression);
@@ -35456,7 +35458,7 @@ var ts;
     }
     ts.convertTypingOptionsFromJson = convertTypingOptionsFromJson;
     function convertCompilerOptionsFromJsonWorker(jsonOptions, basePath, errors, configFileName) {
-        var options = ts.getBaseFileName(configFileName) === "jsconfig.json" ? { allowJs: true } : {};
+        var options = ts.getBaseFileName(configFileName) === "jsconfig.json" ? { allowJs: true, maxNodeModuleJsDepth: 2 } : {};
         convertOptionsFromJson(ts.optionDeclarations, jsonOptions, basePath, options, ts.Diagnostics.Unknown_compiler_option_0, errors);
         return options;
     }
@@ -46079,7 +46081,7 @@ var ts;
         // - This calls resolveModuleNames, and then calls findSourceFile for each resolved module.
         // As all these operations happen - and are nested - within the createProgram call, they close over the below variables.
         // The current resolution depth is tracked by incrementing/decrementing as the depth first search progresses.
-        var maxNodeModulesJsDepth = typeof options.maxNodeModuleJsDepth === "number" ? options.maxNodeModuleJsDepth : 2;
+        var maxNodeModulesJsDepth = typeof options.maxNodeModuleJsDepth === "number" ? options.maxNodeModuleJsDepth : 0;
         var currentNodeModulesDepth = 0;
         // If a module has some of its imports skipped due to being at the depth limit under node_modules, then track
         // this, as it may be imported at a shallower depth later, and then it will need its skipped imports processed.
@@ -50697,7 +50699,8 @@ var ts;
         var options = {
             fileName: "config.js",
             compilerOptions: {
-                target: 2 /* ES6 */
+                target: 2 /* ES6 */,
+                removeComments: true
             },
             reportDiagnostics: true
         };
@@ -53853,11 +53856,14 @@ var ts;
                 var pos_3 = this.pos;
                 var useJSDocScanner_1 = this.kind >= 273 /* FirstJSDocTagNode */ && this.kind <= 285 /* LastJSDocTagNode */;
                 var processNode = function (node) {
-                    if (pos_3 < node.pos) {
+                    var isJSDocTagNode = ts.isJSDocTag(node);
+                    if (!isJSDocTagNode && pos_3 < node.pos) {
                         pos_3 = _this.addSyntheticNodes(children, pos_3, node.pos, useJSDocScanner_1);
                     }
                     children.push(node);
-                    pos_3 = node.end;
+                    if (!isJSDocTagNode) {
+                        pos_3 = node.end;
+                    }
                 };
                 var processNodes = function (nodes) {
                     if (pos_3 < nodes.pos) {
@@ -53873,10 +53879,6 @@ var ts;
                         processNode(jsDocComment);
                     }
                 }
-                // For syntactic classifications, all trivia are classcified together, including jsdoc comments.
-                // For that to work, the jsdoc comments should still be the leading trivia of the first child. 
-                // Restoring the scanner position ensures that. 
-                pos_3 = this.pos;
                 ts.forEachChild(this, processNode, processNodes);
                 if (pos_3 < this.end) {
                     this.addSyntheticNodes(children, pos_3, this.end);
