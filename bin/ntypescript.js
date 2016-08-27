@@ -10251,6 +10251,7 @@ var ts;
                     token() === 25 /* LessThanToken */ ||
                     token() === 53 /* QuestionToken */ ||
                     token() === 54 /* ColonToken */ ||
+                    token() === 24 /* CommaToken */ ||
                     canParseSemicolon();
             }
             return false;
@@ -33492,7 +33493,13 @@ var ts;
                     (augmentations || (augmentations = [])).push(file.moduleAugmentations);
                 }
                 if (file.symbol && file.symbol.globalExports) {
-                    mergeSymbolTable(globals, file.symbol.globalExports);
+                    // Merge in UMD exports with first-in-wins semantics (see #9771)
+                    var source = file.symbol.globalExports;
+                    for (var id in source) {
+                        if (!(id in globals)) {
+                            globals[id] = source[id];
+                        }
+                    }
                 }
             });
             if (augmentations) {
@@ -36799,8 +36806,10 @@ var ts;
                     // it if it's not a well known symbol. In that case, the text of the name will be exactly
                     // what we want, namely the name expression enclosed in brackets.
                     writeTextOfNode(currentText, node.name);
-                    // If optional property emit ?
-                    if ((node.kind === 145 /* PropertyDeclaration */ || node.kind === 144 /* PropertySignature */ || node.kind === 142 /* Parameter */) && ts.hasQuestionToken(node)) {
+                    // If optional property emit ? but in the case of parameterProperty declaration with "?" indicating optional parameter for the constructor
+                    // we don't want to emit property declaration with "?"
+                    if ((node.kind === 145 /* PropertyDeclaration */ || node.kind === 144 /* PropertySignature */ ||
+                        (node.kind === 142 /* Parameter */ && !ts.isParameterPropertyDeclaration(node))) && ts.hasQuestionToken(node)) {
                         write("?");
                     }
                     if ((node.kind === 145 /* PropertyDeclaration */ || node.kind === 144 /* PropertySignature */) && node.parent.kind === 159 /* TypeLiteral */) {
@@ -43495,7 +43504,7 @@ var ts;
                             // import { x, y } from "foo"
                             // import d, * as x from "foo"
                             // import d, { x, y } from "foo"
-                            var isNakedImport = 230 /* ImportDeclaration */ && !node.importClause;
+                            var isNakedImport = node.kind === 230 /* ImportDeclaration */ && !node.importClause;
                             if (!isNakedImport) {
                                 write(varOrConst);
                                 write(getGeneratedNameForNode(node));
