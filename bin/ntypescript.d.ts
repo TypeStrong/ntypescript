@@ -8526,8 +8526,11 @@ declare namespace ts {
         containerKind: string;
         containerName: string;
     }
+    interface ReferencedSymbolDefinitionInfo extends DefinitionInfo {
+        displayParts: SymbolDisplayPart[];
+    }
     interface ReferencedSymbol {
-        definition: DefinitionInfo;
+        definition: ReferencedSymbolDefinitionInfo;
         references: ReferenceEntry[];
     }
     enum SymbolDisplayPartKind {

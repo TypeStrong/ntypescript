@@ -58460,7 +58460,8 @@ var ts;
                     name: name,
                     kind: info.symbolKind,
                     fileName: declarations[0].getSourceFile().fileName,
-                    textSpan: ts.createTextSpan(declarations[0].getStart(), 0)
+                    textSpan: ts.createTextSpan(declarations[0].getStart(), 0),
+                    displayParts: info.displayParts
                 };
             }
             function getAliasSymbolForPropertyNameSymbol(symbol, location) {
@@ -58629,7 +58630,8 @@ var ts;
                     fileName: targetLabel.getSourceFile().fileName,
                     kind: ScriptElementKind.label,
                     name: labelName,
-                    textSpan: ts.createTextSpanFromBounds(targetLabel.getStart(), targetLabel.getEnd())
+                    textSpan: ts.createTextSpanFromBounds(targetLabel.getStart(), targetLabel.getEnd()),
+                    displayParts: [ts.displayPart(labelName, SymbolDisplayPartKind.text)]
                 };
                 return [{ definition: definition, references: references }];
             }
@@ -58819,6 +58821,8 @@ var ts;
                     possiblePositions = getPossibleSymbolReferencePositions(sourceFile, "this", searchSpaceNode.getStart(), searchSpaceNode.getEnd());
                     getThisReferencesInFile(sourceFile, searchSpaceNode, possiblePositions, references);
                 }
+                var thisOrSuperSymbol = typeChecker.getSymbolAtLocation(thisOrSuperKeyword);
+                var displayParts = thisOrSuperSymbol && getSymbolDisplayPartsDocumentationAndSymbolKind(thisOrSuperSymbol, thisOrSuperKeyword.getSourceFile(), getContainerNode(thisOrSuperKeyword), thisOrSuperKeyword).displayParts;
                 return [{
                         definition: {
                             containerKind: "",
@@ -58826,7 +58830,8 @@ var ts;
                             fileName: node.getSourceFile().fileName,
                             kind: ScriptElementKind.variableElement,
                             name: "this",
-                            textSpan: ts.createTextSpanFromBounds(node.getStart(), node.getEnd())
+                            textSpan: ts.createTextSpanFromBounds(node.getStart(), node.getEnd()),
+                            displayParts: displayParts
                         },
                         references: references
                     }];
@@ -58888,7 +58893,8 @@ var ts;
                             fileName: node.getSourceFile().fileName,
                             kind: ScriptElementKind.variableElement,
                             name: type.text,
-                            textSpan: ts.createTextSpanFromBounds(node.getStart(), node.getEnd())
+                            textSpan: ts.createTextSpanFromBounds(node.getStart(), node.getEnd()),
+                            displayParts: [ts.displayPart(ts.getTextOfNode(node), SymbolDisplayPartKind.stringLiteral)]
                         },
                         references: references
                     }];
