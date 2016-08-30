@@ -27402,16 +27402,10 @@ var ts;
             // that the user will not add any.
             var callSignatures = getSignaturesOfType(apparentType, 0 /* Call */);
             var constructSignatures = getSignaturesOfType(apparentType, 1 /* Construct */);
-            // TS 1.0 spec: 4.12
-            // If FuncExpr is of type Any, or of an object type that has no call or construct signatures
-            // but is a subtype of the Function interface, the call is an untyped function call. In an
-            // untyped function call no TypeArgs are permitted, Args can be any argument list, no contextual
+            // TS 1.0 Spec: 4.12
+            // In an untyped function call no TypeArgs are permitted, Args can be any argument list, no contextual
             // types are provided for the argument expressions, and the result is always of type Any.
-            // We exclude union types because we may have a union of function types that happen to have
-            // no common signatures.
-            if (isTypeAny(funcType) ||
-                (isTypeAny(apparentType) && funcType.flags & 16384 /* TypeParameter */) ||
-                (!callSignatures.length && !constructSignatures.length && !(funcType.flags & 524288 /* Union */) && isTypeAssignableTo(funcType, globalFunctionType))) {
+            if (isUntypedFunctionCall(funcType, apparentType, callSignatures.length, constructSignatures.length)) {
                 // The unknownType indicates that an error already occurred (and was reported).  No
                 // need to report another error in this case.
                 if (funcType !== unknownType && node.typeArguments) {
@@ -27432,6 +27426,28 @@ var ts;
                 return resolveErrorCall(node);
             }
             return resolveCall(node, callSignatures, candidatesOutArray);
+        }
+        /**
+         * TS 1.0 spec: 4.12
+         * If FuncExpr is of type Any, or of an object type that has no call or construct signatures
+         * but is a subtype of the Function interface, the call is an untyped function call.
+         */
+        function isUntypedFunctionCall(funcType, apparentFuncType, numCallSignatures, numConstructSignatures) {
+            if (isTypeAny(funcType)) {
+                return true;
+            }
+            if (isTypeAny(apparentFuncType) && funcType.flags & 16384 /* TypeParameter */) {
+                return true;
+            }
+            if (!numCallSignatures && !numConstructSignatures) {
+                // We exclude union types because we may have a union of function types that happen to have
+                // no common signatures.
+                if (funcType.flags & 524288 /* Union */) {
+                    return false;
+                }
+                return isTypeAssignableTo(funcType, globalFunctionType);
+            }
+            return false;
         }
         function resolveNewExpression(node, candidatesOutArray) {
             if (node.arguments && languageVersion < 1 /* ES5 */) {
@@ -27542,7 +27558,8 @@ var ts;
                 return resolveErrorCall(node);
             }
             var callSignatures = getSignaturesOfType(apparentType, 0 /* Call */);
-            if (isTypeAny(tagType) || (!callSignatures.length && !(tagType.flags & 524288 /* Union */) && isTypeAssignableTo(tagType, globalFunctionType))) {
+            var constructSignatures = getSignaturesOfType(apparentType, 1 /* Construct */);
+            if (isUntypedFunctionCall(tagType, apparentType, callSignatures.length, constructSignatures.length)) {
                 return resolveUntypedCall(node);
             }
             if (!callSignatures.length) {
@@ -27579,7 +27596,8 @@ var ts;
                 return resolveErrorCall(node);
             }
             var callSignatures = getSignaturesOfType(apparentType, 0 /* Call */);
-            if (funcType === anyType || (!callSignatures.length && !(funcType.flags & 524288 /* Union */) && isTypeAssignableTo(funcType, globalFunctionType))) {
+            var constructSignatures = getSignaturesOfType(apparentType, 1 /* Construct */);
+            if (isUntypedFunctionCall(funcType, apparentType, callSignatures.length, constructSignatures.length)) {
                 return resolveUntypedCall(node);
             }
             var headMessage = getDiagnosticHeadMessageForDecoratorResolution(node);
