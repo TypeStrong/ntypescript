@@ -1,6 +1,6 @@
 {
   "name": "ntypescript",
-  "version": "1.201608300008.1+0485bb6b56b38749b83a23626243627a42472d50",
+  "version": "1.201608310006.1+0b9573118454ab2420abc168405be1a78b482b57",
   "description": "A nicer version of microsoft/typescript packaged and released for API developers",
   "main": "./bin/ntypescript.js",
   "bin": {

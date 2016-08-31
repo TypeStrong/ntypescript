@@ -7211,12 +7211,6 @@ declare namespace ts {
             key: string;
             message: string;
         };
-        Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_type_annotation: {
-            code: number;
-            category: DiagnosticCategory;
-            key: string;
-            message: string;
-        };
         Index_signature_of_object_type_implicitly_has_an_any_type: {
             code: number;
             category: DiagnosticCategory;
@@ -7296,6 +7290,18 @@ declare namespace ts {
             message: string;
         };
         Binding_element_0_implicitly_has_an_1_type: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_parameter_type_annotation: {
+            code: number;
+            category: DiagnosticCategory;
+            key: string;
+            message: string;
+        };
+        Property_0_implicitly_has_type_any_because_its_get_accessor_lacks_a_return_type_annotation: {
             code: number;
             category: DiagnosticCategory;
             key: string;

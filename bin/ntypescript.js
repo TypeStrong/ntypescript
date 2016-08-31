@@ -6494,7 +6494,6 @@ var ts;
         Function_expression_which_lacks_return_type_annotation_implicitly_has_an_0_return_type: { code: 7011, category: ts.DiagnosticCategory.Error, key: "Function_expression_which_lacks_return_type_annotation_implicitly_has_an_0_return_type_7011", message: "Function expression, which lacks return-type annotation, implicitly has an '{0}' return type." },
         Construct_signature_which_lacks_return_type_annotation_implicitly_has_an_any_return_type: { code: 7013, category: ts.DiagnosticCategory.Error, key: "Construct_signature_which_lacks_return_type_annotation_implicitly_has_an_any_return_type_7013", message: "Construct signature, which lacks return-type annotation, implicitly has an 'any' return type." },
         Element_implicitly_has_an_any_type_because_index_expression_is_not_of_type_number: { code: 7015, category: ts.DiagnosticCategory.Error, key: "Element_implicitly_has_an_any_type_because_index_expression_is_not_of_type_number_7015", message: "Element implicitly has an 'any' type because index expression is not of type 'number'." },
-        Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_type_annotation: { code: 7016, category: ts.DiagnosticCategory.Error, key: "Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_type_annotation_7016", message: "Property '{0}' implicitly has type 'any', because its 'set' accessor lacks a type annotation." },
         Index_signature_of_object_type_implicitly_has_an_any_type: { code: 7017, category: ts.DiagnosticCategory.Error, key: "Index_signature_of_object_type_implicitly_has_an_any_type_7017", message: "Index signature of object type implicitly has an 'any' type." },
         Object_literal_s_property_0_implicitly_has_an_1_type: { code: 7018, category: ts.DiagnosticCategory.Error, key: "Object_literal_s_property_0_implicitly_has_an_1_type_7018", message: "Object literal's property '{0}' implicitly has an '{1}' type." },
         Rest_parameter_0_implicitly_has_an_any_type: { code: 7019, category: ts.DiagnosticCategory.Error, key: "Rest_parameter_0_implicitly_has_an_any_type_7019", message: "Rest parameter '{0}' implicitly has an 'any[]' type." },
@@ -6509,6 +6508,8 @@ var ts;
         Fallthrough_case_in_switch: { code: 7029, category: ts.DiagnosticCategory.Error, key: "Fallthrough_case_in_switch_7029", message: "Fallthrough case in switch." },
         Not_all_code_paths_return_a_value: { code: 7030, category: ts.DiagnosticCategory.Error, key: "Not_all_code_paths_return_a_value_7030", message: "Not all code paths return a value." },
         Binding_element_0_implicitly_has_an_1_type: { code: 7031, category: ts.DiagnosticCategory.Error, key: "Binding_element_0_implicitly_has_an_1_type_7031", message: "Binding element '{0}' implicitly has an '{1}' type." },
+        Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_parameter_type_annotation: { code: 7032, category: ts.DiagnosticCategory.Error, key: "Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_parameter_type_annotation_7032", message: "Property '{0}' implicitly has type 'any', because its set accessor lacks a parameter type annotation." },
+        Property_0_implicitly_has_type_any_because_its_get_accessor_lacks_a_return_type_annotation: { code: 7033, category: ts.DiagnosticCategory.Error, key: "Property_0_implicitly_has_type_any_because_its_get_accessor_lacks_a_return_type_annotation_7033", message: "Property '{0}' implicitly has type 'any', because its get accessor lacks a return type annotation." },
         You_cannot_rename_this_element: { code: 8000, category: ts.DiagnosticCategory.Error, key: "You_cannot_rename_this_element_8000", message: "You cannot rename this element." },
         You_cannot_rename_elements_that_are_defined_in_the_standard_TypeScript_library: { code: 8001, category: ts.DiagnosticCategory.Error, key: "You_cannot_rename_elements_that_are_defined_in_the_standard_TypeScript_library_8001", message: "You cannot rename elements that are defined in the standard TypeScript library." },
         import_can_only_be_used_in_a_ts_file: { code: 8002, category: ts.DiagnosticCategory.Error, key: "import_can_only_be_used_in_a_ts_file_8002", message: "'import ... =' can only be used in a .ts file." },
@@ -19512,7 +19513,13 @@ var ts;
                         }
                         else {
                             if (compilerOptions.noImplicitAny) {
-                                error(setter, ts.Diagnostics.Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_type_annotation, symbolToString(symbol));
+                                if (setter) {
+                                    error(setter, ts.Diagnostics.Property_0_implicitly_has_type_any_because_its_set_accessor_lacks_a_parameter_type_annotation, symbolToString(symbol));
+                                }
+                                else {
+                                    ts.Debug.assert(!!getter, "there must existed getter as we are current checking either setter or getter in this function");
+                                    error(getter, ts.Diagnostics.Property_0_implicitly_has_type_any_because_its_get_accessor_lacks_a_return_type_annotation, symbolToString(symbol));
+                                }
                             }
                             type = anyType;
                         }
