@@ -2513,8 +2513,12 @@ declare namespace ts {
         function assert(expression: boolean, message?: string, verboseDebugInfo?: () => string): void;
         function fail(message?: string): void;
     }
-    function copyListRemovingItem<T>(item: T, list: T[]): T[];
-    function createGetCanonicalFileName(useCaseSensitivefileNames: boolean): (fileName: string) => string;
+    /** Remove an item from an array, moving everything to its right one space left. */
+    function orderedRemoveItemAt<T>(array: T[], index: number): void;
+    function unorderedRemoveItemAt<T>(array: T[], index: number): void;
+    /** Remove the *first* occurrence of `item` from the array. */
+    function unorderedRemoveItem<T>(array: T[], item: T): void;
+    function createGetCanonicalFileName(useCaseSensitiveFileNames: boolean): (fileName: string) => string;
 }
 declare namespace ts {
     type FileWatcherCallback = (fileName: string, removed?: boolean) => void;
@@ -2672,6 +2676,7 @@ declare namespace ts {
      */
     function isSuperPropertyOrElementAccess(node: Node): boolean;
     function getEntityNameFromTypeNode(node: TypeNode): EntityNameOrEntityNameExpression;
+    function isCallLikeExpression(node: Node): node is CallLikeExpression;
     function getInvokedExpression(node: CallLikeExpression): Expression;
     function nodeCanBeDecorated(node: Node): boolean;
     function nodeIsDecorated(node: Node): boolean;
@@ -2848,6 +2853,8 @@ declare namespace ts {
     function modifierToFlag(token: SyntaxKind): NodeFlags;
     function isLeftHandSideExpression(expr: Expression): boolean;
     function isAssignmentOperator(token: SyntaxKind): boolean;
+    /** Get `C` given `N` if `N` is in the position `class C extends N` where `N` is an ExpressionWithTypeArguments. */
+    function tryGetClassExtendingExpressionWithTypeArguments(node: Node): ClassLikeDeclaration | undefined;
     function isExpressionWithTypeArgumentsInClassExtendsClause(node: Node): boolean;
     function isEntityNameExpression(node: Expression): node is EntityNameExpression;
     function isRightSideOfQualifiedNameOrPropertyAccess(node: Node): boolean;

@@ -2397,19 +2397,37 @@ var ts;
         }
         Debug.fail = fail;
     })(Debug = ts.Debug || (ts.Debug = {}));
-    function copyListRemovingItem(item, list) {
-        var copiedList = [];
-        for (var _i = 0, list_1 = list; _i < list_1.length; _i++) {
-            var e = list_1[_i];
-            if (e !== item) {
-                copiedList.push(e);
+    /** Remove an item from an array, moving everything to its right one space left. */
+    function orderedRemoveItemAt(array, index) {
+        // This seems to be faster than either `array.splice(i, 1)` or `array.copyWithin(i, i+ 1)`.
+        for (var i = index; i < array.length - 1; i++) {
+            array[i] = array[i + 1];
+        }
+        array.pop();
+    }
+    ts.orderedRemoveItemAt = orderedRemoveItemAt;
+    function unorderedRemoveItemAt(array, index) {
+        // Fill in the "hole" left at `index`.
+        array[index] = array[array.length - 1];
+        array.pop();
+    }
+    ts.unorderedRemoveItemAt = unorderedRemoveItemAt;
+    /** Remove the *first* occurrence of `item` from the array. */
+    function unorderedRemoveItem(array, item) {
+        unorderedRemoveFirstItemWhere(array, function (element) { return element === item; });
+    }
+    ts.unorderedRemoveItem = unorderedRemoveItem;
+    /** Remove the *first* element satisfying `predicate`. */
+    function unorderedRemoveFirstItemWhere(array, predicate) {
+        for (var i = 0; i < array.length; i++) {
+            if (predicate(array[i])) {
+                unorderedRemoveItemAt(array, i);
+                break;
             }
         }
-        return copiedList;
     }
-    ts.copyListRemovingItem = copyListRemovingItem;
-    function createGetCanonicalFileName(useCaseSensitivefileNames) {
-        return useCaseSensitivefileNames
+    function createGetCanonicalFileName(useCaseSensitiveFileNames) {
+        return useCaseSensitiveFileNames
             ? (function (fileName) { return fileName; })
             : (function (fileName) { return fileName.toLowerCase(); });
     }
@@ -2597,12 +2615,9 @@ var ts;
                 function removeFileWatcherCallback(filePath, callback) {
                     var callbacks = fileWatcherCallbacks[filePath];
                     if (callbacks) {
-                        var newCallbacks = ts.copyListRemovingItem(callback, callbacks);
-                        if (newCallbacks.length === 0) {
+                        ts.unorderedRemoveItem(callbacks, callback);
+                        if (callbacks.length === 0) {
                             delete fileWatcherCallbacks[filePath];
-                        }
-                        else {
-                            fileWatcherCallbacks[filePath] = newCallbacks;
                         }
                     }
                 }
@@ -3849,6 +3864,18 @@ var ts;
         return undefined;
     }
     ts.getEntityNameFromTypeNode = getEntityNameFromTypeNode;
+    function isCallLikeExpression(node) {
+        switch (node.kind) {
+            case 174 /* CallExpression */:
+            case 175 /* NewExpression */:
+            case 176 /* TaggedTemplateExpression */:
+            case 143 /* Decorator */:
+                return true;
+            default:
+                return false;
+        }
+    }
+    ts.isCallLikeExpression = isCallLikeExpression;
     function getInvokedExpression(node) {
         if (node.kind === 176 /* TaggedTemplateExpression */) {
             return node.tag;
@@ -5366,10 +5393,17 @@ var ts;
         return token >= 56 /* FirstAssignment */ && token <= 68 /* LastAssignment */;
     }
     ts.isAssignmentOperator = isAssignmentOperator;
-    function isExpressionWithTypeArgumentsInClassExtendsClause(node) {
-        return node.kind === 194 /* ExpressionWithTypeArguments */ &&
+    /** Get `C` given `N` if `N` is in the position `class C extends N` where `N` is an ExpressionWithTypeArguments. */
+    function tryGetClassExtendingExpressionWithTypeArguments(node) {
+        if (node.kind === 194 /* ExpressionWithTypeArguments */ &&
             node.parent.token === 83 /* ExtendsKeyword */ &&
-            isClassLike(node.parent.parent);
+            isClassLike(node.parent.parent)) {
+            return node.parent.parent;
+        }
+    }
+    ts.tryGetClassExtendingExpressionWithTypeArguments = tryGetClassExtendingExpressionWithTypeArguments;
+    function isExpressionWithTypeArgumentsInClassExtendsClause(node) {
+        return tryGetClassExtendingExpressionWithTypeArguments(node) !== undefined;
     }
     ts.isExpressionWithTypeArgumentsInClassExtendsClause = isExpressionWithTypeArgumentsInClassExtendsClause;
     function isEntityNameExpression(node) {
@@ -21398,7 +21432,7 @@ var ts;
             while (i > 0) {
                 i--;
                 if (isSubtypeOfAny(types[i], types)) {
-                    types.splice(i, 1);
+                    ts.orderedRemoveItemAt(types, i);
                 }
             }
         }
@@ -24530,7 +24564,7 @@ var ts;
             // The location isn't a reference to the given symbol, meaning we're being asked
             // a hypothetical question of what type the symbol would have if there was a reference
             // to it at the given location. Since we have no control flow information for the
-            // hypotherical reference (control flow information is created and attached by the
+            // hypothetical reference (control flow information is created and attached by the
             // binder), we simply return the declared type of the symbol.
             return getTypeOfSymbol(symbol);
         }
@@ -33532,8 +33566,8 @@ var ts;
                 // this needs to be done after global symbol table is initialized to make sure that all ambient modules are indexed
                 for (var _i = 0, augmentations_1 = augmentations; _i < augmentations_1.length; _i++) {
                     var list = augmentations_1[_i];
-                    for (var _a = 0, list_2 = list; _a < list_2.length; _a++) {
-                        var augmentation = list_2[_a];
+                    for (var _a = 0, list_1 = list; _a < list_1.length; _a++) {
+                        var augmentation = list_1[_a];
                         mergeModuleAugmentation(augmentation);
                     }
                 }
@@ -47613,10 +47647,7 @@ var ts;
             sourceFile.fileWatcher.close();
             sourceFile.fileWatcher = undefined;
             if (removed) {
-                var index = rootFileNames.indexOf(sourceFile.fileName);
-                if (index >= 0) {
-                    rootFileNames.splice(index, 1);
-                }
+                ts.unorderedRemoveItem(rootFileNames, sourceFile.fileName);
             }
             startTimerForRecompilation();
         }
@@ -48613,6 +48644,7 @@ var ts;
                     case 147 /* MethodDeclaration */:
                     case 149 /* GetAccessor */:
                     case 150 /* SetAccessor */:
+                    case 218 /* VariableDeclaration */:
                         return hasSomeImportantChild(item);
                     case 180 /* ArrowFunction */:
                     case 220 /* FunctionDeclaration */:
@@ -55572,17 +55604,35 @@ var ts;
     function isRightSideOfPropertyAccess(node) {
         return node && node.parent && node.parent.kind === 172 /* PropertyAccessExpression */ && node.parent.name === node;
     }
+    function climbPastPropertyAccess(node) {
+        return isRightSideOfPropertyAccess(node) ? node.parent : node;
+    }
+    /** Get `C` given `N` if `N` is in the position `class C extends N` or `class C extends foo.N` where `N` is an identifier. */
+    function tryGetClassByExtendingIdentifier(node) {
+        return ts.tryGetClassExtendingExpressionWithTypeArguments(climbPastPropertyAccess(node).parent);
+    }
     function isCallExpressionTarget(node) {
-        if (isRightSideOfPropertyAccess(node)) {
-            node = node.parent;
-        }
-        return node && node.parent && node.parent.kind === 174 /* CallExpression */ && node.parent.expression === node;
+        return isCallOrNewExpressionTarget(node, 174 /* CallExpression */);
     }
     function isNewExpressionTarget(node) {
-        if (isRightSideOfPropertyAccess(node)) {
-            node = node.parent;
-        }
-        return node && node.parent && node.parent.kind === 175 /* NewExpression */ && node.parent.expression === node;
+        return isCallOrNewExpressionTarget(node, 175 /* NewExpression */);
+    }
+    function isCallOrNewExpressionTarget(node, kind) {
+        var target = climbPastPropertyAccess(node);
+        return target && target.parent && target.parent.kind === kind && target.parent.expression === target;
+    }
+    function climbPastManyPropertyAccesses(node) {
+        return isRightSideOfPropertyAccess(node) ? climbPastManyPropertyAccesses(node.parent) : node;
+    }
+    /** Returns a CallLikeExpression where `node` is the target being invoked. */
+    function getAncestorCallLikeExpression(node) {
+        var target = climbPastManyPropertyAccesses(node);
+        var callLike = target.parent;
+        return callLike && ts.isCallLikeExpression(callLike) && ts.getInvokedExpression(callLike) === target && callLike;
+    }
+    function tryGetSignatureDeclaration(typeChecker, node) {
+        var callLike = getAncestorCallLikeExpression(node);
+        return callLike && typeChecker.getResolvedSignature(callLike).declaration;
     }
     function isNameOfModuleDeclaration(node) {
         return node.parent.kind === 225 /* ModuleDeclaration */ && node.parent.name === node;
@@ -57606,14 +57656,23 @@ var ts;
                 containerName: containerName
             };
         }
+        function getSymbolInfo(typeChecker, symbol, node) {
+            return {
+                symbolName: typeChecker.symbolToString(symbol),
+                symbolKind: getSymbolKind(symbol, node),
+                containerName: symbol.parent ? typeChecker.symbolToString(symbol.parent, node) : ""
+            };
+        }
+        function createDefinitionFromSignatureDeclaration(decl) {
+            var typeChecker = program.getTypeChecker();
+            var _a = getSymbolInfo(typeChecker, decl.symbol, decl), symbolName = _a.symbolName, symbolKind = _a.symbolKind, containerName = _a.containerName;
+            return createDefinitionInfo(decl, symbolKind, symbolName, containerName);
+        }
         function getDefinitionFromSymbol(symbol, node) {
             var typeChecker = program.getTypeChecker();
             var result = [];
             var declarations = symbol.getDeclarations();
-            var symbolName = typeChecker.symbolToString(symbol); // Do not get scoped name, just the name of the symbol
-            var symbolKind = getSymbolKind(symbol, node);
-            var containerSymbol = symbol.parent;
-            var containerName = containerSymbol ? typeChecker.symbolToString(containerSymbol, node) : "";
+            var _a = getSymbolInfo(typeChecker, symbol, node), symbolName = _a.symbolName, symbolKind = _a.symbolKind, containerName = _a.containerName;
             if (!tryAddConstructSignature(symbol, node, symbolKind, symbolName, containerName, result) &&
                 !tryAddCallSignature(symbol, node, symbolKind, symbolName, containerName, result)) {
                 // Just add all the declarations.
@@ -57720,6 +57779,10 @@ var ts;
                 return label ? [createDefinitionInfo(label, ScriptElementKind.label, labelName, /*containerName*/ undefined)] : undefined;
             }
             var typeChecker = program.getTypeChecker();
+            var calledDeclaration = tryGetSignatureDeclaration(typeChecker, node);
+            if (calledDeclaration) {
+                return [createDefinitionFromSignatureDeclaration(calledDeclaration)];
+            }
             var symbol = typeChecker.getSymbolAtLocation(node);
             // Could not find a symbol e.g. node is string or number keyword,
             // or the symbol was an internal symbol and does not have a declaration e.g. undefined symbol
@@ -58392,6 +58455,7 @@ var ts;
                 case 69 /* Identifier */:
                 case 97 /* ThisKeyword */:
                 // case SyntaxKind.SuperKeyword: TODO:GH#9268
+                case 121 /* ConstructorKeyword */:
                 case 9 /* StringLiteral */:
                     return getReferencedSymbolsForNode(node, program.getSourceFiles(), findInStrings, findInComments);
             }
@@ -58430,6 +58494,8 @@ var ts;
             if (node.kind === 95 /* SuperKeyword */) {
                 return getReferencesForSuperKeyword(node);
             }
+            // `getSymbolAtLocation` normally returns the symbol of the class when given the constructor keyword,
+            // so we have to specify that we want the constructor symbol.
             var symbol = typeChecker.getSymbolAtLocation(node);
             if (!symbol && node.kind === 9 /* StringLiteral */) {
                 return getReferencesForStringLiteral(node, sourceFiles);
@@ -58511,6 +58577,9 @@ var ts;
                     }
                 }
                 return undefined;
+            }
+            function followAliasIfNecessary(symbol, location) {
+                return getAliasSymbolForPropertyNameSymbol(symbol, location) || symbol;
             }
             function getPropertySymbolOfDestructuringAssignment(location) {
                 return ts.isArrayLiteralOrObjectLiteralDestructuringPattern(location.parent.parent) &&
@@ -58726,7 +58795,8 @@ var ts;
                         if (referenceSymbol) {
                             var referenceSymbolDeclaration = referenceSymbol.valueDeclaration;
                             var shorthandValueSymbol = typeChecker.getShorthandAssignmentValueSymbol(referenceSymbolDeclaration);
-                            var relatedSymbol = getRelatedSymbol(searchSymbols_1, referenceSymbol, referenceLocation);
+                            var relatedSymbol = getRelatedSymbol(searchSymbols_1, referenceSymbol, referenceLocation, 
+                            /*searchLocationIsConstructor*/ searchLocation.kind === 121 /* ConstructorKeyword */);
                             if (relatedSymbol) {
                                 var referencedSymbol = getReferencedSymbol(relatedSymbol);
                                 referencedSymbol.references.push(getReferenceEntryFromNode(referenceLocation));
@@ -58735,10 +58805,86 @@ var ts;
                                 var referencedSymbol = getReferencedSymbol(shorthandValueSymbol);
                                 referencedSymbol.references.push(getReferenceEntryFromNode(referenceSymbolDeclaration.name));
                             }
+                            else if (searchLocation.kind === 121 /* ConstructorKeyword */) {
+                                findAdditionalConstructorReferences(referenceSymbol, referenceLocation);
+                            }
                         }
                     });
                 }
                 return;
+                /** Adds references when a constructor is used with `new this()` in its own class and `super()` calls in subclasses.  */
+                function findAdditionalConstructorReferences(referenceSymbol, referenceLocation) {
+                    ts.Debug.assert(ts.isClassLike(searchSymbol.valueDeclaration));
+                    var referenceClass = referenceLocation.parent;
+                    if (referenceSymbol === searchSymbol && ts.isClassLike(referenceClass)) {
+                        ts.Debug.assert(referenceClass.name === referenceLocation);
+                        // This is the class declaration containing the constructor.
+                        addReferences(findOwnConstructorCalls(searchSymbol));
+                    }
+                    else {
+                        // If this class appears in `extends C`, then the extending class' "super" calls are references.
+                        var classExtending = tryGetClassByExtendingIdentifier(referenceLocation);
+                        if (classExtending && ts.isClassLike(classExtending) && followAliasIfNecessary(referenceSymbol, referenceLocation) === searchSymbol) {
+                            addReferences(superConstructorAccesses(classExtending));
+                        }
+                    }
+                }
+                function addReferences(references) {
+                    if (references.length) {
+                        var referencedSymbol = getReferencedSymbol(searchSymbol);
+                        ts.addRange(referencedSymbol.references, ts.map(references, getReferenceEntryFromNode));
+                    }
+                }
+                /** `classSymbol` is the class where the constructor was defined.
+                 * Reference the constructor and all calls to `new this()`.
+                 */
+                function findOwnConstructorCalls(classSymbol) {
+                    var result = [];
+                    for (var _i = 0, _a = classSymbol.members["__constructor"].declarations; _i < _a.length; _i++) {
+                        var decl = _a[_i];
+                        ts.Debug.assert(decl.kind === 148 /* Constructor */);
+                        var ctrKeyword = decl.getChildAt(0);
+                        ts.Debug.assert(ctrKeyword.kind === 121 /* ConstructorKeyword */);
+                        result.push(ctrKeyword);
+                    }
+                    ts.forEachProperty(classSymbol.exports, function (member) {
+                        var decl = member.valueDeclaration;
+                        if (decl && decl.kind === 147 /* MethodDeclaration */) {
+                            var body = decl.body;
+                            if (body) {
+                                forEachDescendantOfKind(body, 97 /* ThisKeyword */, function (thisKeyword) {
+                                    if (isNewExpressionTarget(thisKeyword)) {
+                                        result.push(thisKeyword);
+                                    }
+                                });
+                            }
+                        }
+                    });
+                    return result;
+                }
+                /** Find references to `super` in the constructor of an extending class.  */
+                function superConstructorAccesses(cls) {
+                    var symbol = cls.symbol;
+                    var ctr = symbol.members["__constructor"];
+                    if (!ctr) {
+                        return [];
+                    }
+                    var result = [];
+                    for (var _i = 0, _a = ctr.declarations; _i < _a.length; _i++) {
+                        var decl = _a[_i];
+                        ts.Debug.assert(decl.kind === 148 /* Constructor */);
+                        var body = decl.body;
+                        if (body) {
+                            forEachDescendantOfKind(body, 95 /* SuperKeyword */, function (node) {
+                                if (isCallExpressionTarget(node)) {
+                                    result.push(node);
+                                }
+                            });
+                        }
+                    }
+                    ;
+                    return result;
+                }
                 function getReferencedSymbol(symbol) {
                     var symbolId = ts.getSymbolId(symbol);
                     var index = symbolToIndex[symbolId];
@@ -59069,15 +59215,16 @@ var ts;
                     }
                 }
             }
-            function getRelatedSymbol(searchSymbols, referenceSymbol, referenceLocation) {
-                if (searchSymbols.indexOf(referenceSymbol) >= 0) {
-                    return referenceSymbol;
+            function getRelatedSymbol(searchSymbols, referenceSymbol, referenceLocation, searchLocationIsConstructor) {
+                if (ts.contains(searchSymbols, referenceSymbol)) {
+                    // If we are searching for constructor uses, they must be 'new' expressions.
+                    return (!searchLocationIsConstructor || isNewExpressionTarget(referenceLocation)) && referenceSymbol;
                 }
                 // If the reference symbol is an alias, check if what it is aliasing is one of the search
                 // symbols but by looking up for related symbol of this alias so it can handle multiple level of indirectness.
                 var aliasSymbol = getAliasSymbolForPropertyNameSymbol(referenceSymbol, referenceLocation);
                 if (aliasSymbol) {
-                    return getRelatedSymbol(searchSymbols, aliasSymbol, referenceLocation);
+                    return getRelatedSymbol(searchSymbols, aliasSymbol, referenceLocation, searchLocationIsConstructor);
                 }
                 // If the reference location is in an object literal, try to get the contextual type for the
                 // object literal, lookup the property symbol in the contextual type, and use this symbol to
@@ -60392,6 +60539,14 @@ var ts;
         };
     }
     ts.createLanguageService = createLanguageService;
+    function forEachDescendantOfKind(node, kind, action) {
+        ts.forEachChild(node, function (child) {
+            if (child.kind === kind) {
+                action(child);
+            }
+            forEachDescendantOfKind(child, kind, action);
+        });
+    }
     /* @internal */
     function getNameTable(sourceFile) {
         if (!sourceFile.nameTable) {
