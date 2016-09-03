@@ -2395,6 +2395,11 @@ declare namespace ts {
     function clone<T>(object: T): T;
     function extend<T1, T2>(first: T1, second: T2): T1 & T2;
     /**
+     * Adds the value to an array of values associated with the key, and returns the array.
+     * Creates the array if it does not already exist.
+     */
+    function multiMapAdd<V>(map: Map<V[]>, key: string, value: V): V[];
+    /**
      * Tests whether a value is an array.
      */
     function isArray(value: any): value is any[];
@@ -7755,530 +7760,6 @@ declare namespace ts.SignatureHelp {
     function getContainingArgumentInfo(node: Node, position: number, sourceFile: SourceFile): ArgumentListInfo;
 }
 declare namespace ts {
-    interface ListItemInfo {
-        listItemIndex: number;
-        list: Node;
-    }
-    function getLineStartPositionForPosition(position: number, sourceFile: SourceFile): number;
-    function rangeContainsRange(r1: TextRange, r2: TextRange): boolean;
-    function startEndContainsRange(start: number, end: number, range: TextRange): boolean;
-    function rangeContainsStartEnd(range: TextRange, start: number, end: number): boolean;
-    function rangeOverlapsWithStartEnd(r1: TextRange, start: number, end: number): boolean;
-    function startEndOverlapsWithStartEnd(start1: number, end1: number, start2: number, end2: number): boolean;
-    function positionBelongsToNode(candidate: Node, position: number, sourceFile: SourceFile): boolean;
-    function isCompletedNode(n: Node, sourceFile: SourceFile): boolean;
-    function findListItemInfo(node: Node): ListItemInfo;
-    function hasChildOfKind(n: Node, kind: SyntaxKind, sourceFile?: SourceFile): boolean;
-    function findChildOfKind(n: Node, kind: SyntaxKind, sourceFile?: SourceFile): Node;
-    function findContainingList(node: Node): Node;
-    function getTouchingWord(sourceFile: SourceFile, position: number, includeJsDocComment?: boolean): Node;
-    function getTouchingPropertyName(sourceFile: SourceFile, position: number, includeJsDocComment?: boolean): Node;
-    /** Returns the token if position is in [start, end) or if position === end and includeItemAtEndPosition(token) === true */
-    function getTouchingToken(sourceFile: SourceFile, position: number, includeItemAtEndPosition?: (n: Node) => boolean, includeJsDocComment?: boolean): Node;
-    /** Returns a token if position is in [start-of-leading-trivia, end) */
-    function getTokenAtPosition(sourceFile: SourceFile, position: number, includeJsDocComment?: boolean): Node;
-    /**
-      * The token on the left of the position is the token that strictly includes the position
-      * or sits to the left of the cursor if it is on a boundary. For example
-      *
-      *   fo|o               -> will return foo
-      *   foo <comment> |bar -> will return foo
-      *
-      */
-    function findTokenOnLeftOfPosition(file: SourceFile, position: number): Node;
-    function findNextToken(previousToken: Node, parent: Node): Node;
-    function findPrecedingToken(position: number, sourceFile: SourceFile, startNode?: Node): Node;
-    function isInString(sourceFile: SourceFile, position: number): boolean;
-    function isInComment(sourceFile: SourceFile, position: number): boolean;
-    /**
-     * returns true if the position is in between the open and close elements of an JSX expression.
-     */
-    function isInsideJsxElementOrAttribute(sourceFile: SourceFile, position: number): boolean;
-    function isInTemplateString(sourceFile: SourceFile, position: number): boolean;
-    /**
-     * Returns true if the cursor at position in sourceFile is within a comment that additionally
-     * satisfies predicate, and false otherwise.
-     */
-    function isInCommentHelper(sourceFile: SourceFile, position: number, predicate?: (c: CommentRange) => boolean): boolean;
-    function hasDocComment(sourceFile: SourceFile, position: number): boolean;
-    /**
-     * Get the corresponding JSDocTag node if the position is in a jsDoc comment
-     */
-    function getJsDocTagAtPosition(sourceFile: SourceFile, position: number): JSDocTag;
-    function getNodeModifiers(node: Node): string;
-    function getTypeArgumentOrTypeParameterList(node: Node): NodeArray<Node>;
-    function isToken(n: Node): boolean;
-    function isWord(kind: SyntaxKind): boolean;
-    function isComment(kind: SyntaxKind): boolean;
-    function isStringOrRegularExpressionOrTemplateLiteral(kind: SyntaxKind): boolean;
-    function isPunctuation(kind: SyntaxKind): boolean;
-    function isInsideTemplateLiteral(node: LiteralExpression, position: number): boolean;
-    function isAccessibilityModifier(kind: SyntaxKind): boolean;
-    function compareDataObjects(dst: any, src: any): boolean;
-    function isArrayLiteralOrObjectLiteralDestructuringPattern(node: Node): boolean;
-}
-declare namespace ts {
-    function isFirstDeclarationOfSymbolParameter(symbol: Symbol): boolean;
-    function symbolPart(text: string, symbol: Symbol): SymbolDisplayPart;
-    function displayPart(text: string, kind: SymbolDisplayPartKind, symbol?: Symbol): SymbolDisplayPart;
-    function spacePart(): SymbolDisplayPart;
-    function keywordPart(kind: SyntaxKind): SymbolDisplayPart;
-    function punctuationPart(kind: SyntaxKind): SymbolDisplayPart;
-    function operatorPart(kind: SyntaxKind): SymbolDisplayPart;
-    function textOrKeywordPart(text: string): SymbolDisplayPart;
-    function textPart(text: string): SymbolDisplayPart;
-    /**
-     * The default is CRLF.
-     */
-    function getNewLineOrDefaultFromHost(host: LanguageServiceHost | LanguageServiceShimHost): string;
-    function lineBreakPart(): SymbolDisplayPart;
-    function mapToDisplayParts(writeDisplayParts: (writer: DisplayPartsSymbolWriter) => void): SymbolDisplayPart[];
-    function typeToDisplayParts(typechecker: TypeChecker, type: Type, enclosingDeclaration?: Node, flags?: TypeFormatFlags): SymbolDisplayPart[];
-    function symbolToDisplayParts(typeChecker: TypeChecker, symbol: Symbol, enclosingDeclaration?: Node, meaning?: SymbolFlags, flags?: SymbolFormatFlags): SymbolDisplayPart[];
-    function signatureToDisplayParts(typechecker: TypeChecker, signature: Signature, enclosingDeclaration?: Node, flags?: TypeFormatFlags): SymbolDisplayPart[];
-    function getDeclaredName(typeChecker: TypeChecker, symbol: Symbol, location: Node): string;
-    function isImportOrExportSpecifierName(location: Node): boolean;
-    /**
-     * Strip off existed single quotes or double quotes from a given string
-     *
-     * @return non-quoted string
-     */
-    function stripQuotes(name: string): string;
-    function scriptKindIs(fileName: string, host: LanguageServiceHost, ...scriptKinds: ScriptKind[]): boolean;
-    function getScriptKind(fileName: string, host?: LanguageServiceHost): ScriptKind;
-    function parseAndReEmitConfigJSONFile(content: string): {
-        configJsonObject: any;
-        diagnostics: Diagnostic[];
-    };
-}
-declare namespace ts.JsTyping {
-    interface TypingResolutionHost {
-        directoryExists: (path: string) => boolean;
-        fileExists: (fileName: string) => boolean;
-        readFile: (path: string, encoding?: string) => string;
-        readDirectory: (rootDir: string, extensions: string[], excludes: string[], includes: string[], depth?: number) => string[];
-    }
-    /**
-     * @param host is the object providing I/O related operations.
-     * @param fileNames are the file names that belong to the same project
-     * @param projectRootPath is the path to the project root directory
-     * @param safeListPath is the path used to retrieve the safe list
-     * @param packageNameToTypingLocation is the map of package names to their cached typing locations
-     * @param typingOptions are used to customize the typing inference process
-     * @param compilerOptions are used as a source for typing inference
-     */
-    function discoverTypings(host: TypingResolutionHost, fileNames: string[], projectRootPath: Path, safeListPath: Path, packageNameToTypingLocation: Map<string>, typingOptions: TypingOptions, compilerOptions: CompilerOptions): {
-        cachedTypingPaths: string[];
-        newTypingNames: string[];
-        filesToWatch: string[];
-    };
-}
-declare namespace ts.formatting {
-    interface FormattingScanner {
-        advance(): void;
-        isOnToken(): boolean;
-        readTokenInfo(n: Node): TokenInfo;
-        getCurrentLeadingTrivia(): TextRangeWithKind[];
-        lastTrailingTriviaWasNewLine(): boolean;
-        skipToEndOf(node: Node): void;
-        close(): void;
-    }
-    function getFormattingScanner(sourceFile: SourceFile, startPos: number, endPos: number): FormattingScanner;
-}
-declare namespace ts.formatting {
-    class FormattingContext {
-        sourceFile: SourceFile;
-        formattingRequestKind: FormattingRequestKind;
-        currentTokenSpan: TextRangeWithKind;
-        nextTokenSpan: TextRangeWithKind;
-        contextNode: Node;
-        currentTokenParent: Node;
-        nextTokenParent: Node;
-        private contextNodeAllOnSameLine;
-        private nextNodeAllOnSameLine;
-        private tokensAreOnSameLine;
-        private contextNodeBlockIsOnOneLine;
-        private nextNodeBlockIsOnOneLine;
-        constructor(sourceFile: SourceFile, formattingRequestKind: FormattingRequestKind);
-        updateContext(currentRange: TextRangeWithKind, currentTokenParent: Node, nextRange: TextRangeWithKind, nextTokenParent: Node, commonParent: Node): void;
-        ContextNodeAllOnSameLine(): boolean;
-        NextNodeAllOnSameLine(): boolean;
-        TokensAreOnSameLine(): boolean;
-        ContextNodeBlockIsOnOneLine(): boolean;
-        NextNodeBlockIsOnOneLine(): boolean;
-        private NodeIsOnOneLine(node);
-        private BlockIsOnOneLine(node);
-    }
-}
-declare namespace ts.formatting {
-    const enum FormattingRequestKind {
-        FormatDocument = 0,
-        FormatSelection = 1,
-        FormatOnEnter = 2,
-        FormatOnSemicolon = 3,
-        FormatOnClosingCurlyBrace = 4,
-    }
-}
-declare namespace ts.formatting {
-    class Rule {
-        Descriptor: RuleDescriptor;
-        Operation: RuleOperation;
-        Flag: RuleFlags;
-        constructor(Descriptor: RuleDescriptor, Operation: RuleOperation, Flag?: RuleFlags);
-        toString(): string;
-    }
-}
-declare namespace ts.formatting {
-    const enum RuleAction {
-        Ignore = 1,
-        Space = 2,
-        NewLine = 4,
-        Delete = 8,
-    }
-}
-declare namespace ts.formatting {
-    class RuleDescriptor {
-        LeftTokenRange: Shared.TokenRange;
-        RightTokenRange: Shared.TokenRange;
-        constructor(LeftTokenRange: Shared.TokenRange, RightTokenRange: Shared.TokenRange);
-        toString(): string;
-        static create1(left: SyntaxKind, right: SyntaxKind): RuleDescriptor;
-        static create2(left: Shared.TokenRange, right: SyntaxKind): RuleDescriptor;
-        static create3(left: SyntaxKind, right: Shared.TokenRange): RuleDescriptor;
-        static create4(left: Shared.TokenRange, right: Shared.TokenRange): RuleDescriptor;
-    }
-}
-declare namespace ts.formatting {
-    const enum RuleFlags {
-        None = 0,
-        CanDeleteNewLines = 1,
-    }
-}
-declare namespace ts.formatting {
-    class RuleOperation {
-        Context: RuleOperationContext;
-        Action: RuleAction;
-        constructor(Context: RuleOperationContext, Action: RuleAction);
-        toString(): string;
-        static create1(action: RuleAction): RuleOperation;
-        static create2(context: RuleOperationContext, action: RuleAction): RuleOperation;
-    }
-}
-declare namespace ts.formatting {
-    class RuleOperationContext {
-        private customContextChecks;
-        constructor(...funcs: {
-            (context: FormattingContext): boolean;
-        }[]);
-        static Any: RuleOperationContext;
-        IsAny(): boolean;
-        InContext(context: FormattingContext): boolean;
-    }
-}
-declare namespace ts.formatting {
-    class Rules {
-        getRuleName(rule: Rule): string;
-        [name: string]: any;
-        IgnoreBeforeComment: Rule;
-        IgnoreAfterLineComment: Rule;
-        NoSpaceBeforeSemicolon: Rule;
-        NoSpaceBeforeColon: Rule;
-        NoSpaceBeforeQuestionMark: Rule;
-        SpaceAfterColon: Rule;
-        SpaceAfterQuestionMarkInConditionalOperator: Rule;
-        NoSpaceAfterQuestionMark: Rule;
-        SpaceAfterSemicolon: Rule;
-        SpaceAfterCloseBrace: Rule;
-        SpaceBetweenCloseBraceAndElse: Rule;
-        SpaceBetweenCloseBraceAndWhile: Rule;
-        NoSpaceAfterCloseBrace: Rule;
-        NoSpaceBeforeDot: Rule;
-        NoSpaceAfterDot: Rule;
-        NoSpaceBeforeOpenBracket: Rule;
-        NoSpaceAfterCloseBracket: Rule;
-        SpaceAfterOpenBrace: Rule;
-        SpaceBeforeCloseBrace: Rule;
-        NoSpaceBetweenEmptyBraceBrackets: Rule;
-        NewLineAfterOpenBraceInBlockContext: Rule;
-        NewLineBeforeCloseBraceInBlockContext: Rule;
-        NoSpaceAfterUnaryPrefixOperator: Rule;
-        NoSpaceAfterUnaryPreincrementOperator: Rule;
-        NoSpaceAfterUnaryPredecrementOperator: Rule;
-        NoSpaceBeforeUnaryPostincrementOperator: Rule;
-        NoSpaceBeforeUnaryPostdecrementOperator: Rule;
-        SpaceAfterPostincrementWhenFollowedByAdd: Rule;
-        SpaceAfterAddWhenFollowedByUnaryPlus: Rule;
-        SpaceAfterAddWhenFollowedByPreincrement: Rule;
-        SpaceAfterPostdecrementWhenFollowedBySubtract: Rule;
-        SpaceAfterSubtractWhenFollowedByUnaryMinus: Rule;
-        SpaceAfterSubtractWhenFollowedByPredecrement: Rule;
-        NoSpaceBeforeComma: Rule;
-        SpaceAfterCertainKeywords: Rule;
-        SpaceAfterLetConstInVariableDeclaration: Rule;
-        NoSpaceBeforeOpenParenInFuncCall: Rule;
-        SpaceAfterFunctionInFuncDecl: Rule;
-        NoSpaceBeforeOpenParenInFuncDecl: Rule;
-        SpaceAfterVoidOperator: Rule;
-        NoSpaceBetweenReturnAndSemicolon: Rule;
-        SpaceBetweenStatements: Rule;
-        SpaceAfterTryFinally: Rule;
-        SpaceAfterGetSetInMember: Rule;
-        SpaceBeforeBinaryKeywordOperator: Rule;
-        SpaceAfterBinaryKeywordOperator: Rule;
-        NoSpaceAfterConstructor: Rule;
-        NoSpaceAfterModuleImport: Rule;
-        SpaceAfterCertainTypeScriptKeywords: Rule;
-        SpaceBeforeCertainTypeScriptKeywords: Rule;
-        SpaceAfterModuleName: Rule;
-        SpaceBeforeArrow: Rule;
-        SpaceAfterArrow: Rule;
-        NoSpaceAfterEllipsis: Rule;
-        NoSpaceAfterOptionalParameters: Rule;
-        NoSpaceBeforeOpenAngularBracket: Rule;
-        NoSpaceBetweenCloseParenAndAngularBracket: Rule;
-        NoSpaceAfterOpenAngularBracket: Rule;
-        NoSpaceBeforeCloseAngularBracket: Rule;
-        NoSpaceAfterCloseAngularBracket: Rule;
-        NoSpaceAfterTypeAssertion: Rule;
-        NoSpaceBetweenEmptyInterfaceBraceBrackets: Rule;
-        HighPriorityCommonRules: Rule[];
-        LowPriorityCommonRules: Rule[];
-        SpaceAfterComma: Rule;
-        NoSpaceAfterComma: Rule;
-        SpaceBeforeBinaryOperator: Rule;
-        SpaceAfterBinaryOperator: Rule;
-        NoSpaceBeforeBinaryOperator: Rule;
-        NoSpaceAfterBinaryOperator: Rule;
-        SpaceAfterKeywordInControl: Rule;
-        NoSpaceAfterKeywordInControl: Rule;
-        FunctionOpenBraceLeftTokenRange: Shared.TokenRange;
-        SpaceBeforeOpenBraceInFunction: Rule;
-        NewLineBeforeOpenBraceInFunction: Rule;
-        TypeScriptOpenBraceLeftTokenRange: Shared.TokenRange;
-        SpaceBeforeOpenBraceInTypeScriptDeclWithBlock: Rule;
-        NewLineBeforeOpenBraceInTypeScriptDeclWithBlock: Rule;
-        ControlOpenBraceLeftTokenRange: Shared.TokenRange;
-        SpaceBeforeOpenBraceInControl: Rule;
-        NewLineBeforeOpenBraceInControl: Rule;
-        SpaceAfterSemicolonInFor: Rule;
-        NoSpaceAfterSemicolonInFor: Rule;
-        SpaceAfterOpenParen: Rule;
-        SpaceBeforeCloseParen: Rule;
-        NoSpaceBetweenParens: Rule;
-        NoSpaceAfterOpenParen: Rule;
-        NoSpaceBeforeCloseParen: Rule;
-        SpaceAfterOpenBracket: Rule;
-        SpaceBeforeCloseBracket: Rule;
-        NoSpaceBetweenBrackets: Rule;
-        NoSpaceAfterOpenBracket: Rule;
-        NoSpaceBeforeCloseBracket: Rule;
-        SpaceAfterAnonymousFunctionKeyword: Rule;
-        NoSpaceAfterAnonymousFunctionKeyword: Rule;
-        SpaceBeforeAt: Rule;
-        NoSpaceAfterAt: Rule;
-        SpaceAfterDecorator: Rule;
-        NoSpaceBetweenFunctionKeywordAndStar: Rule;
-        SpaceAfterStarInGeneratorDeclaration: Rule;
-        NoSpaceBetweenYieldKeywordAndStar: Rule;
-        SpaceBetweenYieldOrYieldStarAndOperand: Rule;
-        SpaceBetweenAsyncAndOpenParen: Rule;
-        SpaceBetweenAsyncAndFunctionKeyword: Rule;
-        NoSpaceBetweenTagAndTemplateString: Rule;
-        NoSpaceAfterTemplateHeadAndMiddle: Rule;
-        SpaceAfterTemplateHeadAndMiddle: Rule;
-        NoSpaceBeforeTemplateMiddleAndTail: Rule;
-        SpaceBeforeTemplateMiddleAndTail: Rule;
-        NoSpaceAfterOpenBraceInJsxExpression: Rule;
-        SpaceAfterOpenBraceInJsxExpression: Rule;
-        NoSpaceBeforeCloseBraceInJsxExpression: Rule;
-        SpaceBeforeCloseBraceInJsxExpression: Rule;
-        SpaceBeforeJsxAttribute: Rule;
-        SpaceBeforeSlashInJsxOpeningElement: Rule;
-        NoSpaceBeforeGreaterThanTokenInJsxOpeningElement: Rule;
-        NoSpaceBeforeEqualInJsxAttribute: Rule;
-        NoSpaceAfterEqualInJsxAttribute: Rule;
-        constructor();
-        static IsForContext(context: FormattingContext): boolean;
-        static IsNotForContext(context: FormattingContext): boolean;
-        static IsBinaryOpContext(context: FormattingContext): boolean;
-        static IsNotBinaryOpContext(context: FormattingContext): boolean;
-        static IsConditionalOperatorContext(context: FormattingContext): boolean;
-        static IsSameLineTokenOrBeforeMultilineBlockContext(context: FormattingContext): boolean;
-        static IsBeforeMultilineBlockContext(context: FormattingContext): boolean;
-        static IsMultilineBlockContext(context: FormattingContext): boolean;
-        static IsSingleLineBlockContext(context: FormattingContext): boolean;
-        static IsBlockContext(context: FormattingContext): boolean;
-        static IsBeforeBlockContext(context: FormattingContext): boolean;
-        static NodeIsBlockContext(node: Node): boolean;
-        static IsFunctionDeclContext(context: FormattingContext): boolean;
-        static IsFunctionDeclarationOrFunctionExpressionContext(context: FormattingContext): boolean;
-        static IsTypeScriptDeclWithBlockContext(context: FormattingContext): boolean;
-        static NodeIsTypeScriptDeclWithBlockContext(node: Node): boolean;
-        static IsAfterCodeBlockContext(context: FormattingContext): boolean;
-        static IsControlDeclContext(context: FormattingContext): boolean;
-        static IsObjectContext(context: FormattingContext): boolean;
-        static IsFunctionCallContext(context: FormattingContext): boolean;
-        static IsNewContext(context: FormattingContext): boolean;
-        static IsFunctionCallOrNewContext(context: FormattingContext): boolean;
-        static IsPreviousTokenNotComma(context: FormattingContext): boolean;
-        static IsNextTokenNotCloseBracket(context: FormattingContext): boolean;
-        static IsArrowFunctionContext(context: FormattingContext): boolean;
-        static IsNonJsxSameLineTokenContext(context: FormattingContext): boolean;
-        static IsNonJsxElementContext(context: FormattingContext): boolean;
-        static IsJsxExpressionContext(context: FormattingContext): boolean;
-        static IsNextTokenParentJsxAttribute(context: FormattingContext): boolean;
-        static IsJsxAttributeContext(context: FormattingContext): boolean;
-        static IsJsxSelfClosingElementContext(context: FormattingContext): boolean;
-        static IsNotBeforeBlockInFunctionDeclarationContext(context: FormattingContext): boolean;
-        static IsEndOfDecoratorContextOnSameLine(context: FormattingContext): boolean;
-        static NodeIsInDecoratorContext(node: Node): boolean;
-        static IsStartOfVariableDeclarationList(context: FormattingContext): boolean;
-        static IsNotFormatOnEnter(context: FormattingContext): boolean;
-        static IsModuleDeclContext(context: FormattingContext): boolean;
-        static IsObjectTypeContext(context: FormattingContext): boolean;
-        static IsTypeArgumentOrParameterOrAssertion(token: TextRangeWithKind, parent: Node): boolean;
-        static IsTypeArgumentOrParameterOrAssertionContext(context: FormattingContext): boolean;
-        static IsTypeAssertionContext(context: FormattingContext): boolean;
-        static IsVoidOpContext(context: FormattingContext): boolean;
-        static IsYieldOrYieldStarWithOperand(context: FormattingContext): boolean;
-    }
-}
-declare namespace ts.formatting {
-    class RulesMap {
-        map: RulesBucket[];
-        mapRowLength: number;
-        constructor();
-        static create(rules: Rule[]): RulesMap;
-        Initialize(rules: Rule[]): RulesBucket[];
-        FillRules(rules: Rule[], rulesBucketConstructionStateList: RulesBucketConstructionState[]): void;
-        private GetRuleBucketIndex(row, column);
-        private FillRule(rule, rulesBucketConstructionStateList);
-        GetRule(context: FormattingContext): Rule;
-    }
-    enum RulesPosition {
-        IgnoreRulesSpecific = 0,
-        IgnoreRulesAny,
-        ContextRulesSpecific,
-        ContextRulesAny,
-        NoContextRulesSpecific,
-        NoContextRulesAny,
-    }
-    class RulesBucketConstructionState {
-        private rulesInsertionIndexBitmap;
-        constructor();
-        GetInsertionIndex(maskPosition: RulesPosition): number;
-        IncreaseInsertionIndex(maskPosition: RulesPosition): void;
-    }
-    class RulesBucket {
-        private rules;
-        constructor();
-        Rules(): Rule[];
-        AddRule(rule: Rule, specificTokens: boolean, constructionState: RulesBucketConstructionState[], rulesBucketIndex: number): void;
-    }
-}
-declare namespace ts.formatting {
-    namespace Shared {
-        interface ITokenAccess {
-            GetTokens(): SyntaxKind[];
-            Contains(token: SyntaxKind): boolean;
-        }
-        class TokenRangeAccess implements ITokenAccess {
-            private tokens;
-            constructor(from: SyntaxKind, to: SyntaxKind, except: SyntaxKind[]);
-            GetTokens(): SyntaxKind[];
-            Contains(token: SyntaxKind): boolean;
-        }
-        class TokenValuesAccess implements ITokenAccess {
-            private tokens;
-            constructor(tks: SyntaxKind[]);
-            GetTokens(): SyntaxKind[];
-            Contains(token: SyntaxKind): boolean;
-        }
-        class TokenSingleValueAccess implements ITokenAccess {
-            token: SyntaxKind;
-            constructor(token: SyntaxKind);
-            GetTokens(): SyntaxKind[];
-            Contains(tokenValue: SyntaxKind): boolean;
-        }
-        class TokenAllAccess implements ITokenAccess {
-            GetTokens(): SyntaxKind[];
-            Contains(tokenValue: SyntaxKind): boolean;
-            toString(): string;
-        }
-        class TokenRange {
-            tokenAccess: ITokenAccess;
-            constructor(tokenAccess: ITokenAccess);
-            static FromToken(token: SyntaxKind): TokenRange;
-            static FromTokens(tokens: SyntaxKind[]): TokenRange;
-            static FromRange(f: SyntaxKind, to: SyntaxKind, except?: SyntaxKind[]): TokenRange;
-            static AllTokens(): TokenRange;
-            GetTokens(): SyntaxKind[];
-            Contains(token: SyntaxKind): boolean;
-            toString(): string;
-            static Any: TokenRange;
-            static AnyIncludingMultilineComments: TokenRange;
-            static Keywords: TokenRange;
-            static BinaryOperators: TokenRange;
-            static BinaryKeywordOperators: TokenRange;
-            static UnaryPrefixOperators: TokenRange;
-            static UnaryPrefixExpressions: TokenRange;
-            static UnaryPreincrementExpressions: TokenRange;
-            static UnaryPostincrementExpressions: TokenRange;
-            static UnaryPredecrementExpressions: TokenRange;
-            static UnaryPostdecrementExpressions: TokenRange;
-            static Comments: TokenRange;
-            static TypeNames: TokenRange;
-        }
-    }
-}
-declare namespace ts.formatting {
-    class RulesProvider {
-        private globalRules;
-        private options;
-        private activeRules;
-        private rulesMap;
-        constructor();
-        getRuleName(rule: Rule): string;
-        getRuleByName(name: string): Rule;
-        getRulesMap(): RulesMap;
-        ensureUpToDate(options: ts.FormatCodeOptions): void;
-        private createActiveRules(options);
-    }
-}
-declare namespace ts.formatting {
-    interface TextRangeWithKind extends TextRange {
-        kind: SyntaxKind;
-    }
-    interface TokenInfo {
-        leadingTrivia: TextRangeWithKind[];
-        token: TextRangeWithKind;
-        trailingTrivia: TextRangeWithKind[];
-    }
-    function formatOnEnter(position: number, sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
-    function formatOnSemicolon(position: number, sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
-    function formatOnClosingCurly(position: number, sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
-    function formatDocument(sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
-    function formatSelection(start: number, end: number, sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
-    function getIndentationString(indentation: number, options: FormatCodeOptions): string;
-}
-declare namespace ts.formatting {
-    namespace SmartIndenter {
-        function getIndentation(position: number, sourceFile: SourceFile, options: EditorOptions): number;
-        function getBaseIndentation(options: EditorOptions): number;
-        function getIndentationForNode(n: Node, ignoreActualIndentationRange: TextRange, sourceFile: SourceFile, options: FormatCodeOptions): number;
-        function childStartsOnTheSameLineWithElseInIfStatement(parent: Node, child: TextRangeWithKind, childStartLine: number, sourceFile: SourceFile): boolean;
-        function findFirstNonWhitespaceCharacterAndColumn(startPos: number, endPos: number, sourceFile: SourceFile, options: EditorOptions): {
-            column: number;
-            character: number;
-        };
-        function findFirstNonWhitespaceColumn(startPos: number, endPos: number, sourceFile: SourceFile, options: EditorOptions): number;
-        function nodeWillIndentChild(parent: TextRangeWithKind, child: TextRangeWithKind, indentByDefault: boolean): boolean;
-        function shouldIndentChildNode(parent: TextRangeWithKind, child?: TextRangeWithKind): boolean;
-    }
-}
-declare namespace ts {
-    /** The version of the language service API */
-    const servicesVersion: string;
     interface Node {
         getSourceFile(): SourceFile;
         getChildCount(sourceFile?: SourceFile): number;
@@ -8903,6 +8384,532 @@ declare namespace ts {
         jsxText = 23,
         jsxAttributeStringLiteralValue = 24,
     }
+}
+declare namespace ts {
+    interface ListItemInfo {
+        listItemIndex: number;
+        list: Node;
+    }
+    function getLineStartPositionForPosition(position: number, sourceFile: SourceFile): number;
+    function rangeContainsRange(r1: TextRange, r2: TextRange): boolean;
+    function startEndContainsRange(start: number, end: number, range: TextRange): boolean;
+    function rangeContainsStartEnd(range: TextRange, start: number, end: number): boolean;
+    function rangeOverlapsWithStartEnd(r1: TextRange, start: number, end: number): boolean;
+    function startEndOverlapsWithStartEnd(start1: number, end1: number, start2: number, end2: number): boolean;
+    function positionBelongsToNode(candidate: Node, position: number, sourceFile: SourceFile): boolean;
+    function isCompletedNode(n: Node, sourceFile: SourceFile): boolean;
+    function findListItemInfo(node: Node): ListItemInfo;
+    function hasChildOfKind(n: Node, kind: SyntaxKind, sourceFile?: SourceFile): boolean;
+    function findChildOfKind(n: Node, kind: SyntaxKind, sourceFile?: SourceFile): Node;
+    function findContainingList(node: Node): Node;
+    function getTouchingWord(sourceFile: SourceFile, position: number, includeJsDocComment?: boolean): Node;
+    function getTouchingPropertyName(sourceFile: SourceFile, position: number, includeJsDocComment?: boolean): Node;
+    /** Returns the token if position is in [start, end) or if position === end and includeItemAtEndPosition(token) === true */
+    function getTouchingToken(sourceFile: SourceFile, position: number, includeItemAtEndPosition?: (n: Node) => boolean, includeJsDocComment?: boolean): Node;
+    /** Returns a token if position is in [start-of-leading-trivia, end) */
+    function getTokenAtPosition(sourceFile: SourceFile, position: number, includeJsDocComment?: boolean): Node;
+    /**
+      * The token on the left of the position is the token that strictly includes the position
+      * or sits to the left of the cursor if it is on a boundary. For example
+      *
+      *   fo|o               -> will return foo
+      *   foo <comment> |bar -> will return foo
+      *
+      */
+    function findTokenOnLeftOfPosition(file: SourceFile, position: number): Node;
+    function findNextToken(previousToken: Node, parent: Node): Node;
+    function findPrecedingToken(position: number, sourceFile: SourceFile, startNode?: Node): Node;
+    function isInString(sourceFile: SourceFile, position: number): boolean;
+    function isInComment(sourceFile: SourceFile, position: number): boolean;
+    /**
+     * returns true if the position is in between the open and close elements of an JSX expression.
+     */
+    function isInsideJsxElementOrAttribute(sourceFile: SourceFile, position: number): boolean;
+    function isInTemplateString(sourceFile: SourceFile, position: number): boolean;
+    /**
+     * Returns true if the cursor at position in sourceFile is within a comment that additionally
+     * satisfies predicate, and false otherwise.
+     */
+    function isInCommentHelper(sourceFile: SourceFile, position: number, predicate?: (c: CommentRange) => boolean): boolean;
+    function hasDocComment(sourceFile: SourceFile, position: number): boolean;
+    /**
+     * Get the corresponding JSDocTag node if the position is in a jsDoc comment
+     */
+    function getJsDocTagAtPosition(sourceFile: SourceFile, position: number): JSDocTag;
+    function getNodeModifiers(node: Node): string;
+    function getTypeArgumentOrTypeParameterList(node: Node): NodeArray<Node>;
+    function isToken(n: Node): boolean;
+    function isWord(kind: SyntaxKind): boolean;
+    function isComment(kind: SyntaxKind): boolean;
+    function isStringOrRegularExpressionOrTemplateLiteral(kind: SyntaxKind): boolean;
+    function isPunctuation(kind: SyntaxKind): boolean;
+    function isInsideTemplateLiteral(node: LiteralExpression, position: number): boolean;
+    function isAccessibilityModifier(kind: SyntaxKind): boolean;
+    function compareDataObjects(dst: any, src: any): boolean;
+    function isArrayLiteralOrObjectLiteralDestructuringPattern(node: Node): boolean;
+}
+declare namespace ts {
+    function isFirstDeclarationOfSymbolParameter(symbol: Symbol): boolean;
+    function symbolPart(text: string, symbol: Symbol): SymbolDisplayPart;
+    function displayPart(text: string, kind: SymbolDisplayPartKind, symbol?: Symbol): SymbolDisplayPart;
+    function spacePart(): SymbolDisplayPart;
+    function keywordPart(kind: SyntaxKind): SymbolDisplayPart;
+    function punctuationPart(kind: SyntaxKind): SymbolDisplayPart;
+    function operatorPart(kind: SyntaxKind): SymbolDisplayPart;
+    function textOrKeywordPart(text: string): SymbolDisplayPart;
+    function textPart(text: string): SymbolDisplayPart;
+    /**
+     * The default is CRLF.
+     */
+    function getNewLineOrDefaultFromHost(host: LanguageServiceHost | LanguageServiceShimHost): string;
+    function lineBreakPart(): SymbolDisplayPart;
+    function mapToDisplayParts(writeDisplayParts: (writer: DisplayPartsSymbolWriter) => void): SymbolDisplayPart[];
+    function typeToDisplayParts(typechecker: TypeChecker, type: Type, enclosingDeclaration?: Node, flags?: TypeFormatFlags): SymbolDisplayPart[];
+    function symbolToDisplayParts(typeChecker: TypeChecker, symbol: Symbol, enclosingDeclaration?: Node, meaning?: SymbolFlags, flags?: SymbolFormatFlags): SymbolDisplayPart[];
+    function signatureToDisplayParts(typechecker: TypeChecker, signature: Signature, enclosingDeclaration?: Node, flags?: TypeFormatFlags): SymbolDisplayPart[];
+    function getDeclaredName(typeChecker: TypeChecker, symbol: Symbol, location: Node): string;
+    function isImportOrExportSpecifierName(location: Node): boolean;
+    /**
+     * Strip off existed single quotes or double quotes from a given string
+     *
+     * @return non-quoted string
+     */
+    function stripQuotes(name: string): string;
+    function scriptKindIs(fileName: string, host: LanguageServiceHost, ...scriptKinds: ScriptKind[]): boolean;
+    function getScriptKind(fileName: string, host?: LanguageServiceHost): ScriptKind;
+    function parseAndReEmitConfigJSONFile(content: string): {
+        configJsonObject: any;
+        diagnostics: Diagnostic[];
+    };
+}
+declare namespace ts.JsTyping {
+    interface TypingResolutionHost {
+        directoryExists: (path: string) => boolean;
+        fileExists: (fileName: string) => boolean;
+        readFile: (path: string, encoding?: string) => string;
+        readDirectory: (rootDir: string, extensions: string[], excludes: string[], includes: string[], depth?: number) => string[];
+    }
+    /**
+     * @param host is the object providing I/O related operations.
+     * @param fileNames are the file names that belong to the same project
+     * @param projectRootPath is the path to the project root directory
+     * @param safeListPath is the path used to retrieve the safe list
+     * @param packageNameToTypingLocation is the map of package names to their cached typing locations
+     * @param typingOptions are used to customize the typing inference process
+     * @param compilerOptions are used as a source for typing inference
+     */
+    function discoverTypings(host: TypingResolutionHost, fileNames: string[], projectRootPath: Path, safeListPath: Path, packageNameToTypingLocation: Map<string>, typingOptions: TypingOptions, compilerOptions: CompilerOptions): {
+        cachedTypingPaths: string[];
+        newTypingNames: string[];
+        filesToWatch: string[];
+    };
+}
+declare namespace ts.formatting {
+    interface FormattingScanner {
+        advance(): void;
+        isOnToken(): boolean;
+        readTokenInfo(n: Node): TokenInfo;
+        getCurrentLeadingTrivia(): TextRangeWithKind[];
+        lastTrailingTriviaWasNewLine(): boolean;
+        skipToEndOf(node: Node): void;
+        close(): void;
+    }
+    function getFormattingScanner(sourceFile: SourceFile, startPos: number, endPos: number): FormattingScanner;
+}
+declare namespace ts.formatting {
+    class FormattingContext {
+        sourceFile: SourceFile;
+        formattingRequestKind: FormattingRequestKind;
+        currentTokenSpan: TextRangeWithKind;
+        nextTokenSpan: TextRangeWithKind;
+        contextNode: Node;
+        currentTokenParent: Node;
+        nextTokenParent: Node;
+        private contextNodeAllOnSameLine;
+        private nextNodeAllOnSameLine;
+        private tokensAreOnSameLine;
+        private contextNodeBlockIsOnOneLine;
+        private nextNodeBlockIsOnOneLine;
+        constructor(sourceFile: SourceFile, formattingRequestKind: FormattingRequestKind);
+        updateContext(currentRange: TextRangeWithKind, currentTokenParent: Node, nextRange: TextRangeWithKind, nextTokenParent: Node, commonParent: Node): void;
+        ContextNodeAllOnSameLine(): boolean;
+        NextNodeAllOnSameLine(): boolean;
+        TokensAreOnSameLine(): boolean;
+        ContextNodeBlockIsOnOneLine(): boolean;
+        NextNodeBlockIsOnOneLine(): boolean;
+        private NodeIsOnOneLine(node);
+        private BlockIsOnOneLine(node);
+    }
+}
+declare namespace ts.formatting {
+    const enum FormattingRequestKind {
+        FormatDocument = 0,
+        FormatSelection = 1,
+        FormatOnEnter = 2,
+        FormatOnSemicolon = 3,
+        FormatOnClosingCurlyBrace = 4,
+    }
+}
+declare namespace ts.formatting {
+    class Rule {
+        Descriptor: RuleDescriptor;
+        Operation: RuleOperation;
+        Flag: RuleFlags;
+        constructor(Descriptor: RuleDescriptor, Operation: RuleOperation, Flag?: RuleFlags);
+        toString(): string;
+    }
+}
+declare namespace ts.formatting {
+    const enum RuleAction {
+        Ignore = 1,
+        Space = 2,
+        NewLine = 4,
+        Delete = 8,
+    }
+}
+declare namespace ts.formatting {
+    class RuleDescriptor {
+        LeftTokenRange: Shared.TokenRange;
+        RightTokenRange: Shared.TokenRange;
+        constructor(LeftTokenRange: Shared.TokenRange, RightTokenRange: Shared.TokenRange);
+        toString(): string;
+        static create1(left: SyntaxKind, right: SyntaxKind): RuleDescriptor;
+        static create2(left: Shared.TokenRange, right: SyntaxKind): RuleDescriptor;
+        static create3(left: SyntaxKind, right: Shared.TokenRange): RuleDescriptor;
+        static create4(left: Shared.TokenRange, right: Shared.TokenRange): RuleDescriptor;
+    }
+}
+declare namespace ts.formatting {
+    const enum RuleFlags {
+        None = 0,
+        CanDeleteNewLines = 1,
+    }
+}
+declare namespace ts.formatting {
+    class RuleOperation {
+        Context: RuleOperationContext;
+        Action: RuleAction;
+        constructor(Context: RuleOperationContext, Action: RuleAction);
+        toString(): string;
+        static create1(action: RuleAction): RuleOperation;
+        static create2(context: RuleOperationContext, action: RuleAction): RuleOperation;
+    }
+}
+declare namespace ts.formatting {
+    class RuleOperationContext {
+        private customContextChecks;
+        constructor(...funcs: {
+            (context: FormattingContext): boolean;
+        }[]);
+        static Any: RuleOperationContext;
+        IsAny(): boolean;
+        InContext(context: FormattingContext): boolean;
+    }
+}
+declare namespace ts.formatting {
+    class Rules {
+        getRuleName(rule: Rule): string;
+        [name: string]: any;
+        IgnoreBeforeComment: Rule;
+        IgnoreAfterLineComment: Rule;
+        NoSpaceBeforeSemicolon: Rule;
+        NoSpaceBeforeColon: Rule;
+        NoSpaceBeforeQuestionMark: Rule;
+        SpaceAfterColon: Rule;
+        SpaceAfterQuestionMarkInConditionalOperator: Rule;
+        NoSpaceAfterQuestionMark: Rule;
+        SpaceAfterSemicolon: Rule;
+        SpaceAfterCloseBrace: Rule;
+        SpaceBetweenCloseBraceAndElse: Rule;
+        SpaceBetweenCloseBraceAndWhile: Rule;
+        NoSpaceAfterCloseBrace: Rule;
+        NoSpaceBeforeDot: Rule;
+        NoSpaceAfterDot: Rule;
+        NoSpaceBeforeOpenBracket: Rule;
+        NoSpaceAfterCloseBracket: Rule;
+        SpaceAfterOpenBrace: Rule;
+        SpaceBeforeCloseBrace: Rule;
+        NoSpaceBetweenEmptyBraceBrackets: Rule;
+        NewLineAfterOpenBraceInBlockContext: Rule;
+        NewLineBeforeCloseBraceInBlockContext: Rule;
+        NoSpaceAfterUnaryPrefixOperator: Rule;
+        NoSpaceAfterUnaryPreincrementOperator: Rule;
+        NoSpaceAfterUnaryPredecrementOperator: Rule;
+        NoSpaceBeforeUnaryPostincrementOperator: Rule;
+        NoSpaceBeforeUnaryPostdecrementOperator: Rule;
+        SpaceAfterPostincrementWhenFollowedByAdd: Rule;
+        SpaceAfterAddWhenFollowedByUnaryPlus: Rule;
+        SpaceAfterAddWhenFollowedByPreincrement: Rule;
+        SpaceAfterPostdecrementWhenFollowedBySubtract: Rule;
+        SpaceAfterSubtractWhenFollowedByUnaryMinus: Rule;
+        SpaceAfterSubtractWhenFollowedByPredecrement: Rule;
+        NoSpaceBeforeComma: Rule;
+        SpaceAfterCertainKeywords: Rule;
+        SpaceAfterLetConstInVariableDeclaration: Rule;
+        NoSpaceBeforeOpenParenInFuncCall: Rule;
+        SpaceAfterFunctionInFuncDecl: Rule;
+        NoSpaceBeforeOpenParenInFuncDecl: Rule;
+        SpaceAfterVoidOperator: Rule;
+        NoSpaceBetweenReturnAndSemicolon: Rule;
+        SpaceBetweenStatements: Rule;
+        SpaceAfterTryFinally: Rule;
+        SpaceAfterGetSetInMember: Rule;
+        SpaceBeforeBinaryKeywordOperator: Rule;
+        SpaceAfterBinaryKeywordOperator: Rule;
+        NoSpaceAfterConstructor: Rule;
+        NoSpaceAfterModuleImport: Rule;
+        SpaceAfterCertainTypeScriptKeywords: Rule;
+        SpaceBeforeCertainTypeScriptKeywords: Rule;
+        SpaceAfterModuleName: Rule;
+        SpaceBeforeArrow: Rule;
+        SpaceAfterArrow: Rule;
+        NoSpaceAfterEllipsis: Rule;
+        NoSpaceAfterOptionalParameters: Rule;
+        NoSpaceBeforeOpenAngularBracket: Rule;
+        NoSpaceBetweenCloseParenAndAngularBracket: Rule;
+        NoSpaceAfterOpenAngularBracket: Rule;
+        NoSpaceBeforeCloseAngularBracket: Rule;
+        NoSpaceAfterCloseAngularBracket: Rule;
+        NoSpaceAfterTypeAssertion: Rule;
+        NoSpaceBetweenEmptyInterfaceBraceBrackets: Rule;
+        HighPriorityCommonRules: Rule[];
+        LowPriorityCommonRules: Rule[];
+        SpaceAfterComma: Rule;
+        NoSpaceAfterComma: Rule;
+        SpaceBeforeBinaryOperator: Rule;
+        SpaceAfterBinaryOperator: Rule;
+        NoSpaceBeforeBinaryOperator: Rule;
+        NoSpaceAfterBinaryOperator: Rule;
+        SpaceAfterKeywordInControl: Rule;
+        NoSpaceAfterKeywordInControl: Rule;
+        FunctionOpenBraceLeftTokenRange: Shared.TokenRange;
+        SpaceBeforeOpenBraceInFunction: Rule;
+        NewLineBeforeOpenBraceInFunction: Rule;
+        TypeScriptOpenBraceLeftTokenRange: Shared.TokenRange;
+        SpaceBeforeOpenBraceInTypeScriptDeclWithBlock: Rule;
+        NewLineBeforeOpenBraceInTypeScriptDeclWithBlock: Rule;
+        ControlOpenBraceLeftTokenRange: Shared.TokenRange;
+        SpaceBeforeOpenBraceInControl: Rule;
+        NewLineBeforeOpenBraceInControl: Rule;
+        SpaceAfterSemicolonInFor: Rule;
+        NoSpaceAfterSemicolonInFor: Rule;
+        SpaceAfterOpenParen: Rule;
+        SpaceBeforeCloseParen: Rule;
+        NoSpaceBetweenParens: Rule;
+        NoSpaceAfterOpenParen: Rule;
+        NoSpaceBeforeCloseParen: Rule;
+        SpaceAfterOpenBracket: Rule;
+        SpaceBeforeCloseBracket: Rule;
+        NoSpaceBetweenBrackets: Rule;
+        NoSpaceAfterOpenBracket: Rule;
+        NoSpaceBeforeCloseBracket: Rule;
+        SpaceAfterAnonymousFunctionKeyword: Rule;
+        NoSpaceAfterAnonymousFunctionKeyword: Rule;
+        SpaceBeforeAt: Rule;
+        NoSpaceAfterAt: Rule;
+        SpaceAfterDecorator: Rule;
+        NoSpaceBetweenFunctionKeywordAndStar: Rule;
+        SpaceAfterStarInGeneratorDeclaration: Rule;
+        NoSpaceBetweenYieldKeywordAndStar: Rule;
+        SpaceBetweenYieldOrYieldStarAndOperand: Rule;
+        SpaceBetweenAsyncAndOpenParen: Rule;
+        SpaceBetweenAsyncAndFunctionKeyword: Rule;
+        NoSpaceBetweenTagAndTemplateString: Rule;
+        NoSpaceAfterTemplateHeadAndMiddle: Rule;
+        SpaceAfterTemplateHeadAndMiddle: Rule;
+        NoSpaceBeforeTemplateMiddleAndTail: Rule;
+        SpaceBeforeTemplateMiddleAndTail: Rule;
+        NoSpaceAfterOpenBraceInJsxExpression: Rule;
+        SpaceAfterOpenBraceInJsxExpression: Rule;
+        NoSpaceBeforeCloseBraceInJsxExpression: Rule;
+        SpaceBeforeCloseBraceInJsxExpression: Rule;
+        SpaceBeforeJsxAttribute: Rule;
+        SpaceBeforeSlashInJsxOpeningElement: Rule;
+        NoSpaceBeforeGreaterThanTokenInJsxOpeningElement: Rule;
+        NoSpaceBeforeEqualInJsxAttribute: Rule;
+        NoSpaceAfterEqualInJsxAttribute: Rule;
+        constructor();
+        static IsForContext(context: FormattingContext): boolean;
+        static IsNotForContext(context: FormattingContext): boolean;
+        static IsBinaryOpContext(context: FormattingContext): boolean;
+        static IsNotBinaryOpContext(context: FormattingContext): boolean;
+        static IsConditionalOperatorContext(context: FormattingContext): boolean;
+        static IsSameLineTokenOrBeforeMultilineBlockContext(context: FormattingContext): boolean;
+        static IsBeforeMultilineBlockContext(context: FormattingContext): boolean;
+        static IsMultilineBlockContext(context: FormattingContext): boolean;
+        static IsSingleLineBlockContext(context: FormattingContext): boolean;
+        static IsBlockContext(context: FormattingContext): boolean;
+        static IsBeforeBlockContext(context: FormattingContext): boolean;
+        static NodeIsBlockContext(node: Node): boolean;
+        static IsFunctionDeclContext(context: FormattingContext): boolean;
+        static IsFunctionDeclarationOrFunctionExpressionContext(context: FormattingContext): boolean;
+        static IsTypeScriptDeclWithBlockContext(context: FormattingContext): boolean;
+        static NodeIsTypeScriptDeclWithBlockContext(node: Node): boolean;
+        static IsAfterCodeBlockContext(context: FormattingContext): boolean;
+        static IsControlDeclContext(context: FormattingContext): boolean;
+        static IsObjectContext(context: FormattingContext): boolean;
+        static IsFunctionCallContext(context: FormattingContext): boolean;
+        static IsNewContext(context: FormattingContext): boolean;
+        static IsFunctionCallOrNewContext(context: FormattingContext): boolean;
+        static IsPreviousTokenNotComma(context: FormattingContext): boolean;
+        static IsNextTokenNotCloseBracket(context: FormattingContext): boolean;
+        static IsArrowFunctionContext(context: FormattingContext): boolean;
+        static IsNonJsxSameLineTokenContext(context: FormattingContext): boolean;
+        static IsNonJsxElementContext(context: FormattingContext): boolean;
+        static IsJsxExpressionContext(context: FormattingContext): boolean;
+        static IsNextTokenParentJsxAttribute(context: FormattingContext): boolean;
+        static IsJsxAttributeContext(context: FormattingContext): boolean;
+        static IsJsxSelfClosingElementContext(context: FormattingContext): boolean;
+        static IsNotBeforeBlockInFunctionDeclarationContext(context: FormattingContext): boolean;
+        static IsEndOfDecoratorContextOnSameLine(context: FormattingContext): boolean;
+        static NodeIsInDecoratorContext(node: Node): boolean;
+        static IsStartOfVariableDeclarationList(context: FormattingContext): boolean;
+        static IsNotFormatOnEnter(context: FormattingContext): boolean;
+        static IsModuleDeclContext(context: FormattingContext): boolean;
+        static IsObjectTypeContext(context: FormattingContext): boolean;
+        static IsTypeArgumentOrParameterOrAssertion(token: TextRangeWithKind, parent: Node): boolean;
+        static IsTypeArgumentOrParameterOrAssertionContext(context: FormattingContext): boolean;
+        static IsTypeAssertionContext(context: FormattingContext): boolean;
+        static IsVoidOpContext(context: FormattingContext): boolean;
+        static IsYieldOrYieldStarWithOperand(context: FormattingContext): boolean;
+    }
+}
+declare namespace ts.formatting {
+    class RulesMap {
+        map: RulesBucket[];
+        mapRowLength: number;
+        constructor();
+        static create(rules: Rule[]): RulesMap;
+        Initialize(rules: Rule[]): RulesBucket[];
+        FillRules(rules: Rule[], rulesBucketConstructionStateList: RulesBucketConstructionState[]): void;
+        private GetRuleBucketIndex(row, column);
+        private FillRule(rule, rulesBucketConstructionStateList);
+        GetRule(context: FormattingContext): Rule;
+    }
+    enum RulesPosition {
+        IgnoreRulesSpecific = 0,
+        IgnoreRulesAny,
+        ContextRulesSpecific,
+        ContextRulesAny,
+        NoContextRulesSpecific,
+        NoContextRulesAny,
+    }
+    class RulesBucketConstructionState {
+        private rulesInsertionIndexBitmap;
+        constructor();
+        GetInsertionIndex(maskPosition: RulesPosition): number;
+        IncreaseInsertionIndex(maskPosition: RulesPosition): void;
+    }
+    class RulesBucket {
+        private rules;
+        constructor();
+        Rules(): Rule[];
+        AddRule(rule: Rule, specificTokens: boolean, constructionState: RulesBucketConstructionState[], rulesBucketIndex: number): void;
+    }
+}
+declare namespace ts.formatting {
+    namespace Shared {
+        interface ITokenAccess {
+            GetTokens(): SyntaxKind[];
+            Contains(token: SyntaxKind): boolean;
+        }
+        class TokenRangeAccess implements ITokenAccess {
+            private tokens;
+            constructor(from: SyntaxKind, to: SyntaxKind, except: SyntaxKind[]);
+            GetTokens(): SyntaxKind[];
+            Contains(token: SyntaxKind): boolean;
+        }
+        class TokenValuesAccess implements ITokenAccess {
+            private tokens;
+            constructor(tks: SyntaxKind[]);
+            GetTokens(): SyntaxKind[];
+            Contains(token: SyntaxKind): boolean;
+        }
+        class TokenSingleValueAccess implements ITokenAccess {
+            token: SyntaxKind;
+            constructor(token: SyntaxKind);
+            GetTokens(): SyntaxKind[];
+            Contains(tokenValue: SyntaxKind): boolean;
+        }
+        class TokenAllAccess implements ITokenAccess {
+            GetTokens(): SyntaxKind[];
+            Contains(tokenValue: SyntaxKind): boolean;
+            toString(): string;
+        }
+        class TokenRange {
+            tokenAccess: ITokenAccess;
+            constructor(tokenAccess: ITokenAccess);
+            static FromToken(token: SyntaxKind): TokenRange;
+            static FromTokens(tokens: SyntaxKind[]): TokenRange;
+            static FromRange(f: SyntaxKind, to: SyntaxKind, except?: SyntaxKind[]): TokenRange;
+            static AllTokens(): TokenRange;
+            GetTokens(): SyntaxKind[];
+            Contains(token: SyntaxKind): boolean;
+            toString(): string;
+            static Any: TokenRange;
+            static AnyIncludingMultilineComments: TokenRange;
+            static Keywords: TokenRange;
+            static BinaryOperators: TokenRange;
+            static BinaryKeywordOperators: TokenRange;
+            static UnaryPrefixOperators: TokenRange;
+            static UnaryPrefixExpressions: TokenRange;
+            static UnaryPreincrementExpressions: TokenRange;
+            static UnaryPostincrementExpressions: TokenRange;
+            static UnaryPredecrementExpressions: TokenRange;
+            static UnaryPostdecrementExpressions: TokenRange;
+            static Comments: TokenRange;
+            static TypeNames: TokenRange;
+        }
+    }
+}
+declare namespace ts.formatting {
+    class RulesProvider {
+        private globalRules;
+        private options;
+        private activeRules;
+        private rulesMap;
+        constructor();
+        getRuleName(rule: Rule): string;
+        getRuleByName(name: string): Rule;
+        getRulesMap(): RulesMap;
+        ensureUpToDate(options: ts.FormatCodeOptions): void;
+        private createActiveRules(options);
+    }
+}
+declare namespace ts.formatting {
+    interface TextRangeWithKind extends TextRange {
+        kind: SyntaxKind;
+    }
+    interface TokenInfo {
+        leadingTrivia: TextRangeWithKind[];
+        token: TextRangeWithKind;
+        trailingTrivia: TextRangeWithKind[];
+    }
+    function formatOnEnter(position: number, sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
+    function formatOnSemicolon(position: number, sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
+    function formatOnClosingCurly(position: number, sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
+    function formatDocument(sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
+    function formatSelection(start: number, end: number, sourceFile: SourceFile, rulesProvider: RulesProvider, options: FormatCodeOptions): TextChange[];
+    function getIndentationString(indentation: number, options: FormatCodeOptions): string;
+}
+declare namespace ts.formatting {
+    namespace SmartIndenter {
+        function getIndentation(position: number, sourceFile: SourceFile, options: EditorOptions): number;
+        function getBaseIndentation(options: EditorOptions): number;
+        function getIndentationForNode(n: Node, ignoreActualIndentationRange: TextRange, sourceFile: SourceFile, options: FormatCodeOptions): number;
+        function childStartsOnTheSameLineWithElseInIfStatement(parent: Node, child: TextRangeWithKind, childStartLine: number, sourceFile: SourceFile): boolean;
+        function findFirstNonWhitespaceCharacterAndColumn(startPos: number, endPos: number, sourceFile: SourceFile, options: EditorOptions): {
+            column: number;
+            character: number;
+        };
+        function findFirstNonWhitespaceColumn(startPos: number, endPos: number, sourceFile: SourceFile, options: EditorOptions): number;
+        function nodeWillIndentChild(parent: TextRangeWithKind, child: TextRangeWithKind, indentByDefault: boolean): boolean;
+        function shouldIndentChildNode(parent: TextRangeWithKind, child?: TextRangeWithKind): boolean;
+    }
+}
+declare namespace ts {
+    /** The version of the language service API */
+    const servicesVersion: string;
     interface DisplayPartsSymbolWriter extends SymbolWriter {
         displayParts(): SymbolDisplayPart[];
     }
