@@ -16657,6 +16657,7 @@ var ts;
         var noConstraintType = createAnonymousType(undefined, emptySymbols, emptyArray, emptyArray, undefined, undefined);
         var anySignature = createSignature(undefined, undefined, undefined, emptyArray, anyType, /*typePredicate*/ undefined, 0, /*hasRestParameter*/ false, /*hasLiteralTypes*/ false);
         var unknownSignature = createSignature(undefined, undefined, undefined, emptyArray, unknownType, /*typePredicate*/ undefined, 0, /*hasRestParameter*/ false, /*hasLiteralTypes*/ false);
+        var resolvingSignature = createSignature(undefined, undefined, undefined, emptyArray, anyType, /*typePredicate*/ undefined, 0, /*hasRestParameter*/ false, /*hasLiteralTypes*/ false);
         var enumNumberIndexInfo = createIndexInfo(stringType, /*isReadonly*/ true);
         var globals = ts.createMap();
         /**
@@ -27688,10 +27689,10 @@ var ts;
             // or that a different candidatesOutArray was passed in. Therefore, we need to redo the work
             // to correctly fill the candidatesOutArray.
             var cached = links.resolvedSignature;
-            if (cached && cached !== anySignature && !candidatesOutArray) {
+            if (cached && cached !== resolvingSignature && !candidatesOutArray) {
                 return cached;
             }
-            links.resolvedSignature = anySignature;
+            links.resolvedSignature = resolvingSignature;
             var result = resolveSignature(node, candidatesOutArray);
             // If signature resolution originated in control flow type analysis (for example to compute the
             // assigned type in a flow assignment) we don't cache the result as it may be based on temporary
@@ -27702,7 +27703,7 @@ var ts;
         function getResolvedOrAnySignature(node) {
             // If we're already in the process of resolving the given signature, don't resolve again as
             // that could cause infinite recursion. Instead, return anySignature.
-            return getNodeLinks(node).resolvedSignature === anySignature ? anySignature : getResolvedSignature(node);
+            return getNodeLinks(node).resolvedSignature === resolvingSignature ? resolvingSignature : getResolvedSignature(node);
         }
         function getInferredClassType(symbol) {
             var links = getSymbolLinks(symbol);
