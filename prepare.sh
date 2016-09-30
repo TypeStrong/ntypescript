@@ -22,7 +22,7 @@ npm install
 cp ./built/local/* ./bin/
 
 # Copy the source TypeScript compiler and services, but not the tsconfig.json files
-cp ./src/compiler/* ../src/compiler
+cp -r ./src/compiler/* ../src/compiler
 cp -r ./src/services/* ../src/services
 rm ../src/services/tsconfig.json ../src/compiler/tsconfig.json
 
