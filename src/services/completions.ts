@@ -1,12 +1,22 @@
+/// <reference path="./pathCompletions.ts" />
+
 /* @internal */
 namespace ts.Completions {
-    export function getCompletionsAtPosition(host: LanguageServiceHost, typeChecker: TypeChecker, log: (message: string) => void, compilerOptions: CompilerOptions, sourceFile: SourceFile, position: number): CompletionInfo {
+    export type Log = (message: string) => void;
+
+    const enum KeywordCompletionFilters {
+        None,
+        ClassElementKeywords,           // Keywords at class keyword
+        ConstructorParameterKeywords,   // Keywords at constructor parameter
+    }
+
+    export function getCompletionsAtPosition(host: LanguageServiceHost, typeChecker: TypeChecker, log: Log, compilerOptions: CompilerOptions, sourceFile: SourceFile, position: number): CompletionInfo | undefined {
         if (isInReferenceComment(sourceFile, position)) {
-            return getTripleSlashReferenceCompletion(sourceFile, position);
+            return PathCompletions.getTripleSlashReferenceCompletion(sourceFile, position, compilerOptions, host);
         }
 
         if (isInString(sourceFile, position)) {
-            return getStringLiteralCompletionEntries(sourceFile, position);
+            return getStringLiteralCompletionEntries(sourceFile, position, typeChecker, compilerOptions, host, log);
         }
 
         const completionData = getCompletionData(typeChecker, log, sourceFile, position);
@@ -14,702 +24,275 @@ namespace ts.Completions {
             return undefined;
         }
 
-        const { symbols, isMemberCompletion, isNewIdentifierLocation, location, isJsDocTagName } = completionData;
+        const { symbols, isGlobalCompletion, isMemberCompletion, isNewIdentifierLocation, location, request, keywordFilters } = completionData;
 
-        if (isJsDocTagName) {
-            // If the current position is a jsDoc tag name, only tag names should be provided for completion
-            return { isMemberCompletion: false, isNewIdentifierLocation: false, entries: JsDoc.getAllJsDocCompletionEntries() };
+        if (sourceFile.languageVariant === LanguageVariant.JSX &&
+            location && location.parent && location.parent.kind === SyntaxKind.JsxClosingElement) {
+            // In the TypeScript JSX element, if such element is not defined. When users query for completion at closing tag,
+            // instead of simply giving unknown value, the completion will return the tag-name of an associated opening-element.
+            // For example:
+            //     var x = <div> </ /*1*/>  completion list at "1" will contain "div" with type any
+            const tagName = (<JsxElement>location.parent.parent).openingElement.tagName;
+            return { isGlobalCompletion: false, isMemberCompletion: true, isNewIdentifierLocation: false,
+                entries: [{
+                    name: (<JsxTagNameExpression>tagName).getFullText(),
+                    kind: ScriptElementKind.classElement,
+                    kindModifiers: undefined,
+                    sortText: "0",
+                }]};
+        }
+
+        if (request) {
+            const entries = request.kind === "JsDocTagName"
+                // If the current position is a jsDoc tag name, only tag names should be provided for completion
+                ? JsDoc.getJSDocTagNameCompletions()
+                : request.kind === "JsDocTag"
+                // If the current position is a jsDoc tag, only tags should be provided for completion
+                ? JsDoc.getJSDocTagCompletions()
+                : JsDoc.getJSDocParameterNameCompletions(request.tag);
+            return { isGlobalCompletion: false, isMemberCompletion: false, isNewIdentifierLocation: false,  entries };
         }
 
         const entries: CompletionEntry[] = [];
 
         if (isSourceFileJavaScript(sourceFile)) {
-            const uniqueNames = getCompletionEntriesFromSymbols(symbols, entries, location, /*performCharacterChecks*/ false);
-            addRange(entries, getJavaScriptCompletionEntries(sourceFile, location.pos, uniqueNames));
+            const uniqueNames = getCompletionEntriesFromSymbols(symbols, entries, location, /*performCharacterChecks*/ true, typeChecker, compilerOptions.target, log);
+            addRange(entries, getJavaScriptCompletionEntries(sourceFile, location.pos, uniqueNames, compilerOptions.target));
         }
         else {
-            if (!symbols || symbols.length === 0) {
-                if (sourceFile.languageVariant === LanguageVariant.JSX &&
-                    location.parent && location.parent.kind === SyntaxKind.JsxClosingElement) {
-                    // In the TypeScript JSX element, if such element is not defined. When users query for completion at closing tag,
-                    // instead of simply giving unknown value, the completion will return the tag-name of an associated opening-element.
-                    // For example:
-                    //     var x = <div> </ /*1*/>  completion list at "1" will contain "div" with type any
-                    const tagName = (<JsxElement>location.parent.parent).openingElement.tagName;
-                    entries.push({
-                        name: (<Identifier>tagName).text,
-                        kind: undefined,
-                        kindModifiers: undefined,
-                        sortText: "0",
-                    });
-                }
-                else {
+            if ((!symbols || symbols.length === 0) && keywordFilters === KeywordCompletionFilters.None) {
                     return undefined;
-                }
             }
 
-            getCompletionEntriesFromSymbols(symbols, entries, location, /*performCharacterChecks*/ true);
+            getCompletionEntriesFromSymbols(symbols, entries, location, /*performCharacterChecks*/ true, typeChecker, compilerOptions.target, log);
         }
 
-        // Add keywords if this is not a member completion list
-        if (!isMemberCompletion && !isJsDocTagName) {
-            addRange(entries, keywordCompletions);
+        // TODO add filter for keyword based on type/value/namespace and also location
+
+        // Add all keywords if
+        // - this is not a member completion list (all the keywords)
+        // - other filters are enabled in required scenario so add those keywords
+        if (keywordFilters !== KeywordCompletionFilters.None || !isMemberCompletion) {
+            addRange(entries, getKeywordCompletions(keywordFilters));
         }
 
-        return { isMemberCompletion, isNewIdentifierLocation: isNewIdentifierLocation, entries };
+        return { isGlobalCompletion, isMemberCompletion, isNewIdentifierLocation: isNewIdentifierLocation, entries };
+    }
 
-        function getJavaScriptCompletionEntries(sourceFile: SourceFile, position: number, uniqueNames: Map<string>): CompletionEntry[] {
-            const entries: CompletionEntry[] = [];
+    function getJavaScriptCompletionEntries(sourceFile: SourceFile, position: number, uniqueNames: Map<string>, target: ScriptTarget): CompletionEntry[] {
+        const entries: CompletionEntry[] = [];
 
-            const nameTable = getNameTable(sourceFile);
-            for (const name in nameTable) {
-                // Skip identifiers produced only from the current location
-                if (nameTable[name] === position) {
-                    continue;
-                }
-
-                if (!uniqueNames[name]) {
-                    uniqueNames[name] = name;
-                    const displayName = getCompletionEntryDisplayName(unescapeIdentifier(name), compilerOptions.target, /*performCharacterChecks*/ true);
-                    if (displayName) {
-                        const entry = {
-                            name: displayName,
-                            kind: ScriptElementKind.warning,
-                            kindModifiers: "",
-                            sortText: "1"
-                        };
-                        entries.push(entry);
-                    }
-                }
-            }
-
-            return entries;
-        }
-
-        function createCompletionEntry(symbol: Symbol, location: Node, performCharacterChecks: boolean): CompletionEntry {
-            // Try to get a valid display name for this symbol, if we could not find one, then ignore it.
-            // We would like to only show things that can be added after a dot, so for instance numeric properties can
-            // not be accessed with a dot (a.1 <- invalid)
-            const displayName = getCompletionEntryDisplayNameForSymbol(typeChecker, symbol, compilerOptions.target, performCharacterChecks, location);
-            if (!displayName) {
-                return undefined;
-            }
-
-            // TODO(drosen): Right now we just permit *all* semantic meanings when calling
-            // 'getSymbolKind' which is permissible given that it is backwards compatible; but
-            // really we should consider passing the meaning for the node so that we don't report
-            // that a suggestion for a value is an interface.  We COULD also just do what
-            // 'getSymbolModifiers' does, which is to use the first declaration.
-
-            // Use a 'sortText' of 0' so that all symbol completion entries come before any other
-            // entries (like JavaScript identifier entries).
-            return {
-                name: displayName,
-                kind: SymbolDisplay.getSymbolKind(typeChecker, symbol, location),
-                kindModifiers: SymbolDisplay.getSymbolModifiers(symbol),
-                sortText: "0",
-            };
-
-        }
-
-        function getCompletionEntriesFromSymbols(symbols: Symbol[], entries: CompletionEntry[], location: Node, performCharacterChecks: boolean): Map<string> {
-            const start = timestamp();
-            const uniqueNames = createMap<string>();
-            if (symbols) {
-                for (const symbol of symbols) {
-                    const entry = createCompletionEntry(symbol, location, performCharacterChecks);
-                    if (entry) {
-                        const id = escapeIdentifier(entry.name);
-                        if (!uniqueNames[id]) {
-                            entries.push(entry);
-                            uniqueNames[id] = id;
-                        }
-                    }
-                }
-            }
-
-            log("getCompletionsAtPosition: getCompletionEntriesFromSymbols: " + (timestamp() - start));
-            return uniqueNames;
-        }
-
-        function getStringLiteralCompletionEntries(sourceFile: SourceFile, position: number) {
-            const node = findPrecedingToken(position, sourceFile);
-            if (!node || node.kind !== SyntaxKind.StringLiteral) {
-                return undefined;
-            }
-
-            if (node.parent.kind === SyntaxKind.PropertyAssignment && node.parent.parent.kind === SyntaxKind.ObjectLiteralExpression) {
-                // Get quoted name of properties of the object literal expression
-                // i.e. interface ConfigFiles {
-                //          'jspm:dev': string
-                //      }
-                //      let files: ConfigFiles = {
-                //          '/*completion position*/'
-                //      }
-                //
-                //      function foo(c: ConfigFiles) {}
-                //      foo({
-                //          '/*completion position*/'
-                //      });
-                return getStringLiteralCompletionEntriesFromPropertyAssignment(<ObjectLiteralElement>node.parent);
-            }
-            else if (isElementAccessExpression(node.parent) && node.parent.argumentExpression === node) {
-                // Get all names of properties on the expression
-                // i.e. interface A {
-                //      'prop1': string
-                // }
-                // let a: A;
-                // a['/*completion position*/']
-                return getStringLiteralCompletionEntriesFromElementAccess(node.parent);
-            }
-            else if (node.parent.kind === SyntaxKind.ImportDeclaration || isExpressionOfExternalModuleImportEqualsDeclaration(node) || isRequireCall(node.parent, false)) {
-                // Get all known external module names or complete a path to a module
-                // i.e. import * as ns from "/*completion position*/";
-                //      import x = require("/*completion position*/");
-                //      var y = require("/*completion position*/");
-                return getStringLiteralCompletionEntriesFromModuleNames(<StringLiteral>node);
-            }
-            else {
-                const argumentInfo = SignatureHelp.getContainingArgumentInfo(node, position, sourceFile);
-                if (argumentInfo) {
-                    // Get string literal completions from specialized signatures of the target
-                    // i.e. declare function f(a: 'A');
-                    // f("/*completion position*/")
-                    return getStringLiteralCompletionEntriesFromCallExpression(argumentInfo, node);
-                }
-
-                // Get completion for string literal from string literal type
-                // i.e. var x: "hi" | "hello" = "/*completion position*/"
-                return getStringLiteralCompletionEntriesFromContextualType(<StringLiteral>node);
-            }
-        }
-
-        function getStringLiteralCompletionEntriesFromPropertyAssignment(element: ObjectLiteralElement) {
-            const type = typeChecker.getContextualType((<ObjectLiteralExpression>element.parent));
-            const entries: CompletionEntry[] = [];
-            if (type) {
-                getCompletionEntriesFromSymbols(type.getApparentProperties(), entries, element, /*performCharacterChecks*/false);
-                if (entries.length) {
-                    return { isMemberCompletion: true, isNewIdentifierLocation: true, entries };
-                }
-            }
-        }
-
-        function getStringLiteralCompletionEntriesFromCallExpression(argumentInfo: SignatureHelp.ArgumentListInfo, location: Node) {
-            const candidates: Signature[] = [];
-            const entries: CompletionEntry[] = [];
-
-            typeChecker.getResolvedSignature(argumentInfo.invocation, candidates);
-
-            for (const candidate of candidates) {
-                if (candidate.parameters.length > argumentInfo.argumentIndex) {
-                    const parameter = candidate.parameters[argumentInfo.argumentIndex];
-                    addStringLiteralCompletionsFromType(typeChecker.getTypeAtLocation(parameter.valueDeclaration), entries);
-                }
-            }
-
-            if (entries.length) {
-                return { isMemberCompletion: false, isNewIdentifierLocation: true, entries };
-            }
-
-            return undefined;
-        }
-
-        function getStringLiteralCompletionEntriesFromElementAccess(node: ElementAccessExpression) {
-            const type = typeChecker.getTypeAtLocation(node.expression);
-            const entries: CompletionEntry[] = [];
-            if (type) {
-                getCompletionEntriesFromSymbols(type.getApparentProperties(), entries, node, /*performCharacterChecks*/false);
-                if (entries.length) {
-                    return { isMemberCompletion: true, isNewIdentifierLocation: true, entries };
-                }
-            }
-            return undefined;
-        }
-
-        function getStringLiteralCompletionEntriesFromContextualType(node: StringLiteral) {
-            const type = typeChecker.getContextualType(node);
-            if (type) {
-                const entries: CompletionEntry[] = [];
-                addStringLiteralCompletionsFromType(type, entries);
-                if (entries.length) {
-                    return { isMemberCompletion: false, isNewIdentifierLocation: false, entries };
-                }
-            }
-            return undefined;
-        }
-
-        function addStringLiteralCompletionsFromType(type: Type, result: CompletionEntry[]): void {
-            if (!type) {
+        const nameTable = getNameTable(sourceFile);
+        nameTable.forEach((pos, name) => {
+            // Skip identifiers produced only from the current location
+            if (pos === position) {
                 return;
             }
-            if (type.flags & TypeFlags.Union) {
-                forEach((<UnionType>type).types, t => addStringLiteralCompletionsFromType(t, result));
-            }
-            else {
-                if (type.flags & TypeFlags.StringLiteral) {
-                    result.push({
-                        name: (<LiteralType>type).text,
-                        kindModifiers: ScriptElementKindModifier.none,
-                        kind: ScriptElementKind.variableElement,
-                        sortText: "0"
-                    });
+
+            if (!uniqueNames.get(name)) {
+                uniqueNames.set(name, name);
+                const displayName = getCompletionEntryDisplayName(unescapeIdentifier(name), target, /*performCharacterChecks*/ true);
+                if (displayName) {
+                    const entry = {
+                        name: displayName,
+                        kind: ScriptElementKind.warning,
+                        kindModifiers: "",
+                        sortText: "1"
+                    };
+                    entries.push(entry);
                 }
             }
-        }
+        });
 
-        function getStringLiteralCompletionEntriesFromModuleNames(node: StringLiteral): CompletionInfo {
-            const literalValue = normalizeSlashes(node.text);
+        return entries;
+    }
 
-            const scriptPath = node.getSourceFile().path;
-            const scriptDirectory = getDirectoryPath(scriptPath);
-
-            const span = getDirectoryFragmentTextSpan((<StringLiteral>node).text, node.getStart() + 1);
-            let entries: CompletionEntry[];
-            if (isPathRelativeToScript(literalValue) || isRootedDiskPath(literalValue)) {
-                if (compilerOptions.rootDirs) {
-                    entries = getCompletionEntriesForDirectoryFragmentWithRootDirs(
-                        compilerOptions.rootDirs, literalValue, scriptDirectory, getSupportedExtensions(compilerOptions), /*includeExtensions*/false, span, scriptPath);
-                }
-                else {
-                    entries = getCompletionEntriesForDirectoryFragment(
-                        literalValue, scriptDirectory, getSupportedExtensions(compilerOptions), /*includeExtensions*/false, span, scriptPath);
-                }
-            }
-            else {
-                // Check for node modules
-                entries = getCompletionEntriesForNonRelativeModules(literalValue, scriptDirectory, span);
-            }
-            return {
-                isMemberCompletion: false,
-                isNewIdentifierLocation: true,
-                entries
-            };
-        }
-
-        /**
-         * Takes a script path and returns paths for all potential folders that could be merged with its
-         * containing folder via the "rootDirs" compiler option
-         */
-        function getBaseDirectoriesFromRootDirs(rootDirs: string[], basePath: string, scriptPath: string, ignoreCase: boolean): string[] {
-            // Make all paths absolute/normalized if they are not already
-            rootDirs = map(rootDirs, rootDirectory => normalizePath(isRootedDiskPath(rootDirectory) ? rootDirectory : combinePaths(basePath, rootDirectory)));
-
-            // Determine the path to the directory containing the script relative to the root directory it is contained within
-            let relativeDirectory: string;
-            for (const rootDirectory of rootDirs) {
-                if (containsPath(rootDirectory, scriptPath, basePath, ignoreCase)) {
-                    relativeDirectory = scriptPath.substr(rootDirectory.length);
-                    break;
-                }
-            }
-
-            // Now find a path for each potential directory that is to be merged with the one containing the script
-            return deduplicate(map(rootDirs, rootDirectory => combinePaths(rootDirectory, relativeDirectory)));
-        }
-
-        function getCompletionEntriesForDirectoryFragmentWithRootDirs(rootDirs: string[], fragment: string, scriptPath: string, extensions: string[], includeExtensions: boolean, span: TextSpan, exclude?: string): CompletionEntry[] {
-            const basePath = compilerOptions.project || host.getCurrentDirectory();
-            const ignoreCase = !(host.useCaseSensitiveFileNames && host.useCaseSensitiveFileNames());
-            const baseDirectories = getBaseDirectoriesFromRootDirs(rootDirs, basePath, scriptPath, ignoreCase);
-
-            const result: CompletionEntry[] = [];
-
-            for (const baseDirectory of baseDirectories) {
-                getCompletionEntriesForDirectoryFragment(fragment, baseDirectory, extensions, includeExtensions, span, exclude, result);
-            }
-
-            return result;
-        }
-
-        function getCompletionEntriesForDirectoryFragment(fragment: string, scriptPath: string, extensions: string[], includeExtensions: boolean, span: TextSpan, exclude?: string, result: CompletionEntry[] = []): CompletionEntry[] {
-            fragment = getDirectoryPath(fragment);
-            if (!fragment) {
-                fragment = "./";
-            }
-            else {
-                fragment = ensureTrailingDirectorySeparator(fragment);
-            }
-
-            const absolutePath = normalizeAndPreserveTrailingSlash(isRootedDiskPath(fragment) ? fragment : combinePaths(scriptPath, fragment));
-            const baseDirectory = getDirectoryPath(absolutePath);
-            const ignoreCase = !(host.useCaseSensitiveFileNames && host.useCaseSensitiveFileNames());
-
-            if (tryDirectoryExists(host, baseDirectory)) {
-                // Enumerate the available files if possible
-                const files = tryReadDirectory(host, baseDirectory, extensions, /*exclude*/undefined, /*include*/["./*"]);
-
-                if (files) {
-                    const foundFiles = createMap<boolean>();
-                    for (let filePath of files) {
-                        filePath = normalizePath(filePath);
-                        if (exclude && comparePaths(filePath, exclude, scriptPath, ignoreCase) === Comparison.EqualTo) {
-                            continue;
-                        }
-
-                        const foundFileName = includeExtensions ? getBaseFileName(filePath) : removeFileExtension(getBaseFileName(filePath));
-
-                        if (!foundFiles[foundFileName]) {
-                            foundFiles[foundFileName] = true;
-                        }
-                    }
-
-                    for (const foundFile in foundFiles) {
-                        result.push(createCompletionEntryForModule(foundFile, ScriptElementKind.scriptElement, span));
-                    }
-                }
-
-                // If possible, get folder completion as well
-                const directories = tryGetDirectories(host, baseDirectory);
-
-                if (directories) {
-                    for (const directory of directories) {
-                        const directoryName = getBaseFileName(normalizePath(directory));
-
-                        result.push(createCompletionEntryForModule(directoryName, ScriptElementKind.directory, span));
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        /**
-         * Check all of the declared modules and those in node modules. Possible sources of modules:
-         *      Modules that are found by the type checker
-         *      Modules found relative to "baseUrl" compliler options (including patterns from "paths" compiler option)
-         *      Modules from node_modules (i.e. those listed in package.json)
-         *          This includes all files that are found in node_modules/moduleName/ with acceptable file extensions
-         */
-        function getCompletionEntriesForNonRelativeModules(fragment: string, scriptPath: string, span: TextSpan): CompletionEntry[] {
-            const { baseUrl, paths } = compilerOptions;
-
-            let result: CompletionEntry[];
-
-            if (baseUrl) {
-                const fileExtensions = getSupportedExtensions(compilerOptions);
-                const projectDir = compilerOptions.project || host.getCurrentDirectory();
-                const absolute = isRootedDiskPath(baseUrl) ? baseUrl : combinePaths(projectDir, baseUrl);
-                result = getCompletionEntriesForDirectoryFragment(fragment, normalizePath(absolute), fileExtensions, /*includeExtensions*/false, span);
-
-                if (paths) {
-                    for (const path in paths) {
-                        if (paths.hasOwnProperty(path)) {
-                            if (path === "*") {
-                                if (paths[path]) {
-                                    for (const pattern of paths[path]) {
-                                        for (const match of getModulesForPathsPattern(fragment, baseUrl, pattern, fileExtensions)) {
-                                            result.push(createCompletionEntryForModule(match, ScriptElementKind.externalModuleName, span));
-                                        }
-                                    }
-                                }
-                            }
-                            else if (startsWith(path, fragment)) {
-                                const entry = paths[path] && paths[path].length === 1 && paths[path][0];
-                                if (entry) {
-                                    result.push(createCompletionEntryForModule(path, ScriptElementKind.externalModuleName, span));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            else {
-                result = [];
-            }
-
-            getCompletionEntriesFromTypings(host, compilerOptions, scriptPath, span, result);
-
-            for (const moduleName of enumeratePotentialNonRelativeModules(fragment, scriptPath, compilerOptions)) {
-                result.push(createCompletionEntryForModule(moduleName, ScriptElementKind.externalModuleName, span));
-            }
-
-            return result;
-        }
-
-        function getModulesForPathsPattern(fragment: string, baseUrl: string, pattern: string, fileExtensions: string[]): string[] {
-            if (host.readDirectory) {
-                const parsed = hasZeroOrOneAsteriskCharacter(pattern) ? tryParsePattern(pattern) : undefined;
-                if (parsed) {
-                    // The prefix has two effective parts: the directory path and the base component after the filepath that is not a
-                    // full directory component. For example: directory/path/of/prefix/base*
-                    const normalizedPrefix = normalizeAndPreserveTrailingSlash(parsed.prefix);
-                    const normalizedPrefixDirectory = getDirectoryPath(normalizedPrefix);
-                    const normalizedPrefixBase = getBaseFileName(normalizedPrefix);
-
-                    const fragmentHasPath = fragment.indexOf(directorySeparator) !== -1;
-
-                    // Try and expand the prefix to include any path from the fragment so that we can limit the readDirectory call
-                    const expandedPrefixDirectory = fragmentHasPath ? combinePaths(normalizedPrefixDirectory, normalizedPrefixBase + getDirectoryPath(fragment)) : normalizedPrefixDirectory;
-
-                    const normalizedSuffix = normalizePath(parsed.suffix);
-                    const baseDirectory = combinePaths(baseUrl, expandedPrefixDirectory);
-                    const completePrefix = fragmentHasPath ? baseDirectory : ensureTrailingDirectorySeparator(baseDirectory) + normalizedPrefixBase;
-
-                    // If we have a suffix, then we need to read the directory all the way down. We could create a glob
-                    // that encodes the suffix, but we would have to escape the character "?" which readDirectory
-                    // doesn't support. For now, this is safer but slower
-                    const includeGlob = normalizedSuffix ? "**/*" : "./*";
-
-                    const matches = tryReadDirectory(host, baseDirectory, fileExtensions, undefined, [includeGlob]);
-                    if (matches) {
-                        const result: string[] = [];
-
-                        // Trim away prefix and suffix
-                        for (const match of matches) {
-                            const normalizedMatch = normalizePath(match);
-                            if (!endsWith(normalizedMatch, normalizedSuffix) || !startsWith(normalizedMatch, completePrefix)) {
-                                continue;
-                            }
-
-                            const start = completePrefix.length;
-                            const length = normalizedMatch.length - start - normalizedSuffix.length;
-
-                            result.push(removeFileExtension(normalizedMatch.substr(start, length)));
-                        }
-                        return result;
-                    }
-                }
-            }
-
+    function createCompletionEntry(symbol: Symbol, location: Node, performCharacterChecks: boolean, typeChecker: TypeChecker, target: ScriptTarget): CompletionEntry {
+        // Try to get a valid display name for this symbol, if we could not find one, then ignore it.
+        // We would like to only show things that can be added after a dot, so for instance numeric properties can
+        // not be accessed with a dot (a.1 <- invalid)
+        const displayName = getCompletionEntryDisplayNameForSymbol(typeChecker, symbol, target, performCharacterChecks, location);
+        if (!displayName) {
             return undefined;
         }
 
-        function enumeratePotentialNonRelativeModules(fragment: string, scriptPath: string, options: CompilerOptions): string[] {
-            // Check If this is a nested module
-            const isNestedModule = fragment.indexOf(directorySeparator) !== -1;
-            const moduleNameFragment = isNestedModule ? fragment.substr(0, fragment.lastIndexOf(directorySeparator)) : undefined;
+        // TODO(drosen): Right now we just permit *all* semantic meanings when calling
+        // 'getSymbolKind' which is permissible given that it is backwards compatible; but
+        // really we should consider passing the meaning for the node so that we don't report
+        // that a suggestion for a value is an interface.  We COULD also just do what
+        // 'getSymbolModifiers' does, which is to use the first declaration.
 
-            // Get modules that the type checker picked up
-            const ambientModules = map(typeChecker.getAmbientModules(), sym => stripQuotes(sym.name));
-            let nonRelativeModules = filter(ambientModules, moduleName => startsWith(moduleName, fragment));
+        // Use a 'sortText' of 0' so that all symbol completion entries come before any other
+        // entries (like JavaScript identifier entries).
+        return {
+            name: displayName,
+            kind: SymbolDisplay.getSymbolKind(typeChecker, symbol, location),
+            kindModifiers: SymbolDisplay.getSymbolModifiers(symbol),
+            sortText: "0",
+        };
+    }
 
-            // Nested modules of the form "module-name/sub" need to be adjusted to only return the string
-            // after the last '/' that appears in the fragment because that's where the replacement span
-            // starts
-            if (isNestedModule) {
-                const moduleNameWithSeperator = ensureTrailingDirectorySeparator(moduleNameFragment);
-                nonRelativeModules = map(nonRelativeModules, moduleName => {
-                    if (startsWith(fragment, moduleNameWithSeperator)) {
-                        return moduleName.substr(moduleNameWithSeperator.length);
+    function getCompletionEntriesFromSymbols(symbols: Symbol[], entries: Push<CompletionEntry>, location: Node, performCharacterChecks: boolean, typeChecker: TypeChecker, target: ScriptTarget, log: Log): Map<string> {
+        const start = timestamp();
+        const uniqueNames = createMap<string>();
+        if (symbols) {
+            for (const symbol of symbols) {
+                const entry = createCompletionEntry(symbol, location, performCharacterChecks, typeChecker, target);
+                if (entry) {
+                    const id = escapeIdentifier(entry.name);
+                    if (!uniqueNames.get(id)) {
+                        entries.push(entry);
+                        uniqueNames.set(id, id);
                     }
-                    return moduleName;
+                }
+            }
+        }
+
+        log("getCompletionsAtPosition: getCompletionEntriesFromSymbols: " + (timestamp() - start));
+        return uniqueNames;
+    }
+
+    function getStringLiteralCompletionEntries(sourceFile: SourceFile, position: number, typeChecker: TypeChecker, compilerOptions: CompilerOptions, host: LanguageServiceHost, log: Log): CompletionInfo | undefined {
+        const node = findPrecedingToken(position, sourceFile);
+        if (!node || node.kind !== SyntaxKind.StringLiteral) {
+            return undefined;
+        }
+
+        if (node.parent.kind === SyntaxKind.PropertyAssignment &&
+            node.parent.parent.kind === SyntaxKind.ObjectLiteralExpression &&
+            (<PropertyAssignment>node.parent).name === node) {
+            // Get quoted name of properties of the object literal expression
+            // i.e. interface ConfigFiles {
+            //          'jspm:dev': string
+            //      }
+            //      let files: ConfigFiles = {
+            //          '/*completion position*/'
+            //      }
+            //
+            //      function foo(c: ConfigFiles) {}
+            //      foo({
+            //          '/*completion position*/'
+            //      });
+            return getStringLiteralCompletionEntriesFromPropertyAssignment(<ObjectLiteralElement>node.parent, typeChecker, compilerOptions.target, log);
+        }
+        else if (isElementAccessExpression(node.parent) && node.parent.argumentExpression === node) {
+            // Get all names of properties on the expression
+            // i.e. interface A {
+            //      'prop1': string
+            // }
+            // let a: A;
+            // a['/*completion position*/']
+            return getStringLiteralCompletionEntriesFromElementAccess(node.parent, typeChecker, compilerOptions.target, log);
+        }
+        else if (node.parent.kind === SyntaxKind.ImportDeclaration || isExpressionOfExternalModuleImportEqualsDeclaration(node) || isRequireCall(node.parent, /*checkArgumentIsStringLiteral*/ false)) {
+            // Get all known external module names or complete a path to a module
+            // i.e. import * as ns from "/*completion position*/";
+            //      import x = require("/*completion position*/");
+            //      var y = require("/*completion position*/");
+            return PathCompletions.getStringLiteralCompletionEntriesFromModuleNames(<StringLiteral>node, compilerOptions, host, typeChecker);
+        }
+        else if (isEqualityExpression(node.parent)) {
+            // Get completions from the type of the other operand
+            // i.e. switch (a) {
+            //         case '/*completion position*/'
+            //      }
+            return getStringLiteralCompletionEntriesFromType(typeChecker.getTypeAtLocation(node.parent.left === node ? node.parent.right : node.parent.left), typeChecker);
+        }
+        else if (isCaseOrDefaultClause(node.parent)) {
+            // Get completions from the type of the switch expression
+            // i.e. x === '/*completion position'
+            return getStringLiteralCompletionEntriesFromType(typeChecker.getTypeAtLocation((<SwitchStatement>node.parent.parent.parent).expression), typeChecker);
+        }
+        else {
+            const argumentInfo = SignatureHelp.getImmediatelyContainingArgumentInfo(node, position, sourceFile);
+            if (argumentInfo) {
+                // Get string literal completions from specialized signatures of the target
+                // i.e. declare function f(a: 'A');
+                // f("/*completion position*/")
+                return getStringLiteralCompletionEntriesFromCallExpression(argumentInfo, typeChecker);
+            }
+
+            // Get completion for string literal from string literal type
+            // i.e. var x: "hi" | "hello" = "/*completion position*/"
+            return getStringLiteralCompletionEntriesFromType(typeChecker.getContextualType(<StringLiteral>node), typeChecker);
+        }
+    }
+
+    function getStringLiteralCompletionEntriesFromPropertyAssignment(element: ObjectLiteralElement, typeChecker: TypeChecker, target: ScriptTarget, log: Log): CompletionInfo | undefined {
+        const type = typeChecker.getContextualType((<ObjectLiteralExpression>element.parent));
+        const entries: CompletionEntry[] = [];
+        if (type) {
+            getCompletionEntriesFromSymbols(type.getApparentProperties(), entries, element, /*performCharacterChecks*/ false, typeChecker, target, log);
+            if (entries.length) {
+                return { isGlobalCompletion: false, isMemberCompletion: true, isNewIdentifierLocation: true, entries };
+            }
+        }
+    }
+
+    function getStringLiteralCompletionEntriesFromCallExpression(argumentInfo: SignatureHelp.ArgumentListInfo, typeChecker: TypeChecker): CompletionInfo | undefined {
+        const candidates: Signature[] = [];
+        const entries: CompletionEntry[] = [];
+        const uniques = createMap<true>();
+
+        typeChecker.getResolvedSignature(argumentInfo.invocation, candidates);
+
+        for (const candidate of candidates) {
+            addStringLiteralCompletionsFromType(typeChecker.getParameterType(candidate, argumentInfo.argumentIndex), entries, typeChecker, uniques);
+        }
+
+        if (entries.length) {
+            return { isGlobalCompletion: false, isMemberCompletion: false, isNewIdentifierLocation: true, entries };
+        }
+
+        return undefined;
+    }
+
+    function getStringLiteralCompletionEntriesFromElementAccess(node: ElementAccessExpression, typeChecker: TypeChecker, target: ScriptTarget, log: Log): CompletionInfo | undefined {
+        const type = typeChecker.getTypeAtLocation(node.expression);
+        const entries: CompletionEntry[] = [];
+        if (type) {
+            getCompletionEntriesFromSymbols(type.getApparentProperties(), entries, node, /*performCharacterChecks*/ false, typeChecker, target, log);
+            if (entries.length) {
+                return { isGlobalCompletion: false, isMemberCompletion: true, isNewIdentifierLocation: true, entries };
+            }
+        }
+        return undefined;
+    }
+
+    function getStringLiteralCompletionEntriesFromType(type: Type, typeChecker: TypeChecker): CompletionInfo | undefined {
+        if (type) {
+            const entries: CompletionEntry[] = [];
+            addStringLiteralCompletionsFromType(type, entries, typeChecker);
+            if (entries.length) {
+                return { isGlobalCompletion: false, isMemberCompletion: false, isNewIdentifierLocation: false, entries };
+            }
+        }
+        return undefined;
+    }
+
+    function addStringLiteralCompletionsFromType(type: Type, result: Push<CompletionEntry>, typeChecker: TypeChecker, uniques = createMap<true>()): void {
+        if (type && type.flags & TypeFlags.TypeParameter) {
+            type = typeChecker.getBaseConstraintOfType(type);
+        }
+        if (!type) {
+            return;
+        }
+        if (type.flags & TypeFlags.Union) {
+            for (const t of (<UnionType>type).types) {
+                addStringLiteralCompletionsFromType(t, result, typeChecker, uniques);
+            }
+        }
+        else if (type.flags & TypeFlags.StringLiteral) {
+            const name = (<StringLiteralType>type).value;
+            if (!uniques.has(name)) {
+                uniques.set(name, true);
+                result.push({
+                    name,
+                    kindModifiers: ScriptElementKindModifier.none,
+                    kind: ScriptElementKind.variableElement,
+                    sortText: "0"
                 });
             }
-
-
-            if (!options.moduleResolution || options.moduleResolution === ModuleResolutionKind.NodeJs) {
-                for (const visibleModule of enumerateNodeModulesVisibleToScript(host, scriptPath)) {
-                    if (!isNestedModule) {
-                        nonRelativeModules.push(visibleModule.moduleName);
-                    }
-                    else if (startsWith(visibleModule.moduleName, moduleNameFragment)) {
-                        const nestedFiles = tryReadDirectory(host, visibleModule.moduleDir, supportedTypeScriptExtensions, /*exclude*/undefined, /*include*/["./*"]);
-                        if (nestedFiles) {
-                            for (let f of nestedFiles) {
-                                f = normalizePath(f);
-                                const nestedModule = removeFileExtension(getBaseFileName(f));
-                                nonRelativeModules.push(nestedModule);
-                            }
-                        }
-                    }
-                }
-            }
-
-            return deduplicate(nonRelativeModules);
-        }
-
-        function getTripleSlashReferenceCompletion(sourceFile: SourceFile, position: number): CompletionInfo {
-            const token = getTokenAtPosition(sourceFile, position);
-            if (!token) {
-                return undefined;
-            }
-            const commentRanges: CommentRange[] = getLeadingCommentRanges(sourceFile.text, token.pos);
-
-            if (!commentRanges || !commentRanges.length) {
-                return undefined;
-            }
-
-            const range = forEach(commentRanges, commentRange => position >= commentRange.pos && position <= commentRange.end && commentRange);
-
-            if (!range) {
-                return undefined;
-            }
-
-            const text = sourceFile.text.substr(range.pos, position - range.pos);
-
-            const match = tripleSlashDirectiveFragmentRegex.exec(text);
-            if (match) {
-                const prefix = match[1];
-                const kind = match[2];
-                const toComplete = match[3];
-
-                const scriptPath = getDirectoryPath(sourceFile.path);
-                let entries: CompletionEntry[];
-                if (kind === "path") {
-                    // Give completions for a relative path
-                    const span: TextSpan = getDirectoryFragmentTextSpan(toComplete, range.pos + prefix.length);
-                    entries = getCompletionEntriesForDirectoryFragment(toComplete, scriptPath, getSupportedExtensions(compilerOptions), /*includeExtensions*/true, span, sourceFile.path);
-                }
-                else {
-                    // Give completions based on the typings available
-                    const span: TextSpan = { start: range.pos + prefix.length, length: match[0].length - prefix.length };
-                    entries = getCompletionEntriesFromTypings(host, compilerOptions, scriptPath, span);
-                }
-
-                return {
-                    isMemberCompletion: false,
-                    isNewIdentifierLocation: true,
-                    entries
-                };
-            }
-
-            return undefined;
-        }
-
-        function getCompletionEntriesFromTypings(host: LanguageServiceHost, options: CompilerOptions, scriptPath: string, span: TextSpan, result: CompletionEntry[] = []): CompletionEntry[] {
-            // Check for typings specified in compiler options
-            if (options.types) {
-                for (const moduleName of options.types) {
-                    result.push(createCompletionEntryForModule(moduleName, ScriptElementKind.externalModuleName, span));
-                }
-            }
-            else if (host.getDirectories) {
-                let typeRoots: string[];
-                try {
-                    // Wrap in try catch because getEffectiveTypeRoots touches the filesystem
-                    typeRoots = getEffectiveTypeRoots(options, host);
-                }
-                catch (e) {}
-
-                if (typeRoots) {
-                    for (const root of typeRoots) {
-                        getCompletionEntriesFromDirectories(host, options, root, span, result);
-                    }
-                }
-            }
-
-            if (host.getDirectories) {
-                // Also get all @types typings installed in visible node_modules directories
-                for (const packageJson of findPackageJsons(scriptPath)) {
-                    const typesDir = combinePaths(getDirectoryPath(packageJson), "node_modules/@types");
-                    getCompletionEntriesFromDirectories(host, options, typesDir, span, result);
-                }
-            }
-
-            return result;
-        }
-
-        function getCompletionEntriesFromDirectories(host: LanguageServiceHost, options: CompilerOptions, directory: string, span: TextSpan, result: CompletionEntry[]) {
-            if (host.getDirectories && tryDirectoryExists(host, directory)) {
-                const directories = tryGetDirectories(host, directory);
-                if (directories) {
-                    for (let typeDirectory of directories) {
-                        typeDirectory = normalizePath(typeDirectory);
-                        result.push(createCompletionEntryForModule(getBaseFileName(typeDirectory), ScriptElementKind.externalModuleName, span));
-                    }
-                }
-            }
-        }
-
-        function findPackageJsons(currentDir: string): string[] {
-            const paths: string[] = [];
-            let currentConfigPath: string;
-            while (true) {
-                currentConfigPath = findConfigFile(currentDir, (f) => tryFileExists(host, f), "package.json");
-                if (currentConfigPath) {
-                    paths.push(currentConfigPath);
-
-                    currentDir = getDirectoryPath(currentConfigPath);
-                    const parent = getDirectoryPath(currentDir);
-                    if (currentDir === parent) {
-                        break;
-                    }
-                    currentDir = parent;
-                }
-                else {
-                    break;
-                }
-            }
-
-            return paths;
-        }
-
-
-        function enumerateNodeModulesVisibleToScript(host: LanguageServiceHost, scriptPath: string) {
-            const result: VisibleModuleInfo[] = [];
-
-            if (host.readFile && host.fileExists) {
-                for (const packageJson of findPackageJsons(scriptPath)) {
-                    const contents = tryReadingPackageJson(packageJson);
-                    if (!contents) {
-                        return;
-                    }
-
-                    const nodeModulesDir = combinePaths(getDirectoryPath(packageJson), "node_modules");
-                    const foundModuleNames: string[] = [];
-
-                    // Provide completions for all non @types dependencies
-                    for (const key of nodeModulesDependencyKeys) {
-                        addPotentialPackageNames(contents[key], foundModuleNames);
-                    }
-
-                    for (const moduleName of foundModuleNames) {
-                        const moduleDir = combinePaths(nodeModulesDir, moduleName);
-                        result.push({
-                            moduleName,
-                            moduleDir
-                        });
-                    }
-                }
-            }
-
-            return result;
-
-            function tryReadingPackageJson(filePath: string) {
-                try {
-                    const fileText = tryReadFile(host, filePath);
-                    return fileText ? JSON.parse(fileText) : undefined;
-                }
-                catch (e) {
-                    return undefined;
-                }
-            }
-
-            function addPotentialPackageNames(dependencies: any, result: string[]) {
-                if (dependencies) {
-                    for (const dep in dependencies) {
-                        if (dependencies.hasOwnProperty(dep) && !startsWith(dep, "@types/")) {
-                            result.push(dep);
-                        }
-                    }
-                }
-            }
-        }
-
-        function createCompletionEntryForModule(name: string, kind: string, replacementSpan: TextSpan): CompletionEntry {
-            return { name, kind, kindModifiers: ScriptElementKindModifier.none, sortText: name, replacementSpan };
-        }
-
-        // Replace everything after the last directory seperator that appears
-        function getDirectoryFragmentTextSpan(text: string, textStart: number): TextSpan {
-            const index = text.lastIndexOf(directorySeparator);
-            const offset = index !== -1 ? index + 1 : 0;
-            return { start: textStart + offset, length: text.length - offset };
-        }
-
-        // Returns true if the path is explicitly relative to the script (i.e. relative to . or ..)
-        function isPathRelativeToScript(path: string) {
-            if (path && path.length >= 2 && path.charCodeAt(0) === CharacterCodes.dot) {
-                const slashIndex = path.length >= 3 && path.charCodeAt(1) === CharacterCodes.dot ? 2 : 1;
-                const slashCharCode = path.charCodeAt(slashIndex);
-                return slashCharCode === CharacterCodes.slash || slashCharCode === CharacterCodes.backslash;
-            }
-            return false;
-        }
-
-        function normalizeAndPreserveTrailingSlash(path: string) {
-            return hasTrailingDirectorySeparator(path) ? ensureTrailingDirectorySeparator(normalizePath(path)) : normalizePath(path);
         }
     }
 
@@ -726,26 +309,31 @@ namespace ts.Completions {
             const symbol = forEach(symbols, s => getCompletionEntryDisplayNameForSymbol(typeChecker, s, compilerOptions.target, /*performCharacterChecks*/ false, location) === entryName ? s : undefined);
 
             if (symbol) {
-                const { displayParts, documentation, symbolKind } = SymbolDisplay.getSymbolDisplayPartsDocumentationAndSymbolKind(typeChecker, symbol, sourceFile, location, location, SemanticMeaning.All);
+                const { displayParts, documentation, symbolKind, tags } = SymbolDisplay.getSymbolDisplayPartsDocumentationAndSymbolKind(typeChecker, symbol, sourceFile, location, location, SemanticMeaning.All);
                 return {
                     name: entryName,
                     kindModifiers: SymbolDisplay.getSymbolModifiers(symbol),
                     kind: symbolKind,
                     displayParts,
-                    documentation
+                    documentation,
+                    tags
                 };
             }
         }
 
         // Didn't find a symbol with this name.  See if we can find a keyword instead.
-        const keywordCompletion = forEach(keywordCompletions, c => c.name === entryName);
+        const keywordCompletion = forEach(
+            getKeywordCompletions(KeywordCompletionFilters.None),
+            c => c.name === entryName
+        );
         if (keywordCompletion) {
             return {
                 name: entryName,
                 kind: ScriptElementKind.keyword,
                 kindModifiers: ScriptElementKindModifier.none,
                 displayParts: [displayPart(entryName, SymbolDisplayPartKind.keyword)],
-                documentation: undefined
+                documentation: undefined,
+                tags: undefined
             };
         }
 
@@ -768,54 +356,94 @@ namespace ts.Completions {
         return undefined;
     }
 
-    function getCompletionData(typeChecker: TypeChecker, log: (message: string) => void, sourceFile: SourceFile, position: number) {
+    interface CompletionData {
+        symbols: Symbol[];
+        isGlobalCompletion: boolean;
+        isMemberCompletion: boolean;
+        isNewIdentifierLocation: boolean;
+        location: Node;
+        isRightOfDot: boolean;
+        request?: Request;
+        keywordFilters: KeywordCompletionFilters;
+    }
+    type Request = { kind: "JsDocTagName" } | { kind: "JsDocTag" } | { kind: "JsDocParameterName", tag: JSDocParameterTag };
+
+    function getCompletionData(typeChecker: TypeChecker, log: (message: string) => void, sourceFile: SourceFile, position: number): CompletionData {
         const isJavaScriptFile = isSourceFileJavaScript(sourceFile);
 
-        let isJsDocTagName = false;
+        let request: Request | undefined;
 
         let start = timestamp();
-        const currentToken = getTokenAtPosition(sourceFile, position);
+        let currentToken = getTokenAtPosition(sourceFile, position, /*includeJsDocComment*/ false); // TODO: GH#15853
+        // We will check for jsdoc comments with insideComment and getJsDocTagAtPosition. (TODO: that seems rather inefficient to check the same thing so many times.)
+
         log("getCompletionData: Get current token: " + (timestamp() - start));
 
         start = timestamp();
         // Completion not allowed inside comments, bail out if this is the case
-        const insideComment = isInsideComment(sourceFile, currentToken, position);
+        const insideComment = isInComment(sourceFile, position, currentToken);
         log("getCompletionData: Is inside comment: " + (timestamp() - start));
 
+        let insideJsDocTagTypeExpression = false;
         if (insideComment) {
-            // The current position is next to the '@' sign, when no tag name being provided yet.
-            // Provide a full list of tag names
-            if (hasDocComment(sourceFile, position) && sourceFile.text.charCodeAt(position - 1) === CharacterCodes.at) {
-                isJsDocTagName = true;
+            if (hasDocComment(sourceFile, position)) {
+                if (sourceFile.text.charCodeAt(position - 1) === CharacterCodes.at) {
+                    // The current position is next to the '@' sign, when no tag name being provided yet.
+                    // Provide a full list of tag names
+                    request = { kind: "JsDocTagName" };
+                }
+                else {
+                    // When completion is requested without "@", we will have check to make sure that
+                    // there are no comments prefix the request position. We will only allow "*" and space.
+                    // e.g
+                    //   /** |c| /*
+                    //
+                    //   /**
+                    //     |c|
+                    //    */
+                    //
+                    //   /**
+                    //    * |c|
+                    //    */
+                    //
+                    //   /**
+                    //    *         |c|
+                    //    */
+                    const lineStart = getLineStartPositionForPosition(position, sourceFile);
+                    if (!(sourceFile.text.substring(lineStart, position).match(/[^\*|\s|(/\*\*)]/))) {
+                        request = { kind: "JsDocTag" };
+                    }
+                }
             }
 
             // Completion should work inside certain JsDoc tags. For example:
             //     /** @type {number | string} */
             // Completion should work in the brackets
-            let insideJsDocTagExpression = false;
-            const tag = getJsDocTagAtPosition(sourceFile, position);
+            const tag = getJsDocTagAtPosition(currentToken, position);
             if (tag) {
                 if (tag.tagName.pos <= position && position <= tag.tagName.end) {
-                    isJsDocTagName = true;
+                    request = { kind: "JsDocTagName" };
                 }
-
-                switch (tag.kind) {
-                    case SyntaxKind.JSDocTypeTag:
-                    case SyntaxKind.JSDocParameterTag:
-                    case SyntaxKind.JSDocReturnTag:
-                        const tagWithExpression = <JSDocTypeTag | JSDocParameterTag | JSDocReturnTag>tag;
-                        if (tagWithExpression.typeExpression) {
-                            insideJsDocTagExpression = tagWithExpression.typeExpression.pos < position && position < tagWithExpression.typeExpression.end;
-                        }
-                        break;
+                if (isTagWithTypeExpression(tag) && tag.typeExpression) {
+                    currentToken = getTokenAtPosition(sourceFile, position, /*includeJsDocComment*/ true);
+                    if (!currentToken ||
+                        (!isDeclarationName(currentToken) &&
+                            (currentToken.parent.kind !== SyntaxKind.JSDocPropertyTag ||
+                                (<JSDocPropertyTag>currentToken.parent).name !== currentToken))) {
+                        // Use as type location if inside tag's type expression
+                        insideJsDocTagTypeExpression = isCurrentlyEditingNode(tag.typeExpression);
+                    }
+                }
+                if (isJSDocParameterTag(tag) && (nodeIsMissing(tag.name) || tag.name.pos <= position && position <= tag.name.end)) {
+                    request = { kind: "JsDocParameterName", tag };
                 }
             }
 
-            if (isJsDocTagName) {
-                return { symbols: undefined, isMemberCompletion: false, isNewIdentifierLocation: false, location: undefined, isRightOfDot: false, isJsDocTagName };
+            if (request) {
+                return { symbols: undefined, isGlobalCompletion: false, isMemberCompletion: false, isNewIdentifierLocation: false, location: undefined, isRightOfDot: false, request, keywordFilters: KeywordCompletionFilters.None };
             }
 
-            if (!insideJsDocTagExpression) {
+            if (!insideJsDocTagTypeExpression) {
                 // Proceed if the current position is in jsDoc tag expression; otherwise it is a normal
                 // comment or the plain text part of a jsDoc comment, so no completion should be available
                 log("Returning an empty list because completion was inside a regular comment or plain text part of a JsDoc comment.");
@@ -824,7 +452,7 @@ namespace ts.Completions {
         }
 
         start = timestamp();
-        const previousToken = findPrecedingToken(position, sourceFile);
+        const previousToken = findPrecedingToken(position, sourceFile, /*startNode*/ undefined, insideJsDocTagTypeExpression);
         log("getCompletionData: Get previous token 1: " + (timestamp() - start));
 
         // The decision to provide completion depends on the contextToken, which is determined through the previousToken.
@@ -835,7 +463,7 @@ namespace ts.Completions {
         // Skip this partial identifier and adjust the contextToken to the token that precedes it.
         if (contextToken && position <= contextToken.end && isWord(contextToken.kind)) {
             const start = timestamp();
-            contextToken = findPrecedingToken(contextToken.getFullStart(), sourceFile);
+            contextToken = findPrecedingToken(contextToken.getFullStart(), sourceFile, /*startNode*/ undefined, insideJsDocTagTypeExpression);
             log("getCompletionData: Get previous token 2: " + (timestamp() - start));
         }
 
@@ -847,7 +475,7 @@ namespace ts.Completions {
         let isRightOfOpenTag = false;
         let isStartingCloseTag = false;
 
-        let location = getTouchingPropertyName(sourceFile, position);
+        let location = getTouchingPropertyName(sourceFile, position, insideJsDocTagTypeExpression); // TODO: GH#15853
         if (contextToken) {
             // Bail out if this is a known invalid completion location
             if (isCompletionListBlocker(contextToken)) {
@@ -855,8 +483,8 @@ namespace ts.Completions {
                 return undefined;
             }
 
-            const { parent, kind } = contextToken;
-            if (kind === SyntaxKind.DotToken) {
+            let parent = contextToken.parent;
+            if (contextToken.kind === SyntaxKind.DotToken) {
                 if (parent.kind === SyntaxKind.PropertyAccessExpression) {
                     node = (<PropertyAccessExpression>contextToken.parent).expression;
                     isRightOfDot = true;
@@ -872,20 +500,46 @@ namespace ts.Completions {
                 }
             }
             else if (sourceFile.languageVariant === LanguageVariant.JSX) {
-                if (kind === SyntaxKind.LessThanToken) {
-                    isRightOfOpenTag = true;
-                    location = contextToken;
+                // <UI.Test /* completion position */ />
+                // If the tagname is a property access expression, we will then walk up to the top most of property access expression.
+                // Then, try to get a JSX container and its associated attributes type.
+                if (parent && parent.kind === SyntaxKind.PropertyAccessExpression) {
+                    contextToken = parent;
+                    parent = parent.parent;
                 }
-                else if (kind === SyntaxKind.SlashToken && contextToken.parent.kind === SyntaxKind.JsxClosingElement) {
-                    isStartingCloseTag = true;
-                    location = contextToken;
+
+                switch (parent.kind) {
+                    case SyntaxKind.JsxClosingElement:
+                        if (contextToken.kind === SyntaxKind.SlashToken) {
+                            isStartingCloseTag = true;
+                            location = contextToken;
+                        }
+                        break;
+
+                    case SyntaxKind.BinaryExpression:
+                        if (!((parent as BinaryExpression).left.flags & NodeFlags.ThisNodeHasError)) {
+                            // It has a left-hand side, so we're not in an opening JSX tag.
+                            break;
+                        }
+                    // falls through
+
+                    case SyntaxKind.JsxSelfClosingElement:
+                    case SyntaxKind.JsxElement:
+                    case SyntaxKind.JsxOpeningElement:
+                        if (contextToken.kind === SyntaxKind.LessThanToken) {
+                            isRightOfOpenTag = true;
+                            location = contextToken;
+                        }
+                        break;
                 }
             }
         }
 
         const semanticStart = timestamp();
+        let isGlobalCompletion = false;
         let isMemberCompletion: boolean;
         let isNewIdentifierLocation: boolean;
+        let keywordFilters = KeywordCompletionFilters.None;
         let symbols: Symbol[] = [];
 
         if (isRightOfDot) {
@@ -923,13 +577,31 @@ namespace ts.Completions {
 
         log("getCompletionData: Semantic work: " + (timestamp() - semanticStart));
 
-        return { symbols, isMemberCompletion, isNewIdentifierLocation, location, isRightOfDot: (isRightOfDot || isRightOfOpenTag), isJsDocTagName };
+        return { symbols, isGlobalCompletion, isMemberCompletion, isNewIdentifierLocation, location, isRightOfDot: (isRightOfDot || isRightOfOpenTag), request, keywordFilters };
+
+        type JSDocTagWithTypeExpression = JSDocAugmentsTag | JSDocParameterTag | JSDocPropertyTag | JSDocReturnTag | JSDocTypeTag | JSDocTypedefTag;
+
+        function isTagWithTypeExpression(tag: JSDocTag): tag is JSDocTagWithTypeExpression {
+            switch (tag.kind) {
+                case SyntaxKind.JSDocAugmentsTag:
+                case SyntaxKind.JSDocParameterTag:
+                case SyntaxKind.JSDocPropertyTag:
+                case SyntaxKind.JSDocReturnTag:
+                case SyntaxKind.JSDocTypeTag:
+                case SyntaxKind.JSDocTypedefTag:
+                    return true;
+            }
+        }
 
         function getTypeScriptMemberSymbols(): void {
             // Right of dot member completion list
+            isGlobalCompletion = false;
             isMemberCompletion = true;
             isNewIdentifierLocation = false;
 
+            // Since this is qualified name check its a type node location
+            const isTypeLocation = isPartOfTypeNode(node.parent) || insideJsDocTagTypeExpression;
+            const isRhsOfImportDeclaration = isInRightSideOfInternalImportEqualsDeclaration(node);
             if (node.kind === SyntaxKind.Identifier || node.kind === SyntaxKind.QualifiedName || node.kind === SyntaxKind.PropertyAccessExpression) {
                 let symbol = typeChecker.getSymbolAtLocation(node);
 
@@ -941,16 +613,24 @@ namespace ts.Completions {
                 if (symbol && symbol.flags & SymbolFlags.HasExports) {
                     // Extract module or enum members
                     const exportedSymbols = typeChecker.getExportsOfModule(symbol);
+                    const isValidValueAccess = (symbol: Symbol) => typeChecker.isValidPropertyAccess(<PropertyAccessExpression>(node.parent), symbol.name);
+                    const isValidTypeAccess = (symbol: Symbol) => symbolCanbeReferencedAtTypeLocation(symbol);
+                    const isValidAccess = isRhsOfImportDeclaration ?
+                        // Any kind is allowed when dotting off namespace in internal import equals declaration
+                        (symbol: Symbol) => isValidTypeAccess(symbol) || isValidValueAccess(symbol) :
+                        isTypeLocation ? isValidTypeAccess : isValidValueAccess;
                     forEach(exportedSymbols, symbol => {
-                        if (typeChecker.isValidPropertyAccess(<PropertyAccessExpression>(node.parent), symbol.name)) {
+                        if (isValidAccess(symbol)) {
                             symbols.push(symbol);
                         }
                     });
                 }
             }
 
-            const type = typeChecker.getTypeAtLocation(node);
-            addTypeProperties(type);
+            if (!isTypeLocation) {
+                const type = typeChecker.getTypeAtLocation(node);
+                addTypeProperties(type);
+            }
         }
 
         function addTypeProperties(type: Type) {
@@ -979,6 +659,7 @@ namespace ts.Completions {
         function tryGetGlobalSymbols(): boolean {
             let objectLikeContainer: ObjectLiteralExpression | BindingPattern;
             let namedImportsOrExports: NamedImportsOrExports;
+            let classLikeContainer: ClassLikeDeclaration;
             let jsxContainer: JsxOpeningLikeElement;
 
             if (objectLikeContainer = tryGetObjectLikeCompletionContainer(contextToken)) {
@@ -991,19 +672,34 @@ namespace ts.Completions {
                 return tryGetImportOrExportClauseCompletionSymbols(namedImportsOrExports);
             }
 
+            if (tryGetConstructorLikeCompletionContainer(contextToken)) {
+                // no members, only keywords
+                isMemberCompletion = false;
+                // Declaring new property/method/accessor
+                isNewIdentifierLocation = true;
+                // Has keywords for constructor parameter
+                keywordFilters = KeywordCompletionFilters.ConstructorParameterKeywords;
+                return true;
+            }
+
+            if (classLikeContainer = tryGetClassLikeCompletionContainer(contextToken)) {
+                // cursor inside class declaration
+                getGetClassLikeCompletionSymbols(classLikeContainer);
+                return true;
+            }
+
             if (jsxContainer = tryGetContainingJsxElement(contextToken)) {
                 let attrsType: Type;
                 if ((jsxContainer.kind === SyntaxKind.JsxSelfClosingElement) || (jsxContainer.kind === SyntaxKind.JsxOpeningElement)) {
                     // Cursor is inside a JSX self-closing element or opening element
-                    attrsType = typeChecker.getJsxElementAttributesType(<JsxOpeningLikeElement>jsxContainer);
+                    attrsType = typeChecker.getAllAttributesTypeFromJsxOpeningLikeElement(<JsxOpeningLikeElement>jsxContainer);
 
                     if (attrsType) {
-                        symbols = filterJsxAttributes(typeChecker.getPropertiesOfType(attrsType), (<JsxOpeningLikeElement>jsxContainer).attributes);
+                        symbols = filterJsxAttributes(typeChecker.getPropertiesOfType(attrsType), (<JsxOpeningLikeElement>jsxContainer).attributes.properties);
                         isMemberCompletion = true;
                         isNewIdentifierLocation = false;
                         return true;
                     }
-
                 }
             }
 
@@ -1044,12 +740,93 @@ namespace ts.Completions {
                 position;
 
             const scopeNode = getScopeNode(contextToken, adjustedPosition, sourceFile) || sourceFile;
+            if (scopeNode) {
+                isGlobalCompletion =
+                    scopeNode.kind === SyntaxKind.SourceFile ||
+                    scopeNode.kind === SyntaxKind.TemplateExpression ||
+                    scopeNode.kind === SyntaxKind.JsxExpression ||
+                    isStatement(scopeNode);
+            }
 
-            /// TODO filter meaning based on the current context
             const symbolMeanings = SymbolFlags.Type | SymbolFlags.Value | SymbolFlags.Namespace | SymbolFlags.Alias;
-            symbols = typeChecker.getSymbolsInScope(scopeNode, symbolMeanings);
+            symbols = filterGlobalCompletion(typeChecker.getSymbolsInScope(scopeNode, symbolMeanings));
 
             return true;
+        }
+
+        function filterGlobalCompletion(symbols: Symbol[]) {
+            return filter(symbols, symbol => {
+                if (!isSourceFile(location)) {
+                    // export = /**/ here we want to get all meanings, so any symbol is ok
+                    if (isExportAssignment(location.parent)) {
+                        return true;
+                    }
+
+                    // This is an alias, follow what it aliases
+                    if (symbol && symbol.flags & SymbolFlags.Alias) {
+                        symbol = typeChecker.getAliasedSymbol(symbol);
+                    }
+
+                    // import m = /**/ <-- It can only access namespace (if typing import = x. this would get member symbols and not namespace)
+                    if (isInRightSideOfInternalImportEqualsDeclaration(location)) {
+                        return !!(symbol.flags & SymbolFlags.Namespace);
+                    }
+
+                    if (insideJsDocTagTypeExpression ||
+                        (!isContextTokenValueLocation(contextToken) &&
+                            (isPartOfTypeNode(location) || isContextTokenTypeLocation(contextToken)))) {
+                        // Its a type, but you can reach it by namespace.type as well
+                        return symbolCanbeReferencedAtTypeLocation(symbol);
+                    }
+                }
+
+                // expressions are value space (which includes the value namespaces)
+                return !!(symbol.flags & SymbolFlags.Value);
+            });
+        }
+
+        function isContextTokenValueLocation(contextToken: Node) {
+            return contextToken &&
+                contextToken.kind === SyntaxKind.TypeOfKeyword &&
+                contextToken.parent.kind === SyntaxKind.TypeQuery;
+        }
+
+        function isContextTokenTypeLocation(contextToken: Node) {
+            if (contextToken) {
+                const parentKind = contextToken.parent.kind;
+                switch (contextToken.kind) {
+                    case SyntaxKind.ColonToken:
+                        return parentKind === SyntaxKind.PropertyDeclaration ||
+                            parentKind === SyntaxKind.PropertySignature ||
+                            parentKind === SyntaxKind.Parameter ||
+                            parentKind === SyntaxKind.VariableDeclaration ||
+                            isFunctionLikeKind(parentKind);
+
+                    case SyntaxKind.EqualsToken:
+                        return parentKind === SyntaxKind.TypeAliasDeclaration;
+
+                    case SyntaxKind.AsKeyword:
+                        return parentKind === SyntaxKind.AsExpression;
+                }
+            }
+        }
+
+        function symbolCanbeReferencedAtTypeLocation(symbol: Symbol): boolean {
+            // This is an alias, follow what it aliases
+            if (symbol && symbol.flags & SymbolFlags.Alias) {
+                symbol = typeChecker.getAliasedSymbol(symbol);
+            }
+
+            if (symbol.flags & SymbolFlags.Type) {
+                return true;
+            }
+
+            if (symbol.flags & (SymbolFlags.ValueModule | SymbolFlags.NamespaceModule)) {
+                const exportedSymbols = typeChecker.getExportsOfModule(symbol);
+                // If the exported symbols contains type,
+                // symbol can be referenced at locations where type is allowed
+                return forEach(exportedSymbols, symbolCanbeReferencedAtTypeLocation);
+            }
         }
 
         /**
@@ -1183,63 +960,53 @@ namespace ts.Completions {
          *
          * @returns true if 'symbols' was successfully populated; false otherwise.
          */
-        function tryGetObjectLikeCompletionSymbols(objectLikeContainer: ObjectLiteralExpression | BindingPattern): boolean {
+        function tryGetObjectLikeCompletionSymbols(objectLikeContainer: ObjectLiteralExpression | ObjectBindingPattern): boolean {
             // We're looking up possible property names from contextual/inferred/declared type.
             isMemberCompletion = true;
 
-            let typeForObject: Type;
+            let typeMembers: Symbol[];
             let existingMembers: Declaration[];
 
             if (objectLikeContainer.kind === SyntaxKind.ObjectLiteralExpression) {
                 // We are completing on contextual types, but may also include properties
                 // other than those within the declared type.
                 isNewIdentifierLocation = true;
-
-                // If the object literal is being assigned to something of type 'null | { hello: string }',
-                // it clearly isn't trying to satisfy the 'null' type. So we grab the non-nullable type if possible.
-                typeForObject = typeChecker.getContextualType(<ObjectLiteralExpression>objectLikeContainer);
-                typeForObject = typeForObject && typeForObject.getNonNullableType();
-
+                const typeForObject = typeChecker.getContextualType(<ObjectLiteralExpression>objectLikeContainer);
+                if (!typeForObject) return false;
+                typeMembers = typeChecker.getAllPossiblePropertiesOfType(typeForObject);
                 existingMembers = (<ObjectLiteralExpression>objectLikeContainer).properties;
             }
-            else if (objectLikeContainer.kind === SyntaxKind.ObjectBindingPattern) {
+            else {
+                Debug.assert(objectLikeContainer.kind === SyntaxKind.ObjectBindingPattern);
                 // We are *only* completing on properties from the type being destructured.
                 isNewIdentifierLocation = false;
 
                 const rootDeclaration = getRootDeclaration(objectLikeContainer.parent);
-                if (isVariableLike(rootDeclaration)) {
-                    // We don't want to complete using the type acquired by the shape
-                    // of the binding pattern; we are only interested in types acquired
-                    // through type declaration or inference.
-                    // Also proceed if rootDeclaration is a parameter and if its containing function expression/arrow function is contextually typed -
-                    // type of parameter will flow in from the contextual type of the function
-                    let canGetType = !!(rootDeclaration.initializer || rootDeclaration.type);
-                    if (!canGetType && rootDeclaration.kind === SyntaxKind.Parameter) {
-                        if (isExpression(rootDeclaration.parent)) {
-                            canGetType = !!typeChecker.getContextualType(<Expression>rootDeclaration.parent);
-                        }
-                        else if (rootDeclaration.parent.kind === SyntaxKind.MethodDeclaration || rootDeclaration.parent.kind === SyntaxKind.SetAccessor) {
-                            canGetType = isExpression(rootDeclaration.parent.parent) && !!typeChecker.getContextualType(<Expression>rootDeclaration.parent.parent);
-                        }
+                if (!isVariableLike(rootDeclaration)) throw Debug.fail("Root declaration is not variable-like.");
+
+                // We don't want to complete using the type acquired by the shape
+                // of the binding pattern; we are only interested in types acquired
+                // through type declaration or inference.
+                // Also proceed if rootDeclaration is a parameter and if its containing function expression/arrow function is contextually typed -
+                // type of parameter will flow in from the contextual type of the function
+                let canGetType = rootDeclaration.initializer || rootDeclaration.type || rootDeclaration.parent.parent.kind === SyntaxKind.ForOfStatement;
+                if (!canGetType && rootDeclaration.kind === SyntaxKind.Parameter) {
+                    if (isExpression(rootDeclaration.parent)) {
+                        canGetType = !!typeChecker.getContextualType(<Expression>rootDeclaration.parent);
                     }
-                    if (canGetType) {
-                        typeForObject = typeChecker.getTypeAtLocation(objectLikeContainer);
-                        existingMembers = (<ObjectBindingPattern>objectLikeContainer).elements;
+                    else if (rootDeclaration.parent.kind === SyntaxKind.MethodDeclaration || rootDeclaration.parent.kind === SyntaxKind.SetAccessor) {
+                        canGetType = isExpression(rootDeclaration.parent.parent) && !!typeChecker.getContextualType(<Expression>rootDeclaration.parent.parent);
                     }
                 }
-                else {
-                    Debug.fail("Root declaration is not variable-like.");
+                if (canGetType) {
+                    const typeForObject = typeChecker.getTypeAtLocation(objectLikeContainer);
+                    if (!typeForObject) return false;
+                    // In a binding pattern, get only known properties. Everywhere else we will get all possible properties.
+                    typeMembers = typeChecker.getPropertiesOfType(typeForObject);
+                    existingMembers = (<ObjectBindingPattern>objectLikeContainer).elements;
                 }
             }
-            else {
-                Debug.fail("Expected object literal or binding pattern, got " + objectLikeContainer.kind);
-            }
 
-            if (!typeForObject) {
-                return false;
-            }
-
-            const typeMembers = typeChecker.getPropertiesOfType(typeForObject);
             if (typeMembers && typeMembers.length > 0) {
                 // Add filtered items to the completion list
                 symbols = filterObjectMembersList(typeMembers, existingMembers);
@@ -1276,29 +1043,85 @@ namespace ts.Completions {
             isMemberCompletion = true;
             isNewIdentifierLocation = false;
 
-            let exports: Symbol[];
-            const moduleSpecifierSymbol = typeChecker.getSymbolAtLocation(importOrExportDeclaration.moduleSpecifier);
-            if (moduleSpecifierSymbol) {
-                exports = typeChecker.getExportsOfModule(moduleSpecifierSymbol);
+            const moduleSpecifierSymbol = typeChecker.getSymbolAtLocation(moduleSpecifier);
+            if (!moduleSpecifierSymbol) {
+                symbols = emptyArray;
+                return true;
             }
 
-            symbols = exports ? filterNamedImportOrExportCompletionItems(exports, namedImportsOrExports.elements) : emptyArray;
-
+            const exports = typeChecker.getExportsAndPropertiesOfModule(moduleSpecifierSymbol);
+            symbols = filterNamedImportOrExportCompletionItems(exports, namedImportsOrExports.elements);
             return true;
+        }
+
+        /**
+         * Aggregates relevant symbols for completion in class declaration
+         * Relevant symbols are stored in the captured 'symbols' variable.
+         */
+        function getGetClassLikeCompletionSymbols(classLikeDeclaration: ClassLikeDeclaration) {
+            // We're looking up possible property names from parent type.
+            isMemberCompletion = true;
+            // Declaring new property/method/accessor
+            isNewIdentifierLocation = true;
+            // Has keywords for class elements
+            keywordFilters = KeywordCompletionFilters.ClassElementKeywords;
+
+            const baseTypeNode = getClassExtendsHeritageClauseElement(classLikeDeclaration);
+            const implementsTypeNodes = getClassImplementsHeritageClauseElements(classLikeDeclaration);
+            if (baseTypeNode || implementsTypeNodes) {
+                const classElement = contextToken.parent;
+                let classElementModifierFlags = isClassElement(classElement) && getModifierFlags(classElement);
+                // If this is context token is not something we are editing now, consider if this would lead to be modifier
+                if (contextToken.kind === SyntaxKind.Identifier && !isCurrentlyEditingNode(contextToken)) {
+                    switch (contextToken.getText()) {
+                        case "private":
+                            classElementModifierFlags = classElementModifierFlags | ModifierFlags.Private;
+                            break;
+                        case "static":
+                            classElementModifierFlags = classElementModifierFlags | ModifierFlags.Static;
+                            break;
+                    }
+                }
+
+                // No member list for private methods
+                if (!(classElementModifierFlags & ModifierFlags.Private)) {
+                    let baseClassTypeToGetPropertiesFrom: Type;
+                    if (baseTypeNode) {
+                        baseClassTypeToGetPropertiesFrom = typeChecker.getTypeAtLocation(baseTypeNode);
+                        if (classElementModifierFlags & ModifierFlags.Static) {
+                            // Use static class to get property symbols from
+                            baseClassTypeToGetPropertiesFrom = typeChecker.getTypeOfSymbolAtLocation(
+                                baseClassTypeToGetPropertiesFrom.symbol, classLikeDeclaration);
+                        }
+                    }
+                    const implementedInterfaceTypePropertySymbols = (classElementModifierFlags & ModifierFlags.Static) ?
+                        undefined :
+                        flatMap(implementsTypeNodes, typeNode => typeChecker.getPropertiesOfType(typeChecker.getTypeAtLocation(typeNode)));
+
+                    // List of property symbols of base type that are not private and already implemented
+                    symbols = filterClassMembersList(
+                        baseClassTypeToGetPropertiesFrom ?
+                            typeChecker.getPropertiesOfType(baseClassTypeToGetPropertiesFrom) :
+                            undefined,
+                        implementedInterfaceTypePropertySymbols,
+                        classLikeDeclaration.members,
+                        classElementModifierFlags);
+                }
+            }
         }
 
         /**
          * Returns the immediate owning object literal or binding pattern of a context token,
          * on the condition that one exists and that the context implies completion should be given.
          */
-        function tryGetObjectLikeCompletionContainer(contextToken: Node): ObjectLiteralExpression | BindingPattern {
+        function tryGetObjectLikeCompletionContainer(contextToken: Node): ObjectLiteralExpression | ObjectBindingPattern {
             if (contextToken) {
                 switch (contextToken.kind) {
                     case SyntaxKind.OpenBraceToken:  // const x = { |
                     case SyntaxKind.CommaToken:      // const x = { a: 0, |
                         const parent = contextToken.parent;
-                        if (parent && (parent.kind === SyntaxKind.ObjectLiteralExpression || parent.kind === SyntaxKind.ObjectBindingPattern)) {
-                            return <ObjectLiteralExpression | BindingPattern>parent;
+                        if (isObjectLiteralExpression(parent) || isObjectBindingPattern(parent)) {
+                            return parent;
                         }
                         break;
                 }
@@ -1327,6 +1150,85 @@ namespace ts.Completions {
             return undefined;
         }
 
+        function isFromClassElementDeclaration(node: Node) {
+            return isClassElement(node.parent) && isClassLike(node.parent.parent);
+        }
+
+        function isParameterOfConstructorDeclaration(node: Node) {
+            return isParameter(node) && isConstructorDeclaration(node.parent);
+        }
+
+        function isConstructorParameterCompletion(node: Node) {
+            return node.parent &&
+                isParameterOfConstructorDeclaration(node.parent) &&
+                (isConstructorParameterCompletionKeyword(node.kind) || isDeclarationName(node));
+        }
+
+        /**
+         * Returns the immediate owning class declaration of a context token,
+         * on the condition that one exists and that the context implies completion should be given.
+         */
+        function tryGetClassLikeCompletionContainer(contextToken: Node): ClassLikeDeclaration {
+            if (contextToken) {
+                switch (contextToken.kind) {
+                    case SyntaxKind.OpenBraceToken:  // class c { |
+                        if (isClassLike(contextToken.parent)) {
+                            return contextToken.parent;
+                        }
+                        break;
+
+                    // class c {getValue(): number, | }
+                    case SyntaxKind.CommaToken:
+                        if (isClassLike(contextToken.parent)) {
+                            return contextToken.parent;
+                        }
+                        break;
+
+                    // class c {getValue(): number; | }
+                    case SyntaxKind.SemicolonToken:
+                    // class c { method() { } | }
+                    case SyntaxKind.CloseBraceToken:
+                        if (isClassLike(location)) {
+                            return location;
+                        }
+                        break;
+
+                    default:
+                        if (isFromClassElementDeclaration(contextToken) &&
+                            (isClassMemberCompletionKeyword(contextToken.kind) ||
+                                isClassMemberCompletionKeywordText(contextToken.getText()))) {
+                            return contextToken.parent.parent as ClassLikeDeclaration;
+                        }
+                }
+            }
+
+            // class c { method() { } | method2() { } }
+            if (location && location.kind === SyntaxKind.SyntaxList && isClassLike(location.parent)) {
+                return location.parent;
+            }
+            return undefined;
+        }
+
+        /**
+         * Returns the immediate owning class declaration of a context token,
+         * on the condition that one exists and that the context implies completion should be given.
+         */
+        function tryGetConstructorLikeCompletionContainer(contextToken: Node): ConstructorDeclaration {
+            if (contextToken) {
+                switch (contextToken.kind) {
+                    case SyntaxKind.OpenParenToken:
+                    case SyntaxKind.CommaToken:
+                        return  isConstructorDeclaration(contextToken.parent) && contextToken.parent;
+
+                    default:
+                        if (isConstructorParameterCompletion(contextToken)) {
+                            return contextToken.parent.parent as ConstructorDeclaration;
+                        }
+                }
+            }
+            return undefined;
+        }
+
         function tryGetContainingJsxElement(contextToken: Node): JsxOpeningLikeElement {
             if (contextToken) {
                 const parent = contextToken.parent;
@@ -1334,13 +1236,19 @@ namespace ts.Completions {
                     case SyntaxKind.LessThanSlashToken:
                     case SyntaxKind.SlashToken:
                     case SyntaxKind.Identifier:
+                    case SyntaxKind.PropertyAccessExpression:
+                    case SyntaxKind.JsxAttributes:
                     case SyntaxKind.JsxAttribute:
                     case SyntaxKind.JsxSpreadAttribute:
                         if (parent && (parent.kind === SyntaxKind.JsxSelfClosingElement || parent.kind === SyntaxKind.JsxOpeningElement)) {
                             return <JsxOpeningLikeElement>parent;
                         }
                         else if (parent.kind === SyntaxKind.JsxAttribute) {
-                            return <JsxOpeningLikeElement>parent.parent;
+                            // Currently we parse JsxOpeningLikeElement as:
+                            //      JsxOpeningLikeElement
+                            //          attributes: JsxAttributes
+                            //             properties: NodeArray<JsxAttributeLike>
+                            return parent.parent.parent as JsxOpeningLikeElement;
                         }
                         break;
 
@@ -1349,7 +1257,11 @@ namespace ts.Completions {
                     // whose parent is a JsxOpeningLikeElement
                     case SyntaxKind.StringLiteral:
                         if (parent && ((parent.kind === SyntaxKind.JsxAttribute) || (parent.kind === SyntaxKind.JsxSpreadAttribute))) {
-                            return <JsxOpeningLikeElement>parent.parent;
+                            // Currently we parse JsxOpeningLikeElement as:
+                            //      JsxOpeningLikeElement
+                            //          attributes: JsxAttributes
+                            //             properties: NodeArray<JsxAttributeLike>
+                            return parent.parent.parent as JsxOpeningLikeElement;
                         }
 
                         break;
@@ -1357,36 +1269,27 @@ namespace ts.Completions {
                     case SyntaxKind.CloseBraceToken:
                         if (parent &&
                             parent.kind === SyntaxKind.JsxExpression &&
-                            parent.parent &&
-                            (parent.parent.kind === SyntaxKind.JsxAttribute)) {
-                            return <JsxOpeningLikeElement>parent.parent.parent;
+                            parent.parent && parent.parent.kind === SyntaxKind.JsxAttribute) {
+                            // Currently we parse JsxOpeningLikeElement as:
+                            //      JsxOpeningLikeElement
+                            //          attributes: JsxAttributes
+                            //             properties: NodeArray<JsxAttributeLike>
+                            //                  each JsxAttribute can have initializer as JsxExpression
+                            return parent.parent.parent.parent as JsxOpeningLikeElement;
                         }
 
                         if (parent && parent.kind === SyntaxKind.JsxSpreadAttribute) {
-                            return <JsxOpeningLikeElement>parent.parent;
+                            // Currently we parse JsxOpeningLikeElement as:
+                            //      JsxOpeningLikeElement
+                            //          attributes: JsxAttributes
+                            //             properties: NodeArray<JsxAttributeLike>
+                            return parent.parent.parent as JsxOpeningLikeElement;
                         }
 
                         break;
                 }
             }
             return undefined;
-        }
-
-        function isFunction(kind: SyntaxKind): boolean {
-            switch (kind) {
-                case SyntaxKind.FunctionExpression:
-                case SyntaxKind.ArrowFunction:
-                case SyntaxKind.FunctionDeclaration:
-                case SyntaxKind.MethodDeclaration:
-                case SyntaxKind.MethodSignature:
-                case SyntaxKind.GetAccessor:
-                case SyntaxKind.SetAccessor:
-                case SyntaxKind.CallSignature:
-                case SyntaxKind.ConstructSignature:
-                case SyntaxKind.IndexSignature:
-                    return true;
-            }
-            return false;
         }
 
         /**
@@ -1400,12 +1303,15 @@ namespace ts.Completions {
                         containingNodeKind === SyntaxKind.VariableDeclarationList ||
                         containingNodeKind === SyntaxKind.VariableStatement ||
                         containingNodeKind === SyntaxKind.EnumDeclaration ||                        // enum a { foo, |
-                        isFunction(containingNodeKind) ||
-                        containingNodeKind === SyntaxKind.ClassDeclaration ||                       // class A<T, |
-                        containingNodeKind === SyntaxKind.ClassExpression ||                        // var C = class D<T, |
+                        isFunctionLikeButNotConstructor(containingNodeKind) ||
                         containingNodeKind === SyntaxKind.InterfaceDeclaration ||                   // interface A<T, |
                         containingNodeKind === SyntaxKind.ArrayBindingPattern ||                    // var [x, y|
-                        containingNodeKind === SyntaxKind.TypeAliasDeclaration;                     // type Map, K, |
+                        containingNodeKind === SyntaxKind.TypeAliasDeclaration ||                   // type Map, K, |
+                        // class A<T, |
+                        // var C = class D<T, |
+                        (isClassLike(contextToken.parent) &&
+                            contextToken.parent.typeParameters &&
+                            contextToken.parent.typeParameters.end >= contextToken.pos);
 
                 case SyntaxKind.DotToken:
                     return containingNodeKind === SyntaxKind.ArrayBindingPattern;                   // var [.|
@@ -1418,7 +1324,7 @@ namespace ts.Completions {
 
                 case SyntaxKind.OpenParenToken:
                     return containingNodeKind === SyntaxKind.CatchClause ||
-                        isFunction(containingNodeKind);
+                        isFunctionLikeButNotConstructor(containingNodeKind);
 
                 case SyntaxKind.OpenBraceToken:
                     return containingNodeKind === SyntaxKind.EnumDeclaration ||                     // enum a { |
@@ -1436,10 +1342,10 @@ namespace ts.Completions {
                         containingNodeKind === SyntaxKind.ClassExpression ||                        // var C = class D< |
                         containingNodeKind === SyntaxKind.InterfaceDeclaration ||                   // interface A< |
                         containingNodeKind === SyntaxKind.TypeAliasDeclaration ||                   // type List< |
-                        isFunction(containingNodeKind);
+                        isFunctionLikeKind(containingNodeKind);
 
                 case SyntaxKind.StaticKeyword:
-                    return containingNodeKind === SyntaxKind.PropertyDeclaration;
+                    return containingNodeKind === SyntaxKind.PropertyDeclaration && !isClassLike(contextToken.parent.parent);
 
                 case SyntaxKind.DotDotDotToken:
                     return containingNodeKind === SyntaxKind.Parameter ||
@@ -1449,26 +1355,49 @@ namespace ts.Completions {
                 case SyntaxKind.PublicKeyword:
                 case SyntaxKind.PrivateKeyword:
                 case SyntaxKind.ProtectedKeyword:
-                    return containingNodeKind === SyntaxKind.Parameter;
+                    return containingNodeKind === SyntaxKind.Parameter && !isConstructorDeclaration(contextToken.parent.parent);
 
                 case SyntaxKind.AsKeyword:
                     return containingNodeKind === SyntaxKind.ImportSpecifier ||
                         containingNodeKind === SyntaxKind.ExportSpecifier ||
                         containingNodeKind === SyntaxKind.NamespaceImport;
 
+                case SyntaxKind.GetKeyword:
+                case SyntaxKind.SetKeyword:
+                    if (isFromClassElementDeclaration(contextToken)) {
+                        return false;
+                    }
+                // falls through
                 case SyntaxKind.ClassKeyword:
                 case SyntaxKind.EnumKeyword:
                 case SyntaxKind.InterfaceKeyword:
                 case SyntaxKind.FunctionKeyword:
                 case SyntaxKind.VarKeyword:
-                case SyntaxKind.GetKeyword:
-                case SyntaxKind.SetKeyword:
                 case SyntaxKind.ImportKeyword:
                 case SyntaxKind.LetKeyword:
                 case SyntaxKind.ConstKeyword:
                 case SyntaxKind.YieldKeyword:
                 case SyntaxKind.TypeKeyword:  // type htm|
                     return true;
+            }
+
+            // If the previous token is keyword correspoding to class member completion keyword
+            // there will be completion available here
+            if (isClassMemberCompletionKeywordText(contextToken.getText()) &&
+                isFromClassElementDeclaration(contextToken)) {
+                return false;
+            }
+
+            if (isConstructorParameterCompletion(contextToken)) {
+                // constructor parameter completion is available only if
+                // - its modifier of the constructor parameter or
+                // - its name of the parameter and not being edited
+                // eg. constructor(a |<- this shouldnt show completion
+                if (!isIdentifier(contextToken) ||
+                    isConstructorParameterCompletionKeywordText(contextToken.getText()) ||
+                    isCurrentlyEditingNode(contextToken)) {
+                    return false;
+                }
             }
 
             // Previous token may have been a keyword that was converted to an identifier.
@@ -1491,7 +1420,11 @@ namespace ts.Completions {
                     return true;
             }
 
-            return false;
+            return isDeclarationName(contextToken) && !isJsxAttribute(contextToken.parent);
+        }
+
+        function isFunctionLikeButNotConstructor(kind: SyntaxKind) {
+            return isFunctionLikeKind(kind) && kind !== SyntaxKind.Constructor;
         }
 
         function isDotOfNumericLiteral(contextToken: Node): boolean {
@@ -1517,19 +1450,19 @@ namespace ts.Completions {
 
             for (const element of namedImportsOrExports) {
                 // If this is the current item we are editing right now, do not filter it out
-                if (element.getStart() <= position && position <= element.getEnd()) {
+                if (isCurrentlyEditingNode(element)) {
                     continue;
                 }
 
                 const name = element.propertyName || element.name;
-                existingImportsOrExports[name.text] = true;
+                existingImportsOrExports.set(name.text, true);
             }
 
-            if (!someProperties(existingImportsOrExports)) {
+            if (existingImportsOrExports.size === 0) {
                 return filter(exportsOfModule, e => e.name !== "default");
             }
 
-            return filter(exportsOfModule, e => e.name !== "default" && !existingImportsOrExports[e.name]);
+            return filter(exportsOfModule, e => e.name !== "default" && !existingImportsOrExports.get(e.name));
         }
 
         /**
@@ -1549,12 +1482,14 @@ namespace ts.Completions {
                 if (m.kind !== SyntaxKind.PropertyAssignment &&
                     m.kind !== SyntaxKind.ShorthandPropertyAssignment &&
                     m.kind !== SyntaxKind.BindingElement &&
-                    m.kind !== SyntaxKind.MethodDeclaration) {
+                    m.kind !== SyntaxKind.MethodDeclaration &&
+                    m.kind !== SyntaxKind.GetAccessor &&
+                    m.kind !== SyntaxKind.SetAccessor) {
                     continue;
                 }
 
                 // If this is the current item we are editing right now, do not filter it out
-                if (m.getStart() <= position && position <= m.getEnd()) {
+                if (isCurrentlyEditingNode(m)) {
                     continue;
                 }
 
@@ -1570,13 +1505,65 @@ namespace ts.Completions {
                     // TODO(jfreeman): Account for computed property name
                     // NOTE: if one only performs this step when m.name is an identifier,
                     // things like '__proto__' are not filtered out.
-                    existingName = (<Identifier>m.name).text;
+                    existingName = (getNameOfDeclaration(m) as Identifier).text;
                 }
 
-                existingMemberNames[existingName] = true;
+                existingMemberNames.set(existingName, true);
             }
 
-            return filter(contextualMemberSymbols, m => !existingMemberNames[m.name]);
+            return filter(contextualMemberSymbols, m => !existingMemberNames.get(m.name));
+        }
+
+        /**
+         * Filters out completion suggestions for class elements.
+         *
+         * @returns Symbols to be suggested in an class element depending on existing memebers and symbol flags
+         */
+        function filterClassMembersList(baseSymbols: Symbol[], implementingTypeSymbols: Symbol[], existingMembers: ClassElement[], currentClassElementModifierFlags: ModifierFlags): Symbol[] {
+            const existingMemberNames = createMap<boolean>();
+            for (const m of existingMembers) {
+                // Ignore omitted expressions for missing members
+                if (m.kind !== SyntaxKind.PropertyDeclaration &&
+                    m.kind !== SyntaxKind.MethodDeclaration &&
+                    m.kind !== SyntaxKind.GetAccessor &&
+                    m.kind !== SyntaxKind.SetAccessor) {
+                    continue;
+                }
+
+                // If this is the current item we are editing right now, do not filter it out
+                if (isCurrentlyEditingNode(m)) {
+                    continue;
+                }
+
+                // Dont filter member even if the name matches if it is declared private in the list
+                if (hasModifier(m, ModifierFlags.Private)) {
+                    continue;
+                }
+
+                // do not filter it out if the static presence doesnt match
+                const mIsStatic = hasModifier(m, ModifierFlags.Static);
+                const currentElementIsStatic = !!(currentClassElementModifierFlags & ModifierFlags.Static);
+                if ((mIsStatic && !currentElementIsStatic) ||
+                    (!mIsStatic && currentElementIsStatic)) {
+                    continue;
+                }
+
+                const existingName = getPropertyNameForPropertyNameNode(m.name);
+                if (existingName) {
+                    existingMemberNames.set(existingName, true);
+                }
+            }
+
+            return concatenate(
+                filter(baseSymbols, baseProperty => isValidProperty(baseProperty, ModifierFlags.Private)),
+                filter(implementingTypeSymbols, implementingProperty => isValidProperty(implementingProperty, ModifierFlags.NonPublicAccessibilityModifier))
+            );
+
+            function isValidProperty(propertySymbol: Symbol, inValidModifierFlags: ModifierFlags) {
+                return !existingMemberNames.get(propertySymbol.name) &&
+                    propertySymbol.getDeclarations() &&
+                    !(getDeclarationModifierFlagsFromSymbol(propertySymbol) & inValidModifierFlags);
+            }
         }
 
         /**
@@ -1589,16 +1576,20 @@ namespace ts.Completions {
             const seenNames = createMap<boolean>();
             for (const attr of attributes) {
                 // If this is the current item we are editing right now, do not filter it out
-                if (attr.getStart() <= position && position <= attr.getEnd()) {
+                if (isCurrentlyEditingNode(attr)) {
                     continue;
                 }
 
                 if (attr.kind === SyntaxKind.JsxAttribute) {
-                    seenNames[(<JsxAttribute>attr).name.text] = true;
+                    seenNames.set((<JsxAttribute>attr).name.text, true);
                 }
             }
 
-            return filter(symbols, a => !seenNames[a.name]);
+            return filter(symbols, a => !seenNames.get(a.name));
+        }
+
+        function isCurrentlyEditingNode(node: Node): boolean {
+            return node.getStart() <= position && position <= node.getEnd();
         }
     }
 
@@ -1652,60 +1643,119 @@ namespace ts.Completions {
     }
 
     // A cache of completion entries for keywords, these do not change between sessions
-    const keywordCompletions: CompletionEntry[] = [];
-    for (let i = SyntaxKind.FirstKeyword; i <= SyntaxKind.LastKeyword; i++) {
-        keywordCompletions.push({
-            name: tokenToString(i),
-            kind: ScriptElementKind.keyword,
-            kindModifiers: ScriptElementKindModifier.none,
-            sortText: "0"
-        });
-    }
-
-    /**
-     * Matches a triple slash reference directive with an incomplete string literal for its path. Used
-     * to determine if the caret is currently within the string literal and capture the literal fragment
-     * for completions.
-     * For example, this matches /// <reference path="fragment
-     */
-    const tripleSlashDirectiveFragmentRegex = /^(\/\/\/\s*<reference\s+(path|types)\s*=\s*(?:'|"))([^\3]*)$/;
-
-    interface VisibleModuleInfo {
-        moduleName: string;
-        moduleDir: string;
-    }
-
-    const nodeModulesDependencyKeys = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
-
-    function tryGetDirectories(host: LanguageServiceHost, directoryName: string): string[] {
-        return tryIOAndConsumeErrors(host, host.getDirectories, directoryName);
-    }
-
-    function tryReadDirectory(host: LanguageServiceHost, path: string, extensions?: string[], exclude?: string[], include?: string[]): string[] {
-        return tryIOAndConsumeErrors(host, host.readDirectory, path, extensions, exclude, include);
-    }
-
-    function tryReadFile(host: LanguageServiceHost, path: string): string {
-        return tryIOAndConsumeErrors(host, host.readFile, path);
-    }
-
-    function tryFileExists(host: LanguageServiceHost, path: string): boolean {
-        return tryIOAndConsumeErrors(host, host.fileExists, path);
-    }
-
-    function tryDirectoryExists(host: LanguageServiceHost, path: string): boolean {
-        try {
-            return directoryProbablyExists(path, host);
+    const _keywordCompletions: CompletionEntry[][] = [];
+    function getKeywordCompletions(keywordFilter: KeywordCompletionFilters): CompletionEntry[] {
+        const completions = _keywordCompletions[keywordFilter];
+        if (completions) {
+            return completions;
         }
-        catch (e) {}
-        return undefined;
+        return _keywordCompletions[keywordFilter] = generateKeywordCompletions(keywordFilter);
+
+        type FilterKeywordCompletions = (entryName: string) => boolean;
+        function generateKeywordCompletions(keywordFilter: KeywordCompletionFilters) {
+            switch (keywordFilter) {
+                case KeywordCompletionFilters.None:
+                    return getAllKeywordCompletions();
+                case KeywordCompletionFilters.ClassElementKeywords:
+                    return getFilteredKeywordCompletions(isClassMemberCompletionKeywordText);
+                case KeywordCompletionFilters.ConstructorParameterKeywords:
+                    return getFilteredKeywordCompletions(isConstructorParameterCompletionKeywordText);
+            }
+        }
+
+        function getAllKeywordCompletions() {
+            const allKeywordsCompletions: CompletionEntry[] = [];
+            for (let i = SyntaxKind.FirstKeyword; i <= SyntaxKind.LastKeyword; i++) {
+                allKeywordsCompletions.push({
+                    name: tokenToString(i),
+                    kind: ScriptElementKind.keyword,
+                    kindModifiers: ScriptElementKindModifier.none,
+                    sortText: "0"
+                });
+            }
+            return allKeywordsCompletions;
+        }
+
+        function getFilteredKeywordCompletions(filterFn: FilterKeywordCompletions) {
+            return filter(
+                getKeywordCompletions(KeywordCompletionFilters.None),
+                entry => filterFn(entry.name)
+            );
+        }
     }
 
-    function tryIOAndConsumeErrors<T>(host: LanguageServiceHost, toApply: (...a: any[]) => T, ...args: any[]) {
-        try {
-            return toApply && toApply.apply(host, args);
+    function isClassMemberCompletionKeyword(kind: SyntaxKind) {
+        switch (kind) {
+            case SyntaxKind.PublicKeyword:
+            case SyntaxKind.ProtectedKeyword:
+            case SyntaxKind.PrivateKeyword:
+            case SyntaxKind.AbstractKeyword:
+            case SyntaxKind.StaticKeyword:
+            case SyntaxKind.ConstructorKeyword:
+            case SyntaxKind.ReadonlyKeyword:
+            case SyntaxKind.GetKeyword:
+            case SyntaxKind.SetKeyword:
+            case SyntaxKind.AsyncKeyword:
+                return true;
         }
-        catch (e) {}
-        return undefined;
+    }
+
+    function isClassMemberCompletionKeywordText(text: string) {
+        return isClassMemberCompletionKeyword(stringToToken(text));
+    }
+
+    function isConstructorParameterCompletionKeyword(kind: SyntaxKind) {
+        switch (kind) {
+            case SyntaxKind.PublicKeyword:
+            case SyntaxKind.PrivateKeyword:
+            case SyntaxKind.ProtectedKeyword:
+            case SyntaxKind.ReadonlyKeyword:
+                return true;
+        }
+    }
+
+    function isConstructorParameterCompletionKeywordText(text: string) {
+        return isConstructorParameterCompletionKeyword(stringToToken(text));
+    }
+
+    function isEqualityExpression(node: Node): node is BinaryExpression {
+        return isBinaryExpression(node) && isEqualityOperatorKind(node.operatorToken.kind);
+    }
+
+    function isEqualityOperatorKind(kind: SyntaxKind) {
+        return kind === SyntaxKind.EqualsEqualsToken ||
+            kind === SyntaxKind.ExclamationEqualsToken ||
+            kind === SyntaxKind.EqualsEqualsEqualsToken ||
+            kind === SyntaxKind.ExclamationEqualsEqualsToken;
+    }
+
+    /** Get the corresponding JSDocTag node if the position is in a jsDoc comment */
+    function getJsDocTagAtPosition(node: Node, position: number): JSDocTag | undefined {
+        const { jsDoc } = getJsDocHavingNode(node);
+        if (!jsDoc) return undefined;
+
+        for (const { pos, end, tags } of jsDoc) {
+            if (!tags || position < pos || position > end) continue;
+            for (let i = tags.length - 1; i >= 0; i--) {
+                const tag = tags[i];
+                if (position >= tag.pos) {
+                    return tag;
+                }
+            }
+        }
+    }
+
+    function getJsDocHavingNode(node: Node): Node {
+        if (!isToken(node)) return node;
+
+        switch (node.kind) {
+            case SyntaxKind.VarKeyword:
+            case SyntaxKind.LetKeyword:
+            case SyntaxKind.ConstKeyword:
+                // if the current token is var, let or const, skip the VariableDeclarationList
+                return node.parent.parent;
+            default:
+                return node.parent;
+        }
     }
 }

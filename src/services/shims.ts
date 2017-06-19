@@ -37,7 +37,7 @@ namespace ts {
          *
          * Or undefined value if there was no change.
          */
-        getChangeRange(oldSnapshot: ScriptSnapshotShim): string;
+        getChangeRange(oldSnapshot: ScriptSnapshotShim): string | undefined;
 
         /** Releases all resources held by this script snapshot */
         dispose?(): void;
@@ -49,7 +49,7 @@ namespace ts {
         error(s: string): void;
     }
 
-    /** Public interface of the host of a language service shim instance.*/
+    /** Public interface of the host of a language service shim instance. */
     export interface LanguageServiceShimHost extends Logger {
         getCompilationSettings(): string;
 
@@ -119,13 +119,13 @@ namespace ts {
     }
 
     export interface Shim {
-        dispose(dummy: any): void;
+        dispose(_dummy: any): void;
     }
 
     export interface LanguageServiceShim extends Shim {
         languageService: LanguageService;
 
-        dispose(dummy: any): void;
+        dispose(_dummy: any): void;
 
         refresh(throwOnError: boolean): void;
 
@@ -224,6 +224,9 @@ namespace ts {
          */
         getNavigationBarItems(fileName: string): string;
 
+        /** Returns a JSON-encoded value of the type ts.NavigationTree. */
+        getNavigationTree(fileName: string): string;
+
         /**
          * Returns a JSON-encoded value of the type:
          * { textSpan: { start: number, length: number }; hintSpan: { start: number, length: number }; bannerText: string; autoCollapse: boolean } [] = [];
@@ -289,8 +292,7 @@ namespace ts {
         public getChangeRange(oldSnapshot: IScriptSnapshot): TextChangeRange {
             const oldSnapshotShim = <ScriptSnapshotShimAdapter>oldSnapshot;
             const encoded = this.scriptSnapshotShim.getChangeRange(oldSnapshotShim.scriptSnapshotShim);
-            // TODO: should this be '==='?
-            if (encoded == null) {
+            if (encoded === null) {
                 return null;
             }
 
@@ -313,7 +315,7 @@ namespace ts {
         private loggingEnabled = false;
         private tracingEnabled = false;
 
-        public resolveModuleNames: (moduleName: string[], containingFile: string) => ResolvedModule[];
+        public resolveModuleNames: (moduleName: string[], containingFile: string) => ResolvedModuleFull[];
         public resolveTypeReferenceDirectives: (typeDirectiveNames: string[], containingFile: string) => ResolvedTypeReferenceDirective[];
         public directoryExists: (directoryName: string) => boolean;
 
@@ -325,7 +327,7 @@ namespace ts {
                     const resolutionsInFile = <MapLike<string>>JSON.parse(this.shimHost.getModuleResolutionsForFile(containingFile));
                     return map(moduleNames, name => {
                         const result = getProperty(resolutionsInFile, name);
-                        return result ? { resolvedFileName: result } : undefined;
+                        return result ? { resolvedFileName: result, extension: extensionFromPath(result), isExternalLibraryImport: false } : undefined;
                     });
                 };
             }
@@ -378,11 +380,13 @@ namespace ts {
 
         public getCompilationSettings(): CompilerOptions {
             const settingsJson = this.shimHost.getCompilationSettings();
-            // TODO: should this be '==='?
-            if (settingsJson == null || settingsJson == "") {
+            if (settingsJson === null || settingsJson === "") {
                 throw Error("LanguageServiceShimHostAdapter.getCompilationSettings: empty compilationSettings");
             }
-            return <CompilerOptions>JSON.parse(settingsJson);
+            const compilerOptions = <CompilerOptions>JSON.parse(settingsJson);
+            // permit language service to handle all files (filtering should be performed on the host side)
+            compilerOptions.allowNonTsExtensions = true;
+            return compilerOptions;
         }
 
         public getScriptFileNames(): string[] {
@@ -410,7 +414,7 @@ namespace ts {
 
         public getLocalizedDiagnosticMessages(): any {
             const diagnosticMessagesJson = this.shimHost.getLocalizedDiagnosticMessages();
-            if (diagnosticMessagesJson == null || diagnosticMessagesJson == "") {
+            if (diagnosticMessagesJson === null || diagnosticMessagesJson === "") {
                 return null;
             }
 
@@ -441,7 +445,7 @@ namespace ts {
         }
 
         public readDirectory(path: string, extensions?: string[], exclude?: string[], include?: string[], depth?: number): string[] {
-            const pattern = getFileMatcherPatterns(path, extensions, exclude, include,
+            const pattern = getFileMatcherPatterns(path, exclude, include,
                 this.shimHost.useCaseSensitiveFileNames(), this.shimHost.getCurrentDirectory());
             return JSON.parse(this.shimHost.readDirectory(
                 path,
@@ -460,29 +464,6 @@ namespace ts {
 
         public fileExists(path: string): boolean {
             return this.shimHost.fileExists(path);
-        }
-    }
-
-    /** A cancellation that throttles calls to the host */
-    class ThrottledCancellationToken implements HostCancellationToken {
-        // Store when we last tried to cancel.  Checking cancellation can be expensive (as we have
-        // to marshall over to the host layer).  So we only bother actually checking once enough
-        // time has passed.
-        private lastCancellationCheckTime = 0;
-
-        constructor(private hostCancellationToken: HostCancellationToken) {
-        }
-
-        public isCancellationRequested(): boolean {
-            const time = timestamp();
-            const duration = Math.abs(time - this.lastCancellationCheckTime);
-            if (duration > 10) {
-                // Check no more than once every 10 ms.
-                this.lastCancellationCheckTime = time;
-                return this.hostCancellationToken.isCancellationRequested();
-            }
-
-            return false;
         }
     }
 
@@ -506,7 +487,7 @@ namespace ts {
             // Wrap the API changes for 2.0 release. This try/catch
             // should be removed once TypeScript 2.0 has shipped.
             try {
-                const pattern = getFileMatcherPatterns(rootDir, extensions, exclude, include,
+                const pattern = getFileMatcherPatterns(rootDir, exclude, include,
                     this.shimHost.useCaseSensitiveFileNames(), this.shimHost.getCurrentDirectory());
                 return JSON.parse(this.shimHost.readDirectory(
                     rootDir,
@@ -597,7 +578,7 @@ namespace ts {
         constructor(private factory: ShimFactory) {
             factory.registerShim(this);
         }
-        public dispose(dummy: any): void {
+        public dispose(_dummy: any): void {
             this.factory.unregisterShim(this);
         }
     }
@@ -971,6 +952,13 @@ namespace ts {
             );
         }
 
+        public getNavigationTree(fileName: string): string {
+            return this.forwardJSONCall(
+                `getNavigationTree('${fileName}')`,
+                () => this.languageService.getNavigationTree(fileName)
+            );
+        }
+
         public getOutliningSpans(fileName: string): string {
             return this.forwardJSONCall(
                 `getOutliningSpans('${fileName}')`,
@@ -1050,8 +1038,13 @@ namespace ts {
             return this.forwardJSONCall(`resolveModuleName('${fileName}')`, () => {
                 const compilerOptions = <CompilerOptions>JSON.parse(compilerOptionsJson);
                 const result = resolveModuleName(moduleName, normalizeSlashes(fileName), compilerOptions, this.host);
+                let resolvedFileName = result.resolvedModule ? result.resolvedModule.resolvedFileName : undefined;
+                if (result.resolvedModule && result.resolvedModule.extension !== Extension.Ts && result.resolvedModule.extension !== Extension.Tsx && result.resolvedModule.extension !== Extension.Dts) {
+                    resolvedFileName = undefined;
+                }
+
                 return {
-                    resolvedFileName: result.resolvedModule ? result.resolvedModule.resolvedFileName : undefined,
+                    resolvedFileName,
                     failedLookupLocations: result.failedLookupLocations
                 };
             });
@@ -1116,27 +1109,16 @@ namespace ts {
                 () => {
                     const text = sourceTextSnapshot.getText(0, sourceTextSnapshot.getLength());
 
-                    const result = parseConfigFileTextToJson(fileName, text);
-
-                    if (result.error) {
-                        return {
-                            options: {},
-                            typingOptions: {},
-                            files: [],
-                            raw: {},
-                            errors: [realizeDiagnostic(result.error, "\r\n")]
-                        };
-                    }
-
+                    const result = parseJsonText(fileName, text);
                     const normalizedFileName = normalizeSlashes(fileName);
-                    const configFile = parseJsonConfigFileContent(result.config, this.host, getDirectoryPath(normalizedFileName), /*existingOptions*/ {}, normalizedFileName);
+                    const configFile = parseJsonSourceFileConfigFileContent(result, this.host, getDirectoryPath(normalizedFileName), /*existingOptions*/ {}, normalizedFileName);
 
                     return {
                         options: configFile.options,
-                        typingOptions: configFile.typingOptions,
+                        typeAcquisition: configFile.typeAcquisition,
                         files: configFile.fileNames,
                         raw: configFile.raw,
-                        errors: realizeDiagnostics(configFile.errors, "\r\n")
+                        errors: realizeDiagnostics(result.parseDiagnostics.concat(configFile.errors), "\r\n")
                     };
                 });
         }
@@ -1158,8 +1140,8 @@ namespace ts {
                     toPath(info.projectRootPath, info.projectRootPath, getCanonicalFileName),
                     toPath(info.safeListPath, info.safeListPath, getCanonicalFileName),
                     info.packageNameToTypingLocation,
-                    info.typingOptions,
-                    info.compilerOptions);
+                    info.typeAcquisition,
+                    info.unresolvedImports);
             });
         }
     }
@@ -1222,7 +1204,7 @@ namespace ts {
         }
 
         public unregisterShim(shim: Shim): void {
-            for (let i = 0, n = this._shims.length; i < n; i++) {
+            for (let i = 0; i < this._shims.length; i++) {
                 if (this._shims[i] === shim) {
                     delete this._shims[i];
                     return;
@@ -1235,7 +1217,7 @@ namespace ts {
 
     // Here we expose the TypeScript services as an external module
     // so that it may be consumed easily like a node module.
-    declare var module: any;
+    declare const module: any;
     if (typeof module !== "undefined" && module.exports) {
         module.exports = ts;
     }
@@ -1251,11 +1233,8 @@ namespace TypeScript.Services {
     export const TypeScriptServicesFactory = ts.TypeScriptServicesFactory;
 }
 
-/* tslint:disable:no-unused-variable */
 // 'toolsVersion' gets consumed by the managed side, so it's not unused.
 // TODO: it should be moved into a namespace though.
 
 /* @internal */
-const toolsVersion = "2.1";
-
-/* tslint:enable:no-unused-variable */
+const toolsVersion = "2.5";

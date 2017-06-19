@@ -71,7 +71,7 @@ namespace ts {
             const dense = classifications.spans;
             let lastEnd = 0;
 
-            for (let i = 0, n = dense.length; i < n; i += 3) {
+            for (let i = 0; i < dense.length; i += 3) {
                 const start = dense[i];
                 const length = dense[i + 1];
                 const type = <ClassificationType>dense[i + 2];
@@ -160,7 +160,7 @@ namespace ts {
                 case EndOfLineState.InTemplateMiddleOrTail:
                     text = "}\n" + text;
                     offset = 2;
-                // fallthrough
+                    // falls through
                 case EndOfLineState.InTemplateSubstitutionPosition:
                     templateStack.push(SyntaxKind.TemplateHead);
                     break;
@@ -557,7 +557,7 @@ namespace ts {
                     // Only bother calling into the typechecker if this is an identifier that
                     // could possibly resolve to a type name.  This makes classification run
                     // in a third of the time it would normally take.
-                    if (classifiableNames[identifier.text]) {
+                    if (classifiableNames.get(identifier.text)) {
                         const symbol = typeChecker.getSymbolAtLocation(node);
                         if (symbol) {
                             const type = classifySymbol(symbol, getMeaningFromLocation(node));
@@ -573,7 +573,7 @@ namespace ts {
         }
     }
 
-    function getClassificationTypeName(type: ClassificationType) {
+    function getClassificationTypeName(type: ClassificationType): ClassificationTypeNames {
         switch (type) {
             case ClassificationType.comment: return ClassificationTypeNames.comment;
             case ClassificationType.identifier: return ClassificationTypeNames.identifier;
@@ -605,7 +605,7 @@ namespace ts {
         Debug.assert(classifications.spans.length % 3 === 0);
         const dense = classifications.spans;
         const result: ClassifiedSpan[] = [];
-        for (let i = 0, n = dense.length; i < n; i += 3) {
+        for (let i = 0; i < dense.length; i += 3) {
             result.push({
                 textSpan: createTextSpan(dense[i], dense[i + 1]),
                 classificationType: getClassificationTypeName(dense[i + 2])
@@ -685,9 +685,9 @@ namespace ts {
                         continue;
                     }
 
-                    // for the ======== add a comment for the first line, and then lex all
-                    // subsequent lines up until the end of the conflict marker.
-                    Debug.assert(ch === CharacterCodes.equals);
+                    // for the ||||||| and ======== markers, add a comment for the first line,
+                    // and then lex all subsequent lines up until the end of the conflict marker.
+                    Debug.assert(ch === CharacterCodes.bar || ch === CharacterCodes.equals);
                     classifyDisabledMergeCode(text, start, end);
                 }
             }
@@ -724,8 +724,8 @@ namespace ts {
                         pushCommentRange(pos, tag.pos - pos);
                     }
 
-                    pushClassification(tag.atToken.pos, tag.atToken.end - tag.atToken.pos, ClassificationType.punctuation);
-                    pushClassification(tag.tagName.pos, tag.tagName.end - tag.tagName.pos, ClassificationType.docCommentTagName);
+                    pushClassification(tag.atToken.pos, tag.atToken.end - tag.atToken.pos, ClassificationType.punctuation); // "@"
+                    pushClassification(tag.tagName.pos, tag.tagName.end - tag.tagName.pos, ClassificationType.docCommentTagName); // e.g. "param"
 
                     pos = tag.tagName.end;
 
@@ -782,8 +782,8 @@ namespace ts {
         }
 
         function classifyDisabledMergeCode(text: string, start: number, end: number) {
-            // Classify the line that the ======= marker is on as a comment.  Then just lex
-            // all further tokens and add them to the result.
+            // Classify the line that the ||||||| or ======= marker is on as a comment.
+            // Then just lex all further tokens and add them to the result.
             let i: number;
             for (i = start; i < end; i++) {
                 if (isLineBreak(text.charCodeAt(i))) {
@@ -814,7 +814,7 @@ namespace ts {
          * False will mean that node is not classified and traverse routine should recurse into node contents.
          */
         function tryClassifyNode(node: Node): boolean {
-            if (isJSDocTag(node)) {
+            if (isJSDoc(node)) {
                 return true;
             }
 
@@ -954,8 +954,7 @@ namespace ts {
                             return;
                         case SyntaxKind.Parameter:
                             if ((<ParameterDeclaration>token.parent).name === token) {
-                                const isThis = token.kind === SyntaxKind.Identifier && (<Identifier>token).originalKeywordKind === SyntaxKind.ThisKeyword;
-                                return isThis ? ClassificationType.keyword : ClassificationType.parameterName;
+                                return isThisIdentifier(token) ? ClassificationType.keyword : ClassificationType.parameterName;
                             }
                             return;
                     }
@@ -973,9 +972,7 @@ namespace ts {
             if (decodedTextSpanIntersectsWith(spanStart, spanLength, element.pos, element.getFullWidth())) {
                 checkForClassificationCancellation(cancellationToken, element.kind);
 
-                const children = element.getChildren(sourceFile);
-                for (let i = 0, n = children.length; i < n; i++) {
-                    const child = children[i];
+                for (const child of element.getChildren(sourceFile)) {
                     if (!tryClassifyNode(child)) {
                         // Recurse into our child nodes.
                         processElement(child);

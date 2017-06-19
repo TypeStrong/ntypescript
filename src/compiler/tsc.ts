@@ -29,8 +29,8 @@ namespace ts {
         }
     }
 
-    function reportEmittedFiles(files: string[], host: CompilerHost): void {
-        if (!files || files.length == 0) {
+    function reportEmittedFiles(files: string[]): void {
+        if (!files || files.length === 0) {
             return;
         }
 
@@ -43,66 +43,6 @@ namespace ts {
         }
     }
 
-    /**
-     * Checks to see if the locale is in the appropriate format,
-     * and if it is, attempts to set the appropriate language.
-     */
-    function validateLocaleAndSetLanguage(locale: string, errors: Diagnostic[]): boolean {
-        const matchResult = /^([a-z]+)([_\-]([a-z]+))?$/.exec(locale.toLowerCase());
-
-        if (!matchResult) {
-            errors.push(createCompilerDiagnostic(Diagnostics.Locale_must_be_of_the_form_language_or_language_territory_For_example_0_or_1, "en", "ja-jp"));
-            return false;
-        }
-
-        const language = matchResult[1];
-        const territory = matchResult[3];
-
-        // First try the entire locale, then fall back to just language if that's all we have.
-        // Either ways do not fail, and fallback to the English diagnostic strings.
-        if (!trySetLanguageAndTerritory(language, territory, errors)) {
-            trySetLanguageAndTerritory(language, undefined, errors);
-        }
-
-        return true;
-    }
-
-    function trySetLanguageAndTerritory(language: string, territory: string, errors: Diagnostic[]): boolean {
-        const compilerFilePath = normalizePath(sys.getExecutingFilePath());
-        const containingDirectoryPath = getDirectoryPath(compilerFilePath);
-
-        let filePath = combinePaths(containingDirectoryPath, language);
-
-        if (territory) {
-            filePath = filePath + "-" + territory;
-        }
-
-        filePath = sys.resolvePath(combinePaths(filePath, "diagnosticMessages.generated.json"));
-
-        if (!sys.fileExists(filePath)) {
-            return false;
-        }
-
-        // TODO: Add codePage support for readFile?
-        let fileContents = "";
-        try {
-            fileContents = sys.readFile(filePath);
-        }
-        catch (e) {
-            errors.push(createCompilerDiagnostic(Diagnostics.Unable_to_open_file_0, filePath));
-            return false;
-        }
-        try {
-            ts.localizedDiagnosticMessages = JSON.parse(fileContents);
-        }
-        catch (e) {
-            errors.push(createCompilerDiagnostic(Diagnostics.Corrupted_locale_file_0, filePath));
-            return false;
-        }
-
-        return true;
-    }
-
     function countLines(program: Program): number {
         let count = 0;
         forEach(program.getSourceFiles(), file => {
@@ -111,7 +51,7 @@ namespace ts {
         return count;
     }
 
-    function getDiagnosticText(message: DiagnosticMessage, ...args: any[]): string {
+    function getDiagnosticText(_message: DiagnosticMessage, ..._args: any[]): string {
         const diagnostic = createCompilerDiagnostic.apply(undefined, arguments);
         return <string>diagnostic.messageText;
     }
@@ -120,91 +60,8 @@ namespace ts {
         sys.write(ts.formatDiagnostics([diagnostic], host));
     }
 
-    const redForegroundEscapeSequence = "\u001b[91m";
-    const yellowForegroundEscapeSequence = "\u001b[93m";
-    const blueForegroundEscapeSequence = "\u001b[93m";
-    const gutterStyleSequence = "\u001b[100;30m";
-    const gutterSeparator = " ";
-    const resetEscapeSequence = "\u001b[0m";
-    const ellipsis = "...";
-    const categoryFormatMap = createMap<string>({
-        [DiagnosticCategory.Warning]: yellowForegroundEscapeSequence,
-        [DiagnosticCategory.Error]: redForegroundEscapeSequence,
-        [DiagnosticCategory.Message]: blueForegroundEscapeSequence,
-    });
-
-    function formatAndReset(text: string, formatStyle: string) {
-        return formatStyle + text + resetEscapeSequence;
-    }
-
     function reportDiagnosticWithColorAndContext(diagnostic: Diagnostic, host: FormatDiagnosticsHost): void {
-        let output = "";
-
-        if (diagnostic.file) {
-            const { start, length, file } = diagnostic;
-            const { line: firstLine, character: firstLineChar } = getLineAndCharacterOfPosition(file, start);
-            const { line: lastLine, character: lastLineChar } = getLineAndCharacterOfPosition(file, start + length);
-            const lastLineInFile = getLineAndCharacterOfPosition(file, file.text.length).line;
-            const relativeFileName = host ? convertToRelativePath(file.fileName, host.getCurrentDirectory(), fileName => host.getCanonicalFileName(fileName)) : file.fileName;
-
-            const hasMoreThanFiveLines = (lastLine - firstLine) >= 4;
-            let gutterWidth = (lastLine + 1 + "").length;
-            if (hasMoreThanFiveLines) {
-                gutterWidth = Math.max(ellipsis.length, gutterWidth);
-            }
-
-            output += sys.newLine;
-            for (let i = firstLine; i <= lastLine; i++) {
-                // If the error spans over 5 lines, we'll only show the first 2 and last 2 lines,
-                // so we'll skip ahead to the second-to-last line.
-                if (hasMoreThanFiveLines && firstLine + 1 < i && i < lastLine - 1) {
-                    output += formatAndReset(padLeft(ellipsis, gutterWidth), gutterStyleSequence) + gutterSeparator + sys.newLine;
-                    i = lastLine - 1;
-                }
-
-                const lineStart = getPositionOfLineAndCharacter(file, i, 0);
-                const lineEnd = i < lastLineInFile ? getPositionOfLineAndCharacter(file, i + 1, 0) : file.text.length;
-                let lineContent = file.text.slice(lineStart, lineEnd);
-                lineContent = lineContent.replace(/\s+$/g, "");  // trim from end
-                lineContent = lineContent.replace("\t", " ");    // convert tabs to single spaces
-
-                // Output the gutter and the actual contents of the line.
-                output += formatAndReset(padLeft(i + 1 + "", gutterWidth), gutterStyleSequence) + gutterSeparator;
-                output += lineContent + sys.newLine;
-
-                // Output the gutter and the error span for the line using tildes.
-                output += formatAndReset(padLeft("", gutterWidth), gutterStyleSequence) + gutterSeparator;
-                output += redForegroundEscapeSequence;
-                if (i === firstLine) {
-                    // If we're on the last line, then limit it to the last character of the last line.
-                    // Otherwise, we'll just squiggle the rest of the line, giving 'slice' no end position.
-                    const lastCharForLine = i === lastLine ? lastLineChar : undefined;
-
-                    output += lineContent.slice(0, firstLineChar).replace(/\S/g, " ");
-                    output += lineContent.slice(firstLineChar, lastCharForLine).replace(/./g, "~");
-                }
-                else if (i === lastLine) {
-                    output += lineContent.slice(0, lastLineChar).replace(/./g, "~");
-                }
-                else {
-                    // Squiggle the entire line.
-                    output += lineContent.replace(/./g, "~");
-                }
-                output += resetEscapeSequence;
-
-                output += sys.newLine;
-            }
-
-            output += sys.newLine;
-            output += `${ relativeFileName }(${ firstLine + 1 },${ firstLineChar + 1 }): `;
-        }
-
-        const categoryColor = categoryFormatMap[diagnostic.category];
-        const category = DiagnosticCategory[diagnostic.category].toLowerCase();
-        output += `${ formatAndReset(category, categoryColor) } TS${ diagnostic.code }: ${ flattenDiagnosticMessageText(diagnostic.messageText, sys.newLine) }`;
-        output += sys.newLine + sys.newLine;
-
-        sys.write(output);
+        sys.write(ts.formatDiagnosticsWithColorAndContext([diagnostic], host) + sys.newLine + sys.newLine);
     }
 
     function reportWatchDiagnostic(diagnostic: Diagnostic) {
@@ -215,7 +72,7 @@ namespace ts {
             output += `${ diagnostic.file.fileName }(${ loc.line + 1 },${ loc.character + 1 }): `;
         }
 
-        output += `${ flattenDiagnosticMessageText(diagnostic.messageText, sys.newLine) }${ sys.newLine }`;
+        output += `${ flattenDiagnosticMessageText(diagnostic.messageText, sys.newLine) }${ sys.newLine + sys.newLine + sys.newLine }`;
 
         sys.write(output);
     }
@@ -250,8 +107,8 @@ namespace ts {
         let compilerOptions: CompilerOptions;                       // Compiler options for compilation
         let compilerHost: CompilerHost;                             // Compiler host
         let hostGetSourceFile: typeof compilerHost.getSourceFile;   // getSourceFile method from default host
-        let timerHandleForRecompilation: number;                    // Handle for 0.25s wait timer to trigger recompilation
-        let timerHandleForDirectoryChanges: number;                 // Handle for 0.25s wait timer to trigger directory change handler
+        let timerHandleForRecompilation: any;                    // Handle for 0.25s wait timer to trigger recompilation
+        let timerHandleForDirectoryChanges: any;                 // Handle for 0.25s wait timer to trigger directory change handler
 
         // This map stores and reuses results of fileExists check that happen inside 'createProgram'
         // This allows to save time in module resolution heavy scenarios when existence of the same file might be checked multiple times.
@@ -263,7 +120,7 @@ namespace ts {
                 reportDiagnostic(createCompilerDiagnostic(Diagnostics.The_current_host_does_not_support_the_0_option, "--locale"), /* host */ undefined);
                 return sys.exit(ExitStatus.DiagnosticsPresent_OutputsSkipped);
             }
-            validateLocaleAndSetLanguage(commandLine.options.locale, commandLine.errors);
+            validateLocaleAndSetLanguage(commandLine.options.locale, sys, commandLine.errors);
         }
 
         // If there are any errors due to command line parsing and/or
@@ -283,9 +140,9 @@ namespace ts {
             return sys.exit(ExitStatus.Success);
         }
 
-        if (commandLine.options.help) {
+        if (commandLine.options.help || commandLine.options.all) {
             printVersion();
-            printHelp();
+            printHelp(commandLine.options.all);
             return sys.exit(ExitStatus.Success);
         }
 
@@ -322,7 +179,7 @@ namespace ts {
 
         if (commandLine.fileNames.length === 0 && !configFileName) {
             printVersion();
-            printHelp();
+            printHelp(commandLine.options.all);
             return sys.exit(ExitStatus.Success);
         }
 
@@ -340,7 +197,7 @@ namespace ts {
                     // When the configFileName is just "tsconfig.json", the watched directory should be
                     // the current directory; if there is a given "project" parameter, then the configFileName
                     // is an absolute file name.
-                    directory == "" ? "." : directory,
+                    directory === "" ? "." : directory,
                     watchedDirectoryChanged, /*recursive*/ true);
             }
         }
@@ -366,20 +223,13 @@ namespace ts {
                 return;
             }
 
-            const result = parseConfigFileTextToJson(configFileName, cachedConfigFileText);
-            const configObject = result.config;
-            if (!configObject) {
-                reportDiagnostics([result.error], /* compilerHost */ undefined);
-                sys.exit(ExitStatus.DiagnosticsPresent_OutputsSkipped);
-                return;
-            }
+            const result = parseJsonText(configFileName, cachedConfigFileText);
+            reportDiagnostics(result.parseDiagnostics, /* compilerHost */ undefined);
+
             const cwd = sys.getCurrentDirectory();
-            const configParseResult = parseJsonConfigFileContent(configObject, sys, getNormalizedAbsolutePath(getDirectoryPath(configFileName), cwd), commandLine.options, getNormalizedAbsolutePath(configFileName, cwd));
-            if (configParseResult.errors.length > 0) {
-                reportDiagnostics(configParseResult.errors, /* compilerHost */ undefined);
-                sys.exit(ExitStatus.DiagnosticsPresent_OutputsSkipped);
-                return;
-            }
+            const configParseResult = parseJsonSourceFileConfigFileContent(result, sys, getNormalizedAbsolutePath(getDirectoryPath(configFileName), cwd), commandLine.options, getNormalizedAbsolutePath(configFileName, cwd));
+            reportDiagnostics(configParseResult.errors, /* compilerHost */ undefined);
+
             if (isWatchSet(configParseResult.options)) {
                 if (!sys.watchFile) {
                     reportDiagnostic(createCompilerDiagnostic(Diagnostics.The_current_host_does_not_support_the_0_option, "--watch"), /* host */ undefined);
@@ -392,9 +242,9 @@ namespace ts {
                         // When the configFileName is just "tsconfig.json", the watched directory should be
                         // the current directory; if there is a given "project" parameter, then the configFileName
                         // is an absolute file name.
-                        directory == "" ? "." : directory,
+                        directory === "" ? "." : directory,
                         watchedDirectoryChanged, /*recursive*/ true);
-                };
+                }
             }
             return configParseResult;
         }
@@ -438,9 +288,11 @@ namespace ts {
         }
 
         function cachedFileExists(fileName: string): boolean {
-            return fileName in cachedExistingFiles
-                ? cachedExistingFiles[fileName]
-                : cachedExistingFiles[fileName] = hostFileExists(fileName);
+            let fileExists = cachedExistingFiles.get(fileName);
+            if (fileExists === undefined) {
+                cachedExistingFiles.set(fileName, fileExists = hostFileExists(fileName));
+            }
+            return fileExists;
         }
 
         function getSourceFile(fileName: string, languageVersion: ScriptTarget, onError?: (message: string) => void) {
@@ -456,7 +308,7 @@ namespace ts {
             const sourceFile = hostGetSourceFile(fileName, languageVersion, onError);
             if (sourceFile && isWatchSet(compilerOptions) && sys.watchFile) {
                 // Attach a file watcher
-                sourceFile.fileWatcher = sys.watchFile(sourceFile.fileName, (fileName: string, removed?: boolean) => sourceFileChanged(sourceFile, removed));
+                sourceFile.fileWatcher = sys.watchFile(sourceFile.fileName, (_fileName: string, removed?: boolean) => sourceFileChanged(sourceFile, removed));
             }
             return sourceFile;
         }
@@ -503,10 +355,14 @@ namespace ts {
         }
 
         function startTimerForHandlingDirectoryChanges() {
-            if (timerHandleForDirectoryChanges) {
-                clearTimeout(timerHandleForDirectoryChanges);
+            if (!sys.setTimeout || !sys.clearTimeout) {
+                return;
             }
-            timerHandleForDirectoryChanges = setTimeout(directoryChangeHandler, 250);
+
+            if (timerHandleForDirectoryChanges) {
+                sys.clearTimeout(timerHandleForDirectoryChanges);
+            }
+            timerHandleForDirectoryChanges = sys.setTimeout(directoryChangeHandler, 250);
         }
 
         function directoryChangeHandler() {
@@ -525,10 +381,14 @@ namespace ts {
         // operations (such as saving all modified files in an editor) a chance to complete before we kick
         // off a new compilation.
         function startTimerForRecompilation() {
-            if (timerHandleForRecompilation) {
-                clearTimeout(timerHandleForRecompilation);
+            if (!sys.setTimeout || !sys.clearTimeout) {
+                return;
             }
-            timerHandleForRecompilation = setTimeout(recompile, 250);
+
+            if (timerHandleForRecompilation) {
+                sys.clearTimeout(timerHandleForRecompilation);
+            }
+            timerHandleForRecompilation = sys.setTimeout(recompile, 250);
         }
 
         function recompile() {
@@ -617,7 +477,7 @@ namespace ts {
 
             reportDiagnostics(sortAndDeduplicateDiagnostics(diagnostics), compilerHost);
 
-            reportEmittedFiles(emitOutput.emittedFiles, compilerHost);
+            reportEmittedFiles(emitOutput.emittedFiles);
 
             if (emitOutput.emitSkipped && diagnostics.length > 0) {
                 // If the emitter didn't emit anything, then pass that value along.
@@ -666,7 +526,7 @@ namespace ts {
         sys.write(getDiagnosticText(Diagnostics.Version_0, ts.version) + sys.newLine);
     }
 
-    function printHelp() {
+    function printHelp(showAllOptions: boolean) {
         const output: string[] = [];
 
         // We want to align our "syntax" and "examples" commands to a certain margin.
@@ -691,8 +551,9 @@ namespace ts {
         output.push(getDiagnosticText(Diagnostics.Options_Colon) + sys.newLine);
 
         // Sort our options by their names, (e.g. "--noImplicitAny" comes before "--watch")
-        const optsList = filter(optionDeclarations.slice(), v => !v.experimental);
-        optsList.sort((a, b) => compareValues<string>(a.name.toLowerCase(), b.name.toLowerCase()));
+        const optsList = showAllOptions ?
+            optionDeclarations.slice().sort((a, b) => compareValues<string>(a.name.toLowerCase(), b.name.toLowerCase())) :
+            filter(optionDeclarations.slice(), v => v.showInSimplifiedHelpView);
 
         // We want our descriptions to align at the same column in our output,
         // so we keep track of the longest option usage string.
@@ -726,13 +587,9 @@ namespace ts {
 
             if (option.name === "lib") {
                 description = getDiagnosticText(option.description);
-                const options: string[] = [];
                 const element = (<CommandLineOptionOfListType>option).element;
                 const typeMap = <Map<number | string>>element.type;
-                for (const key in typeMap) {
-                    options.push(`'${key}'`);
-                }
-                optionsDescriptionMap[description] = options;
+                optionsDescriptionMap.set(description, arrayFrom(typeMap.keys()).map(key => `'${key}'`));
             }
             else {
                 description = getDiagnosticText(option.description);
@@ -754,7 +611,7 @@ namespace ts {
         for (let i = 0; i < usageColumn.length; i++) {
             const usage = usageColumn[i];
             const description = descriptionColumn[i];
-            const kindsList = optionsDescriptionMap[description];
+            const kindsList = optionsDescriptionMap.get(description);
             output.push(usage + makePadding(marginLength - usage.length + 2) + description + sys.newLine);
 
             if (kindsList) {
@@ -790,12 +647,16 @@ namespace ts {
             reportDiagnostic(createCompilerDiagnostic(Diagnostics.A_tsconfig_json_file_is_already_defined_at_Colon_0, file), /* host */ undefined);
         }
         else {
-            sys.writeFile(file, JSON.stringify(generateTSConfig(options, fileNames), undefined, 4));
+            sys.writeFile(file, generateTSConfig(options, fileNames, sys.newLine));
             reportDiagnostic(createCompilerDiagnostic(Diagnostics.Successfully_created_a_tsconfig_json_file), /* host */ undefined);
         }
 
         return;
     }
+}
+
+if (ts.Debug.isDebugging) {
+    ts.Debug.enableDebugInfo();
 }
 
 if (ts.sys.tryEnableSourceMapsForHost && /^development$/i.test(ts.sys.getEnvironmentVariable("NODE_ENV"))) {

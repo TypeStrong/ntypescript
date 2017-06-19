@@ -23,10 +23,12 @@ namespace ts.JsDoc {
         "lends",
         "link",
         "memberOf",
+        "method",
         "name",
         "namespace",
         "param",
         "private",
+        "prop",
         "property",
         "public",
         "requires",
@@ -37,13 +39,12 @@ namespace ts.JsDoc {
         "throws",
         "type",
         "typedef",
-        "property",
-        "prop",
         "version"
     ];
-    let jsDocCompletionEntries: CompletionEntry[];
+    let jsDocTagNameCompletionEntries: CompletionEntry[];
+    let jsDocTagCompletionEntries: CompletionEntry[];
 
-    export function getJsDocCommentsFromDeclarations(declarations: Declaration[], name: string, canUseParsedParamTagComments: boolean) {
+    export function getJsDocCommentsFromDeclarations(declarations?: Declaration[]) {
         // Only collect doc comments from duplicate declarations once:
         // In case of a union property there might be same declaration multiple times
         // which only varies in type parameter
@@ -52,7 +53,7 @@ namespace ts.JsDoc {
         // from Array<T> - Array<string> and Array<number>
         const documentationComment = <SymbolDisplayPart[]>[];
         forEachUnique(declarations, declaration => {
-            const comments = getJSDocComments(declaration, /*checkParentVariableStatement*/ true);
+            const comments = getCommentsFromJSDoc(declaration);
             if (!comments) {
                 return;
             }
@@ -68,6 +69,28 @@ namespace ts.JsDoc {
         return documentationComment;
     }
 
+    export function getJsDocTagsFromDeclarations(declarations?: Declaration[]) {
+        // Only collect doc comments from duplicate declarations once.
+        const tags: JSDocTagInfo[] = [];
+        forEachUnique(declarations, declaration => {
+            const jsDocs = getJSDocs(declaration);
+            if (!jsDocs) {
+                return;
+            }
+            for (const doc of jsDocs) {
+                const tagsForDoc = (doc as JSDoc).tags;
+                if (tagsForDoc) {
+                    tags.push(...tagsForDoc.filter(tag => tag.kind === SyntaxKind.JSDocTag).map(jsDocTag => {
+                        return {
+                            name: jsDocTag.tagName.text,
+                            text: jsDocTag.comment
+                        }; }));
+                }
+            }
+        });
+        return tags;
+    }
+
     /**
      * Iterates through 'array' by index and performs the callback on each element of array until the callback
      * returns a truthy value, then returns that value.
@@ -75,7 +98,7 @@ namespace ts.JsDoc {
      */
     function forEachUnique<T, U>(array: T[], callback: (element: T, index: number) => U): U {
         if (array) {
-            for (let i = 0, len = array.length; i < len; i++) {
+            for (let i = 0; i < array.length; i++) {
                 if (indexOf(array, array[i]) === i) {
                     const result = callback(array[i], i);
                     if (result) {
@@ -87,8 +110,8 @@ namespace ts.JsDoc {
         return undefined;
     }
 
-    export function getAllJsDocCompletionEntries(): CompletionEntry[] {
-        return jsDocCompletionEntries || (jsDocCompletionEntries = ts.map(jsDocTagNames, tagName => {
+    export function getJSDocTagNameCompletions(): CompletionEntry[] {
+        return jsDocTagNameCompletionEntries || (jsDocTagNameCompletionEntries = ts.map(jsDocTagNames, tagName => {
             return {
                 name: tagName,
                 kind: ScriptElementKind.keyword,
@@ -96,6 +119,36 @@ namespace ts.JsDoc {
                 sortText: "0",
             };
         }));
+    }
+
+    export function getJSDocTagCompletions(): CompletionEntry[] {
+        return jsDocTagCompletionEntries || (jsDocTagCompletionEntries = ts.map(jsDocTagNames, tagName => {
+            return {
+                name: `@${tagName}`,
+                kind: ScriptElementKind.keyword,
+                kindModifiers: "",
+                sortText: "0"
+            };
+        }));
+    }
+
+    export function getJSDocParameterNameCompletions(tag: JSDocParameterTag): CompletionEntry[] {
+        const nameThusFar = tag.name.text;
+        const jsdoc = tag.parent;
+        const fn = jsdoc.parent;
+        if (!ts.isFunctionLike(fn)) return [];
+
+        return mapDefined(fn.parameters, param => {
+            if (!isIdentifier(param.name)) return undefined;
+
+            const name = param.name.text;
+            if (jsdoc.tags.some(t => t !== tag && isJSDocParameterTag(t) && t.name.text === name)
+                || nameThusFar !== undefined && !startsWith(name, nameThusFar)) {
+                return undefined;
+            }
+
+            return { name, kind: ScriptElementKind.parameterElement, kindModifiers: "", sortText: "0" };
+        });
     }
 
     /**
@@ -124,7 +177,7 @@ namespace ts.JsDoc {
             return undefined;
         }
 
-        const tokenAtPos = getTokenAtPosition(sourceFile, position);
+        const tokenAtPos = getTokenAtPosition(sourceFile, position, /*includeJsDocComment*/ false);
         const tokenStart = tokenAtPos.getStart();
         if (!tokenAtPos || tokenStart < position) {
             return undefined;
@@ -165,16 +218,22 @@ namespace ts.JsDoc {
         const posLineAndChar = sourceFile.getLineAndCharacterOfPosition(position);
         const lineStart = sourceFile.getLineStarts()[posLineAndChar.line];
 
-        const indentationStr = sourceFile.text.substr(lineStart, posLineAndChar.character);
+        // replace non-whitespace characters in prefix with spaces.
+        const indentationStr = sourceFile.text.substr(lineStart, posLineAndChar.character).replace(/\S/i, () => " ");
+        const isJavaScriptFile = hasJavaScriptFileExtension(sourceFile.fileName);
 
         let docParams = "";
-        for (let i = 0, numParams = parameters.length; i < numParams; i++) {
+        for (let i = 0; i < parameters.length; i++) {
             const currentName = parameters[i].name;
             const paramName = currentName.kind === SyntaxKind.Identifier ?
                 (<Identifier>currentName).text :
                 "param" + i;
-
-            docParams += `${indentationStr} * @param ${paramName}${newLine}`;
+            if (isJavaScriptFile) {
+                docParams += `${indentationStr} * @param {any} ${paramName}${newLine}`;
+            }
+            else {
+                docParams += `${indentationStr} * @param ${paramName}${newLine}`;
+            }
         }
 
         // A doc comment consists of the following
