@@ -1,3 +1,7 @@
+# NTypeScript is dead. [Bring your own TypeScript](https://github.com/basarat/byots) 🌹
+
+The following is left as legacy docs.
+
 # NTypeScript
 
 [![Downloads](http://img.shields.io/npm/dm/ntypescript.svg)](https://npmjs.org/package/ntypescript)
